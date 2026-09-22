@@ -1,5 +1,5 @@
 {
-  "name": "online-ordering-system-backend",
+  "name": "restaurant-ordering-system-backend",
   "version": "1.0.0",
   "description": "Azure Function App for Online Ordering System",
   "main": "dist/index.js",
