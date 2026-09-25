@@ -38,7 +38,6 @@ export async function executeGetShopBySlug(
       pausedMessage: shop.pausedMessage,
       paymentPolicy: shop.paymentPolicy,
       orderAcceptanceMode: shop.orderAcceptanceMode,
-      allowGuestCheckout: shop.allowGuestCheckout,
       currency: shop.currency,
       timezone: shop.timezone,
       minOrderAmountCents: shop.minOrderAmountCents,

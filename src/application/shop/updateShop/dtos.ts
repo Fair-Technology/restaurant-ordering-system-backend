@@ -5,7 +5,6 @@ export interface UpdateShopRequestDto {
   isPaused?: boolean;
   pausedMessage?: string;
   paymentPolicy?: 'pay_online' | string;
-  allowGuestCheckout?: boolean;
   minOrderAmountCents?: number;
   address?: {
     street?: string;

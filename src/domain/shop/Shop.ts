@@ -42,7 +42,6 @@ export interface Shop {
   // Payments & checkout
   paymentPolicy: 'pay_online' | string; // future-ready enum
   orderAcceptanceMode: 'auto'; // fixed for now
-  allowGuestCheckout: boolean;
 
   // Locale & rules
   currency: string; // ISO code, e.g. "AUD"

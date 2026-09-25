@@ -178,9 +178,6 @@ export async function executeUpdateShop(
       ...(request.paymentPolicy !== undefined && {
         paymentPolicy: request.paymentPolicy,
       }),
-      ...(request.allowGuestCheckout !== undefined && {
-        allowGuestCheckout: request.allowGuestCheckout,
-      }),
       ...(request.minOrderAmountCents !== undefined && {
         minOrderAmountCents: request.minOrderAmountCents,
       }),

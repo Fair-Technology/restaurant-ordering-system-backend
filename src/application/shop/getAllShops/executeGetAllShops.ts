@@ -18,7 +18,6 @@ export async function executeGetAllShops(
       isDeactivatedDueToLimits: shop.isDeactivatedDueToLimits ?? false,
       paymentPolicy: shop.paymentPolicy,
       orderAcceptanceMode: shop.orderAcceptanceMode,
-      allowGuestCheckout: shop.allowGuestCheckout,
       currency: shop.currency,
       timezone: shop.timezone,
       minOrderAmountCents: shop.minOrderAmountCents,

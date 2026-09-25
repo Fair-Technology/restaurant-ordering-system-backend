@@ -230,7 +230,6 @@ export async function executeCreateShop(
       // Set safe defaults automatically
       isDeleted: false,
       isPaused: true,
-      allowGuestCheckout: true,
       // Required fields from user
       countryCode,
       currency: request.currency.trim(),

@@ -301,7 +301,6 @@ async function seedShops(): Promise<any[]> {
       industry: def.industry,
       isDeleted: false,
       isPaused: true,
-      allowGuestCheckout: true,
       paymentPolicy: 'pay_online',
       orderAcceptanceMode: 'auto',
       currency: 'EUR',

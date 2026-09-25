@@ -1058,7 +1058,7 @@ export const swaggerSpec = {
       CreateShopRequest: {
         type: 'object',
         description:
-          'Create a new shop. The following fields are automatically set: isDeleted=false, isPaused=false, allowGuestCheckout=true. The slug is auto-generated from the shop name. At least one day must have opening hours. If a shop with the same name already exists, an error will be returned.',
+          'Create a new shop. The following fields are automatically set: isDeleted=false, isPaused=false. The slug is auto-generated from the shop name. At least one day must have opening hours. If a shop with the same name already exists, an error will be returned.',
         required: [
           'name',
           'currency',
@@ -1155,10 +1155,6 @@ export const swaggerSpec = {
             type: 'string',
             enum: ['pay_online'],
             description: 'Payment policy',
-          },
-          allowGuestCheckout: {
-            type: 'boolean',
-            description: 'Allow guest checkout',
           },
           currency: { type: 'string', description: 'Shop currency' },
           timezone: { type: 'string', description: 'Shop timezone' },

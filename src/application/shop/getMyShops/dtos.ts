@@ -12,7 +12,6 @@ export interface ShopSummaryDto {
   isDeactivatedDueToLimits: boolean;
   paymentPolicy: string;
   orderAcceptanceMode: string;
-  allowGuestCheckout: boolean;
   currency: string;
   timezone: string;
   minOrderAmountCents: number;
