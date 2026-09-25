@@ -5,6 +5,8 @@ import { periodKeyFor } from '../src/domain/usage/usagePeriod';
 import { hashPassword } from '../src/infrastructure/auth/passwordHashing';
 import { assertSeedTargetIsDev } from './seedGuard';
 import { legacySpecialInfoToMenuFields } from './menus/legacySpecialInfo';
+import { MA_PASTA_MENU, MA_PASTA_SHOP, mapPrintedCodes } from './menus/mapasta';
+import { DE_REFERENCE_LISTS } from '../src/domain/reference/ReferenceLists';
 
 // ── 1. Load env vars BEFORE Cosmos modules initialize ────────────────────────
 // Cosmos client reads process.env at module load time, so env vars must be
@@ -55,6 +57,8 @@ const { upsertUsage } =
   require('../src/infrastructure/cosmos/usage/CosmosUsageRepository');
 const { createStaffAccount } =
   require('../src/infrastructure/cosmos/staff/CosmosStaffAccountRepository');
+const { saveReferenceLists } =
+  require('../src/infrastructure/cosmos/reference/CosmosReferenceListsRepository');
 /* eslint-enable @typescript-eslint/no-var-requires */
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -299,14 +303,15 @@ async function seedShops(): Promise<any[]> {
       name: def.name,
       industry: def.industry,
       isDeleted: false,
-      isPaused: true,
+      // dev only — seedGuard confines this script to the dev database
+      isPaused: def.key !== 'Belconnen Pizza Palace',
       paymentPolicy: 'pay_online',
       orderAcceptanceMode: 'auto',
       currency: 'EUR',
       timezone: 'Europe/Berlin',
       minOrderAmountCents: 1500,
       countryCode: 'DE',
-      menuLanguages: ['de'],
+      menuLanguages: def.key === 'Belconnen Pizza Palace' ? ['de', 'en'] : ['de'],
       address: def.address,
       openingHours: def.openingHours,
       closures: [],
@@ -333,23 +338,35 @@ async function seedCategories(shops: any[]): Promise<Map<string, any[]>> {
     'Spice of India':          ['Curries', 'Breads & Rice', 'Desserts'],
   };
 
+  const BEVERAGE_NAMES = ['Drinks', 'Shakes & Drinks', 'Beverages'];
+  // Only the Pizzeria's categories are stored German-original — the others
+  // keep their (untranslated) English key as the stored name.
+  const PIZZERIA_GERMAN_NAMES: Record<string, string> = {
+    Pizzas: 'Pizza',
+    Pastas: 'Pasta',
+    Drinks: 'Getränke',
+  };
+
   const result = new Map<string, any[]>();
 
   for (const shop of shops) {
     const names = categoryMap[shop.key] ?? [];
+    const isPizzeria = shop.key === 'Belconnen Pizza Palace';
     const cats: any[] = [];
     for (let i = 0; i < names.length; i++) {
       const ts = now();
       const cat = await createCategory({
         id: randomUUID(),
         shopId: shop.id,
-        name: names[i],
+        name: isPizzeria ? PIZZERIA_GERMAN_NAMES[names[i]] : names[i],
+        nameTranslations: isPizzeria ? { en: names[i] } : {},
         sortOrder: i + 1,
+        taxClassId: BEVERAGE_NAMES.includes(names[i]) ? 'beverage' : 'food',
         isDeleted: false,
         createdAt: ts,
         updatedAt: ts,
       });
-      cats.push(cat);
+      cats.push({ ...cat, key: names[i] });
     }
     result.set(shop.id, cats);
     console.log(`   ✓ ${shop.name}: ${names.join(', ')}`);
@@ -364,7 +381,7 @@ async function seedProducts(shops: any[], categoryMap: Map<string, any[]>): Prom
 
   for (const shop of shops) {
     const cats = categoryMap.get(shop.id) ?? [];
-    const cat = (name: string) => cats.find((c: any) => c.name === name)?.id ?? cats[0]?.id;
+    const cat = (name: string) => cats.find((c: any) => c.key === name)?.id ?? cats[0]?.id;
 
     const products = buildProducts(shop.key, shop.id, cat);
     for (const productDef of products) {
@@ -402,8 +419,12 @@ function buildProducts(shopKey: string, shopId: string, cat: (name: string) => s
   if (shopKey === 'Belconnen Pizza Palace') {
     return [
       base({
-        name: 'Margherita Pizza',
-        description: 'San Marzano tomato base, fior di latte mozzarella, fresh basil, extra-virgin olive oil.',
+        name: 'Pizza Margherita',
+        description: 'San-Marzano-Tomatensauce, Fior-di-latte-Mozzarella, frisches Basilikum, natives Olivenöl extra.',
+        nameTranslations: { en: 'Margherita Pizza' },
+        descriptionTranslations: {
+          en: 'San Marzano tomato base, fior di latte mozzarella, fresh basil, extra-virgin olive oil.',
+        },
         price: 1800,
         categoryIds: [cat('Pizzas')],
         images: [
@@ -432,8 +453,12 @@ function buildProducts(shopKey: string, shopId: string, cat: (name: string) => s
         }],
       }),
       base({
-        name: 'Pepperoni Pizza',
-        description: 'Rich tomato sauce, mozzarella, generous rounds of spiced pepperoni, dried oregano.',
+        name: 'Pizza Pepperoni',
+        description: 'Kräftige Tomatensauce, Mozzarella, reichlich würzige Pepperoni-Salami, getrockneter Oregano.',
+        nameTranslations: { en: 'Pepperoni Pizza' },
+        descriptionTranslations: {
+          en: 'Rich tomato sauce, mozzarella, generous rounds of spiced pepperoni, dried oregano.',
+        },
         price: 2200,
         categoryIds: [cat('Pizzas')],
         images: [
@@ -462,7 +487,11 @@ function buildProducts(shopKey: string, shopId: string, cat: (name: string) => s
       }),
       base({
         name: 'Spaghetti Carbonara',
-        description: 'Al dente spaghetti, creamy egg yolk sauce, pancetta, Pecorino Romano, cracked black pepper.',
+        description: 'Spaghetti al dente in cremiger Eigelbsauce mit Pancetta, Pecorino Romano und schwarzem Pfeffer.',
+        nameTranslations: { en: 'Spaghetti Carbonara' },
+        descriptionTranslations: {
+          en: 'Al dente spaghetti, creamy egg yolk sauce, pancetta, Pecorino Romano, cracked black pepper.',
+        },
         price: 1600,
         categoryIds: [cat('Pastas')],
         images: [
@@ -476,7 +505,11 @@ function buildProducts(shopKey: string, shopId: string, cat: (name: string) => s
       }),
       base({
         name: 'San Pellegrino',
-        description: 'Italian sparkling mineral water — the perfect companion to any pizza.',
+        description: 'Italienisches Mineralwasser mit Kohlensäure – der perfekte Begleiter zur Pizza.',
+        nameTranslations: { en: 'San Pellegrino' },
+        descriptionTranslations: {
+          en: 'Italian sparkling mineral water — the perfect companion to any pizza.',
+        },
         price: 400,
         categoryIds: [cat('Drinks')],
         images: [
@@ -1002,26 +1035,139 @@ async function seedStaff(shops: any[]): Promise<void> {
   }
 }
 
+// ── 10. Seed Ma Pasta — real menu, switched off ──────────────────────────────
+// Dev only: kept `isPaused: true` until Manish confirms the allergen/additive
+// declarations the printed card leaves incomplete (see NEEDS-YOU).
+async function seedMaPasta(
+  members: Array<{ userId: string; role: 'owner'; isActive: boolean }>,
+): Promise<{ shop: any; categoryCount: number; productCount: number }> {
+  console.log('\n🍝 Creating Ma Pasta (switched off)...');
+
+  const shopTs = now();
+  const shop = await createShop({
+    id: randomUUID(),
+    slug: MA_PASTA_SHOP.slug,
+    name: MA_PASTA_SHOP.name,
+    industry: 'restaurant',
+    isDeleted: false,
+    isPaused: true,
+    paymentPolicy: 'pay_online',
+    orderAcceptanceMode: 'auto',
+    currency: 'EUR',
+    timezone: 'Europe/Berlin',
+    minOrderAmountCents: 0,
+    countryCode: 'DE',
+    menuLanguages: ['de'],
+    address: MA_PASTA_SHOP.address,
+    openingHours: MA_PASTA_SHOP.openingHours,
+    closures: [],
+    members,
+    branding: null,
+    createdAt: shopTs,
+    updatedAt: shopTs,
+  });
+  console.log(`   ✓ ${shop.name} (${shop.slug})`);
+
+  const toOptions = (options: Array<{ name: string; priceDelta: number }>) =>
+    options.map((o) => ({ id: randomUUID(), name: o.name, priceDelta: o.priceDelta, isAvailable: true }));
+
+  let productCount = 0;
+  for (let i = 0; i < MA_PASTA_MENU.length; i++) {
+    const category = MA_PASTA_MENU[i];
+    const catTs = now();
+    const createdCategory = await createCategory({
+      id: randomUUID(),
+      shopId: shop.id,
+      name: category.name,
+      nameTranslations: {},
+      sortOrder: i + 1,
+      taxClassId: category.taxClassId,
+      isDeleted: false,
+      createdAt: catTs,
+      updatedAt: catTs,
+    });
+
+    for (const dish of category.dishes) {
+      const { allergenIds, additiveIds } = mapPrintedCodes(dish.printedCodes);
+      const variantGroups = dish.groups
+        .filter((g) => g.kind === 'variant')
+        .map((g) => ({ id: randomUUID(), name: g.name, options: toOptions(g.options) }));
+      const addonGroups = dish.groups
+        .filter((g) => g.kind === 'addon')
+        .map((g) => ({
+          id: randomUUID(),
+          name: g.name,
+          minSelectable: g.minSelectable,
+          maxSelectable: g.maxSelectable,
+          options: toOptions(g.options),
+        }));
+
+      const productTs = now();
+      await createProduct({
+        id: randomUUID(),
+        shopId: shop.id,
+        name: dish.name,
+        description: dish.description,
+        nameTranslations: {},
+        descriptionTranslations: {},
+        price: dish.price,
+        categoryIds: [createdCategory.id],
+        images: [],
+        variantGroups,
+        addonGroups,
+        allergenIds,
+        additiveIds,
+        dietaryTagIds: [],
+        spiceLevel: null,
+        prepMinutes: null,
+        taxClassId: null,
+        isAvailable: true,
+        isDeleted: false,
+        schedule: null,
+        createdAt: productTs,
+        updatedAt: productTs,
+      });
+      productCount++;
+    }
+  }
+  console.log(`   ✓ ${MA_PASTA_MENU.length} categories, ${productCount} dishes`);
+
+  return { shop, categoryCount: MA_PASTA_MENU.length, productCount };
+}
+
 // ── main ──────────────────────────────────────────────────────────────────────
 async function main(): Promise<void> {
   console.log('🌱 Restaurant Ordering System — Seed Script');
   console.log('=========================================');
 
   await deleteAll();
+
+  console.log('\n🌍 Seeding platform reference lists (DE)...');
+  await saveReferenceLists({ ...DE_REFERENCE_LISTS, updatedAt: now(), updatedBy: 'seed' });
+
   await seedPlans();
   const shops = await seedShops();
   const categoryMap = await seedCategories(shops);
   await seedProducts(shops, categoryMap);
-  await seedSubscriptionsAndUsage(shops);
+
+  const ownerOid = process.env.SEED_OWNER_OID;
+  const members = ownerOid ? [{ userId: ownerOid, role: 'owner' as const, isActive: true }] : [];
+  const maPasta = await seedMaPasta(members);
+
+  const allShops = [...shops, maPasta.shop];
+  await seedSubscriptionsAndUsage(allShops);
   await seedStaff(shops);
 
+  const categoryCount = shops.length * 3 + maPasta.categoryCount;
+  const productCount = shops.length * 4 + maPasta.productCount;
+
   console.log('\n✅ Seed complete!');
-  console.log(`   ${shops.length} shops`);
-  console.log(`   ${shops.length * 3} categories`);
-  console.log(`   ${shops.length * 4} products`);
+  console.log(`   ${allShops.length} shops`);
+  console.log(`   ${categoryCount} categories`);
+  console.log(`   ${productCount} products`);
   console.log(`   ${PLAN_DEFS.length} plans`);
   console.log('\n📋 Shop slugs:');
-  shops.forEach((s: any) => console.log(`   • ${s.slug}`));
+  allShops.forEach((s: any) => console.log(`   • ${s.slug}`));
 }
 
 main().catch((err) => {
