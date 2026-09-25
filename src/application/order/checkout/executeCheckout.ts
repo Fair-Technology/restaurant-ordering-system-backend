@@ -5,7 +5,7 @@ import { createCheckoutSession } from '../../../infrastructure/cosmos/order/Cosm
 import { CheckoutRequestDto, CheckoutResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 import { isProductScheduleActive } from '../../_shared/scheduleUtils';
-import { OrderItem } from '../../../domain/order/Order';
+import { FULFILMENT_MODES, OrderItem } from '../../../domain/order/Order';
 import { CheckoutSession } from '../../../domain/order/CheckoutSession';
 
 function getStripe(): Stripe {
@@ -62,6 +62,14 @@ export async function executeCheckout(
   }
   if (!request.customerPhone || typeof request.customerPhone !== 'string') {
     return { ok: false, code: 'INVALID_INPUT', error: 'customerPhone is required' };
+  }
+
+  const mode = request.fulfilmentMode ?? 'collection';
+  if (!FULFILMENT_MODES.includes(mode)) {
+    return { ok: false, code: 'INVALID_INPUT', error: 'fulfilmentMode must be one of collection, delivery, dine_in' };
+  }
+  if (mode !== 'collection') {
+    return { ok: false, code: 'INVALID_INPUT', error: 'Only collection orders are available at the moment' };
   }
 
   try {
@@ -236,7 +244,7 @@ export async function executeCheckout(
       customerEmail: request.customerEmail,
       customerPhone: request.customerPhone,
       customerNotes: request.customerNotes,
-      orderLocation: request.orderLocation,
+      fulfilmentMode: mode,
       createdAt: now,
       ttl: 3600,
     };

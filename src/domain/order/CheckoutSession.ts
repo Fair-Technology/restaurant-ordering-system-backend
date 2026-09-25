@@ -1,4 +1,4 @@
-import { OrderItem } from './Order';
+import { FulfilmentMode, OrderItem } from './Order';
 
 export interface CheckoutSession {
   id: string;                    // UUID — also the partition key
@@ -11,7 +11,7 @@ export interface CheckoutSession {
   customerEmail: string;
   customerPhone: string;
   customerNotes?: string;
-  orderLocation?: string;
+  fulfilmentMode: FulfilmentMode;
   createdAt: string;
   ttl: number;                   // Cosmos TTL in seconds from _ts (set to 3600)
 }

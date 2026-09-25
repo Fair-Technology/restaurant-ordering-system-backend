@@ -1792,10 +1792,11 @@ export const swaggerSpec = {
             description: 'Optional notes for the order',
             example: 'No onions please',
           },
-          orderLocation: {
+          fulfilmentMode: {
             type: 'string',
-            description: 'Optional location identifier (e.g. table number, room, seat, bay)',
-            example: 'Table 5',
+            enum: ['collection', 'delivery', 'dine_in'],
+            description: 'How the order is fulfilled (optional, defaults to collection). Only collection is available at the moment.',
+            example: 'collection',
           },
         },
       },
@@ -1843,23 +1844,51 @@ export const swaggerSpec = {
         required: [
           'id',
           'orderRef',
-          'status',
+          'state',
+          'displayState',
+          'fulfilmentMode',
+          'paymentMethod',
+          'paymentStatus',
           'items',
           'subtotalCents',
           'currency',
           'customerName',
           'customerEmail',
           'customerPhone',
+          'history',
           'createdAt',
         ],
         properties: {
           id: { type: 'string', format: 'uuid', example: 'order-uuid' },
           orderRef: { type: 'string', example: 'AB3-K7P' },
-          status: {
+          state: {
             type: 'string',
-            enum: ['pending_payment', 'paid', 'failed', 'cancelled', 'refunded'],
+            enum: ['PLACED', 'ACCEPTED', 'READY', 'OUT_FOR_DELIVERY', 'COMPLETED', 'REJECTED', 'CANCELLED'],
+            description: 'Stored lifecycle state',
+            example: 'ACCEPTED',
+          },
+          displayState: {
+            type: 'string',
+            enum: ['PLACED', 'ACCEPTED', 'IN_PREPARATION', 'READY', 'OUT_FOR_DELIVERY', 'COMPLETED', 'REJECTED', 'CANCELLED'],
+            description: 'Derived state shown to users (IN_PREPARATION is never stored)',
+            example: 'IN_PREPARATION',
+          },
+          fulfilmentMode: {
+            type: 'string',
+            enum: ['collection', 'delivery', 'dine_in'],
+            example: 'collection',
+          },
+          paymentMethod: {
+            type: 'string',
+            enum: ['card', 'cash'],
+            example: 'card',
+          },
+          paymentStatus: {
+            type: 'string',
+            enum: ['paid', 'refunded', 'partially_refunded', 'cash_due', 'cash_collected', 'refunded_in_cash'],
             example: 'paid',
           },
+          readyAt: { type: 'string', format: 'date-time', nullable: true, example: '2026-03-02T10:20:00.000Z' },
           items: {
             type: 'array',
             items: { $ref: '#/components/schemas/OrderItemResponse' },
@@ -1870,8 +1899,35 @@ export const swaggerSpec = {
           customerEmail: { type: 'string', format: 'email', example: 'jane@example.com' },
           customerPhone: { type: 'string', example: '+61400000000' },
           customerNotes: { type: 'string', nullable: true, example: 'No onions please' },
-          orderLocation: { type: 'string', nullable: true, example: 'Table 5' },
+          history: {
+            type: 'array',
+            items: { $ref: '#/components/schemas/OrderHistoryEntry' },
+          },
           createdAt: { type: 'string', format: 'date-time', example: '2026-03-02T10:00:00.000Z' },
+        },
+      },
+      OrderHistoryEntry: {
+        type: 'object',
+        required: ['from', 'to', 'at', 'actor'],
+        properties: {
+          from: {
+            type: 'string',
+            nullable: true,
+            enum: ['PLACED', 'ACCEPTED', 'READY', 'OUT_FOR_DELIVERY', 'COMPLETED', 'REJECTED', 'CANCELLED'],
+          },
+          to: {
+            type: 'string',
+            enum: ['PLACED', 'ACCEPTED', 'READY', 'OUT_FOR_DELIVERY', 'COMPLETED', 'REJECTED', 'CANCELLED'],
+          },
+          at: { type: 'string', format: 'date-time' },
+          actor: {
+            type: 'object',
+            properties: {
+              type: { type: 'string', enum: ['system', 'customer', 'owner', 'staff', 'superadmin'] },
+              id: { type: 'string', nullable: true },
+            },
+          },
+          reason: { type: 'string', nullable: true },
         },
       },
       OrderItemResponse: {
@@ -1901,15 +1957,43 @@ export const swaggerSpec = {
       },
       OrderByPaymentIntentResponse: {
         type: 'object',
-        required: ['orderId', 'orderRef', 'status', 'items', 'subtotalCents', 'currency', 'customerName', 'createdAt'],
+        required: [
+          'orderId',
+          'orderRef',
+          'state',
+          'displayState',
+          'fulfilmentMode',
+          'paymentStatus',
+          'items',
+          'subtotalCents',
+          'currency',
+          'customerName',
+          'createdAt',
+        ],
         properties: {
           orderId: { type: 'string', format: 'uuid', example: 'order-uuid' },
           orderRef: { type: 'string', example: 'AB3-K7P' },
-          status: {
+          state: {
             type: 'string',
-            enum: ['pending_payment', 'paid', 'failed', 'cancelled', 'refunded'],
+            enum: ['PLACED', 'ACCEPTED', 'READY', 'OUT_FOR_DELIVERY', 'COMPLETED', 'REJECTED', 'CANCELLED'],
+            example: 'ACCEPTED',
+          },
+          displayState: {
+            type: 'string',
+            enum: ['PLACED', 'ACCEPTED', 'IN_PREPARATION', 'READY', 'OUT_FOR_DELIVERY', 'COMPLETED', 'REJECTED', 'CANCELLED'],
+            example: 'IN_PREPARATION',
+          },
+          fulfilmentMode: {
+            type: 'string',
+            enum: ['collection', 'delivery', 'dine_in'],
+            example: 'collection',
+          },
+          paymentStatus: {
+            type: 'string',
+            enum: ['paid', 'refunded', 'partially_refunded', 'cash_due', 'cash_collected', 'refunded_in_cash'],
             example: 'paid',
           },
+          readyAt: { type: 'string', format: 'date-time', nullable: true, example: '2026-03-02T10:20:00.000Z' },
           items: {
             type: 'array',
             items: { $ref: '#/components/schemas/OrderItemResponse' },

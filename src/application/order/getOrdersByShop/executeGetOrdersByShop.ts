@@ -3,6 +3,7 @@ import {
   countOrdersByShopId,
   findOrdersByShopIdPaginated,
 } from '../../../infrastructure/cosmos/order/CosmosOrderRepository';
+import { deriveDisplayState } from '../../../domain/order/orderLifecycle';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { findUserById } from '../../../infrastructure/cosmos/user/CosmosUserRepository';
 import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
@@ -64,7 +65,12 @@ export async function executeGetOrdersByShop(
     const orderDtos: OrderDto[] = orders.map((order) => ({
       id: order.id,
       orderRef: order.orderRef,
-      status: order.status,
+      state: order.state,
+      displayState: deriveDisplayState(order, new Date()),
+      fulfilmentMode: order.fulfilmentMode,
+      paymentMethod: order.payment.method,
+      paymentStatus: order.payment.status,
+      readyAt: order.readyAt ?? null,
       items: order.items.map((item) => ({
         productId: item.productId,
         productName: item.productName,
@@ -82,7 +88,7 @@ export async function executeGetOrdersByShop(
       customerEmail: order.customerEmail,
       customerPhone: order.customerPhone,
       customerNotes: order.customerNotes,
-      orderLocation: order.orderLocation,
+      history: order.history,
       createdAt: order.createdAt,
     }));
 

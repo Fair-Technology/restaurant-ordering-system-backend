@@ -1,10 +1,21 @@
 import { findOrderByStripePaymentIntentId } from '../../../infrastructure/cosmos/order/CosmosOrderRepository';
+import { deriveDisplayState } from '../../../domain/order/orderLifecycle';
+import {
+  FulfilmentMode,
+  OrderState,
+  PaymentStatus,
+  StoredOrderState,
+} from '../../../domain/order/Order';
 import { ApplicationResult } from '../../_shared/types';
 
 export interface GetOrderByPaymentIntentResultDto {
   orderId: string;
   orderRef: string;
-  status: string;
+  state: StoredOrderState;
+  displayState: OrderState;
+  fulfilmentMode: FulfilmentMode;
+  paymentStatus: PaymentStatus;
+  readyAt: string | null;
   items: Array<{
     productId: string;
     productName: string;
@@ -39,7 +50,11 @@ export async function getOrderByPaymentIntent(
       data: {
         orderId: order.id,
         orderRef: order.orderRef,
-        status: order.status,
+        state: order.state,
+        displayState: deriveDisplayState(order, new Date()),
+        fulfilmentMode: order.fulfilmentMode,
+        paymentStatus: order.payment.status,
+        readyAt: order.readyAt ?? null,
         items: order.items.map((item) => ({
           productId: item.productId,
           productName: item.productName,

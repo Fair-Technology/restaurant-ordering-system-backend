@@ -1,9 +1,47 @@
-export type OrderStatus =
-  | 'pending_payment'
+export type OrderState =
+  | 'PLACED'
+  | 'ACCEPTED'
+  | 'IN_PREPARATION'
+  | 'READY'
+  | 'OUT_FOR_DELIVERY'
+  | 'COMPLETED'
+  | 'REJECTED'
+  | 'CANCELLED';
+
+export type StoredOrderState = Exclude<OrderState, 'IN_PREPARATION'>;
+
+export type FulfilmentMode = 'collection' | 'delivery' | 'dine_in';
+
+export const FULFILMENT_MODES: readonly FulfilmentMode[] = ['collection', 'delivery', 'dine_in'];
+
+export type PaymentMethod = 'card' | 'cash';
+
+export type PaymentStatus =
   | 'paid'
-  | 'failed'
-  | 'cancelled'
-  | 'refunded';
+  | 'refunded'
+  | 'partially_refunded'
+  | 'cash_due'
+  | 'cash_collected'
+  | 'refunded_in_cash';
+
+export interface OrderPayment {
+  method: PaymentMethod;
+  status: PaymentStatus;
+  stripePaymentIntentId: string | null;
+}
+
+export type OrderActor =
+  | { type: 'system' }
+  | { type: 'customer' }
+  | { type: 'owner' | 'staff' | 'superadmin'; id: string };
+
+export interface OrderHistoryEntry {
+  from: StoredOrderState | null;
+  to: StoredOrderState;
+  at: string; // ISO
+  actor: OrderActor;
+  reason?: string; // present only on REJECTED / CANCELLED
+}
 
 export interface OrderItem {
   productId: string;
@@ -18,19 +56,30 @@ export interface OrderItem {
 }
 
 export interface Order {
-  id: string; // UUID (Cosmos item id)
-  shopId: string; // partition key
+  id: string; // === checkout session id (Cosmos pk /id)
+  shopId: string;
   orderRef: string; // human-readable e.g. "AB3-K7P"
-  status: OrderStatus;
+  state: StoredOrderState;
+  fulfilmentMode: FulfilmentMode;
+  payment: OrderPayment;
   items: OrderItem[];
   subtotalCents: number; // sum of all lineTotalCents (server-computed)
-  currency: string; // from shop (e.g. "AUD")
-  stripePaymentIntentId: string;
+  currency: string; // from shop (e.g. "EUR")
   customerName: string;
   customerEmail: string;
   customerPhone: string;
   customerNotes?: string;
-  orderLocation?: string;
+  acceptedAt?: string; // ISO, set by ACCEPTED
+  readyAt?: string; // ISO, set by ACCEPTED
+  prepMinutes?: number; // set by ACCEPTED
+  usagePeriodKey?: string; // 'YYYY-MM' in shop tz, set with ACCEPTED
+  history: OrderHistoryEntry[];
   createdAt: string; // ISO
   updatedAt: string; // ISO
 }
+
+export const DEFAULT_PREP_MINUTES: Record<FulfilmentMode, number> = {
+  collection: 20,
+  dine_in: 20,
+  delivery: 45,
+};

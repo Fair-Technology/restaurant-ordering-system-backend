@@ -1,4 +1,4 @@
-import { Order, OrderStatus } from '../../../domain/order/Order';
+import { Order } from '../../../domain/order/Order';
 import { orderContainer } from '../cosmosClient';
 
 export async function createOrder(order: Order): Promise<Order> {
@@ -10,13 +10,10 @@ export async function createOrder(order: Order): Promise<Order> {
   }
 }
 
-export async function findOrderById(
-  orderId: string,
-  shopId: string,
-): Promise<Order | null> {
+export async function findOrderById(orderId: string): Promise<Order | null> {
   try {
     const { resource } = await orderContainer
-      .item(orderId, shopId)
+      .item(orderId, orderId)
       .read<Order>();
     return resource || null;
   } catch (error: any) {
@@ -32,7 +29,7 @@ export async function findOrderByStripePaymentIntentId(
 ): Promise<Order | null> {
   try {
     const querySpec = {
-      query: 'SELECT * FROM c WHERE c.stripePaymentIntentId = @paymentIntentId',
+      query: 'SELECT * FROM c WHERE c.payment.stripePaymentIntentId = @paymentIntentId',
       parameters: [{ name: '@paymentIntentId', value: paymentIntentId }],
     };
     const { resources } = await orderContainer.items
@@ -42,6 +39,18 @@ export async function findOrderByStripePaymentIntentId(
   } catch (error) {
     throw error;
   }
+}
+
+export async function countOrdersInUsagePeriod(shopId: string, periodKey: string): Promise<number> {
+  const querySpec = {
+    query: 'SELECT VALUE COUNT(1) FROM c WHERE c.shopId = @shopId AND c.usagePeriodKey = @periodKey',
+    parameters: [
+      { name: '@shopId', value: shopId },
+      { name: '@periodKey', value: periodKey },
+    ],
+  };
+  const { resources } = await orderContainer.items.query<number>(querySpec).fetchAll();
+  return resources[0] ?? 0;
 }
 
 export async function findOrdersByShopId(shopId: string): Promise<Order[]> {
@@ -76,23 +85,4 @@ export async function findOrdersByShopIdPaginated(
   };
   const { resources } = await orderContainer.items.query<Order>(querySpec).fetchAll();
   return resources;
-}
-
-export async function updateOrderStatus(
-  orderId: string,
-  shopId: string,
-  status: OrderStatus,
-  updatedAt: string,
-): Promise<void> {
-  try {
-    const { resource: existing } = await orderContainer
-      .item(orderId, shopId)
-      .read<Order>();
-    if (!existing) return;
-    await orderContainer
-      .item(orderId, shopId)
-      .replace<Order>({ ...existing, status, updatedAt });
-  } catch (error) {
-    throw error;
-  }
 }
