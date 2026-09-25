@@ -1,7 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { randomUUID } from 'crypto';
-import { seedTaxRatesForCountry } from '../src/application/_shared/countryTaxRates';
 import { periodKeyFor } from '../src/domain/usage/usagePeriod';
 import { hashPassword } from '../src/infrastructure/auth/passwordHashing';
 import { assertSeedTargetIsDev } from './seedGuard';
@@ -293,7 +292,6 @@ async function seedShops(): Promise<any[]> {
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-|-$/g, '');
     const ts = now();
-    const taxRates = seedTaxRatesForCountry('DE');
     const shop = await createShop({
       id: shopId,
       slug,
@@ -307,7 +305,7 @@ async function seedShops(): Promise<any[]> {
       timezone: 'Europe/Berlin',
       minOrderAmountCents: 1500,
       countryCode: 'DE',
-      taxRates,
+      menuLanguages: ['de'],
       address: def.address,
       openingHours: def.openingHours,
       closures: [],
@@ -316,7 +314,7 @@ async function seedShops(): Promise<any[]> {
       createdAt: ts,
       updatedAt: ts,
     });
-    created.push({ ...shop, key: def.key, taxRates });
+    created.push({ ...shop, key: def.key });
     console.log(`   ✓ ${shop.name} (${shop.slug})`);
   }
   return created;

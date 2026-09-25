@@ -11,7 +11,7 @@ import { CreateShopRequestDto, CreateShopResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 import { Shop } from '../../../domain/shop/Shop';
 import { validateUniqueSlug } from './slugHelpers';
-import { seedTaxRatesForCountry } from '../../_shared/countryTaxRates';
+import { defaultMenuLanguageForCountry } from '../../../domain/menu/menuLanguage';
 import { upsertSubscription } from '../../../infrastructure/cosmos/subscription/CosmosSubscriptionRepository';
 import { upsertUsage } from '../../../infrastructure/cosmos/usage/CosmosUsageRepository';
 import { findPlanByInternalKey } from '../../../infrastructure/cosmos/plan/CosmosPlanRepository';
@@ -235,7 +235,7 @@ export async function executeCreateShop(
       orderAcceptanceMode: request.orderAcceptanceMode || 'auto',
       closures: request.closures || [],
       members: [{ userId, role: 'owner', isActive: true }],
-      taxRates: seedTaxRatesForCountry(countryCode),
+      menuLanguages: [defaultMenuLanguageForCountry(countryCode)],
       branding: request.branding ?? null,
       createdAt: now,
       updatedAt: now,

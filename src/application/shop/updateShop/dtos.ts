@@ -1,8 +1,10 @@
 import { ShopBranding } from '../../../domain/shop/Shop';
+import { MenuLanguage } from '../../../domain/reference/ReferenceLists';
 
 export interface UpdateShopRequestDto {
   shopId: string;
   isPaused?: boolean;
+  menuLanguages?: MenuLanguage[];
   pausedMessage?: string;
   paymentPolicy?: 'pay_online' | string;
   minOrderAmountCents?: number;

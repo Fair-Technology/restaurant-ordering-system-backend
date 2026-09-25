@@ -2,6 +2,7 @@ import { HttpRequest } from '@azure/functions';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { authenticate } from '../../../infrastructure/auth/principal';
 import { realDeps, resolveShopAccess } from '../../_shared/shopAccess';
+import { menuLanguagesOf } from '../../../domain/menu/menuLanguage';
 import { GetShopRequestDto, GetShopResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 
@@ -64,7 +65,7 @@ export async function executeGetShop(
       callerRole: access ? (access.actor.role ?? 'superadmin') : null,
       callerPermissions: access?.permissions ?? [],
       countryCode: shop.countryCode ?? '',
-      taxRates: shop.taxRates ?? [],
+      menuLanguages: menuLanguagesOf(shop),
       branding: shop.branding ?? null,
       pendingNameChange: shop.pendingNameChange ?? null,
       stripe: shop.stripe

@@ -1,3 +1,5 @@
+import { MenuLanguage } from '../reference/ReferenceLists';
+
 export interface ShopBranding {
   logoUrl: string | null;
   heroImageUrl: string | null;
@@ -22,12 +24,6 @@ export const ALL_SHOP_PERMISSIONS: readonly ShopPermission[] = [
   'manage_billing',
   'view_audit',
 ];
-
-export interface ShopTaxRate {
-  id: string; // UUID
-  label: string; // e.g. "Standard (19%)", "Reduced (7%)"
-  rate: number; // decimal, e.g. 0.19 = 19%, 0.07 = 7%
-}
 
 export interface Shop {
   // Identity
@@ -87,7 +83,9 @@ export interface Shop {
 
   // Tax configuration
   countryCode: string; // ISO 3166-1 alpha-2, e.g. "AU", "DE"
-  taxRates: ShopTaxRate[];
+
+  // Menu languages: [original, ...additional]. Original is fixed at creation.
+  menuLanguages: MenuLanguage[];
 
   // Branding
   branding: ShopBranding | null;

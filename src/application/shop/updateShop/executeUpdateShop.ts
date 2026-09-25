@@ -11,6 +11,8 @@ import { ApplicationResult } from '../../_shared/types';
 import { diffFields, logAudit } from '../../_shared/auditHelpers';
 import { Shop } from '../../../domain/shop/Shop';
 import { validateAccentColor } from '../../_shared/contrast';
+import { menuLanguagesOf, validateMenuLanguagesChange } from '../../../domain/menu/menuLanguage';
+import { MenuLanguage } from '../../../domain/reference/ReferenceLists';
 
 async function validateGoLiveCriteria(shop: Shop): Promise<string | null> {
   const addr = shop.address ?? {};
@@ -148,6 +150,15 @@ export async function executeUpdateShop(
     const access = await authorizeShopAction(httpRequest, shop, 'manage_shop');
     if (!access.ok) return access;
 
+    let nextLanguages: MenuLanguage[] | undefined;
+    if (request.menuLanguages !== undefined) {
+      const r = validateMenuLanguagesChange(menuLanguagesOf(shop), request.menuLanguages);
+      if (typeof r === 'string') {
+        return { ok: false, code: 'INVALID_INPUT', error: r };
+      }
+      nextLanguages = r;
+    }
+
     // Gate going live behind all criteria
     if (request.isPaused === false) {
       const criteriaError = await validateGoLiveCriteria(shop);
@@ -174,6 +185,7 @@ export async function executeUpdateShop(
       }),
       ...(request.branding !== undefined && { branding: request.branding }),
       ...(request.openingHours !== undefined && { openingHours: request.openingHours }),
+      ...(nextLanguages && { menuLanguages: nextLanguages }),
       updatedAt: new Date().toISOString(),
     };
 
@@ -183,7 +195,7 @@ export async function executeUpdateShop(
       shop as unknown as Record<string, unknown>,
       updatedShop as unknown as Record<string, unknown>,
       ['isPaused', 'pausedMessage', 'minOrderAmountCents', 'currency', 'timezone'],
-      ['openingHours', 'branding', 'address'],
+      ['openingHours', 'branding', 'address', 'menuLanguages'],
     );
     await logAudit({
       shopId: result.id,
