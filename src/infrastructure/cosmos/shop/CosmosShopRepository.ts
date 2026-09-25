@@ -74,21 +74,6 @@ export async function findAllShops(): Promise<Shop[]> {
   }
 }
 
-export async function findShopsByPendingMemberId(userId: string): Promise<Shop[]> {
-  try {
-    const querySpec = {
-      query: `SELECT * FROM c WHERE c.isDeleted = false
-              AND EXISTS(SELECT VALUE m FROM m IN c.members
-                         WHERE m.userId = @userId AND m.isActive = false)`,
-      parameters: [{ name: '@userId', value: userId }],
-    };
-    const { resources } = await shopContainer.items.query<Shop>(querySpec).fetchAll();
-    return resources || [];
-  } catch (error) {
-    throw error;
-  }
-}
-
 export async function findShopsByMemberId(userId: string): Promise<Shop[]> {
   try {
     const querySpec = {

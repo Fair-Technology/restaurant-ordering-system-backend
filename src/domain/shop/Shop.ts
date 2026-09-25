@@ -19,12 +19,6 @@ export interface ShopTaxRate {
   rate: number; // decimal, e.g. 0.19 = 19%, 0.07 = 7%
 }
 
-export interface ShopRole {
-  id: string; // UUID for custom roles; 'staff' for the seeded default
-  name: string; // display name: "Staff", "Kitchen", "Cashier"
-  permissions: ShopPermission[];
-}
-
 export interface Shop {
   // Identity
   id: string; // UUID (Cosmos item id)
@@ -74,15 +68,12 @@ export interface Shop {
     reason?: string;
   }>;
 
-  // Admins & staff
+  // Admins & staff (only owners are Entra members; custom roles removed)
   members: Array<{
     userId: string; // Entra object id
-    role: string; // 'owner' is reserved; all other values must match a ShopRole.id
+    role: 'owner';
     isActive: boolean;
   }>;
-
-  // Custom roles (owner is hardcoded and not stored here)
-  roles: ShopRole[];
 
   // Tax configuration
   countryCode: string; // ISO 3166-1 alpha-2, e.g. "AU", "DE"

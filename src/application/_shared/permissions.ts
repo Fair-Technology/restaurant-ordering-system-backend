@@ -7,11 +7,10 @@ export type { ShopPermission };
  * Check whether a user has a specific permission on a shop.
  *
  * - 'owner' role always passes (full access).
- * - All other roles are looked up in shop.roles[].permissions.
+ * - Custom per-shop role definitions are gone; only 'owner' members exist on
+ *   Shop.members, so any other/no member is denied. Fixed roles (manager/staff)
+ *   with a global permission matrix land in step 22, which replaces this function.
  * - Returns null if access is granted, or an ApplicationError if denied.
- *
- * 'manage_members' is intentionally not a grantable permission — only owners
- * can add/remove members, enforced by calling this function with 'owner' check.
  */
 export function checkShopPermission(
   shop: Shop,
@@ -28,17 +27,7 @@ export function checkShopPermission(
     return null; // owners have full access
   }
 
-  const role = shop.roles.find((r) => r.id === member.role);
-
-  if (!role) {
-    return { ok: false, code: 'FORBIDDEN', error: 'Role not found' };
-  }
-
-  if (!role.permissions.includes(permission)) {
-    return { ok: false, code: 'FORBIDDEN', error: 'Insufficient permissions' };
-  }
-
-  return null;
+  return { ok: false, code: 'FORBIDDEN', error: 'Insufficient permissions' };
 }
 
 /**
@@ -57,8 +46,3 @@ export function checkIsOwner(shop: Shop, userId: string): ApplicationError | nul
   return null;
 }
 
-export const VALID_PERMISSIONS: ShopPermission[] = [
-  'view_orders',
-  'manage_products',
-  'manage_shop',
-];

@@ -908,7 +908,7 @@ export const swaggerSpec = {
         type: 'object',
         properties: {
           userId: { type: 'string' },
-          role: { type: 'string', enum: ['owner', 'staff'] },
+          role: { type: 'string', enum: ['owner'] },
           isActive: { type: 'boolean' },
         },
       },
@@ -1130,10 +1130,6 @@ export const swaggerSpec = {
           closures: {
             type: 'array',
             items: { $ref: '#/components/schemas/ShopClosure' },
-          },
-          members: {
-            type: 'array',
-            items: { $ref: '#/components/schemas/ShopMember' },
           },
           branding: {
             nullable: true,

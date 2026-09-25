@@ -42,11 +42,6 @@ export interface GetShopResultDto {
     role: string;
     isActive: boolean;
   }>;
-  roles: Array<{
-    id: string;
-    name: string;
-    permissions: string[];
-  }>;
   countryCode: string;
   taxRates: ShopTaxRate[];
   branding: ShopBranding | null;

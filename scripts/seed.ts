@@ -309,7 +309,6 @@ async function seedShops(): Promise<any[]> {
       minOrderAmountCents: 1500,
       countryCode: 'DE',
       taxRates,
-      roles: [{ id: 'staff', name: 'Staff', permissions: ['view_orders'] }],
       address: def.address,
       openingHours: def.openingHours,
       closures: [],

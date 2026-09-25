@@ -1,21 +1,6 @@
 import { UserProfile } from '../../../domain/user/UserProfile';
 import { usersContainer } from '../cosmosClient';
 
-export async function findUserByEmail(email: string): Promise<UserProfile | null> {
-  try {
-    const querySpec = {
-      query: 'SELECT TOP 1 * FROM c WHERE c.email = @email',
-      parameters: [{ name: '@email', value: email }],
-    };
-    const { resources } = await usersContainer.items
-      .query<UserProfile>(querySpec)
-      .fetchAll();
-    return resources && resources.length > 0 ? resources[0] : null;
-  } catch (err) {
-    throw err;
-  }
-}
-
 export async function findUserById(userId: string): Promise<UserProfile | null> {
   try {
     const { resource } = await usersContainer.item(userId, userId).read<UserProfile>();

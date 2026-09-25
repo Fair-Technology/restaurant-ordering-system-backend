@@ -11,13 +11,6 @@ import './functions/shop/updateShop/index';
 import './functions/shop/deleteShop/index';
 import './functions/shop/generateShopLogoUploadUrl/index';
 import './functions/shop/setShopLogo/index';
-import './functions/shop/addShopMember/index';
-import './functions/shop/removeShopMember/index';
-import './functions/shop/createShopRole/index';
-import './functions/shop/updateShopRole/index';
-import './functions/shop/deleteShopRole/index';
-import './functions/shop/acceptShopInvitation/index';
-import './functions/shop/declineShopInvitation/index';
 import './functions/shop/requestShopNameChange/index';
 import './functions/shop/approveShopNameChange/index';
 import './functions/shop/rejectShopNameChange/index';
@@ -55,7 +48,6 @@ import './functions/audit/getAuditEntries/index';
 
 // User endpoints
 import './functions/user/getMe/index';
-import './functions/user/getMyInvitations/index';
 
 // Swagger endpoints
 import './functions/swagger/swaggerJson/index';

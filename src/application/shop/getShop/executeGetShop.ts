@@ -51,7 +51,6 @@ export async function executeGetShop(
       openingHours: shop.openingHours,
       closures: shop.closures,
       members: shop.members,
-      roles: shop.roles ?? [],
       countryCode: shop.countryCode ?? '',
       taxRates: shop.taxRates ?? [],
       branding: shop.branding ?? null,

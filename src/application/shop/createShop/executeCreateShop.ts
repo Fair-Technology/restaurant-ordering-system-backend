@@ -244,7 +244,6 @@ export async function executeCreateShop(
       orderAcceptanceMode: request.orderAcceptanceMode || 'auto',
       closures: request.closures || [],
       members: [{ userId, role: 'owner', isActive: true }],
-      roles: [{ id: 'staff', name: 'Staff', permissions: ['view_orders' as const] }],
       taxRates: seedTaxRatesForCountry(countryCode),
       branding: request.branding ?? null,
       createdAt: now,
