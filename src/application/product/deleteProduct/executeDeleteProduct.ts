@@ -73,20 +73,15 @@ export async function executeDeleteProduct(
 
     await updateProduct(deletedProduct);
 
-    logAudit(
-      {
-        shopId: product.shopId,
-        timestamp: new Date().toISOString(),
-        actorId: actor.userId,
-        actorEmail: actor.email,
-        actorName: actor.name,
-        action: 'product.delete',
-        entityType: 'product',
-        entityId: product.id,
-        entityName: product.name,
-      },
-      httpRequest,
-    );
+    await logAudit({
+      shopId: product.shopId,
+      actorType: 'owner',
+      actorId: actor.userId,
+      action: 'product.delete',
+      entityType: 'product',
+      entityId: product.id,
+      entityName: product.name,
+    });
 
     // Clean up image blobs — best effort, never fails the delete response
     await Promise.allSettled(

@@ -1,9 +1,11 @@
 import { HttpRequest } from '@azure/functions';
 import { findAuditEntriesByShop } from '../../../infrastructure/cosmos/audit/CosmosAuditRepository';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
+import { findUserById } from '../../../infrastructure/cosmos/user/CosmosUserRepository';
 import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
 import { verifySuperAdminToken } from '../../../infrastructure/auth/superAdminAuthHelpers';
 import { checkIsOwner } from '../../_shared/permissions';
+import { resolveActorLabels } from '../../_shared/buildAuditEntry';
 import { GetAuditEntriesRequestDto, GetAuditEntriesResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 
@@ -45,9 +47,21 @@ export async function executeGetAuditEntries(
       pageSize,
     );
 
+    const ownerIds = [...new Set(entries.filter((e) => e.actorType === 'owner').map((e) => e.actorId))];
+    const ownerEntries = await Promise.all(
+      ownerIds.map(async (id): Promise<[string, string | null]> => {
+        const user = await findUserById(id);
+        return [id, user?.name ?? user?.email ?? null];
+      }),
+    );
+    const owners = new Map(ownerEntries);
+    const staff = new Map<string, string | null>(); // filled in step 25
+
+    const actorLabels = resolveActorLabels(entries, { owners, staff });
+
     return {
       ok: true,
-      data: { entries, total, page, pageSize },
+      data: { entries, total, page, pageSize, actorLabels },
     };
   } catch (error: any) {
     if (error.message === 'Authentication required') {

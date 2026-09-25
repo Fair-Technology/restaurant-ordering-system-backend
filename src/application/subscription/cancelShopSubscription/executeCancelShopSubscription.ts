@@ -56,19 +56,16 @@ export async function executeCancelShopSubscription(
     };
     await upsertSubscription(updated);
 
-    logAudit(
-      {
-        actorId: userId,
-        action: 'subscription.cancelScheduled',
-        entityType: 'subscription',
-        entityId: subscription.id,
-        entityName: `Shop ${shopId}`,
-        shopId,
-        changes: [],
-        timestamp: now,
-      },
-      httpRequest,
-    );
+    await logAudit({
+      actorType: 'owner',
+      actorId: userId,
+      action: 'subscription.cancelScheduled',
+      entityType: 'subscription',
+      entityId: subscription.id,
+      entityName: `Shop ${shopId}`,
+      shopId,
+      changes: [],
+    });
 
     return {
       ok: true,

@@ -4,14 +4,15 @@ export interface AuditChange {
   to: unknown;
 }
 
+export type AuditActorType = 'owner' | 'staff' | 'superadmin' | 'system';
+
 export interface AuditEntry {
   id: string;
-  shopId: string;
+  shopId: string; // 'platform' for platform-level entries
   timestamp: string;
 
+  actorType: AuditActorType;
   actorId: string;
-  actorEmail?: string;
-  actorName?: string;
 
   action: string;
   entityType: string;
@@ -19,8 +20,6 @@ export interface AuditEntry {
   entityName: string;
 
   changes?: AuditChange[];
-  ipAddress?: string;
-  userAgent?: string;
-
-  ttl: number;
 }
+
+export type AuditInput = Omit<AuditEntry, 'id' | 'timestamp'>;

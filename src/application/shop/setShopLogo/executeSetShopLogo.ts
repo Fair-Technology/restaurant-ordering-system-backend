@@ -63,20 +63,15 @@ export async function executeSetShopLogo(
 
     const result = await updateShopInRepo(updatedShop);
 
-    logAudit(
-      {
-        shopId: result.id,
-        timestamp: new Date().toISOString(),
-        actorId: actor.userId,
-        actorEmail: actor.email,
-        actorName: actor.name,
-        action: 'shop.logo',
-        entityType: 'shop',
-        entityId: result.id,
-        entityName: result.name,
-      },
-      httpRequest,
-    );
+    await logAudit({
+      shopId: result.id,
+      actorType: 'owner',
+      actorId: actor.userId,
+      action: 'shop.logo',
+      entityType: 'shop',
+      entityId: result.id,
+      entityName: result.name,
+    });
 
     return {
       ok: true,

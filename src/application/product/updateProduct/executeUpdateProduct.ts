@@ -202,21 +202,16 @@ export async function executeUpdateProduct(
       ['name', 'price', 'isAvailable', 'taxRateId'],
       ['variantGroups', 'addonGroups', 'schedule', 'specialInfo'],
     );
-    logAudit(
-      {
-        shopId: result.shopId,
-        timestamp: new Date().toISOString(),
-        actorId: actor.userId,
-        actorEmail: actor.email,
-        actorName: actor.name,
-        action: 'product.update',
-        entityType: 'product',
-        entityId: result.id,
-        entityName: result.name,
-        changes,
-      },
-      httpRequest,
-    );
+    await logAudit({
+      shopId: result.shopId,
+      actorType: 'owner',
+      actorId: actor.userId,
+      action: 'product.update',
+      entityType: 'product',
+      entityId: result.id,
+      entityName: result.name,
+      changes,
+    });
 
     // Delete blobs for images removed from the array — best effort
     if (request.images !== undefined) {

@@ -79,20 +79,15 @@ export async function executeCreateCategory(
 
     const createdCategory = await createCategoryInRepo(category);
 
-    logAudit(
-      {
-        shopId: createdCategory.shopId,
-        timestamp: new Date().toISOString(),
-        actorId: actor.userId,
-        actorEmail: actor.email,
-        actorName: actor.name,
-        action: 'category.create',
-        entityType: 'category',
-        entityId: createdCategory.id,
-        entityName: createdCategory.name,
-      },
-      httpRequest,
-    );
+    await logAudit({
+      shopId: createdCategory.shopId,
+      actorType: 'owner',
+      actorId: actor.userId,
+      action: 'category.create',
+      entityType: 'category',
+      entityId: createdCategory.id,
+      entityName: createdCategory.name,
+    });
 
     const resultDto: CreateCategoryResultDto = {
       id: createdCategory.id,

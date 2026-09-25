@@ -54,19 +54,16 @@ export async function executeReactivateShop(
     const now = new Date().toISOString();
     await updateShop({ ...shop, isDeactivatedDueToLimits: false, updatedAt: now });
 
-    logAudit(
-      {
-        actorId: userId,
-        action: 'shop.reactivated',
-        entityType: 'shop',
-        entityId: shopId,
-        entityName: `Shop ${shopId}`,
-        shopId,
-        changes: [],
-        timestamp: now,
-      },
-      httpRequest,
-    );
+    await logAudit({
+      actorType: 'owner',
+      actorId: userId,
+      action: 'shop.reactivated',
+      entityType: 'shop',
+      entityId: shopId,
+      entityName: `Shop ${shopId}`,
+      shopId,
+      changes: [],
+    });
 
     return { ok: true, data: { id: shopId, isDeactivatedDueToLimits: false } };
   } catch (error: any) {

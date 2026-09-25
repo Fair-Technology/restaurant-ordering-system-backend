@@ -154,20 +154,15 @@ export async function executeCreateProduct(
 
     const createdProduct = await createProductInRepo(product);
 
-    logAudit(
-      {
-        shopId: createdProduct.shopId,
-        timestamp: new Date().toISOString(),
-        actorId: actor.userId,
-        actorEmail: actor.email,
-        actorName: actor.name,
-        action: 'product.create',
-        entityType: 'product',
-        entityId: createdProduct.id,
-        entityName: createdProduct.name,
-      },
-      httpRequest,
-    );
+    await logAudit({
+      shopId: createdProduct.shopId,
+      actorType: 'owner',
+      actorId: actor.userId,
+      action: 'product.create',
+      entityType: 'product',
+      entityId: createdProduct.id,
+      entityName: createdProduct.name,
+    });
 
     const resultDto: CreateProductResultDto = {
       id: createdProduct.id,

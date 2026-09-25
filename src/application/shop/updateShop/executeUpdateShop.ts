@@ -197,21 +197,16 @@ export async function executeUpdateShop(
       ['isPaused', 'pausedMessage', 'minOrderAmountCents', 'currency', 'timezone'],
       ['openingHours', 'branding', 'address'],
     );
-    logAudit(
-      {
-        shopId: result.id,
-        timestamp: new Date().toISOString(),
-        actorId: actor.userId,
-        actorEmail: actor.email,
-        actorName: actor.name,
-        action: 'shop.update',
-        entityType: 'shop',
-        entityId: result.id,
-        entityName: result.name,
-        changes,
-      },
-      httpRequest,
-    );
+    await logAudit({
+      shopId: result.id,
+      actorType: 'owner',
+      actorId: actor.userId,
+      action: 'shop.update',
+      entityType: 'shop',
+      entityId: result.id,
+      entityName: result.name,
+      changes,
+    });
 
     const resultDto: UpdateShopResultDto = {
       id: result.id,

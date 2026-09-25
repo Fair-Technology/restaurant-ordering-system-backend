@@ -29,12 +29,12 @@ export async function executeRejectShopNameChange(
 
     // Allow superadmin OR the owner who originally submitted the request
     let actorId: string;
-    let actorEmail: string | undefined;
-    let actorName: string | undefined;
+    let actorType: 'owner' | 'superadmin';
 
     const superAdminId = await verifySuperAdminToken(httpRequest);
     if (superAdminId) {
       actorId = superAdminId;
+      actorType = 'superadmin';
     } else {
       let actor: { userId: string; email?: string; name?: string };
       try {
@@ -55,8 +55,7 @@ export async function executeRejectShopNameChange(
       }
 
       actorId = actor.userId;
-      actorEmail = actor.email;
-      actorName = actor.name;
+      actorType = 'owner';
     }
 
     const rejectedName = shop.pendingNameChange.requestedName;
@@ -69,21 +68,16 @@ export async function executeRejectShopNameChange(
 
     const result = await updateShop(updatedShop);
 
-    logAudit(
-      {
-        shopId: result.id,
-        timestamp: new Date().toISOString(),
-        actorId,
-        actorEmail,
-        actorName,
-        action: 'shop.nameChange.rejected',
-        entityType: 'shop',
-        entityId: result.id,
-        entityName: result.name,
-        changes: [{ field: 'pendingNameChange', from: rejectedName, to: null }],
-      },
-      httpRequest,
-    );
+    await logAudit({
+      shopId: result.id,
+      actorType,
+      actorId,
+      action: 'shop.nameChange.rejected',
+      entityType: 'shop',
+      entityId: result.id,
+      entityName: result.name,
+      changes: [{ field: 'pendingNameChange', from: rejectedName, to: null }],
+    });
 
     return {
       ok: true,

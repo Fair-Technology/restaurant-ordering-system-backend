@@ -72,21 +72,16 @@ export async function executeRequestShopNameChange(
 
     const result = await updateShop(updatedShop);
 
-    logAudit(
-      {
-        shopId: result.id,
-        timestamp: new Date().toISOString(),
-        actorId: actor.userId,
-        actorEmail: actor.email,
-        actorName: actor.name,
-        action: 'shop.nameChange.requested',
-        entityType: 'shop',
-        entityId: result.id,
-        entityName: result.name,
-        changes: [{ field: 'name', from: shop.name, to: pendingNameChange.requestedName }],
-      },
-      httpRequest,
-    );
+    await logAudit({
+      shopId: result.id,
+      actorType: 'owner',
+      actorId: actor.userId,
+      action: 'shop.nameChange.requested',
+      entityType: 'shop',
+      entityId: result.id,
+      entityName: result.name,
+      changes: [{ field: 'name', from: shop.name, to: pendingNameChange.requestedName }],
+    });
 
     return {
       ok: true,

@@ -11,4 +11,5 @@ export interface GetAuditEntriesResultDto {
   total: number;
   page: number;
   pageSize: number;
+  actorLabels: Record<string, string>;
 }

@@ -74,20 +74,15 @@ export async function executeDeleteCategory(
 
     const savedCategory = await updateCategory(deletedCategory);
 
-    logAudit(
-      {
-        shopId: savedCategory.shopId,
-        timestamp: new Date().toISOString(),
-        actorId: actor.userId,
-        actorEmail: actor.email,
-        actorName: actor.name,
-        action: 'category.delete',
-        entityType: 'category',
-        entityId: savedCategory.id,
-        entityName: savedCategory.name,
-      },
-      httpRequest,
-    );
+    await logAudit({
+      shopId: savedCategory.shopId,
+      actorType: 'owner',
+      actorId: actor.userId,
+      action: 'category.delete',
+      entityType: 'category',
+      entityId: savedCategory.id,
+      entityName: savedCategory.name,
+    });
 
     const resultDto: DeleteCategoryResultDto = {
       id: savedCategory.id,

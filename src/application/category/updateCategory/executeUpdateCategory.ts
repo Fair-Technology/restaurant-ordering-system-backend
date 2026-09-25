@@ -84,21 +84,16 @@ export async function executeUpdateCategory(
       ['name', 'sortOrder', 'icon'],
       [],
     );
-    logAudit(
-      {
-        shopId: savedCategory.shopId,
-        timestamp: new Date().toISOString(),
-        actorId: actor.userId,
-        actorEmail: actor.email,
-        actorName: actor.name,
-        action: 'category.update',
-        entityType: 'category',
-        entityId: savedCategory.id,
-        entityName: savedCategory.name,
-        changes,
-      },
-      httpRequest,
-    );
+    await logAudit({
+      shopId: savedCategory.shopId,
+      actorType: 'owner',
+      actorId: actor.userId,
+      action: 'category.update',
+      entityType: 'category',
+      entityId: savedCategory.id,
+      entityName: savedCategory.name,
+      changes,
+    });
 
     const resultDto: UpdateCategoryResultDto = {
       id: savedCategory.id,
