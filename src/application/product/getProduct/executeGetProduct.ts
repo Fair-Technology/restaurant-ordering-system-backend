@@ -4,6 +4,7 @@ import { findCategoryById } from '../../../infrastructure/cosmos/category/Cosmos
 import { authenticate } from '../../../infrastructure/auth/principal';
 import { GetProductRequestDto, GetProductResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
+import { toMenuFieldsDto } from '../menuFieldsDto';
 
 export async function executeGetProduct(
   request: GetProductRequestDto,
@@ -74,8 +75,6 @@ export async function executeGetProduct(
       price: product.price,
       isAvailable: product.isAvailable,
       isDeleted: product.isDeleted,
-      taxRateId: product.taxRateId ?? null,
-      specialInfo: product.specialInfo,
       createdAt: product.createdAt,
       updatedAt: product.updatedAt,
       images: product.images ?? [],
@@ -83,6 +82,7 @@ export async function executeGetProduct(
       variantGroups: product.variantGroups,
       addonGroups: product.addonGroups,
       schedule: product.schedule ?? null,
+      ...toMenuFieldsDto(product),
     };
 
     return {

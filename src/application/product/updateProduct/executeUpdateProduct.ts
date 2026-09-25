@@ -5,10 +5,13 @@ import {
 } from '../../../infrastructure/cosmos/product/CosmosProductRepository';
 import { findCategoryById } from '../../../infrastructure/cosmos/category/CosmosCategoryRepository';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
+import { getReferenceLists } from '../../../infrastructure/cosmos/reference/CosmosReferenceListsRepository';
 import { authorizeShopAction, toAuditActor } from '../../_shared/shopAccess';
 import { deleteBlob, extractBlobPath } from '../../../infrastructure/storage/blobStorageHelpers';
 import { UpdateProductRequestDto, UpdateProductResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
+import { validateMenuFields } from '../menuFields';
+import { toMenuFieldsDto } from '../menuFieldsDto';
 import { diffFields, logAudit } from '../../_shared/auditHelpers';
 
 export async function executeUpdateProduct(
@@ -61,6 +64,12 @@ export async function executeUpdateProduct(
 
     const access = await authorizeShopAction(httpRequest, shop, 'manage_menu');
     if (!access.ok) return access;
+
+    const refs = await getReferenceLists(shop.countryCode ?? '');
+    const menu = validateMenuFields(request, refs, product);
+    if ('error' in menu) {
+      return { ok: false, code: 'INVALID_INPUT', error: menu.error };
+    }
 
     // Guard: cannot set isAvailable=true on a product with no categories
     if (request.isAvailable === true) {
@@ -174,20 +183,11 @@ export async function executeUpdateProduct(
         categoryIds: request.categoryIds,
       }),
       ...(request.images !== undefined && { images: request.images }),
-      ...(request.specialInfo !== undefined && {
-        specialInfo: request.specialInfo,
-      }),
-      ...(request.variantGroups !== undefined && {
-        variantGroups: request.variantGroups,
-      }),
-      ...(request.addonGroups !== undefined && {
-        addonGroups: request.addonGroups,
-      }),
       ...(request.isAvailable !== undefined && {
         isAvailable: request.isAvailable,
       }),
-      ...(request.taxRateId !== undefined && { taxRateId: request.taxRateId }),
       ...(request.schedule !== undefined && { schedule: request.schedule }),
+      ...menu,
       updatedAt: new Date().toISOString(),
     };
 
@@ -196,8 +196,17 @@ export async function executeUpdateProduct(
     const changes = diffFields(
       product as unknown as Record<string, unknown>,
       updatedProduct as unknown as Record<string, unknown>,
-      ['name', 'price', 'isAvailable', 'taxRateId'],
-      ['variantGroups', 'addonGroups', 'schedule', 'specialInfo'],
+      ['name', 'price', 'isAvailable', 'spiceLevel', 'prepMinutes', 'taxClassId'],
+      [
+        'variantGroups',
+        'addonGroups',
+        'schedule',
+        'allergenIds',
+        'additiveIds',
+        'dietaryTagIds',
+        'nameTranslations',
+        'descriptionTranslations',
+      ],
     );
     await logAudit({
       shopId: result.shopId,
@@ -230,10 +239,10 @@ export async function executeUpdateProduct(
       price: result.price,
       isAvailable: result.isAvailable,
       isDeleted: result.isDeleted,
-      taxRateId: result.taxRateId ?? null,
       schedule: result.schedule ?? null,
       createdAt: result.createdAt,
       updatedAt: result.updatedAt,
+      ...toMenuFieldsDto(result),
     };
 
     return {

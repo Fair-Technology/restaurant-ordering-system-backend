@@ -1,4 +1,7 @@
-import { ProductImage, ProductSchedule } from '../../../domain/product/Product';
+import { ProductAddonGroup, ProductImage, ProductSchedule, ProductVariantGroup } from '../../../domain/product/Product';
+import { TranslationMap } from '../../../domain/menu/menuLanguage';
+import { SpiceLevel } from '../../../domain/product/dietary';
+import { ProductMenuFieldsDto } from '../menuFieldsDto';
 
 export interface UpdateProductRequestDto {
   productId: string;
@@ -8,35 +11,21 @@ export interface UpdateProductRequestDto {
   price?: number;
   categoryIds?: string[];
   images?: ProductImage[];
-  specialInfo?: Array<{ name: string; icon: string }>;
-  variantGroups?: Array<{
-    id: string;
-    name: string;
-    options: Array<{
-      id: string;
-      name: string;
-      priceDelta: number;
-      isAvailable: boolean;
-    }>;
-  }>;
-  addonGroups?: Array<{
-    id: string;
-    name: string;
-    minSelectable: number;
-    maxSelectable: number;
-    options: Array<{
-      id: string;
-      name: string;
-      priceDelta: number;
-      isAvailable: boolean;
-    }>;
-  }>;
+  nameTranslations?: TranslationMap;
+  descriptionTranslations?: TranslationMap;
+  allergenIds?: string[] | null;
+  additiveIds?: string[] | null;
+  dietaryTagIds?: string[];
+  spiceLevel?: SpiceLevel | null;
+  prepMinutes?: number | null;
+  taxClassId?: string | null;
+  variantGroups?: ProductVariantGroup[];
+  addonGroups?: ProductAddonGroup[];
   isAvailable?: boolean;
-  taxRateId?: string | null;
   schedule?: ProductSchedule | null;
 }
 
-export interface UpdateProductResultDto {
+export interface UpdateProductResultDto extends ProductMenuFieldsDto {
   id: string;
   shopId: string;
   name: string;
@@ -44,7 +33,6 @@ export interface UpdateProductResultDto {
   price: number;
   isAvailable: boolean;
   isDeleted: boolean;
-  taxRateId: string | null;
   schedule?: ProductSchedule | null;
   createdAt: string;
   updatedAt: string;

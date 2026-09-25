@@ -2,10 +2,13 @@ import { HttpRequest } from '@azure/functions';
 import { createProduct as createProductInRepo } from '../../../infrastructure/cosmos/product/CosmosProductRepository';
 import { findCategoryById } from '../../../infrastructure/cosmos/category/CosmosCategoryRepository';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
+import { getReferenceLists } from '../../../infrastructure/cosmos/reference/CosmosReferenceListsRepository';
 import { authorizeShopAction, toAuditActor } from '../../_shared/shopAccess';
 import { CreateProductRequestDto, CreateProductResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 import { Product } from '../../../domain/product/Product';
+import { validateMenuFields } from '../menuFields';
+import { toMenuFieldsDto } from '../menuFieldsDto';
 import { logAudit } from '../../_shared/auditHelpers';
 
 export async function executeCreateProduct(
@@ -50,18 +53,6 @@ export async function executeCreateProduct(
       ok: false,
       code: 'INVALID_INPUT',
       error: 'price is required and must be a non-negative number',
-    };
-  }
-
-  if (
-    !request.taxRateId ||
-    typeof request.taxRateId !== 'string' ||
-    request.taxRateId.trim() === ''
-  ) {
-    return {
-      ok: false,
-      code: 'INVALID_INPUT',
-      error: 'taxRateId is required and must be a non-empty string',
     };
   }
 
@@ -125,6 +116,12 @@ export async function executeCreateProduct(
     const access = await authorizeShopAction(httpRequest, shop, 'manage_menu');
     if (!access.ok) return access;
 
+    const refs = await getReferenceLists(shop.countryCode ?? '');
+    const menu = validateMenuFields(request, refs, null);
+    if ('error' in menu) {
+      return { ok: false, code: 'INVALID_INPUT', error: menu.error };
+    }
+
     const now = new Date().toISOString();
     const productId = crypto.randomUUID();
 
@@ -133,17 +130,23 @@ export async function executeCreateProduct(
       shopId: request.shopId.trim(),
       name: request.name.trim(),
       description: request.description,
+      nameTranslations: menu.nameTranslations ?? {},
+      descriptionTranslations: menu.descriptionTranslations ?? {},
       price: request.price,
       categoryIds: request.categoryIds || [],
       images: request.images || [],
-      specialInfo: request.specialInfo,
-      variantGroups: request.variantGroups,
-      addonGroups: request.addonGroups,
+      variantGroups: menu.variantGroups ?? request.variantGroups,
+      addonGroups: menu.addonGroups ?? request.addonGroups,
+      allergenIds: menu.allergenIds ?? null,
+      additiveIds: menu.additiveIds ?? null,
+      dietaryTagIds: menu.dietaryTagIds ?? [],
+      spiceLevel: menu.spiceLevel ?? null,
+      prepMinutes: menu.prepMinutes ?? null,
+      taxClassId: menu.taxClassId ?? null,
       isAvailable: (request.categoryIds?.length ?? 0) > 0
         ? (request.isAvailable ?? true)
         : false,
       isDeleted: false,
-      taxRateId: request.taxRateId ?? null,
       schedule: request.schedule ?? null,
       createdAt: now,
       updatedAt: now,
@@ -168,10 +171,10 @@ export async function executeCreateProduct(
       price: createdProduct.price,
       isAvailable: createdProduct.isAvailable,
       isDeleted: createdProduct.isDeleted,
-      taxRateId: createdProduct.taxRateId ?? null,
       schedule: createdProduct.schedule ?? null,
       createdAt: createdProduct.createdAt,
       updatedAt: createdProduct.updatedAt,
+      ...toMenuFieldsDto(createdProduct),
     };
 
     return {

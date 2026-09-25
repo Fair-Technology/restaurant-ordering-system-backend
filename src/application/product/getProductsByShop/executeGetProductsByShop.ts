@@ -9,6 +9,7 @@ import {
   ProductDto,
 } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
+import { toMenuFieldsDto } from '../menuFieldsDto';
 
 export async function executeGetProductsByShop(
   request: GetProductsByShopRequestDto,
@@ -68,15 +69,14 @@ export async function executeGetProductsByShop(
         price: product.price,
         categories: categories,
         images: product.images,
-        specialInfo: product.specialInfo,
         variantGroups: product.variantGroups,
         addonGroups: product.addonGroups,
-        taxRateId: product.taxRateId ?? null,
         schedule: product.schedule ?? null,
         isAvailable: product.isAvailable,
         isDeleted: product.isDeleted,
         createdAt: product.createdAt,
         updatedAt: product.updatedAt,
+        ...toMenuFieldsDto(product),
       });
     }
 

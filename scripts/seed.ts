@@ -4,6 +4,7 @@ import { randomUUID } from 'crypto';
 import { periodKeyFor } from '../src/domain/usage/usagePeriod';
 import { hashPassword } from '../src/infrastructure/auth/passwordHashing';
 import { assertSeedTargetIsDev } from './seedGuard';
+import { legacySpecialInfoToMenuFields } from './menus/legacySpecialInfo';
 
 // ── 1. Load env vars BEFORE Cosmos modules initialize ────────────────────────
 // Cosmos client reads process.env at module load time, so env vars must be
@@ -365,8 +366,7 @@ async function seedProducts(shops: any[], categoryMap: Map<string, any[]>): Prom
     const cats = categoryMap.get(shop.id) ?? [];
     const cat = (name: string) => cats.find((c: any) => c.name === name)?.id ?? cats[0]?.id;
 
-    const gstRateId = shop.taxRates?.[0]?.id ?? null;
-    const products = buildProducts(shop.key, shop.id, cat, gstRateId);
+    const products = buildProducts(shop.key, shop.id, cat);
     for (const productDef of products) {
       await createProduct(productDef);
       console.log(`   ✓ ${shop.name} → ${productDef.name} (€${(productDef.price / 100).toFixed(2)})`);
@@ -374,20 +374,29 @@ async function seedProducts(shops: any[], categoryMap: Map<string, any[]>): Prom
   }
 }
 
-function buildProducts(shopKey: string, shopId: string, cat: (name: string) => string, taxRateId: string | null): any[] {
-  const base = (overrides: object) => ({
-    id: randomUUID(),
-    shopId,
-    images: [],
-    isAvailable: true,
-    isDeleted: false,
-    variantGroups: [],
-    addonGroups: [],
-    taxRateId,
-    createdAt: now(),
-    updatedAt: now(),
-    ...overrides,
-  });
+function buildProducts(shopKey: string, shopId: string, cat: (name: string) => string): any[] {
+  const base = (overrides: object) => {
+    const { specialInfo, ...rest } = overrides as any;
+    return {
+      id: randomUUID(),
+      shopId,
+      images: [],
+      isAvailable: true,
+      isDeleted: false,
+      variantGroups: [],
+      addonGroups: [],
+      nameTranslations: {},
+      descriptionTranslations: {},
+      dietaryTagIds: [],
+      spiceLevel: null,
+      prepMinutes: null,
+      taxClassId: null,
+      createdAt: now(),
+      updatedAt: now(),
+      ...rest,
+      ...legacySpecialInfoToMenuFields(specialInfo ?? []),
+    };
+  };
 
   // ── Belconnen Pizza Palace (now Pizzeria Kreuzberg) ──────────────────────
   if (shopKey === 'Belconnen Pizza Palace') {
