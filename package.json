@@ -10,6 +10,7 @@
     "build:watch": "tsc -w -p tsconfig.json",
     "start:dist": "func start --script-root dist --port 7073",
     "seed": "ts-node --transpile-only scripts/seed.ts",
+    "smoke:order": "ts-node --transpile-only scripts/smoke-order.ts",
     "test": "vitest run"
   },
   "dependencies": {
