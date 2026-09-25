@@ -10,7 +10,6 @@ import { deleteBlob, extractBlobPath } from '../../../infrastructure/storage/blo
 import { UpdateProductRequestDto, UpdateProductResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 import { getActorFromAuth, diffFields, logAudit } from '../../_shared/auditHelpers';
-import { checkProductLimit } from '../../_shared/checkProductLimit';
 
 export async function executeUpdateProduct(
   request: UpdateProductRequestDto,
@@ -65,12 +64,6 @@ export async function executeUpdateProduct(
 
     const permError = checkShopPermission(shop, userId, 'manage_products');
     if (permError) return permError;
-
-    // Enforce product limit when activating a previously inactive product
-    if (request.isAvailable === true && !product.isAvailable) {
-      const limitError = await checkProductLimit(shop.id, false);
-      if (limitError) return limitError;
-    }
 
     // Guard: cannot set isAvailable=true on a product with no categories
     if (request.isAvailable === true) {

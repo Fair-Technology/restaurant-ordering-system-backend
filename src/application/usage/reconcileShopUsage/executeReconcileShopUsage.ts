@@ -2,10 +2,13 @@ import { HttpRequest } from '@azure/functions';
 import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
 import { findUserById } from '../../../infrastructure/cosmos/user/CosmosUserRepository';
 import { findUsageByShopId, upsertUsage } from '../../../infrastructure/cosmos/usage/CosmosUsageRepository';
-import { productContainer } from '../../../infrastructure/cosmos/cosmosClient';
+import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
+import { countOrdersInUsagePeriod } from '../../../infrastructure/cosmos/order/CosmosOrderRepository';
 import { ApplicationResult } from '../../_shared/types';
 import { ReconcileShopUsageResultDto } from './dtos';
 import { ShopUsage } from '../../../domain/usage/ShopUsage';
+import { periodKeyFor } from '../../../domain/usage/usagePeriod';
+import { toShopUsageDto } from '../shopUsageDto';
 
 export async function executeReconcileShopUsage(
   shopId: string,
@@ -22,13 +25,13 @@ export async function executeReconcileShopUsage(
       return { ok: false, code: 'FORBIDDEN', error: 'Superadmin access required' };
     }
 
-    // Count active, non-deleted products for this shop
-    const querySpec = {
-      query: 'SELECT VALUE COUNT(1) FROM c WHERE c.shopId = @shopId AND c.isDeleted = false AND c.isAvailable = true',
-      parameters: [{ name: '@shopId', value: shopId }],
-    };
-    const { resources } = await productContainer.items.query<number>(querySpec).fetchAll();
-    const reconciledCount = resources[0] ?? 0;
+    const shop = await findShopById(shopId);
+    if (!shop) {
+      return { ok: false, code: 'NOT_FOUND', error: 'Shop not found' };
+    }
+
+    const periodKey = periodKeyFor(new Date(), shop.timezone);
+    const count = await countOrdersInUsagePeriod(shopId, periodKey);
 
     const now = new Date().toISOString();
     const existing = await findUsageByShopId(shopId);
@@ -36,16 +39,15 @@ export async function executeReconcileShopUsage(
     const updated: ShopUsage = {
       id: shopId,
       shopId,
-      activeProductCount: reconciledCount,
-      periodStart: existing?.periodStart ?? null,
-      periodEnd: existing?.periodEnd ?? null,
+      periodKey,
+      acceptedOrderCount: count,
       lastReconciled: now,
       createdAt: existing?.createdAt ?? now,
       updatedAt: now,
     };
 
     const result = await upsertUsage(updated);
-    return { ok: true, data: { usage: result, reconciledCount } };
+    return { ok: true, data: { usage: toShopUsageDto(result), reconciledCount: count } };
   } catch (error: any) {
     if (error.message === 'Authentication required') {
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };

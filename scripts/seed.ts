@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { randomUUID } from 'crypto';
 import { seedTaxRatesForCountry } from '../src/application/_shared/countryTaxRates';
+import { periodKeyFor } from '../src/domain/usage/usagePeriod';
 import { assertSeedTargetIsDev } from './seedGuard';
 
 // ── 1. Load env vars BEFORE Cosmos modules initialize ────────────────────────
@@ -942,9 +943,8 @@ async function seedSubscriptionsAndUsage(shops: any[]): Promise<void> {
     await upsertUsage({
       id: shop.id,
       shopId: shop.id,
-      activeProductCount: 0,
-      periodStart: null,
-      periodEnd: null,
+      periodKey: periodKeyFor(new Date(), shop.timezone),
+      acceptedOrderCount: 0,
       lastReconciled: null,
       createdAt: ts,
       updatedAt: ts,

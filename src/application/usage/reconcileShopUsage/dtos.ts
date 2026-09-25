@@ -1,6 +1,6 @@
-import { ShopUsage } from '../../../domain/usage/ShopUsage';
+import { ShopUsageDto } from '../shopUsageDto';
 
 export interface ReconcileShopUsageResultDto {
-  usage: ShopUsage;
+  usage: ShopUsageDto;
   reconciledCount: number;
 }

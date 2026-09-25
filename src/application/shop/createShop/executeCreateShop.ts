@@ -17,6 +17,7 @@ import { upsertUsage } from '../../../infrastructure/cosmos/usage/CosmosUsageRep
 import { findPlanByInternalKey } from '../../../infrastructure/cosmos/plan/CosmosPlanRepository';
 import { ShopSubscription } from '../../../domain/subscription/ShopSubscription';
 import { ShopUsage } from '../../../domain/usage/ShopUsage';
+import { periodKeyFor } from '../../../domain/usage/usagePeriod';
 
 function validateBranding(branding: unknown): string | null {
   if (branding === null || branding === undefined) return null;
@@ -278,9 +279,8 @@ export async function executeCreateShop(
     const usage: ShopUsage = {
       id: shopId,
       shopId,
-      activeProductCount: 0,
-      periodStart: null,
-      periodEnd: null,
+      periodKey: periodKeyFor(new Date(), createdShop.timezone),
+      acceptedOrderCount: 0,
       lastReconciled: null,
       createdAt: now,
       updatedAt: now,

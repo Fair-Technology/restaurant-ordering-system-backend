@@ -5,6 +5,7 @@ import {
 } from '../../../infrastructure/cosmos/order/CosmosCheckoutSessionRepository';
 import { createOrder } from '../../../infrastructure/cosmos/order/CosmosOrderRepository';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
+import { incrementAcceptedOrders } from '../../../infrastructure/cosmos/usage/CosmosUsageRepository';
 import { buildAutoAcceptedOrder } from './buildAutoAcceptedOrder';
 
 export type PaymentSucceededOutcome = 'created' | 'duplicate' | 'no_session';
@@ -35,7 +36,8 @@ export async function executeHandlePaymentSucceeded(input: {
     }
     throw err;
   }
-  // step 16 inserts: await incrementAcceptedOrders(order.shopId, order.usagePeriodKey!);
+  // Orders are the source of truth; a crash between create and increment is repaired by reconcile.
+  await incrementAcceptedOrders(order.shopId, order.usagePeriodKey!);
   await deleteCheckoutSession(session.id);
   return 'created';
 }

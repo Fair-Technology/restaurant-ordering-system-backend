@@ -11,6 +11,9 @@ vi.mock('../../../src/infrastructure/cosmos/order/CosmosOrderRepository', () => 
 vi.mock('../../../src/infrastructure/cosmos/shop/CosmosShopRepository', () => ({
   findShopById: vi.fn(),
 }));
+vi.mock('../../../src/infrastructure/cosmos/usage/CosmosUsageRepository', () => ({
+  incrementAcceptedOrders: vi.fn(),
+}));
 vi.mock('../../../src/domain/order/orderRef', () => ({
   generateOrderRef: () => 'AB3-K7P',
 }));
@@ -18,6 +21,7 @@ vi.mock('../../../src/domain/order/orderRef', () => ({
 import { findCheckoutSessionById, deleteCheckoutSession } from '../../../src/infrastructure/cosmos/order/CosmosCheckoutSessionRepository';
 import { createOrder } from '../../../src/infrastructure/cosmos/order/CosmosOrderRepository';
 import { findShopById } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
+import { incrementAcceptedOrders } from '../../../src/infrastructure/cosmos/usage/CosmosUsageRepository';
 import { executeHandlePaymentSucceeded } from '../../../src/application/order/handlePaymentSucceeded/executeHandlePaymentSucceeded';
 
 const session: CheckoutSession = {
@@ -52,6 +56,7 @@ describe('executeHandlePaymentSucceeded', () => {
     expect(outcome).toBe('created');
     expect(createOrder).toHaveBeenCalledTimes(1);
     expect(createOrder).toHaveBeenCalledWith(expect.objectContaining({ id: 'sess-1', state: 'ACCEPTED' }));
+    expect(incrementAcceptedOrders).toHaveBeenCalledWith('shop-1', '2026-10');
     expect(deleteCheckoutSession).toHaveBeenCalledWith('sess-1');
   });
 
@@ -71,6 +76,7 @@ describe('executeHandlePaymentSucceeded', () => {
     const outcome = await executeHandlePaymentSucceeded({ sessionId: 'sess-1', paymentIntentId: 'pi_1', now });
 
     expect(outcome).toBe('duplicate');
+    expect(incrementAcceptedOrders).not.toHaveBeenCalled();
     expect(deleteCheckoutSession).toHaveBeenCalledWith('sess-1');
   });
 

@@ -1,8 +1,6 @@
 import { findSubscriptionByBillingSubscriptionId, upsertSubscription } from '../../../infrastructure/cosmos/subscription/CosmosSubscriptionRepository';
 import { findPlanByInternalKey } from '../../../infrastructure/cosmos/plan/CosmosPlanRepository';
 import { findShopById, updateShop } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
-import { findProductsByShopId } from '../../../infrastructure/cosmos/product/CosmosProductRepository';
-import { PLAN_LIMIT_KEYS } from '../../_shared/planLimitKeys';
 
 export type BillingSubscriptionEventType =
   | 'subscription.updated'
@@ -64,19 +62,6 @@ export async function executeHandleBillingSubscriptionEvent(
         updatedAt: now,
       };
       await upsertSubscription(updated);
-
-      // Enforce product limit: deactivate shop if active products exceed free plan limit
-      const productLimit = freePlan?.limits.find((l) => l.key === PLAN_LIMIT_KEYS.PRODUCT_LIMIT)?.value ?? -1;
-      if (productLimit > 0) {
-        const shop = await findShopById(subscription.shopId);
-        if (shop) {
-          const products = await findProductsByShopId(subscription.shopId);
-          const activeCount = products.filter((p) => p.isAvailable).length;
-          if (activeCount > productLimit) {
-            await updateShop({ ...shop, isDeactivatedDueToLimits: true, updatedAt: now });
-          }
-        }
-      }
       break;
     }
     case 'invoice.payment_failed': {
