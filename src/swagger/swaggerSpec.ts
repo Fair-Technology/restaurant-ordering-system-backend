@@ -994,7 +994,6 @@ export const swaggerSpec = {
       ShopBranding: {
         type: 'object',
         nullable: true,
-        required: ['colors'],
         properties: {
           logoUrl: {
             type: 'string',
@@ -1008,35 +1007,12 @@ export const swaggerSpec = {
             description: 'Hero image URL (must start with https://)',
             example: 'https://cdn.example.com/hero.jpg',
           },
-          colors: {
-            type: 'object',
-            required: ['primary', 'secondary', 'tertiary', 'background'],
-            properties: {
-              primary: {
-                type: 'string',
-                pattern: '^#[0-9A-Fa-f]{6}$',
-                description: 'Primary brand color (hex)',
-                example: '#1D4ED8',
-              },
-              secondary: {
-                type: 'string',
-                pattern: '^#[0-9A-Fa-f]{6}$',
-                description: 'Secondary brand color (hex)',
-                example: '#9333EA',
-              },
-              tertiary: {
-                type: 'string',
-                pattern: '^#[0-9A-Fa-f]{6}$',
-                description: 'Tertiary brand color (hex)',
-                example: '#F59E0B',
-              },
-              background: {
-                type: 'string',
-                pattern: '^#[0-9A-Fa-f]{6}$',
-                description: 'Background color (hex)',
-                example: '#F9FAFB',
-              },
-            },
+          accentColor: {
+            type: 'string',
+            nullable: true,
+            pattern: '^#[0-9A-Fa-f]{6}$',
+            description: 'Accent color (hex), used for buttons and highlights. Must have a WCAG contrast of at least 3:1 against white.',
+            example: '#C2410C',
           },
         },
       },

@@ -10,6 +10,7 @@ import { UpdateShopRequestDto, UpdateShopResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 import { diffFields, logAudit } from '../../_shared/auditHelpers';
 import { Shop } from '../../../domain/shop/Shop';
+import { validateAccentColor } from '../../_shared/contrast';
 
 async function validateGoLiveCriteria(shop: Shop): Promise<string | null> {
   const addr = shop.address ?? {};
@@ -97,18 +98,8 @@ function validateBranding(branding: unknown): string | null {
       return 'branding.heroImageUrl must be a valid https URL or null';
     }
   }
-  if (!b.colors || typeof b.colors !== 'object') {
-    return 'branding.colors is required and must be an object';
-  }
-  const hexRegex = /^#[0-9A-Fa-f]{6}$/;
-  for (const field of ['primary', 'secondary', 'tertiary', 'background']) {
-    if (typeof b.colors[field] !== 'string') {
-      return `branding.colors.${field} is required`;
-    }
-    if (!hexRegex.test(b.colors[field])) {
-      return `branding.colors.${field} must be a valid hex color (e.g. "#1D4ED8")`;
-    }
-  }
+  const accentError = validateAccentColor(b.accentColor);
+  if (accentError) return accentError;
   return null;
 }
 

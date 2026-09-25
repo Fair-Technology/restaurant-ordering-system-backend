@@ -18,6 +18,7 @@ import { findPlanByInternalKey } from '../../../infrastructure/cosmos/plan/Cosmo
 import { ShopSubscription } from '../../../domain/subscription/ShopSubscription';
 import { ShopUsage } from '../../../domain/usage/ShopUsage';
 import { periodKeyFor } from '../../../domain/usage/usagePeriod';
+import { validateAccentColor } from '../../_shared/contrast';
 
 function validateBranding(branding: unknown): string | null {
   if (branding === null || branding === undefined) return null;
@@ -35,18 +36,8 @@ function validateBranding(branding: unknown): string | null {
       return 'branding.heroImageUrl must be a valid https URL or null';
     }
   }
-  if (!b.colors || typeof b.colors !== 'object') {
-    return 'branding.colors is required and must be an object';
-  }
-  const hexRegex = /^#[0-9A-Fa-f]{6}$/;
-  for (const field of ['primary', 'secondary', 'tertiary', 'background']) {
-    if (typeof b.colors[field] !== 'string') {
-      return `branding.colors.${field} is required`;
-    }
-    if (!hexRegex.test(b.colors[field])) {
-      return `branding.colors.${field} must be a valid hex color (e.g. "#1D4ED8")`;
-    }
-  }
+  const accentError = validateAccentColor(b.accentColor);
+  if (accentError) return accentError;
   return null;
 }
 

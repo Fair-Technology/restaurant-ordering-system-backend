@@ -234,7 +234,7 @@ async function seedShops(): Promise<any[]> {
       branding: {
         logoUrl: null,
         heroImageUrl: null,
-        colors: { primary: '#C0392B', secondary: '#E74C3C', tertiary: '#F39C12', background: '#FDF2F8' },
+        accentColor: '#C0392B',
       },
     },
     {
@@ -246,7 +246,7 @@ async function seedShops(): Promise<any[]> {
       branding: {
         logoUrl: null,
         heroImageUrl: null,
-        colors: { primary: '#2C3E50', secondary: '#3498DB', tertiary: '#1ABC9C', background: '#F0F4F8' },
+        accentColor: '#2C3E50',
       },
     },
     {
@@ -258,7 +258,7 @@ async function seedShops(): Promise<any[]> {
       branding: {
         logoUrl: null,
         heroImageUrl: null,
-        colors: { primary: '#E67E22', secondary: '#D35400', tertiary: '#F1C40F', background: '#FFFBF0' },
+        accentColor: '#D35400',
       },
     },
     {
@@ -270,7 +270,7 @@ async function seedShops(): Promise<any[]> {
       branding: {
         logoUrl: null,
         heroImageUrl: null,
-        colors: { primary: '#27AE60', secondary: '#229954', tertiary: '#A3CB38', background: '#F0FFF4' },
+        accentColor: '#229954',
       },
     },
     {

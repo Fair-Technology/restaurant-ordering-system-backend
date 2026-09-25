@@ -1,14 +1,7 @@
-export interface ShopBrandingColors {
-  primary: string;
-  secondary: string;
-  tertiary: string;
-  background: string;
-}
-
 export interface ShopBranding {
   logoUrl: string | null;
   heroImageUrl: string | null;
-  colors: ShopBrandingColors;
+  accentColor: string | null;
 }
 
 export type ShopRoleKey = 'owner' | 'manager' | 'staff';

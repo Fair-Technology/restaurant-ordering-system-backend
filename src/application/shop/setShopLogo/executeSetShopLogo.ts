@@ -44,11 +44,7 @@ export async function executeSetShopLogo(
     }
 
     const updatedBranding = {
-      ...(shop.branding ?? {
-        logoUrl: null,
-        heroImageUrl: null,
-        colors: { primary: '#1D4ED8', secondary: '#9333EA', tertiary: '#F59E0B', background: '#F9FAFB' },
-      }),
+      ...(shop.branding ?? { logoUrl: null, heroImageUrl: null, accentColor: null }),
       logoUrl: request.url,
     };
 
