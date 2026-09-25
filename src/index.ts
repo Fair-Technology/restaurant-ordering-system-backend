@@ -80,3 +80,11 @@ import './functions/systemConfig/updateRolePermissions/index';
 
 // User admin endpoints
 import './functions/user/updateUserLimits/index';
+
+// Staff endpoints
+import './functions/staff/listStaff/index';
+import './functions/staff/createStaff/index';
+import './functions/staff/updateStaff/index';
+import './functions/staff/resetStaffPassword/index';
+import './functions/staff/deleteStaff/index';
+import './functions/staff/staffLogin/index';

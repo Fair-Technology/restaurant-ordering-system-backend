@@ -1,16 +1,17 @@
 import { HttpRequest } from '@azure/functions';
 import { ALL_SHOP_PERMISSIONS, Shop, ShopPermission } from '../../domain/shop/Shop';
-import { RolePermissionsDoc } from '../../domain/system/RolePermissions';
+import { RolePermissionsDoc, permissionsForRole } from '../../domain/system/RolePermissions';
+import { StaffAccount, StaffRole } from '../../domain/staff/StaffAccount';
 import { Principal, authenticate } from '../../infrastructure/auth/principal';
 import { findUserById } from '../../infrastructure/cosmos/user/CosmosUserRepository';
 import { getRolePermissions } from '../../infrastructure/cosmos/system/CosmosRolePermissionsRepository';
+import { findStaffAccountById } from '../../infrastructure/cosmos/staff/CosmosStaffAccountRepository';
 import { AuditEntry } from '../../domain/audit/AuditEntry';
 import { ApplicationError } from './types';
 
-// The 'staff' actor type (`{ actorType: 'staff'; actorId: string; role: StaffRole }`)
-// is added in step 25, once StaffAccount/StaffRole exist.
 export type ShopActor =
   | { actorType: 'owner'; actorId: string; role: 'owner' }
+  | { actorType: 'staff'; actorId: string; role: StaffRole }
   | { actorType: 'superadmin'; actorId: string; role: null };
 
 export interface ShopAccess {
@@ -21,12 +22,13 @@ export interface ShopAccess {
 export interface ShopAccessDeps {
   isSuperadmin(userId: string): Promise<boolean>;
   rolePermissions(): Promise<Pick<RolePermissionsDoc, 'manager' | 'staff'>>;
-  // findStaff(shopId: string, staffId: string): Promise<StaffAccount | null>;   // added in step 25
+  findStaff(shopId: string, staffId: string): Promise<StaffAccount | null>;
 }
 
 export const realDeps: ShopAccessDeps = {
   isSuperadmin: async (userId) => (await findUserById(userId))?.systemRole === 'superadmin',
   rolePermissions: getRolePermissions,
+  findStaff: findStaffAccountById,
 };
 
 export async function resolveShopAccess(
@@ -53,7 +55,18 @@ export async function resolveShopAccess(
     }
     return null;
   }
-  return null; // staff branch added in step 25
+
+  // Staff: the role is re-read from the database on every request (not
+  // trusted from the token), so a deactivation or role change takes effect
+  // immediately instead of waiting for the token to expire.
+  if (principal.shopId !== shop.id) return null;
+  const acc = await deps.findStaff(shop.id, principal.staffId);
+  if (!acc || !acc.isActive || acc.isDeleted || acc.shopId !== shop.id) return null;
+  const doc = await deps.rolePermissions();
+  return {
+    actor: { actorType: 'staff', actorId: acc.id, role: acc.role },
+    permissions: permissionsForRole(acc.role, doc),
+  };
 }
 
 export async function authorizeShopAction(

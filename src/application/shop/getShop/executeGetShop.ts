@@ -35,6 +35,14 @@ export async function executeGetShop(
       };
     }
 
+    if (principal.kind === 'staff' && principal.shopId !== shop.id) {
+      return {
+        ok: false,
+        code: 'FORBIDDEN',
+        error: 'You do not have access to this restaurant',
+      };
+    }
+
     const access = await resolveShopAccess(principal, shop, realDeps, { allowSuperadmin: true });
 
     const shopDto: GetShopResultDto = {

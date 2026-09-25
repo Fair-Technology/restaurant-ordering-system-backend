@@ -1,7 +1,7 @@
 import { HttpRequest } from '@azure/functions';
 import { findProductById } from '../../../infrastructure/cosmos/product/CosmosProductRepository';
 import { findCategoryById } from '../../../infrastructure/cosmos/category/CosmosCategoryRepository';
-import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
+import { authenticate } from '../../../infrastructure/auth/principal';
 import { GetProductRequestDto, GetProductResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 
@@ -35,7 +35,10 @@ export async function executeGetProduct(
   }
 
   try {
-    getUserIdFromAuth(httpRequest);
+    const principal = await authenticate(httpRequest);
+    if (principal.kind === 'staff' && principal.shopId !== request.shopId.trim()) {
+      return { ok: false, code: 'FORBIDDEN', error: 'You do not have access to this restaurant' };
+    }
 
     const product = await findProductById(
       request.productId.trim(),

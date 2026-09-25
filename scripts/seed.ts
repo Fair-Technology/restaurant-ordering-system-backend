@@ -3,6 +3,7 @@ import * as path from 'path';
 import { randomUUID } from 'crypto';
 import { seedTaxRatesForCountry } from '../src/application/_shared/countryTaxRates';
 import { periodKeyFor } from '../src/domain/usage/usagePeriod';
+import { hashPassword } from '../src/infrastructure/auth/passwordHashing';
 import { assertSeedTargetIsDev } from './seedGuard';
 
 // ── 1. Load env vars BEFORE Cosmos modules initialize ────────────────────────
@@ -36,7 +37,7 @@ const {
   checkoutSessionContainer,
   auditLogsContainer,
   systemConfigContainer,
-  database,
+  staffAccountsContainer,
 } = require('../src/infrastructure/cosmos/cosmosClient');
 const { createShop } =
   require('../src/infrastructure/cosmos/shop/CosmosShopRepository');
@@ -52,11 +53,9 @@ const { upsertSubscription } =
   require('../src/infrastructure/cosmos/subscription/CosmosSubscriptionRepository');
 const { upsertUsage } =
   require('../src/infrastructure/cosmos/usage/CosmosUsageRepository');
+const { createStaffAccount } =
+  require('../src/infrastructure/cosmos/staff/CosmosStaffAccountRepository');
 /* eslint-enable @typescript-eslint/no-var-requires */
-
-// staff_accounts has no repository yet (arrives in a later slice-1 step), so
-// it is reached by name, the same way the container itself was created.
-const staffAccountsContainer = database.container('staff_accounts');
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const now = () => new Date().toISOString();
@@ -952,6 +951,50 @@ async function seedSubscriptionsAndUsage(shops: any[]): Promise<void> {
   console.log(`   ✓ ${shops.length} subscription(s) and usage doc(s)`);
 }
 
+// ── 9. Seed a manager and a staff login on Pizzeria Kreuzberg ────────────────
+// Only runs when SEED_STAFF_PASSWORD is set, since a demo password should
+// never be baked into the repo — it's supplied at seed time from the vault.
+async function seedStaff(shops: any[]): Promise<void> {
+  const password = process.env.SEED_STAFF_PASSWORD;
+  if (!password) {
+    console.warn('⚠️  SEED_STAFF_PASSWORD not set — no staff logins seeded');
+    return;
+  }
+
+  const shop = shops.find((s) => s.key === 'Belconnen Pizza Palace'); // Pizzeria Kreuzberg
+  if (!shop) {
+    console.warn('⚠️  Pizzeria Kreuzberg not found — no staff logins seeded');
+    return;
+  }
+
+  console.log('\n👤 Creating staff logins on Pizzeria Kreuzberg...');
+  const passwordHash = await hashPassword(password);
+  const staffDefs: Array<{ username: string; role: 'manager' | 'staff' }> = [
+    { username: 'manager', role: 'manager' },
+    { username: 'kitchen', role: 'staff' },
+  ];
+  for (const def of staffDefs) {
+    const ts = now();
+    await createStaffAccount({
+      id: randomUUID(),
+      shopId: shop.id,
+      username: def.username,
+      displayName: null,
+      role: def.role,
+      passwordHash,
+      isActive: true,
+      isDeleted: false,
+      failedLoginCount: 0,
+      lockedUntil: null,
+      lastLoginAt: null,
+      createdBy: 'seed',
+      createdAt: ts,
+      updatedAt: ts,
+    });
+    console.log(`   ✓ ${shop.name} → ${def.username} (${def.role})`);
+  }
+}
+
 // ── main ──────────────────────────────────────────────────────────────────────
 async function main(): Promise<void> {
   console.log('🌱 Restaurant Ordering System — Seed Script');
@@ -963,6 +1006,7 @@ async function main(): Promise<void> {
   const categoryMap = await seedCategories(shops);
   await seedProducts(shops, categoryMap);
   await seedSubscriptionsAndUsage(shops);
+  await seedStaff(shops);
 
   console.log('\n✅ Seed complete!');
   console.log(`   ${shops.length} shops`);

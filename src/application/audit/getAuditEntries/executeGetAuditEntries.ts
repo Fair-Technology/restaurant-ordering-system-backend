@@ -2,6 +2,7 @@ import { HttpRequest } from '@azure/functions';
 import { findAuditEntriesByShop } from '../../../infrastructure/cosmos/audit/CosmosAuditRepository';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { findUserById } from '../../../infrastructure/cosmos/user/CosmosUserRepository';
+import { findStaffAccountById } from '../../../infrastructure/cosmos/staff/CosmosStaffAccountRepository';
 import { authorizeShopAction } from '../../_shared/shopAccess';
 import { resolveActorLabels } from '../../_shared/buildAuditEntry';
 import { GetAuditEntriesRequestDto, GetAuditEntriesResultDto } from './dtos';
@@ -41,7 +42,15 @@ export async function executeGetAuditEntries(
       }),
     );
     const owners = new Map(ownerEntries);
-    const staff = new Map<string, string | null>(); // filled in step 25
+
+    const staffIds = [...new Set(entries.filter((e) => e.actorType === 'staff').map((e) => e.actorId))];
+    const staffEntries = await Promise.all(
+      staffIds.map(async (id): Promise<[string, string | null]> => {
+        const acc = await findStaffAccountById(request.shopId.trim(), id);
+        return [id, acc && !acc.isDeleted ? (acc.displayName ?? acc.username) : null];
+      }),
+    );
+    const staff = new Map(staffEntries);
 
     const actorLabels = resolveActorLabels(entries, { owners, staff });
 

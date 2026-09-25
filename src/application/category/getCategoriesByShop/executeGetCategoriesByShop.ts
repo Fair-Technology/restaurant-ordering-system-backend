@@ -1,6 +1,6 @@
 import { HttpRequest } from '@azure/functions';
 import { findCategoriesByShopId } from '../../../infrastructure/cosmos/category/CosmosCategoryRepository';
-import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
+import { authenticate } from '../../../infrastructure/auth/principal';
 import {
   GetCategoriesByShopRequestDto,
   GetCategoriesByShopResultDto,
@@ -26,7 +26,10 @@ export async function executeGetCategoriesByShop(
   }
 
   try {
-    getUserIdFromAuth(httpRequest);
+    const principal = await authenticate(httpRequest);
+    if (principal.kind === 'staff' && principal.shopId !== request.shopId.trim()) {
+      return { ok: false, code: 'FORBIDDEN', error: 'You do not have access to this restaurant' };
+    }
 
     const categories = await findCategoriesByShopId(request.shopId.trim());
 
