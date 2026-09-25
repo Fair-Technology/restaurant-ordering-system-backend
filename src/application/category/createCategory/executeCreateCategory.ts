@@ -4,10 +4,12 @@ import {
   findCategoriesByShopId,
 } from '../../../infrastructure/cosmos/category/CosmosCategoryRepository';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
+import { getReferenceLists } from '../../../infrastructure/cosmos/reference/CosmosReferenceListsRepository';
 import { authorizeShopAction, toAuditActor } from '../../_shared/shopAccess';
 import { CreateCategoryRequestDto, CreateCategoryResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 import { Category } from '../../../domain/category/Category';
+import { normaliseTranslations } from '../../../domain/menu/menuLanguage';
 import { logAudit } from '../../_shared/auditHelpers';
 
 export async function executeCreateCategory(
@@ -60,6 +62,20 @@ export async function executeCreateCategory(
       };
     }
 
+    const refs = await getReferenceLists(shop.countryCode ?? '');
+
+    if (request.taxClassId !== undefined) {
+      const isActive = refs.taxClasses.some((c) => c.id === request.taxClassId && c.isActive);
+      if (!isActive) {
+        return { ok: false, code: 'INVALID_INPUT', error: `Unknown tax class: ${request.taxClassId}` };
+      }
+    }
+
+    const nameTranslations = normaliseTranslations(request.nameTranslations, 120);
+    if (typeof nameTranslations === 'string') {
+      return { ok: false, code: 'INVALID_INPUT', error: nameTranslations };
+    }
+
     const now = new Date().toISOString();
     const categoryId = crypto.randomUUID();
 
@@ -67,8 +83,10 @@ export async function executeCreateCategory(
       id: categoryId,
       shopId: request.shopId.trim(),
       name: request.name.trim(),
+      nameTranslations,
       sortOrder: request.sortOrder || 0,
       icon: request.icon,
+      taxClassId: request.taxClassId ?? refs.defaultTaxClassId,
       isDeleted: false,
       createdAt: now,
       updatedAt: now,
@@ -89,8 +107,10 @@ export async function executeCreateCategory(
       id: createdCategory.id,
       shopId: createdCategory.shopId,
       name: createdCategory.name,
+      nameTranslations: createdCategory.nameTranslations ?? {},
       sortOrder: createdCategory.sortOrder,
       icon: createdCategory.icon,
+      taxClassId: createdCategory.taxClassId ?? null,
       isDeleted: createdCategory.isDeleted,
       createdAt: createdCategory.createdAt,
       updatedAt: createdCategory.updatedAt,
