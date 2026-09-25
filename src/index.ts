@@ -78,6 +78,10 @@ import './functions/systemConfig/updateSystemConfig/index';
 import './functions/systemConfig/getRolePermissions/index';
 import './functions/systemConfig/updateRolePermissions/index';
 
+// Reference list endpoints (allergens, additives, tax classes/rates)
+import './functions/reference/getReferenceLists/index';
+import './functions/reference/updateReferenceLists/index';
+
 // User admin endpoints
 import './functions/user/updateUserLimits/index';
 
