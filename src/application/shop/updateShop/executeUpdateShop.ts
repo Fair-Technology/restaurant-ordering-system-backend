@@ -13,6 +13,7 @@ import { Shop } from '../../../domain/shop/Shop';
 import { validateAccentColor } from '../../_shared/contrast';
 import { menuLanguagesOf, validateMenuLanguagesChange } from '../../../domain/menu/menuLanguage';
 import { MenuLanguage } from '../../../domain/reference/ReferenceLists';
+import { isOnMenu } from '../../../domain/product/Product';
 
 async function validateGoLiveCriteria(shop: Shop): Promise<string | null> {
   const addr = shop.address ?? {};
@@ -44,8 +45,8 @@ async function validateGoLiveCriteria(shop: Shop): Promise<string | null> {
     findProductsByShopId(shop.id),
     findCategoriesByShopId(shop.id),
   ]);
-  if (!products.some((p) => p.isAvailable && !p.isDeleted)) {
-    return 'At least one available product is required';
+  if (!products.some((p) => isOnMenu(p))) {
+    return 'At least one dish with declared allergens and additives is required';
   }
   if (!categories.some((c) => !c.isDeleted)) {
     return 'At least one category is required';

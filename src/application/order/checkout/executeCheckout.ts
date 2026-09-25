@@ -7,6 +7,7 @@ import { ApplicationResult } from '../../_shared/types';
 import { isProductScheduleActive } from '../../_shared/scheduleUtils';
 import { FULFILMENT_MODES, OrderItem } from '../../../domain/order/Order';
 import { CheckoutSession } from '../../../domain/order/CheckoutSession';
+import { isDeclared } from '../../../domain/product/Product';
 
 function getStripe(): Stripe {
   const key = process.env.STRIPE_SECRET_KEY;
@@ -111,6 +112,13 @@ export async function executeCheckout(
         };
       }
       if (!product.isAvailable) {
+        return {
+          ok: false,
+          code: 'INVALID_INPUT',
+          error: `Product is not available: ${product.name}`,
+        };
+      }
+      if (!isDeclared(product)) {
         return {
           ok: false,
           code: 'INVALID_INPUT',

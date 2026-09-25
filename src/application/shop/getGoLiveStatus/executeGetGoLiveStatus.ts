@@ -14,6 +14,7 @@ import {
   GoLiveCriterion,
 } from './dtos';
 import { Shop } from '../../../domain/shop/Shop';
+import { isOnMenu } from '../../../domain/product/Product';
 
 function buildCriteria(
   shop: Shop,
@@ -41,7 +42,7 @@ function buildCriteria(
     {
       key: 'has_products',
       met: hasProducts,
-      description: 'Shop has at least one available product',
+      description: 'Shop has at least one available dish with allergens and additives declared',
     },
     {
       key: 'has_categories',
@@ -118,7 +119,7 @@ export async function executeGetGoLiveStatus(
       findCategoriesByShopId(shop.id),
     ]);
 
-    const hasProducts = products.some((p) => p.isAvailable && !p.isDeleted);
+    const hasProducts = products.some((p) => isOnMenu(p));
     const hasCategories = categories.some((c) => !c.isDeleted);
 
     const criteria = buildCriteria(shop, hasProducts, hasCategories);
