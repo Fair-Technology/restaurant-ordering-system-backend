@@ -75,6 +75,8 @@ import './functions/usage/reconcileShopUsage/index';
 // System config endpoints
 import './functions/systemConfig/getSystemConfig/index';
 import './functions/systemConfig/updateSystemConfig/index';
+import './functions/systemConfig/getRolePermissions/index';
+import './functions/systemConfig/updateRolePermissions/index';
 
 // User admin endpoints
 import './functions/user/updateUserLimits/index';

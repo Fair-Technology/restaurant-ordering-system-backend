@@ -1,12 +1,11 @@
 import { HttpRequest } from '@azure/functions';
 import Stripe from 'stripe';
-import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import {
   findSubscriptionByShopId,
   upsertSubscription,
 } from '../../../infrastructure/cosmos/subscription/CosmosSubscriptionRepository';
-import { checkIsOwner } from '../../_shared/permissions';
+import { authorizeShopAction, toAuditActor } from '../../_shared/shopAccess';
 import { ApplicationResult } from '../../_shared/types';
 import { logAudit } from '../../_shared/auditHelpers';
 import { ResumeShopSubscriptionResultDto } from './dtos';
@@ -20,15 +19,13 @@ export async function executeResumeShopSubscription(
   }
 
   try {
-    const userId = await getUserIdFromAuth(httpRequest);
-
     const shop = await findShopById(shopId);
     if (!shop) {
       return { ok: false, code: 'NOT_FOUND', error: 'Shop not found' };
     }
 
-    const ownerError = checkIsOwner(shop, userId);
-    if (ownerError) return ownerError;
+    const access = await authorizeShopAction(httpRequest, shop, 'manage_billing');
+    if (!access.ok) return access;
 
     const subscription = await findSubscriptionByShopId(shopId);
     if (!subscription?.billingSubscriptionId) {
@@ -57,8 +54,7 @@ export async function executeResumeShopSubscription(
     await upsertSubscription(updated);
 
     await logAudit({
-      actorType: 'owner',
-      actorId: userId,
+      ...toAuditActor(access.actor),
       action: 'subscription.cancelResumed',
       entityType: 'subscription',
       entityId: subscription.id,

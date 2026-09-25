@@ -1,4 +1,4 @@
-import { ShopBranding, ShopTaxRate } from '../../../domain/shop/Shop';
+import { ShopBranding, ShopPermission, ShopRoleKey, ShopTaxRate } from '../../../domain/shop/Shop';
 
 export interface GetShopRequestDto {
   shopId: string;
@@ -37,11 +37,8 @@ export interface GetShopResultDto {
     end: string;
     reason?: string;
   }>;
-  members: Array<{
-    userId: string;
-    role: string;
-    isActive: boolean;
-  }>;
+  callerRole: ShopRoleKey | 'superadmin' | null;
+  callerPermissions: ShopPermission[];
   countryCode: string;
   taxRates: ShopTaxRate[];
   branding: ShopBranding | null;

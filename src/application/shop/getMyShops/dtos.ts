@@ -35,11 +35,6 @@ export interface ShopSummaryDto {
     end: string;
     reason?: string;
   }>;
-  members: Array<{
-    userId: string;
-    role: string;
-    isActive: boolean;
-  }>;
   branding: ShopBranding | null;
   pendingNameChange: {
     requestedName: string;

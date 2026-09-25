@@ -29,7 +29,6 @@ export async function executeGetMyShops(
       address: shop.address,
       openingHours: shop.openingHours,
       closures: shop.closures,
-      members: shop.members,
       branding: shop.branding ?? null,
       pendingNameChange: shop.pendingNameChange ?? null,
       createdAt: shop.createdAt,

@@ -5,10 +5,10 @@ import {
 } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { findProductsByShopId } from '../../../infrastructure/cosmos/product/CosmosProductRepository';
 import { findCategoriesByShopId } from '../../../infrastructure/cosmos/category/CosmosCategoryRepository';
-import { checkShopPermission } from '../../_shared/permissions';
+import { authorizeShopAction, toAuditActor } from '../../_shared/shopAccess';
 import { UpdateShopRequestDto, UpdateShopResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
-import { getActorFromAuth, diffFields, logAudit } from '../../_shared/auditHelpers';
+import { diffFields, logAudit } from '../../_shared/auditHelpers';
 import { Shop } from '../../../domain/shop/Shop';
 
 async function validateGoLiveCriteria(shop: Shop): Promise<string | null> {
@@ -144,9 +144,6 @@ export async function executeUpdateShop(
   }
 
   try {
-    const actor = await getActorFromAuth(httpRequest);
-    const userId = actor.userId;
-
     const shop = await findShopById(request.shopId.trim());
 
     if (!shop) {
@@ -157,8 +154,8 @@ export async function executeUpdateShop(
       };
     }
 
-    const permError = checkShopPermission(shop, userId, 'manage_shop');
-    if (permError) return permError;
+    const access = await authorizeShopAction(httpRequest, shop, 'manage_shop');
+    if (!access.ok) return access;
 
     // Gate going live behind all criteria
     if (request.isPaused === false) {
@@ -199,8 +196,7 @@ export async function executeUpdateShop(
     );
     await logAudit({
       shopId: result.id,
-      actorType: 'owner',
-      actorId: actor.userId,
+      ...toAuditActor(access.actor),
       action: 'shop.update',
       entityType: 'shop',
       entityId: result.id,

@@ -2,9 +2,7 @@ import { HttpRequest } from '@azure/functions';
 import { findAuditEntriesByShop } from '../../../infrastructure/cosmos/audit/CosmosAuditRepository';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { findUserById } from '../../../infrastructure/cosmos/user/CosmosUserRepository';
-import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
-import { verifySuperAdminToken } from '../../../infrastructure/auth/superAdminAuthHelpers';
-import { checkIsOwner } from '../../_shared/permissions';
+import { authorizeShopAction } from '../../_shared/shopAccess';
 import { resolveActorLabels } from '../../_shared/buildAuditEntry';
 import { GetAuditEntriesRequestDto, GetAuditEntriesResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
@@ -26,20 +24,8 @@ export async function executeGetAuditEntries(
       return { ok: false, code: 'NOT_FOUND', error: 'Shop not found' };
     }
 
-    // Accept either a valid superadmin JWT or a regular owner JWT
-    const superAdminId = await verifySuperAdminToken(httpRequest);
-
-    if (!superAdminId) {
-      let userId: string;
-      try {
-        userId = await getUserIdFromAuth(httpRequest);
-      } catch {
-        return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
-      }
-
-      const ownerError = checkIsOwner(shop, userId);
-      if (ownerError) return ownerError;
-    }
+    const access = await authorizeShopAction(httpRequest, shop, 'view_audit', { allowSuperadmin: true });
+    if (!access.ok) return access;
 
     const { entries, total } = await findAuditEntriesByShop(
       request.shopId.trim(),

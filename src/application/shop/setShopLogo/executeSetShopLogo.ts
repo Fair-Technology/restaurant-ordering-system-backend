@@ -3,11 +3,11 @@ import {
   findShopById,
   updateShop as updateShopInRepo,
 } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
-import { checkShopPermission } from '../../_shared/permissions';
+import { authorizeShopAction, toAuditActor } from '../../_shared/shopAccess';
 import { deleteBlob, extractBlobPath } from '../../../infrastructure/storage/blobStorageHelpers';
 import { SetShopLogoRequestDto, SetShopLogoResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
-import { getActorFromAuth, logAudit } from '../../_shared/auditHelpers';
+import { logAudit } from '../../_shared/auditHelpers';
 
 export async function executeSetShopLogo(
   request: SetShopLogoRequestDto,
@@ -26,16 +26,13 @@ export async function executeSetShopLogo(
   }
 
   try {
-    const actor = await getActorFromAuth(httpRequest);
-    const userId = actor.userId;
-
     const shop = await findShopById(request.shopId.trim());
     if (!shop) {
       return { ok: false, code: 'NOT_FOUND', error: 'Shop not found' };
     }
 
-    const permError = checkShopPermission(shop, userId, 'manage_shop');
-    if (permError) return permError;
+    const access = await authorizeShopAction(httpRequest, shop, 'manage_shop');
+    if (!access.ok) return access;
 
     // Delete old logo blob if it exists and differs from the new URL
     const oldLogoUrl = shop.branding?.logoUrl;
@@ -65,8 +62,7 @@ export async function executeSetShopLogo(
 
     await logAudit({
       shopId: result.id,
-      actorType: 'owner',
-      actorId: actor.userId,
+      ...toAuditActor(access.actor),
       action: 'shop.logo',
       entityType: 'shop',
       entityId: result.id,

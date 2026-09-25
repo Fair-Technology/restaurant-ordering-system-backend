@@ -4,11 +4,11 @@ import {
   findCategoriesByShopId,
 } from '../../../infrastructure/cosmos/category/CosmosCategoryRepository';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
-import { checkShopPermission } from '../../_shared/permissions';
+import { authorizeShopAction, toAuditActor } from '../../_shared/shopAccess';
 import { CreateCategoryRequestDto, CreateCategoryResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 import { Category } from '../../../domain/category/Category';
-import { getActorFromAuth, logAudit } from '../../_shared/auditHelpers';
+import { logAudit } from '../../_shared/auditHelpers';
 
 export async function executeCreateCategory(
   request: CreateCategoryRequestDto,
@@ -40,16 +40,13 @@ export async function executeCreateCategory(
   }
 
   try {
-    const actor = await getActorFromAuth(httpRequest);
-    const userId = actor.userId;
-
     const shop = await findShopById(request.shopId.trim());
     if (!shop) {
       return { ok: false, code: 'NOT_FOUND', error: 'Shop not found' };
     }
 
-    const permError = checkShopPermission(shop, userId, 'manage_products');
-    if (permError) return permError;
+    const access = await authorizeShopAction(httpRequest, shop, 'manage_menu');
+    if (!access.ok) return access;
 
     const existing = await findCategoriesByShopId(request.shopId.trim());
     const duplicate = existing.find(
@@ -81,8 +78,7 @@ export async function executeCreateCategory(
 
     await logAudit({
       shopId: createdCategory.shopId,
-      actorType: 'owner',
-      actorId: actor.userId,
+      ...toAuditActor(access.actor),
       action: 'category.create',
       entityType: 'category',
       entityId: createdCategory.id,

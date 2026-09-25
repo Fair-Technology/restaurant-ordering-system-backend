@@ -6,8 +6,7 @@ import {
 } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { findProductsByShopId } from '../../../infrastructure/cosmos/product/CosmosProductRepository';
 import { findCategoriesByShopId } from '../../../infrastructure/cosmos/category/CosmosCategoryRepository';
-import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
-import { checkIsOwner } from '../../_shared/permissions';
+import { authorizeShopAction } from '../../_shared/shopAccess';
 import { ApplicationResult } from '../../_shared/types';
 import {
   GetGoLiveStatusRequestDto,
@@ -81,15 +80,13 @@ export async function executeGetGoLiveStatus(
   }
 
   try {
-    const userId = await getUserIdFromAuth(httpRequest);
-
     let shop = await findShopById(request.shopId.trim());
     if (!shop) {
       return { ok: false, code: 'NOT_FOUND', error: 'Shop not found' };
     }
 
-    const ownerError = checkIsOwner(shop, userId);
-    if (ownerError) return ownerError;
+    const access = await authorizeShopAction(httpRequest, shop, 'manage_shop');
+    if (!access.ok) return access;
 
     // Sync Stripe Connect status directly — don't rely solely on webhooks
     if (shop.stripe?.connectAccountId) {

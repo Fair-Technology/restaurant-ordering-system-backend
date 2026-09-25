@@ -1,6 +1,7 @@
 import { HttpRequest } from '@azure/functions';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
-import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
+import { authenticate } from '../../../infrastructure/auth/principal';
+import { realDeps, resolveShopAccess } from '../../_shared/shopAccess';
 import { GetShopRequestDto, GetShopResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 
@@ -22,7 +23,7 @@ export async function executeGetShop(
   }
 
   try {
-    await getUserIdFromAuth(httpRequest);
+    const principal = await authenticate(httpRequest);
 
     const shop = await findShopById(request.shopId.trim());
 
@@ -33,6 +34,8 @@ export async function executeGetShop(
         error: 'Shop not found',
       };
     }
+
+    const access = await resolveShopAccess(principal, shop, realDeps, { allowSuperadmin: true });
 
     const shopDto: GetShopResultDto = {
       id: shop.id,
@@ -50,7 +53,8 @@ export async function executeGetShop(
       address: shop.address,
       openingHours: shop.openingHours,
       closures: shop.closures,
-      members: shop.members,
+      callerRole: access ? (access.actor.role ?? 'superadmin') : null,
+      callerPermissions: access?.permissions ?? [],
       countryCode: shop.countryCode ?? '',
       taxRates: shop.taxRates ?? [],
       branding: shop.branding ?? null,

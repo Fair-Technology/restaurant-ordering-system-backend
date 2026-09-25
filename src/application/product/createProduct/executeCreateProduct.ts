@@ -2,11 +2,11 @@ import { HttpRequest } from '@azure/functions';
 import { createProduct as createProductInRepo } from '../../../infrastructure/cosmos/product/CosmosProductRepository';
 import { findCategoryById } from '../../../infrastructure/cosmos/category/CosmosCategoryRepository';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
-import { checkShopPermission } from '../../_shared/permissions';
+import { authorizeShopAction, toAuditActor } from '../../_shared/shopAccess';
 import { CreateProductRequestDto, CreateProductResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 import { Product } from '../../../domain/product/Product';
-import { getActorFromAuth, logAudit } from '../../_shared/auditHelpers';
+import { logAudit } from '../../_shared/auditHelpers';
 
 export async function executeCreateProduct(
   request: CreateProductRequestDto,
@@ -117,16 +117,13 @@ export async function executeCreateProduct(
   }
 
   try {
-    const actor = await getActorFromAuth(httpRequest);
-    const userId = actor.userId;
-
     const shop = await findShopById(request.shopId.trim());
     if (!shop) {
       return { ok: false, code: 'NOT_FOUND', error: 'Shop not found' };
     }
 
-    const permError = checkShopPermission(shop, userId, 'manage_products');
-    if (permError) return permError;
+    const access = await authorizeShopAction(httpRequest, shop, 'manage_menu');
+    if (!access.ok) return access;
 
     const now = new Date().toISOString();
     const productId = crypto.randomUUID();
@@ -156,8 +153,7 @@ export async function executeCreateProduct(
 
     await logAudit({
       shopId: createdProduct.shopId,
-      actorType: 'owner',
-      actorId: actor.userId,
+      ...toAuditActor(access.actor),
       action: 'product.create',
       entityType: 'product',
       entityId: createdProduct.id,

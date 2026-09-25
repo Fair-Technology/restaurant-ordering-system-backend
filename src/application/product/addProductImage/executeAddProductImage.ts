@@ -3,8 +3,7 @@ import {
   updateProduct as updateProductInRepo,
 } from '../../../infrastructure/cosmos/product/CosmosProductRepository';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
-import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
-import { checkShopPermission } from '../../_shared/permissions';
+import { authorizeShopAction } from '../../_shared/shopAccess';
 import { AddProductImageRequestDto, AddProductImageResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 import { ProductImage } from '../../../domain/product/Product';
@@ -64,15 +63,13 @@ export async function executeAddProductImage(
   }
 
   try {
-    const userId = await getUserIdFromAuth(httpRequest);
-
     const shop = await findShopById(request.shopId.trim());
     if (!shop) {
       return { ok: false, code: 'NOT_FOUND', error: 'Shop not found' };
     }
 
-    const permError = checkShopPermission(shop, userId, 'manage_products');
-    if (permError) return permError;
+    const access = await authorizeShopAction(httpRequest, shop, 'manage_menu');
+    if (!access.ok) return access;
 
     const product = await findProductById(request.productId.trim(), request.shopId.trim());
     if (!product) {

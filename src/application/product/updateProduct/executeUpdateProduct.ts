@@ -5,11 +5,11 @@ import {
 } from '../../../infrastructure/cosmos/product/CosmosProductRepository';
 import { findCategoryById } from '../../../infrastructure/cosmos/category/CosmosCategoryRepository';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
-import { checkShopPermission } from '../../_shared/permissions';
+import { authorizeShopAction, toAuditActor } from '../../_shared/shopAccess';
 import { deleteBlob, extractBlobPath } from '../../../infrastructure/storage/blobStorageHelpers';
 import { UpdateProductRequestDto, UpdateProductResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
-import { getActorFromAuth, diffFields, logAudit } from '../../_shared/auditHelpers';
+import { diffFields, logAudit } from '../../_shared/auditHelpers';
 
 export async function executeUpdateProduct(
   request: UpdateProductRequestDto,
@@ -41,9 +41,6 @@ export async function executeUpdateProduct(
   }
 
   try {
-    const actor = await getActorFromAuth(httpRequest);
-    const userId = actor.userId;
-
     const product = await findProductById(
       request.productId.trim(),
       request.shopId.trim(),
@@ -62,8 +59,8 @@ export async function executeUpdateProduct(
       return { ok: false, code: 'NOT_FOUND', error: 'Shop not found' };
     }
 
-    const permError = checkShopPermission(shop, userId, 'manage_products');
-    if (permError) return permError;
+    const access = await authorizeShopAction(httpRequest, shop, 'manage_menu');
+    if (!access.ok) return access;
 
     // Guard: cannot set isAvailable=true on a product with no categories
     if (request.isAvailable === true) {
@@ -204,8 +201,7 @@ export async function executeUpdateProduct(
     );
     await logAudit({
       shopId: result.shopId,
-      actorType: 'owner',
-      actorId: actor.userId,
+      ...toAuditActor(access.actor),
       action: 'product.update',
       entityType: 'product',
       entityId: result.id,

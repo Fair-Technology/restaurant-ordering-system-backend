@@ -4,10 +4,10 @@ import {
   updateCategory as updateCategoryInRepo,
 } from '../../../infrastructure/cosmos/category/CosmosCategoryRepository';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
-import { checkShopPermission } from '../../_shared/permissions';
+import { authorizeShopAction, toAuditActor } from '../../_shared/shopAccess';
 import { UpdateCategoryRequestDto, UpdateCategoryResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
-import { getActorFromAuth, diffFields, logAudit } from '../../_shared/auditHelpers';
+import { diffFields, logAudit } from '../../_shared/auditHelpers';
 
 export async function executeUpdateCategory(
   request: UpdateCategoryRequestDto,
@@ -39,9 +39,6 @@ export async function executeUpdateCategory(
   }
 
   try {
-    const actor = await getActorFromAuth(httpRequest);
-    const userId = actor.userId;
-
     const existingCategory = await findCategoryById(
       request.categoryId.trim(),
       request.shopId.trim(),
@@ -60,8 +57,8 @@ export async function executeUpdateCategory(
       return { ok: false, code: 'NOT_FOUND', error: 'Shop not found' };
     }
 
-    const permError = checkShopPermission(shop, userId, 'manage_products');
-    if (permError) return permError;
+    const access = await authorizeShopAction(httpRequest, shop, 'manage_menu');
+    if (!access.ok) return access;
 
     const now = new Date().toISOString();
 
@@ -86,8 +83,7 @@ export async function executeUpdateCategory(
     );
     await logAudit({
       shopId: savedCategory.shopId,
-      actorType: 'owner',
-      actorId: actor.userId,
+      ...toAuditActor(access.actor),
       action: 'category.update',
       entityType: 'category',
       entityId: savedCategory.id,

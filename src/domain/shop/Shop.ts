@@ -11,7 +11,24 @@ export interface ShopBranding {
   colors: ShopBrandingColors;
 }
 
-export type ShopPermission = 'view_orders' | 'manage_products' | 'manage_shop';
+export type ShopRoleKey = 'owner' | 'manager' | 'staff';
+
+export type ShopPermission =
+  | 'view_orders'
+  | 'manage_menu'
+  | 'manage_shop'
+  | 'manage_staff'
+  | 'manage_billing'
+  | 'view_audit';
+
+export const ALL_SHOP_PERMISSIONS: readonly ShopPermission[] = [
+  'view_orders',
+  'manage_menu',
+  'manage_shop',
+  'manage_staff',
+  'manage_billing',
+  'view_audit',
+];
 
 export interface ShopTaxRate {
   id: string; // UUID

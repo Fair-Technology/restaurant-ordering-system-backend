@@ -4,11 +4,11 @@ import {
   updateProduct,
 } from '../../../infrastructure/cosmos/product/CosmosProductRepository';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
-import { checkShopPermission } from '../../_shared/permissions';
+import { authorizeShopAction, toAuditActor } from '../../_shared/shopAccess';
 import { deleteBlob, extractBlobPath } from '../../../infrastructure/storage/blobStorageHelpers';
 import { DeleteProductRequestDto, DeleteProductResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
-import { getActorFromAuth, logAudit } from '../../_shared/auditHelpers';
+import { logAudit } from '../../_shared/auditHelpers';
 
 export async function executeDeleteProduct(
   request: DeleteProductRequestDto,
@@ -40,9 +40,6 @@ export async function executeDeleteProduct(
   }
 
   try {
-    const actor = await getActorFromAuth(httpRequest);
-    const userId = actor.userId;
-
     const product = await findProductById(
       request.productId.trim(),
       request.shopId.trim(),
@@ -61,8 +58,8 @@ export async function executeDeleteProduct(
       return { ok: false, code: 'NOT_FOUND', error: 'Shop not found' };
     }
 
-    const permError = checkShopPermission(shop, userId, 'manage_products');
-    if (permError) return permError;
+    const access = await authorizeShopAction(httpRequest, shop, 'manage_menu');
+    if (!access.ok) return access;
 
     // Soft delete by setting isDeleted flag
     const deletedProduct = {
@@ -75,8 +72,7 @@ export async function executeDeleteProduct(
 
     await logAudit({
       shopId: product.shopId,
-      actorType: 'owner',
-      actorId: actor.userId,
+      ...toAuditActor(access.actor),
       action: 'product.delete',
       entityType: 'product',
       entityId: product.id,

@@ -4,9 +4,9 @@ import {
   findShopBySlug,
   updateShop,
 } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
-import { checkIsOwner } from '../../_shared/permissions';
+import { authorizeShopAction, toAuditActor } from '../../_shared/shopAccess';
 import { generateSlugFromName } from '../createShop/slugHelpers';
-import { getActorFromAuth, logAudit } from '../../_shared/auditHelpers';
+import { logAudit } from '../../_shared/auditHelpers';
 import { ApplicationResult } from '../../_shared/types';
 import { RequestShopNameChangeRequestDto, RequestShopNameChangeResultDto } from './dtos';
 
@@ -27,16 +27,14 @@ export async function executeRequestShopNameChange(
   }
 
   try {
-    const actor = await getActorFromAuth(httpRequest);
-    const userId = actor.userId;
-
     const shop = await findShopById(request.shopId.trim());
     if (!shop) {
       return { ok: false, code: 'NOT_FOUND', error: 'Shop not found' };
     }
 
-    const ownerError = checkIsOwner(shop, userId);
-    if (ownerError) return ownerError;
+    const access = await authorizeShopAction(httpRequest, shop, 'manage_shop');
+    if (!access.ok) return access;
+    const userId = access.actor.actorId;
 
     if (shop.pendingNameChange) {
       return { ok: false, code: 'CONFLICT', error: 'A name change request is already pending' };
@@ -74,8 +72,7 @@ export async function executeRequestShopNameChange(
 
     await logAudit({
       shopId: result.id,
-      actorType: 'owner',
-      actorId: actor.userId,
+      ...toAuditActor(access.actor),
       action: 'shop.nameChange.requested',
       entityType: 'shop',
       entityId: result.id,

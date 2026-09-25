@@ -5,9 +5,7 @@ import {
 } from '../../../infrastructure/cosmos/order/CosmosOrderRepository';
 import { deriveDisplayState } from '../../../domain/order/orderLifecycle';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
-import { findUserById } from '../../../infrastructure/cosmos/user/CosmosUserRepository';
-import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
-import { checkShopPermission } from '../../_shared/permissions';
+import { authorizeShopAction } from '../../_shared/shopAccess';
 import {
   GetOrdersByShopRequestDto,
   GetOrdersByShopResultDto,
@@ -42,8 +40,6 @@ export async function executeGetOrdersByShop(
   }
 
   try {
-    const userId = await getUserIdFromAuth(httpRequest);
-
     const shopId = request.shopId.trim();
 
     const shop = await findShopById(shopId);
@@ -51,11 +47,8 @@ export async function executeGetOrdersByShop(
       return { ok: false, code: 'NOT_FOUND', error: 'Shop not found' };
     }
 
-    const user = await findUserById(userId);
-    if (user?.systemRole !== 'superadmin') {
-      const permError = checkShopPermission(shop, userId, 'view_orders');
-      if (permError) return permError;
-    }
+    const access = await authorizeShopAction(httpRequest, shop, 'view_orders', { allowSuperadmin: true });
+    if (!access.ok) return access;
 
     const [orders, total] = await Promise.all([
       findOrdersByShopIdPaginated(shopId, page, pageSize),

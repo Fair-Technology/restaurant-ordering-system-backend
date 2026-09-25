@@ -36,11 +36,6 @@ export interface GetShopBySlugResultDto {
     end: string;
     reason?: string;
   }>;
-  members: Array<{
-    userId: string;
-    role: string;
-    isActive: boolean;
-  }>;
   branding: ShopBranding | null;
   createdAt: string;
   updatedAt: string;
