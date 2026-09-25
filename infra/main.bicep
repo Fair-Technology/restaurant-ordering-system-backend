@@ -35,19 +35,23 @@ var databaseName = '${prefix}-db'
 
 // Containers and their partition keys. Products and categories partition by
 // shop so one restaurant's menu reads as a single partition; everything else
-// is keyed by its own id.
+// is keyed by its own id. Staff accounts partition by shop too, so one
+// restaurant's staff reads as a single partition, with a unique key on
+// username scoped to that partition.
 var containers = [
-  { name: 'shops', pk: '/id' }
-  { name: 'products', pk: '/shopId' }
-  { name: 'categories', pk: '/shopId' }
-  { name: 'orders', pk: '/id' }
-  { name: 'checkout_sessions', pk: '/id' }
-  { name: 'users', pk: '/id' }
-  { name: 'plans', pk: '/id' }
-  { name: 'plan_pricing', pk: '/id' }
-  { name: 'shop_subscriptions', pk: '/id' }
-  { name: 'shop_usage', pk: '/id' }
-  { name: 'auditLogs', pk: '/id' }
+  { name: 'shops', pk: '/id', uniqueKeys: [] }
+  { name: 'products', pk: '/shopId', uniqueKeys: [] }
+  { name: 'categories', pk: '/shopId', uniqueKeys: [] }
+  { name: 'orders', pk: '/id', uniqueKeys: [] }
+  { name: 'checkout_sessions', pk: '/id', uniqueKeys: [] }
+  { name: 'users', pk: '/id', uniqueKeys: [] }
+  { name: 'plans', pk: '/id', uniqueKeys: [] }
+  { name: 'plan_pricing', pk: '/id', uniqueKeys: [] }
+  { name: 'shop_subscriptions', pk: '/id', uniqueKeys: [] }
+  { name: 'shop_usage', pk: '/id', uniqueKeys: [] }
+  { name: 'auditLogs', pk: '/id', uniqueKeys: [] }
+  { name: 'system_config', pk: '/id', uniqueKeys: [] }
+  { name: 'staff_accounts', pk: '/shopId', uniqueKeys: [ '/username' ] }
 ]
 
 var staticApps = ['storefront', 'admin', 'superadmin']
@@ -82,6 +86,7 @@ resource cosmosContainers 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/co
     resource: {
       id: c.name
       partitionKey: { paths: [ c.pk ], kind: 'Hash' }
+      uniqueKeyPolicy: empty(c.uniqueKeys) ? null : { uniqueKeys: [ { paths: c.uniqueKeys } ] }
     }
   }
 }]

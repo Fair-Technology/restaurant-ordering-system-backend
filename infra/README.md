@@ -30,7 +30,8 @@ az functionapp config appsettings set \
   --settings COSMOS_DB_KEY=… STORAGE_ACCOUNT_KEY=… \
              ENTRA_TENANT_ID=… ENTRA_CLIENT_ID=… ENTRA_TENANT_NAME=… \
              STRIPE_SECRET_KEY=… STRIPE_WEBHOOK_SECRET=… \
-             STRIPE_CONNECT_WEBHOOK_SECRET=…
+             STRIPE_CONNECT_WEBHOOK_SECRET=… \
+             STAFF_JWT_SECRET=…
 ```
 
 **2. The GitHub deployment credential.** The identity exists, but what it
