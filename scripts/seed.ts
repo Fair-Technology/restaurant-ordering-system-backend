@@ -5,7 +5,7 @@ import { periodKeyFor } from '../src/domain/usage/usagePeriod';
 import { hashPassword } from '../src/infrastructure/auth/passwordHashing';
 import { assertSeedTargetIsDev } from './seedGuard';
 import { legacySpecialInfoToMenuFields } from './menus/legacySpecialInfo';
-import { MA_PASTA_MENU, MA_PASTA_SHOP, mapPrintedCodes } from './menus/mapasta';
+import { MA_PASTA_MENU, MA_PASTA_SHOP, resolveDishAllergensAndAdditives } from './menus/mapasta';
 import { DE_REFERENCE_LISTS } from '../src/domain/reference/ReferenceLists';
 
 // ── 1. Load env vars BEFORE Cosmos modules initialize ────────────────────────
@@ -1088,7 +1088,7 @@ async function seedMaPasta(
     });
 
     for (const dish of category.dishes) {
-      const { allergenIds, additiveIds } = mapPrintedCodes(dish.printedCodes);
+      const { allergenIds, additiveIds } = resolveDishAllergensAndAdditives(dish);
       const variantGroups = dish.groups
         .filter((g) => g.kind === 'variant')
         .map((g) => ({ id: randomUUID(), name: g.name, options: toOptions(g.options) }));
