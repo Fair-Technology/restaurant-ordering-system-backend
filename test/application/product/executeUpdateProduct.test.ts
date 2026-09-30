@@ -8,7 +8,7 @@ vi.mock('../../../src/infrastructure/cosmos/shop/CosmosShopRepository', () => ({
   findShopById: vi.fn(async () => ({ id: 'shop-1', countryCode: 'DE', members: [] })),
 }));
 vi.mock('../../../src/infrastructure/cosmos/category/CosmosCategoryRepository', () => ({
-  findCategoryById: vi.fn(async () => ({ id: 'c1', shopId: 'shop-1', isDeleted: false, taxClassId: 'food' })),
+  findCategoriesByShopId: vi.fn(async () => [{ id: 'c1', shopId: 'shop-1', isDeleted: false, taxClassId: 'food' }]),
 }));
 vi.mock('../../../src/infrastructure/cosmos/product/CosmosProductRepository', () => ({
   findProductById: vi.fn(),
@@ -28,6 +28,7 @@ vi.mock('../../../src/application/_shared/auditHelpers', () => ({
 
 import { authorizeShopAction } from '../../../src/application/_shared/shopAccess';
 import { findProductById, updateProduct } from '../../../src/infrastructure/cosmos/product/CosmosProductRepository';
+import { findCategoriesByShopId } from '../../../src/infrastructure/cosmos/category/CosmosCategoryRepository';
 import { getReferenceLists } from '../../../src/infrastructure/cosmos/reference/CosmosReferenceListsRepository';
 import { executeUpdateProduct } from '../../../src/application/product/updateProduct/executeUpdateProduct';
 import { DE_REFERENCE_LISTS } from '../../../src/domain/reference/ReferenceLists';
@@ -95,5 +96,33 @@ describe('executeUpdateProduct menu fields', () => {
       code: 'INVALID_INPUT',
       error: 'A dish tagged vegan cannot contain the milk allergen',
     });
+  });
+
+  // Saving a dish used to validate each selected category with its own
+  // findCategoryById read, so re-picking several categories made a save take
+  // seconds. This checks it stays a single batched read regardless of how
+  // many category ids are selected.
+  it('validates several category ids with one query, not one per id', async () => {
+    (findCategoriesByShopId as any).mockResolvedValue([
+      { id: 'c1', shopId: 'shop-1', isDeleted: false },
+      { id: 'c2', shopId: 'shop-1', isDeleted: false },
+      { id: 'c3', shopId: 'shop-1', isDeleted: false },
+    ]);
+
+    const result = await executeUpdateProduct(
+      { productId: 'p1', shopId: 'shop-1', categoryIds: ['c1', 'c2', 'c3'] } as any,
+      {} as any,
+    );
+
+    expect(result.ok).toBe(true);
+    expect(findCategoriesByShopId).toHaveBeenCalledTimes(1);
+    expect(findCategoriesByShopId).toHaveBeenCalledWith('shop-1');
+  });
+
+  it('skips the category query when categoryIds is not part of the update', async () => {
+    const result = await executeUpdateProduct({ productId: 'p1', shopId: 'shop-1', name: 'Margherita 2' } as any, {} as any);
+
+    expect(result.ok).toBe(true);
+    expect(findCategoriesByShopId).not.toHaveBeenCalled();
   });
 });

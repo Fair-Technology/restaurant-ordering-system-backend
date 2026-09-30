@@ -58,11 +58,12 @@ export async function resolveShopAccess(
 
   // Staff: the role is re-read from the database on every request (not
   // trusted from the token), so a deactivation or role change takes effect
-  // immediately instead of waiting for the token to expire.
+  // immediately instead of waiting for the token to expire. The staff
+  // account and the role-permissions doc are independent reads, so fetch
+  // both at once rather than one after the other.
   if (principal.shopId !== shop.id) return null;
-  const acc = await deps.findStaff(shop.id, principal.staffId);
+  const [acc, doc] = await Promise.all([deps.findStaff(shop.id, principal.staffId), deps.rolePermissions()]);
   if (!acc || !acc.isActive || acc.isDeleted || acc.shopId !== shop.id) return null;
-  const doc = await deps.rolePermissions();
   return {
     actor: { actorType: 'staff', actorId: acc.id, role: acc.role },
     permissions: permissionsForRole(acc.role, doc),

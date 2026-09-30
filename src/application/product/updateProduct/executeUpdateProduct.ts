@@ -3,7 +3,8 @@ import {
   findProductById,
   updateProduct as updateProductInRepo,
 } from '../../../infrastructure/cosmos/product/CosmosProductRepository';
-import { findCategoryById } from '../../../infrastructure/cosmos/category/CosmosCategoryRepository';
+import { findCategoriesByShopId } from '../../../infrastructure/cosmos/category/CosmosCategoryRepository';
+import { Category } from '../../../domain/category/Category';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { getReferenceLists } from '../../../infrastructure/cosmos/reference/CosmosReferenceListsRepository';
 import { authorizeShopAction, toAuditActor } from '../../_shared/shopAccess';
@@ -44,10 +45,22 @@ export async function executeUpdateProduct(
   }
 
   try {
-    const product = await findProductById(
-      request.productId.trim(),
-      request.shopId.trim(),
-    );
+    const shopId = request.shopId.trim();
+    const productId = request.productId.trim();
+    const needsCategoryLookup = request.categoryIds !== undefined && request.categoryIds.length > 0;
+
+    // The product and shop reads don't depend on each other — findProductById
+    // is already keyed by shopId as the partition key, so the product's own
+    // shopId is guaranteed to match once it's found. The category existence
+    // check (when there are categoryIds to validate) only needs shopId too.
+    // Firing all three at once, instead of one after another and then a
+    // findCategoryById per category id, is most of why this used to take
+    // seconds.
+    const [product, shop, shopCategories] = await Promise.all([
+      findProductById(productId, shopId),
+      findShopById(shopId),
+      needsCategoryLookup ? findCategoriesByShopId(shopId) : Promise.resolve<Category[]>([]),
+    ]);
 
     if (!product) {
       return {
@@ -57,15 +70,18 @@ export async function executeUpdateProduct(
       };
     }
 
-    const shop = await findShopById(product.shopId);
     if (!shop) {
       return { ok: false, code: 'NOT_FOUND', error: 'Shop not found' };
     }
 
-    const access = await authorizeShopAction(httpRequest, shop, 'manage_menu');
+    // Authorization and the reference lists are independent reads too —
+    // both only need `shop`, not each other's result.
+    const [access, refs] = await Promise.all([
+      authorizeShopAction(httpRequest, shop, 'manage_menu'),
+      getReferenceLists(shop.countryCode ?? ''),
+    ]);
     if (!access.ok) return access;
 
-    const refs = await getReferenceLists(shop.countryCode ?? '');
     const menu = validateMenuFields(request, refs, product);
     if ('error' in menu) {
       return { ok: false, code: 'INVALID_INPUT', error: menu.error };
@@ -84,31 +100,15 @@ export async function executeUpdateProduct(
       }
     }
 
-    // Validate categoryIds if provided
-    if (request.categoryIds !== undefined && request.categoryIds.length > 0) {
-      // De-duplicate categoryIds
-      const uniqueCategoryIds = [...new Set(request.categoryIds)];
-
-      // Validate each categoryId
-      const invalidCategoryIds: string[] = [];
-
-      for (const categoryId of uniqueCategoryIds) {
-        try {
-          const category = await findCategoryById(
-            categoryId,
-            request.shopId.trim(),
-          );
-          if (
-            !category ||
-            category.isDeleted ||
-            category.shopId !== request.shopId.trim()
-          ) {
-            invalidCategoryIds.push(categoryId);
-          }
-        } catch (error) {
-          invalidCategoryIds.push(categoryId);
-        }
-      }
+    // Validate categoryIds if provided, using the shop's categories already
+    // fetched above instead of a read per category id.
+    if (needsCategoryLookup) {
+      const uniqueCategoryIds = [...new Set(request.categoryIds!)];
+      const categoriesById = new Map(shopCategories.map((c) => [c.id, c]));
+      const invalidCategoryIds = uniqueCategoryIds.filter((categoryId) => {
+        const category = categoriesById.get(categoryId);
+        return !category || category.isDeleted || category.shopId !== shopId;
+      });
 
       if (invalidCategoryIds.length > 0) {
         return {
@@ -208,28 +208,29 @@ export async function executeUpdateProduct(
         'descriptionTranslations',
       ],
     );
-    await logAudit({
-      shopId: result.shopId,
-      ...toAuditActor(access.actor),
-      action: 'product.update',
-      entityType: 'product',
-      entityId: result.id,
-      entityName: result.name,
-      changes,
-    });
-
-    // Delete blobs for images removed from the array — best effort
-    if (request.images !== undefined) {
-      const removedImages = (product.images ?? []).filter(
-        (old) => !(request.images ?? []).some((n) => n.id === old.id),
-      );
-      await Promise.allSettled(
+    // The audit write and any removed-image blob cleanup don't depend on
+    // each other, so run them together instead of one after the other.
+    const removedImages = request.images !== undefined
+      ? (product.images ?? []).filter((old) => !(request.images ?? []).some((n) => n.id === old.id))
+      : [];
+    await Promise.all([
+      logAudit({
+        shopId: result.shopId,
+        ...toAuditActor(access.actor),
+        action: 'product.update',
+        entityType: 'product',
+        entityId: result.id,
+        entityName: result.name,
+        changes,
+      }),
+      // Delete blobs for images removed from the array — best effort
+      Promise.allSettled(
         removedImages.map((img) => {
           const path = extractBlobPath(img.url);
           return path ? deleteBlob(path) : Promise.resolve();
         }),
-      );
-    }
+      ),
+    ]);
 
     const resultDto: UpdateProductResultDto = {
       id: result.id,
