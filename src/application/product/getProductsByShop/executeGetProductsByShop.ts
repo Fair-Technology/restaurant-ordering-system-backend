@@ -1,8 +1,5 @@
 import { findProductsByShopId } from '../../../infrastructure/cosmos/product/CosmosProductRepository';
-import {
-  findCategoriesByShopId,
-  findCategoryById,
-} from '../../../infrastructure/cosmos/category/CosmosCategoryRepository';
+import { findCategoriesByShopId } from '../../../infrastructure/cosmos/category/CosmosCategoryRepository';
 import {
   GetProductsByShopRequestDto,
   GetProductsByShopResultDto,
@@ -29,13 +26,19 @@ export async function executeGetProductsByShop(
   }
 
   try {
-    const products = await findProductsByShopId(request.shopId.trim());
+    const shopId = request.shopId.trim();
+    // One query for the shop's live categories rather than a read per product
+    // category — the admin list refetches this after every save, and the
+    // per-category reads made it take seconds.
+    const [products, shopCategories] = await Promise.all([
+      findProductsByShopId(shopId),
+      findCategoriesByShopId(shopId),
+    ]);
+    const categoriesById = new Map(shopCategories.map((c) => [c.id, c]));
 
-    // Fetch category details for all products
     const productDtos: ProductDto[] = [];
 
     for (const product of products) {
-      // Fetch category details for this product
       const categories: Array<{
         id: string;
         name: string;
@@ -43,18 +46,15 @@ export async function executeGetProductsByShop(
         icon?: string;
       }> = [];
       for (const categoryId of product.categoryIds || []) {
-        try {
-          const category = await findCategoryById(categoryId, product.shopId);
-          if (category && !category.isDeleted) {
-            categories.push({
-              id: category.id,
-              name: category.name,
-              sortOrder: category.sortOrder,
-              icon: category.icon,
-            });
-          }
-        } catch (error) {
-          // Skip invalid categories silently
+        // Missing ids are deleted or unknown categories; skip them as before.
+        const category = categoriesById.get(categoryId);
+        if (category && !category.isDeleted) {
+          categories.push({
+            id: category.id,
+            name: category.name,
+            sortOrder: category.sortOrder,
+            icon: category.icon,
+          });
         }
       }
 
