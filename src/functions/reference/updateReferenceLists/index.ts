@@ -5,7 +5,7 @@ import { mapResultToHttp } from '../../_shared/mapResultToHttp';
 app.http('updateReferenceLists', {
   methods: ['PUT'],
   authLevel: 'anonymous',
-  route: 'admin/reference-lists/{countryCode}',
+  route: 'platform/reference-lists/{countryCode}',
   handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
     const countryCode = request.params.countryCode;
     const body = await request.json();

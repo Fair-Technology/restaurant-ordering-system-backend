@@ -5,7 +5,7 @@ import { mapResultToHttp } from '../../_shared/mapResultToHttp';
 app.http('updateSystemConfig', {
   methods: ['PATCH'],
   authLevel: 'anonymous',
-  route: 'admin/config',
+  route: 'platform/config',
   handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
     const body = (await request.json()) as Record<string, unknown>;
     const result = await executeUpdateSystemConfig(

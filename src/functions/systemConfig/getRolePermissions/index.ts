@@ -5,7 +5,7 @@ import { mapResultToHttp } from '../../_shared/mapResultToHttp';
 app.http('getRolePermissions', {
   methods: ['GET'],
   authLevel: 'anonymous',
-  route: 'admin/role-permissions',
+  route: 'platform/role-permissions',
   handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
     const result = await executeGetRolePermissions(request);
     return mapResultToHttp(result);
