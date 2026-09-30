@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { HttpRequest } from '@azure/functions';
 import { authenticate } from '../../src/infrastructure/auth/principal';
 import { signStaffToken } from '../../src/infrastructure/auth/staffTokens';
@@ -20,13 +20,16 @@ describe('authenticate', () => {
   afterEach(() => {
     if (prev === undefined) delete process.env.STAFF_JWT_SECRET;
     else process.env.STAFF_JWT_SECRET = prev;
+    vi.useRealTimers();
   });
 
   it('staff token becomes a staff principal', async () => {
-    const { token } = await signStaffToken(
-      { staffId: 'st-1', shopId: 'shop-1', role: 'staff' },
-      new Date('2026-09-25T10:00:00.000Z'),
-    );
+    // Freeze the clock at signing time — `authenticate` verifies the token
+    // via `jwtVerify`, whose expiry check reads the real system clock, not
+    // the `now` passed to sign.
+    const now = new Date('2026-09-25T10:00:00.000Z');
+    vi.useFakeTimers({ now });
+    const { token } = await signStaffToken({ staffId: 'st-1', shopId: 'shop-1', role: 'staff' }, now);
     const principal = await authenticate(requestWithToken(token));
     expect(principal).toEqual({ kind: 'staff', staffId: 'st-1', shopId: 'shop-1', role: 'staff' });
   });
