@@ -114,6 +114,25 @@ describe('executeUpdateShop payment policy / go-live', () => {
     expect(result.ok).toBe(true);
   });
 
+  it('refuses to go live again while only an outdated DPA version is accepted', async () => {
+    (findShopById as any).mockResolvedValue(
+      makeGoLiveReadyShop({ dpaAcceptance: { ...ACCEPTED_DPA, version: '2025-01-01' } }),
+    );
+    (findProductsByShopId as any).mockResolvedValue([
+      { isAvailable: true, isDeleted: false, allergenIds: [], additiveIds: [] },
+    ]);
+    (findCategoriesByShopId as any).mockResolvedValue([{ isDeleted: false }]);
+
+    const result = await executeUpdateShop({ shopId: 'shop-1', isPaused: false } as any, {} as any);
+
+    expect(result).toEqual({
+      ok: false,
+      code: 'INVALID_INPUT',
+      error: 'Accept the data processing agreement before going live',
+    });
+    expect(updateShop).not.toHaveBeenCalled();
+  });
+
   it('refuses to go live without an accepted DPA', async () => {
     (findShopById as any).mockResolvedValue(makeGoLiveReadyShop({ dpaAcceptance: null }));
     (findProductsByShopId as any).mockResolvedValue([

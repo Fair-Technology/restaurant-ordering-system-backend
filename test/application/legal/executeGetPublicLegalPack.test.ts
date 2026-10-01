@@ -53,6 +53,20 @@ describe('executeGetPublicLegalPack', () => {
     });
   });
 
+  it('hides the privacy notice while the platform operator details are missing', async () => {
+    const { getPlatformLegalIdentity } = await import(
+      '../../../src/infrastructure/cosmos/system/CosmosPlatformLegalIdentityRepository'
+    );
+    const { DEFAULT_PLATFORM_LEGAL_IDENTITY } = await import('../../../src/domain/legal/PlatformLegalIdentity');
+    (getPlatformLegalIdentity as any).mockResolvedValueOnce(structuredClone(DEFAULT_PLATFORM_LEGAL_IDENTITY));
+    (findShopBySlug as any).mockResolvedValue({
+      id: 's', slug: 'p', name: 'Pizzeria', countryCode: 'DE', legal: COMPLETE_LEGAL,
+    });
+    const r: any = await executeGetPublicLegalPack({ slug: 'p', lang: 'de' });
+    expect(r.data.impressum).not.toBeNull();
+    expect(r.data.privacyNotice).toBeNull();
+  });
+
   it('unsupported language falls back to German for a DE shop', async () => {
     (findShopBySlug as any).mockResolvedValue({ id: 's', slug: 'p', name: 'Pizzeria', countryCode: 'DE' });
     const r: any = await executeGetPublicLegalPack({ slug: 'p', lang: 'fr' });

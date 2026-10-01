@@ -129,6 +129,17 @@ describe('legal readiness', () => {
     expect(legalCriteria(shop, COMPLETE_IDENTITY).find((c) => c.key === 'dpa_accepted')!.met).toBe(false);
     expect(isLegalPackComplete(shop)).toBe(true);
   });
+
+  it('checkout pack needs a DPA acceptance, impressum, terms and withdrawal each', () => {
+    const base = { legal: COMPLETE_LEGAL, dpaAcceptance: ACCEPTED_DPA } as any;
+    expect(isLegalPackComplete(base)).toBe(true);
+    expect(isLegalPackComplete({ ...base, dpaAcceptance: null })).toBe(false);
+    expect(isLegalPackComplete({ ...base, dpaAcceptance: undefined })).toBe(false);
+    expect(isLegalPackComplete({ ...base, legal: { ...COMPLETE_LEGAL, impressum: null } })).toBe(false);
+    expect(isLegalPackComplete({ ...base, legal: { ...COMPLETE_LEGAL, terms: null } })).toBe(false);
+    expect(isLegalPackComplete({ ...base, legal: { ...COMPLETE_LEGAL, withdrawal: null } })).toBe(false);
+    expect(isLegalPackComplete({ id: 's' } as any)).toBe(false);
+  });
 });
 
 describe('erasure', () => {

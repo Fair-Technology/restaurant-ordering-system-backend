@@ -68,6 +68,15 @@ describe('executeEraseCustomer', () => {
     expect(replaceOrder).not.toHaveBeenCalled();
   });
 
+  it('skips orders that are already anonymised', async () => {
+    (findOrdersByShopIdAndCustomerEmail as any).mockResolvedValue([
+      { ...o1, customerName: 'Deleted customer', customerEmail: '', anonymisedAt: '2026-10-04T00:00:00Z' },
+    ]);
+    const r = await executeEraseCustomer({ shopId: 'shop-1', email: 'anna@example.com', now }, {} as any);
+    expect(replaceOrder).not.toHaveBeenCalled();
+    expect(r).toEqual({ ok: true, data: { anonymisedOrderCount: 0 } });
+  });
+
   it('no match returns zero', async () => {
     (findOrdersByShopIdAndCustomerEmail as any).mockResolvedValue([]);
     const r = await executeEraseCustomer({ shopId: 'shop-1', email: 'x@y.example', now }, {} as any);
