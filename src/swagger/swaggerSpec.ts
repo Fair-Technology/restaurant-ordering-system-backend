@@ -719,6 +719,13 @@ export const swaggerSpec = {
             schema: { type: 'string' },
             description: 'Shop ID',
           },
+          {
+            name: 'lang',
+            in: 'query',
+            required: false,
+            schema: { type: 'string' },
+            description: 'Preferred menu language; falls back to the original',
+          },
         ],
         responses: {
           '200': {
@@ -878,6 +885,11 @@ export const swaggerSpec = {
   },
   components: {
     schemas: {
+      TranslationMap: {
+        type: 'object',
+        additionalProperties: { type: 'string' },
+        description: 'Text per menu language (de, en). Missing or empty shows the original.',
+      },
       OpeningTimeSlot: {
         type: 'object',
         properties: {
@@ -908,7 +920,7 @@ export const swaggerSpec = {
         type: 'object',
         properties: {
           userId: { type: 'string' },
-          role: { type: 'string', enum: ['owner', 'staff'] },
+          role: { type: 'string', enum: ['owner'] },
           isActive: { type: 'boolean' },
         },
       },
@@ -994,7 +1006,6 @@ export const swaggerSpec = {
       ShopBranding: {
         type: 'object',
         nullable: true,
-        required: ['colors'],
         properties: {
           logoUrl: {
             type: 'string',
@@ -1008,35 +1019,12 @@ export const swaggerSpec = {
             description: 'Hero image URL (must start with https://)',
             example: 'https://cdn.example.com/hero.jpg',
           },
-          colors: {
-            type: 'object',
-            required: ['primary', 'secondary', 'tertiary', 'background'],
-            properties: {
-              primary: {
-                type: 'string',
-                pattern: '^#[0-9A-Fa-f]{6}$',
-                description: 'Primary brand color (hex)',
-                example: '#1D4ED8',
-              },
-              secondary: {
-                type: 'string',
-                pattern: '^#[0-9A-Fa-f]{6}$',
-                description: 'Secondary brand color (hex)',
-                example: '#9333EA',
-              },
-              tertiary: {
-                type: 'string',
-                pattern: '^#[0-9A-Fa-f]{6}$',
-                description: 'Tertiary brand color (hex)',
-                example: '#F59E0B',
-              },
-              background: {
-                type: 'string',
-                pattern: '^#[0-9A-Fa-f]{6}$',
-                description: 'Background color (hex)',
-                example: '#F9FAFB',
-              },
-            },
+          accentColor: {
+            type: 'string',
+            nullable: true,
+            pattern: '^#[0-9A-Fa-f]{6}$',
+            description: 'Accent color (hex), used for buttons and highlights. Must have a WCAG contrast of at least 3:1 against white.',
+            example: '#C2410C',
           },
         },
       },
@@ -1058,7 +1046,7 @@ export const swaggerSpec = {
       CreateShopRequest: {
         type: 'object',
         description:
-          'Create a new shop. The following fields are automatically set: isDeleted=false, isPaused=false, allowGuestCheckout=true. The slug is auto-generated from the shop name. At least one day must have opening hours. If a shop with the same name already exists, an error will be returned.',
+          'Create a new shop. The following fields are automatically set: isDeleted=false, isPaused=false. The slug is auto-generated from the shop name. At least one day must have opening hours. If a shop with the same name already exists, an error will be returned.',
         required: [
           'name',
           'currency',
@@ -1131,10 +1119,6 @@ export const swaggerSpec = {
             type: 'array',
             items: { $ref: '#/components/schemas/ShopClosure' },
           },
-          members: {
-            type: 'array',
-            items: { $ref: '#/components/schemas/ShopMember' },
-          },
           branding: {
             nullable: true,
             description: 'Shop branding configuration (optional). Set to null to disable branding.',
@@ -1156,10 +1140,6 @@ export const swaggerSpec = {
             enum: ['pay_online'],
             description: 'Payment policy',
           },
-          allowGuestCheckout: {
-            type: 'boolean',
-            description: 'Allow guest checkout',
-          },
           currency: { type: 'string', description: 'Shop currency' },
           timezone: { type: 'string', description: 'Shop timezone' },
           minOrderAmountCents: {
@@ -1167,6 +1147,11 @@ export const swaggerSpec = {
             description: 'Minimum order amount in cents',
           },
           address: { $ref: '#/components/schemas/Address' },
+          menuLanguages: {
+            type: 'array',
+            items: { type: 'string', enum: ['de', 'en'] },
+            description: 'Languages the menu is offered in. The first (original) language cannot change.',
+          },
           branding: {
             nullable: true,
             description: 'Shop branding configuration. Set to null to clear branding.',
@@ -1218,6 +1203,11 @@ export const swaggerSpec = {
             description: 'Minimum order amount in cents',
           },
           address: { $ref: '#/components/schemas/Address' },
+          menuLanguages: {
+            type: 'array',
+            items: { type: 'string', enum: ['de', 'en'] },
+            description: 'Languages the menu is offered in; the first is the original language.',
+          },
           createdAt: {
             type: 'string',
             format: 'date-time',
@@ -1253,16 +1243,20 @@ export const swaggerSpec = {
         required: ['name'],
         properties: {
           name: { type: 'string', description: 'Category name' },
+          nameTranslations: { $ref: '#/components/schemas/TranslationMap' },
           sortOrder: { type: 'number', description: 'Sort order for display' },
           icon: { type: 'string', description: 'Lucide icon name' },
+          taxClassId: { type: 'string', description: 'Tax class id; absent = country default' },
         },
       },
       UpdateCategoryRequest: {
         type: 'object',
         properties: {
           name: { type: 'string', description: 'Category name' },
+          nameTranslations: { $ref: '#/components/schemas/TranslationMap' },
           sortOrder: { type: 'number', description: 'Sort order for display' },
           icon: { type: 'string', description: 'Lucide icon name' },
+          taxClassId: { type: 'string', description: 'Tax class id' },
         },
       },
       CategoryResponse: {
@@ -1271,8 +1265,10 @@ export const swaggerSpec = {
           id: { type: 'string', description: 'Category ID' },
           shopId: { type: 'string', description: 'Shop ID' },
           name: { type: 'string', description: 'Category name' },
+          nameTranslations: { $ref: '#/components/schemas/TranslationMap' },
           sortOrder: { type: 'number', description: 'Sort order for display' },
           icon: { type: 'string', description: 'Lucide icon name' },
+          taxClassId: { type: 'string', nullable: true, description: 'Tax class id, or null if the country has none configured' },
           isDeleted: {
             type: 'boolean',
             description: 'Whether category is deleted',
@@ -1361,10 +1357,42 @@ export const swaggerSpec = {
             type: 'array',
             items: { $ref: '#/components/schemas/ProductImageRef' },
           },
-          specialInfo: {
+          nameTranslations: { $ref: '#/components/schemas/TranslationMap' },
+          descriptionTranslations: { $ref: '#/components/schemas/TranslationMap' },
+          allergenIds: {
             type: 'array',
-            items: { $ref: '#/components/schemas/SpecialInfoItem' },
-            description: 'Special info items (dietary labels, badges, etc.)',
+            items: { type: 'string' },
+            nullable: true,
+            description: 'Declared allergen ids; null = not yet declared',
+          },
+          additiveIds: {
+            type: 'array',
+            items: { type: 'string' },
+            nullable: true,
+            description: 'Declared additive ids; null = not yet declared',
+          },
+          dietaryTagIds: {
+            type: 'array',
+            items: { type: 'string' },
+            description: 'Dietary tag ids (vegetarian, vegan, halal, gluten_free, lactose_free)',
+          },
+          spiceLevel: {
+            type: 'string',
+            enum: ['mild', 'medium', 'hot'],
+            nullable: true,
+            description: 'Spiciness, or null if not spicy',
+          },
+          prepMinutes: {
+            type: 'integer',
+            minimum: 1,
+            maximum: 240,
+            nullable: true,
+            description: 'Preparation time in minutes',
+          },
+          taxClassId: {
+            type: 'string',
+            nullable: true,
+            description: 'Per-dish tax class override; null = inherit from category',
           },
           isAvailable: {
             type: 'boolean',
@@ -1396,10 +1424,42 @@ export const swaggerSpec = {
             type: 'array',
             items: { $ref: '#/components/schemas/ProductImageRef' },
           },
-          specialInfo: {
+          nameTranslations: { $ref: '#/components/schemas/TranslationMap' },
+          descriptionTranslations: { $ref: '#/components/schemas/TranslationMap' },
+          allergenIds: {
             type: 'array',
-            items: { $ref: '#/components/schemas/SpecialInfoItem' },
-            description: 'Special info items (dietary labels, badges, etc.)',
+            items: { type: 'string' },
+            nullable: true,
+            description: 'Declared allergen ids; null = not yet declared',
+          },
+          additiveIds: {
+            type: 'array',
+            items: { type: 'string' },
+            nullable: true,
+            description: 'Declared additive ids; null = not yet declared',
+          },
+          dietaryTagIds: {
+            type: 'array',
+            items: { type: 'string' },
+            description: 'Dietary tag ids (vegetarian, vegan, halal, gluten_free, lactose_free)',
+          },
+          spiceLevel: {
+            type: 'string',
+            enum: ['mild', 'medium', 'hot'],
+            nullable: true,
+            description: 'Spiciness, or null if not spicy',
+          },
+          prepMinutes: {
+            type: 'integer',
+            minimum: 1,
+            maximum: 240,
+            nullable: true,
+            description: 'Preparation time in minutes',
+          },
+          taxClassId: {
+            type: 'string',
+            nullable: true,
+            description: 'Per-dish tax class override; null = inherit from category',
           },
           isAvailable: {
             type: 'boolean',
@@ -1440,10 +1500,46 @@ export const swaggerSpec = {
             items: { $ref: '#/components/schemas/ProductImageRef' },
             description: 'Product images',
           },
-          specialInfo: {
+          nameTranslations: { $ref: '#/components/schemas/TranslationMap' },
+          descriptionTranslations: { $ref: '#/components/schemas/TranslationMap' },
+          allergenIds: {
             type: 'array',
-            items: { $ref: '#/components/schemas/SpecialInfoItem' },
-            description: 'Special info items (dietary labels, badges, etc.)',
+            items: { type: 'string' },
+            nullable: true,
+            description: 'Declared allergen ids; null = not yet declared',
+          },
+          additiveIds: {
+            type: 'array',
+            items: { type: 'string' },
+            nullable: true,
+            description: 'Declared additive ids; null = not yet declared',
+          },
+          dietaryTagIds: {
+            type: 'array',
+            items: { type: 'string' },
+            description: 'Dietary tag ids (vegetarian, vegan, halal, gluten_free, lactose_free)',
+          },
+          spiceLevel: {
+            type: 'string',
+            enum: ['mild', 'medium', 'hot'],
+            nullable: true,
+            description: 'Spiciness, or null if not spicy',
+          },
+          prepMinutes: {
+            type: 'integer',
+            minimum: 1,
+            maximum: 240,
+            nullable: true,
+            description: 'Preparation time in minutes',
+          },
+          taxClassId: {
+            type: 'string',
+            nullable: true,
+            description: 'Per-dish tax class override; null = inherit from category',
+          },
+          isDeclared: {
+            type: 'boolean',
+            description: 'Whether both allergens and additives have been declared (even to empty)',
           },
           variantGroups: {
             type: 'array',
@@ -1467,11 +1563,6 @@ export const swaggerSpec = {
             nullable: true,
             allOf: [{ $ref: '#/components/schemas/ProductSchedule' }],
             description: 'Optional availability schedule; null = no time restriction',
-          },
-          taxRateId: {
-            type: 'string',
-            nullable: true,
-            description: 'Tax rate ID from the shop\'s taxRates list, or null',
           },
           createdAt: {
             type: 'string',
@@ -1692,22 +1783,44 @@ export const swaggerSpec = {
             items: { $ref: '#/components/schemas/AddonGroup' },
           },
           isAvailable: { type: 'boolean' },
-          taxRateId: { type: 'string', nullable: true, description: 'Tax rate ID or null' },
-          specialInfo: {
+          allergens: {
             type: 'array',
-            nullable: true,
+            items: { $ref: '#/components/schemas/CatalogLabel' },
+            description: 'Declared allergens, labelled in the response language',
+          },
+          additives: {
+            type: 'array',
             items: {
               type: 'object',
               properties: {
-                name: { type: 'string' },
-                icon: { type: 'string' },
+                id: { type: 'string' },
+                code: { type: 'integer' },
+                label: { type: 'string' },
               },
-              required: ['name', 'icon'],
+              required: ['id', 'code', 'label'],
             },
+            description: 'Declared additives, labelled in the response language',
+          },
+          dietaryTags: {
+            type: 'array',
+            items: { $ref: '#/components/schemas/CatalogLabel' },
+          },
+          spice: {
+            nullable: true,
+            allOf: [{ $ref: '#/components/schemas/CatalogLabel' }],
+            description: 'Spiciness, labelled in the response language; null if not spicy',
           },
           createdAt: { type: 'string', format: 'date-time' },
           updatedAt: { type: 'string', format: 'date-time' },
         },
+      },
+      CatalogLabel: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' },
+          label: { type: 'string' },
+        },
+        required: ['id', 'label'],
       },
       CatalogCategoryDto: {
         type: 'object',
@@ -1725,6 +1838,16 @@ export const swaggerSpec = {
       CatalogResponse: {
         type: 'object',
         properties: {
+          language: {
+            type: 'string',
+            enum: ['de', 'en'],
+            description: 'The language this catalog was resolved into',
+          },
+          languages: {
+            type: 'array',
+            items: { type: 'string', enum: ['de', 'en'] },
+            description: 'Languages this shop offers its menu in',
+          },
           categories: {
             type: 'array',
             description: 'Categories with their visible, in-schedule products',
@@ -1796,10 +1919,11 @@ export const swaggerSpec = {
             description: 'Optional notes for the order',
             example: 'No onions please',
           },
-          orderLocation: {
+          fulfilmentMode: {
             type: 'string',
-            description: 'Optional location identifier (e.g. table number, room, seat, bay)',
-            example: 'Table 5',
+            enum: ['collection', 'delivery', 'dine_in'],
+            description: 'How the order is fulfilled (optional, defaults to collection). Only collection is available at the moment.',
+            example: 'collection',
           },
         },
       },
@@ -1847,23 +1971,51 @@ export const swaggerSpec = {
         required: [
           'id',
           'orderRef',
-          'status',
+          'state',
+          'displayState',
+          'fulfilmentMode',
+          'paymentMethod',
+          'paymentStatus',
           'items',
           'subtotalCents',
           'currency',
           'customerName',
           'customerEmail',
           'customerPhone',
+          'history',
           'createdAt',
         ],
         properties: {
           id: { type: 'string', format: 'uuid', example: 'order-uuid' },
           orderRef: { type: 'string', example: 'AB3-K7P' },
-          status: {
+          state: {
             type: 'string',
-            enum: ['pending_payment', 'paid', 'failed', 'cancelled', 'refunded'],
+            enum: ['PLACED', 'ACCEPTED', 'READY', 'OUT_FOR_DELIVERY', 'COMPLETED', 'REJECTED', 'CANCELLED'],
+            description: 'Stored lifecycle state',
+            example: 'ACCEPTED',
+          },
+          displayState: {
+            type: 'string',
+            enum: ['PLACED', 'ACCEPTED', 'IN_PREPARATION', 'READY', 'OUT_FOR_DELIVERY', 'COMPLETED', 'REJECTED', 'CANCELLED'],
+            description: 'Derived state shown to users (IN_PREPARATION is never stored)',
+            example: 'IN_PREPARATION',
+          },
+          fulfilmentMode: {
+            type: 'string',
+            enum: ['collection', 'delivery', 'dine_in'],
+            example: 'collection',
+          },
+          paymentMethod: {
+            type: 'string',
+            enum: ['card', 'cash'],
+            example: 'card',
+          },
+          paymentStatus: {
+            type: 'string',
+            enum: ['paid', 'refunded', 'partially_refunded', 'cash_due', 'cash_collected', 'refunded_in_cash'],
             example: 'paid',
           },
+          readyAt: { type: 'string', format: 'date-time', nullable: true, example: '2026-03-02T10:20:00.000Z' },
           items: {
             type: 'array',
             items: { $ref: '#/components/schemas/OrderItemResponse' },
@@ -1874,8 +2026,35 @@ export const swaggerSpec = {
           customerEmail: { type: 'string', format: 'email', example: 'jane@example.com' },
           customerPhone: { type: 'string', example: '+61400000000' },
           customerNotes: { type: 'string', nullable: true, example: 'No onions please' },
-          orderLocation: { type: 'string', nullable: true, example: 'Table 5' },
+          history: {
+            type: 'array',
+            items: { $ref: '#/components/schemas/OrderHistoryEntry' },
+          },
           createdAt: { type: 'string', format: 'date-time', example: '2026-03-02T10:00:00.000Z' },
+        },
+      },
+      OrderHistoryEntry: {
+        type: 'object',
+        required: ['from', 'to', 'at', 'actor'],
+        properties: {
+          from: {
+            type: 'string',
+            nullable: true,
+            enum: ['PLACED', 'ACCEPTED', 'READY', 'OUT_FOR_DELIVERY', 'COMPLETED', 'REJECTED', 'CANCELLED'],
+          },
+          to: {
+            type: 'string',
+            enum: ['PLACED', 'ACCEPTED', 'READY', 'OUT_FOR_DELIVERY', 'COMPLETED', 'REJECTED', 'CANCELLED'],
+          },
+          at: { type: 'string', format: 'date-time' },
+          actor: {
+            type: 'object',
+            properties: {
+              type: { type: 'string', enum: ['system', 'customer', 'owner', 'staff', 'superadmin'] },
+              id: { type: 'string', nullable: true },
+            },
+          },
+          reason: { type: 'string', nullable: true },
         },
       },
       OrderItemResponse: {
@@ -1905,15 +2084,43 @@ export const swaggerSpec = {
       },
       OrderByPaymentIntentResponse: {
         type: 'object',
-        required: ['orderId', 'orderRef', 'status', 'items', 'subtotalCents', 'currency', 'customerName', 'createdAt'],
+        required: [
+          'orderId',
+          'orderRef',
+          'state',
+          'displayState',
+          'fulfilmentMode',
+          'paymentStatus',
+          'items',
+          'subtotalCents',
+          'currency',
+          'customerName',
+          'createdAt',
+        ],
         properties: {
           orderId: { type: 'string', format: 'uuid', example: 'order-uuid' },
           orderRef: { type: 'string', example: 'AB3-K7P' },
-          status: {
+          state: {
             type: 'string',
-            enum: ['pending_payment', 'paid', 'failed', 'cancelled', 'refunded'],
+            enum: ['PLACED', 'ACCEPTED', 'READY', 'OUT_FOR_DELIVERY', 'COMPLETED', 'REJECTED', 'CANCELLED'],
+            example: 'ACCEPTED',
+          },
+          displayState: {
+            type: 'string',
+            enum: ['PLACED', 'ACCEPTED', 'IN_PREPARATION', 'READY', 'OUT_FOR_DELIVERY', 'COMPLETED', 'REJECTED', 'CANCELLED'],
+            example: 'IN_PREPARATION',
+          },
+          fulfilmentMode: {
+            type: 'string',
+            enum: ['collection', 'delivery', 'dine_in'],
+            example: 'collection',
+          },
+          paymentStatus: {
+            type: 'string',
+            enum: ['paid', 'refunded', 'partially_refunded', 'cash_due', 'cash_collected', 'refunded_in_cash'],
             example: 'paid',
           },
+          readyAt: { type: 'string', format: 'date-time', nullable: true, example: '2026-03-02T10:20:00.000Z' },
           items: {
             type: 'array',
             items: { $ref: '#/components/schemas/OrderItemResponse' },

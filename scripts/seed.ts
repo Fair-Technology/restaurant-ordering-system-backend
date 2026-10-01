@@ -1,7 +1,12 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { randomUUID } from 'crypto';
-import { seedTaxRatesForCountry } from '../src/application/_shared/countryTaxRates';
+import { periodKeyFor } from '../src/domain/usage/usagePeriod';
+import { hashPassword } from '../src/infrastructure/auth/passwordHashing';
+import { assertSeedTargetIsDev } from './seedGuard';
+import { legacySpecialInfoToMenuFields } from './menus/legacySpecialInfo';
+import { MA_PASTA_MENU, MA_PASTA_SHOP, resolveDishAllergensAndAdditives } from './menus/mapasta';
+import { DE_REFERENCE_LISTS } from '../src/domain/reference/ReferenceLists';
 
 // ── 1. Load env vars BEFORE Cosmos modules initialize ────────────────────────
 // Cosmos client reads process.env at module load time, so env vars must be
@@ -15,16 +20,45 @@ if (fs.existsSync(settingsPath)) {
   console.warn('⚠️  local.settings.json not found — using defaults (Cosmos emulator)');
 }
 
+// Refuse to run against anything but the restaurant-ordering dev database —
+// this wipes almost every container, so the wrong endpoint must fail loudly
+// before any delete runs.
+assertSeedTargetIsDev(process.env.COSMOS_DB_ENDPOINT ?? process.env.COSMOS_ENDPOINT);
+
 // ── 2. Require Cosmos modules AFTER env vars are populated ────────────────────
 /* eslint-disable @typescript-eslint/no-var-requires */
-const { shopContainer, productContainer, categoryContainer, orderContainer, subscriptionContainer } =
-  require('../src/infrastructure/cosmos/cosmosClient');
+const {
+  shopContainer,
+  productContainer,
+  categoryContainer,
+  orderContainer,
+  subscriptionContainer,
+  planContainer,
+  planPricingContainer,
+  usageContainer,
+  checkoutSessionContainer,
+  auditLogsContainer,
+  systemConfigContainer,
+  staffAccountsContainer,
+} = require('../src/infrastructure/cosmos/cosmosClient');
 const { createShop } =
   require('../src/infrastructure/cosmos/shop/CosmosShopRepository');
 const { createCategory } =
   require('../src/infrastructure/cosmos/category/CosmosCategoryRepository');
 const { createProduct } =
   require('../src/infrastructure/cosmos/product/CosmosProductRepository');
+const { createPlan } =
+  require('../src/infrastructure/cosmos/plan/CosmosPlanRepository');
+const { upsertPricing } =
+  require('../src/infrastructure/cosmos/plan/CosmosPlanPricingRepository');
+const { upsertSubscription } =
+  require('../src/infrastructure/cosmos/subscription/CosmosSubscriptionRepository');
+const { upsertUsage } =
+  require('../src/infrastructure/cosmos/usage/CosmosUsageRepository');
+const { createStaffAccount } =
+  require('../src/infrastructure/cosmos/staff/CosmosStaffAccountRepository');
+const { saveReferenceLists } =
+  require('../src/infrastructure/cosmos/reference/CosmosReferenceListsRepository');
 /* eslint-enable @typescript-eslint/no-var-requires */
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -38,6 +72,7 @@ const img = (photoId: string, alt: string) => ({
 });
 
 // ── 3. Delete ALL existing data ───────────────────────────────────────────────
+// users is never wiped — no seeder gets to invent who has signed in.
 async function tryDelete(item: any): Promise<void> {
   try {
     await item.delete();
@@ -68,9 +103,10 @@ async function deleteAll(): Promise<void> {
   console.log(`   Deleted ${cats.length} categor(ies)`);
 
   const { resources: orders } = await orderContainer.items
-    .query('SELECT c.id, c.shopId FROM c')
+    .query('SELECT c.id FROM c')
     .fetchAll();
-  for (const o of orders) await tryDelete(orderContainer.item(o.id, o.shopId));
+  // orders partition by /id, not /shopId
+  for (const o of orders) await tryDelete(orderContainer.item(o.id, o.id));
   console.log(`   Deleted ${orders.length} order(s)`);
 
   const { resources: subs } = await subscriptionContainer.items
@@ -78,9 +114,102 @@ async function deleteAll(): Promise<void> {
     .fetchAll();
   for (const s of subs) await tryDelete(subscriptionContainer.item(s.id, s.id));
   console.log(`   Deleted ${subs.length} subscription(s)`);
+
+  const { resources: plansRes } = await planContainer.items
+    .query('SELECT c.id FROM c')
+    .fetchAll();
+  for (const p of plansRes) await tryDelete(planContainer.item(p.id, p.id));
+  console.log(`   Deleted ${plansRes.length} plan(s)`);
+
+  const { resources: pricingRes } = await planPricingContainer.items
+    .query('SELECT c.id FROM c')
+    .fetchAll();
+  for (const p of pricingRes) await tryDelete(planPricingContainer.item(p.id, p.id));
+  console.log(`   Deleted ${pricingRes.length} plan pricing row(s)`);
+
+  const { resources: usageRes } = await usageContainer.items
+    .query('SELECT c.id FROM c')
+    .fetchAll();
+  for (const u of usageRes) await tryDelete(usageContainer.item(u.id, u.id));
+  console.log(`   Deleted ${usageRes.length} usage doc(s)`);
+
+  const { resources: sessions } = await checkoutSessionContainer.items
+    .query('SELECT c.id FROM c')
+    .fetchAll();
+  for (const s of sessions) await tryDelete(checkoutSessionContainer.item(s.id, s.id));
+  console.log(`   Deleted ${sessions.length} checkout session(s)`);
+
+  const { resources: audits } = await auditLogsContainer.items
+    .query('SELECT c.id FROM c')
+    .fetchAll();
+  for (const a of audits) await tryDelete(auditLogsContainer.item(a.id, a.id));
+  console.log(`   Deleted ${audits.length} audit log entr(ies)`);
+
+  const { resources: configs } = await systemConfigContainer.items
+    .query('SELECT c.id FROM c')
+    .fetchAll();
+  for (const c of configs) await tryDelete(systemConfigContainer.item(c.id, c.id));
+  console.log(`   Deleted ${configs.length} system config doc(s)`);
+
+  const { resources: staffAccounts } = await staffAccountsContainer.items
+    .query('SELECT c.id, c.shopId FROM c')
+    .fetchAll();
+  for (const s of staffAccounts) await tryDelete(staffAccountsContainer.item(s.id, s.shopId));
+  console.log(`   Deleted ${staffAccounts.length} staff account(s)`);
 }
 
-// ── 4. Seed shops ─────────────────────────────────────────────────────────────
+// ── 4. Seed plans ─────────────────────────────────────────────────────────────
+const PLAN_DEFS = [
+  {
+    id: 'plan-basic', name: 'Basic', internalKey: 'free', isDefault: true, sortOrder: 1,
+    limits: [{ key: 'ORDERS_PER_MONTH', value: 30 }, { key: 'STAFF_ACCOUNTS', value: 5 }],
+    monthlyAmountCents: 0, yearlyAmountCents: 0,
+  },
+  {
+    id: 'plan-pro', name: 'Pro', internalKey: 'pro', isDefault: false, sortOrder: 2,
+    limits: [{ key: 'ORDERS_PER_MONTH', value: 300 }, { key: 'STAFF_ACCOUNTS', value: 5 }],
+    monthlyAmountCents: 2900, yearlyAmountCents: 29000,
+  },
+  {
+    id: 'plan-max', name: 'Max', internalKey: 'max', isDefault: false, sortOrder: 3,
+    limits: [{ key: 'ORDERS_PER_MONTH', value: -1 }, { key: 'STAFF_ACCOUNTS', value: 5 }],
+    monthlyAmountCents: 5900, yearlyAmountCents: 59000,
+  },
+];
+
+async function seedPlans(): Promise<void> {
+  console.log('\n📦 Creating plans...');
+
+  for (const def of PLAN_DEFS) {
+    const ts = now();
+    await createPlan({
+      id: def.id,
+      name: def.name,
+      internalKey: def.internalKey,
+      isDefault: def.isDefault,
+      isVisible: true,
+      sortOrder: def.sortOrder,
+      limits: def.limits,
+      createdAt: ts,
+      updatedAt: ts,
+    });
+    await upsertPricing({
+      id: `pricing-${def.id.replace('plan-', '')}-eur`,
+      planId: def.id,
+      currency: 'EUR',
+      monthlyAmountCents: def.monthlyAmountCents,
+      yearlyAmountCents: def.yearlyAmountCents,
+      billingPriceIdMonthly: null,
+      billingPriceIdYearly: null,
+      isActive: true,
+      createdAt: ts,
+      updatedAt: ts,
+    });
+    console.log(`   ✓ ${def.name} (${def.id})`);
+  }
+}
+
+// ── 5. Seed shops ─────────────────────────────────────────────────────────────
 async function seedShops(): Promise<any[]> {
   console.log('\n🏪 Creating shops...');
 
@@ -88,55 +217,71 @@ async function seedShops(): Promise<any[]> {
   const weekendHours = [{ open: '10:00', close: '22:00' }];
   const closed: never[] = [];
 
+  const ownerOid = process.env.SEED_OWNER_OID;
+  if (!ownerOid) {
+    console.warn('⚠️  SEED_OWNER_OID not set — shops have no owner');
+  }
+  const members = ownerOid
+    ? [{ userId: ownerOid, role: 'owner' as const, isActive: true }]
+    : [];
+
+  // `key` is the old (Australian) shop name, kept only so category and
+  // product lookups below — still keyed by the original names — don't need
+  // rewriting. `name` is the new German trading name that is actually stored.
   const shopDefs = [
     {
-      name: 'Belconnen Pizza Palace',
+      key: 'Belconnen Pizza Palace',
+      name: 'Pizzeria Kreuzberg',
       industry: 'restaurant',
-      address: { street: '19 Benjamin Way', city: 'Belconnen', state: 'ACT', postcode: '2617', country: 'Australia' },
+      address: { street: 'Oranienstraße 12', city: 'Berlin', state: 'Berlin', postcode: '10999', country: 'Deutschland' },
       openingHours: { mon: closed, tue: weekdayHours, wed: weekdayHours, thu: weekdayHours, fri: weekdayHours, sat: weekendHours, sun: weekendHours },
       branding: {
         logoUrl: null,
         heroImageUrl: null,
-        colors: { primary: '#C0392B', secondary: '#E74C3C', tertiary: '#F39C12', background: '#FDF2F8' },
+        accentColor: '#C0392B',
       },
     },
     {
-      name: 'Manuka Sushi & Ramen',
+      key: 'Manuka Sushi & Ramen',
+      name: 'Sushi & Ramen Schwabing',
       industry: 'restaurant',
-      address: { street: '3 Franklin St', city: 'Manuka', state: 'ACT', postcode: '2603', country: 'Australia' },
+      address: { street: 'Leopoldstraße 45', city: 'München', state: 'Bayern', postcode: '80802', country: 'Deutschland' },
       openingHours: { mon: weekdayHours, tue: weekdayHours, wed: weekdayHours, thu: weekdayHours, fri: weekdayHours, sat: weekendHours, sun: [{ open: '12:00', close: '20:00' }] },
       branding: {
         logoUrl: null,
         heroImageUrl: null,
-        colors: { primary: '#2C3E50', secondary: '#3498DB', tertiary: '#1ABC9C', background: '#F0F4F8' },
+        accentColor: '#2C3E50',
       },
     },
     {
-      name: 'Civic Burger Co.',
+      key: 'Civic Burger Co.',
+      name: 'Burger Werk Altona',
       industry: 'restaurant',
-      address: { street: '44 Petrie Plaza', city: 'Civic', state: 'ACT', postcode: '2601', country: 'Australia' },
+      address: { street: 'Große Bergstraße 180', city: 'Hamburg', state: 'Hamburg', postcode: '22767', country: 'Deutschland' },
       openingHours: { mon: weekdayHours, tue: weekdayHours, wed: weekdayHours, thu: weekdayHours, fri: [{ open: '11:00', close: '23:00' }], sat: [{ open: '10:00', close: '23:00' }], sun: weekendHours },
       branding: {
         logoUrl: null,
         heroImageUrl: null,
-        colors: { primary: '#E67E22', secondary: '#D35400', tertiary: '#F1C40F', background: '#FFFBF0' },
+        accentColor: '#D35400',
       },
     },
     {
-      name: 'Kingston Café',
+      key: 'Kingston Café',
+      name: 'Café am Rhein',
       industry: 'cafe',
-      address: { street: '56 Giles St', city: 'Kingston', state: 'ACT', postcode: '2604', country: 'Australia' },
+      address: { street: 'Rheinuferstraße 3', city: 'Köln', state: 'Nordrhein-Westfalen', postcode: '50668', country: 'Deutschland' },
       openingHours: { mon: [{ open: '07:00', close: '15:00' }], tue: [{ open: '07:00', close: '15:00' }], wed: [{ open: '07:00', close: '15:00' }], thu: [{ open: '07:00', close: '15:00' }], fri: [{ open: '07:00', close: '15:00' }], sat: [{ open: '08:00', close: '14:00' }], sun: closed },
       branding: {
         logoUrl: null,
         heroImageUrl: null,
-        colors: { primary: '#27AE60', secondary: '#229954', tertiary: '#A3CB38', background: '#F0FFF4' },
+        accentColor: '#229954',
       },
     },
     {
-      name: 'Spice of India',
+      key: 'Spice of India',
+      name: 'Spice of India Frankfurt',
       industry: 'restaurant',
-      address: { street: '7 Lonsdale St', city: 'Braddon', state: 'ACT', postcode: '2612', country: 'Australia' },
+      address: { street: 'Berger Straße 90', city: 'Frankfurt am Main', state: 'Hessen', postcode: '60316', country: 'Deutschland' },
       openingHours: { mon: closed, tue: weekdayHours, wed: weekdayHours, thu: weekdayHours, fri: weekdayHours, sat: weekendHours, sun: weekendHours },
       branding: null, // ← no branding; frontend should use default colours
     },
@@ -147,45 +292,41 @@ async function seedShops(): Promise<any[]> {
     const shopId = randomUUID();
     const slug = def.name
       .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')  // strip combining accents (é → e)
+      .replace(/[̀-ͯ]/g, '')  // strip combining accents (é → e)
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-|-$/g, '');
     const ts = now();
-    const taxRates = seedTaxRatesForCountry('AU');
     const shop = await createShop({
       id: shopId,
       slug,
       name: def.name,
       industry: def.industry,
       isDeleted: false,
-      isPaused: false,
-      allowGuestCheckout: true,
+      // dev only — seedGuard confines this script to the dev database
+      isPaused: def.key !== 'Belconnen Pizza Palace',
       paymentPolicy: 'pay_online',
       orderAcceptanceMode: 'auto',
-      currency: 'AUD',
-      timezone: 'Australia/Sydney',
+      currency: 'EUR',
+      timezone: 'Europe/Berlin',
       minOrderAmountCents: 1500,
-      countryCode: 'AU',
-      taxRates,
-      roles: [{ id: 'staff', name: 'Staff', permissions: ['view_orders'] }],
+      countryCode: 'DE',
+      menuLanguages: def.key === 'Belconnen Pizza Palace' ? ['de', 'en'] : ['de'],
       address: def.address,
       openingHours: def.openingHours,
       closures: [],
-      members: def.name === 'Belconnen Pizza Palace'
-        ? [{ userId: 'cacf533d-85a7-448a-a9a5-ad2b3f8d50fa', role: 'owner', isActive: true }]
-        : [],
+      members,
       branding: def.branding,
       createdAt: ts,
       updatedAt: ts,
     });
-    created.push({ ...shop, taxRates });
+    created.push({ ...shop, key: def.key });
     console.log(`   ✓ ${shop.name} (${shop.slug})`);
   }
   return created;
 }
 
-// ── 5. Seed categories ────────────────────────────────────────────────────────
+// ── 6. Seed categories ────────────────────────────────────────────────────────
 async function seedCategories(shops: any[]): Promise<Map<string, any[]>> {
   console.log('\n📂 Creating categories...');
 
@@ -197,23 +338,35 @@ async function seedCategories(shops: any[]): Promise<Map<string, any[]>> {
     'Spice of India':          ['Curries', 'Breads & Rice', 'Desserts'],
   };
 
+  const BEVERAGE_NAMES = ['Drinks', 'Shakes & Drinks', 'Beverages'];
+  // Only the Pizzeria's categories are stored German-original — the others
+  // keep their (untranslated) English key as the stored name.
+  const PIZZERIA_GERMAN_NAMES: Record<string, string> = {
+    Pizzas: 'Pizza',
+    Pastas: 'Pasta',
+    Drinks: 'Getränke',
+  };
+
   const result = new Map<string, any[]>();
 
   for (const shop of shops) {
-    const names = categoryMap[shop.name] ?? [];
+    const names = categoryMap[shop.key] ?? [];
+    const isPizzeria = shop.key === 'Belconnen Pizza Palace';
     const cats: any[] = [];
     for (let i = 0; i < names.length; i++) {
       const ts = now();
       const cat = await createCategory({
         id: randomUUID(),
         shopId: shop.id,
-        name: names[i],
+        name: isPizzeria ? PIZZERIA_GERMAN_NAMES[names[i]] : names[i],
+        nameTranslations: isPizzeria ? { en: names[i] } : {},
         sortOrder: i + 1,
+        taxClassId: BEVERAGE_NAMES.includes(names[i]) ? 'beverage' : 'food',
         isDeleted: false,
         createdAt: ts,
         updatedAt: ts,
       });
-      cats.push(cat);
+      cats.push({ ...cat, key: names[i] });
     }
     result.set(shop.id, cats);
     console.log(`   ✓ ${shop.name}: ${names.join(', ')}`);
@@ -222,44 +375,56 @@ async function seedCategories(shops: any[]): Promise<Map<string, any[]>> {
   return result;
 }
 
-// ── 6. Seed products ──────────────────────────────────────────────────────────
+// ── 7. Seed products ──────────────────────────────────────────────────────────
 async function seedProducts(shops: any[], categoryMap: Map<string, any[]>): Promise<void> {
   console.log('\n🍽️  Creating products...');
 
   for (const shop of shops) {
     const cats = categoryMap.get(shop.id) ?? [];
-    const cat = (name: string) => cats.find((c: any) => c.name === name)?.id ?? cats[0]?.id;
+    const cat = (name: string) => cats.find((c: any) => c.key === name)?.id ?? cats[0]?.id;
 
-    const gstRateId = shop.taxRates?.[0]?.id ?? null;
-    const products = buildProducts(shop.name, shop.id, cat, gstRateId);
+    const products = buildProducts(shop.key, shop.id, cat);
     for (const productDef of products) {
       await createProduct(productDef);
-      console.log(`   ✓ ${shop.name} → ${productDef.name} ($${(productDef.price / 100).toFixed(2)})`);
+      console.log(`   ✓ ${shop.name} → ${productDef.name} (€${(productDef.price / 100).toFixed(2)})`);
     }
   }
 }
 
-function buildProducts(shopName: string, shopId: string, cat: (name: string) => string, taxRateId: string | null): any[] {
-  const base = (overrides: object) => ({
-    id: randomUUID(),
-    shopId,
-    images: [],
-    isAvailable: true,
-    isDeleted: false,
-    variantGroups: [],
-    addonGroups: [],
-    taxRateId,
-    createdAt: now(),
-    updatedAt: now(),
-    ...overrides,
-  });
+function buildProducts(shopKey: string, shopId: string, cat: (name: string) => string): any[] {
+  const base = (overrides: object) => {
+    const { specialInfo, ...rest } = overrides as any;
+    return {
+      id: randomUUID(),
+      shopId,
+      images: [],
+      isAvailable: true,
+      isDeleted: false,
+      variantGroups: [],
+      addonGroups: [],
+      nameTranslations: {},
+      descriptionTranslations: {},
+      dietaryTagIds: [],
+      spiceLevel: null,
+      prepMinutes: null,
+      taxClassId: null,
+      createdAt: now(),
+      updatedAt: now(),
+      ...rest,
+      ...legacySpecialInfoToMenuFields(specialInfo ?? []),
+    };
+  };
 
-  // ── Belconnen Pizza Palace ────────────────────────────────────────────────
-  if (shopName === 'Belconnen Pizza Palace') {
+  // ── Belconnen Pizza Palace (now Pizzeria Kreuzberg) ──────────────────────
+  if (shopKey === 'Belconnen Pizza Palace') {
     return [
       base({
-        name: 'Margherita Pizza',
-        description: 'San Marzano tomato base, fior di latte mozzarella, fresh basil, extra-virgin olive oil.',
+        name: 'Pizza Margherita',
+        description: 'San-Marzano-Tomatensauce, Fior-di-latte-Mozzarella, frisches Basilikum, natives Olivenöl extra.',
+        nameTranslations: { en: 'Margherita Pizza' },
+        descriptionTranslations: {
+          en: 'San Marzano tomato base, fior di latte mozzarella, fresh basil, extra-virgin olive oil.',
+        },
         price: 1800,
         categoryIds: [cat('Pizzas')],
         images: [
@@ -288,8 +453,12 @@ function buildProducts(shopName: string, shopId: string, cat: (name: string) => 
         }],
       }),
       base({
-        name: 'Pepperoni Pizza',
-        description: 'Rich tomato sauce, mozzarella, generous rounds of spiced pepperoni, dried oregano.',
+        name: 'Pizza Pepperoni',
+        description: 'Kräftige Tomatensauce, Mozzarella, reichlich würzige Pepperoni-Salami, getrockneter Oregano.',
+        nameTranslations: { en: 'Pepperoni Pizza' },
+        descriptionTranslations: {
+          en: 'Rich tomato sauce, mozzarella, generous rounds of spiced pepperoni, dried oregano.',
+        },
         price: 2200,
         categoryIds: [cat('Pizzas')],
         images: [
@@ -318,7 +487,11 @@ function buildProducts(shopName: string, shopId: string, cat: (name: string) => 
       }),
       base({
         name: 'Spaghetti Carbonara',
-        description: 'Al dente spaghetti, creamy egg yolk sauce, pancetta, Pecorino Romano, cracked black pepper.',
+        description: 'Spaghetti al dente in cremiger Eigelbsauce mit Pancetta, Pecorino Romano und schwarzem Pfeffer.',
+        nameTranslations: { en: 'Spaghetti Carbonara' },
+        descriptionTranslations: {
+          en: 'Al dente spaghetti, creamy egg yolk sauce, pancetta, Pecorino Romano, cracked black pepper.',
+        },
         price: 1600,
         categoryIds: [cat('Pastas')],
         images: [
@@ -332,7 +505,11 @@ function buildProducts(shopName: string, shopId: string, cat: (name: string) => 
       }),
       base({
         name: 'San Pellegrino',
-        description: 'Italian sparkling mineral water — the perfect companion to any pizza.',
+        description: 'Italienisches Mineralwasser mit Kohlensäure – der perfekte Begleiter zur Pizza.',
+        nameTranslations: { en: 'San Pellegrino' },
+        descriptionTranslations: {
+          en: 'Italian sparkling mineral water — the perfect companion to any pizza.',
+        },
         price: 400,
         categoryIds: [cat('Drinks')],
         images: [
@@ -350,8 +527,8 @@ function buildProducts(shopName: string, shopId: string, cat: (name: string) => 
     ];
   }
 
-  // ── Manuka Sushi & Ramen ──────────────────────────────────────────────────
-  if (shopName === 'Manuka Sushi & Ramen') {
+  // ── Manuka Sushi & Ramen (now Sushi & Ramen Schwabing) ───────────────────
+  if (shopKey === 'Manuka Sushi & Ramen') {
     return [
       base({
         name: 'Salmon Nigiri (8 pcs)',
@@ -446,8 +623,8 @@ function buildProducts(shopName: string, shopId: string, cat: (name: string) => 
     ];
   }
 
-  // ── Civic Burger Co. ─────────────────────────────────────────────────────
-  if (shopName === 'Civic Burger Co.') {
+  // ── Civic Burger Co. (now Burger Werk Altona) ────────────────────────────
+  if (shopKey === 'Civic Burger Co.') {
     return [
       base({
         name: 'Classic Smash Burger',
@@ -558,8 +735,8 @@ function buildProducts(shopName: string, shopId: string, cat: (name: string) => 
     ];
   }
 
-  // ── Kingston Café ─────────────────────────────────────────────────────────
-  if (shopName === 'Kingston Café') {
+  // ── Kingston Café (now Café am Rhein) ────────────────────────────────────
+  if (shopKey === 'Kingston Café') {
     return [
       base({
         name: 'Smashed Avo Toast',
@@ -666,8 +843,8 @@ function buildProducts(shopName: string, shopId: string, cat: (name: string) => 
     ];
   }
 
-  // ── Spice of India ────────────────────────────────────────────────────────
-  if (shopName === 'Spice of India') {
+  // ── Spice of India (now Spice of India Frankfurt) ────────────────────────
+  if (shopKey === 'Spice of India') {
     return [
       base({
         name: 'Butter Chicken',
@@ -777,22 +954,220 @@ function buildProducts(shopName: string, shopId: string, cat: (name: string) => 
   return [];
 }
 
+// ── 8. Seed a Basic subscription and usage doc per shop ───────────────────────
+async function seedSubscriptionsAndUsage(shops: any[]): Promise<void> {
+  console.log('\n💳 Creating subscriptions and usage...');
+
+  for (const shop of shops) {
+    const ts = now();
+    await upsertSubscription({
+      id: shop.id,
+      shopId: shop.id,
+      planId: 'plan-basic',
+      status: 'free',
+      billingInterval: null,
+      currentPeriodStart: null,
+      currentPeriodEnd: null,
+      billingCustomerId: null,
+      billingSubscriptionId: null,
+      cancelAtPeriodEnd: false,
+      planSource: 'default',
+      overriddenBy: null,
+      overrideReason: null,
+      overrideExpiresAt: null,
+      createdAt: ts,
+      updatedAt: ts,
+    });
+    await upsertUsage({
+      id: shop.id,
+      shopId: shop.id,
+      periodKey: periodKeyFor(new Date(), shop.timezone),
+      acceptedOrderCount: 0,
+      lastReconciled: null,
+      createdAt: ts,
+      updatedAt: ts,
+    });
+  }
+  console.log(`   ✓ ${shops.length} subscription(s) and usage doc(s)`);
+}
+
+// ── 9. Seed a manager and a staff login on Pizzeria Kreuzberg ────────────────
+// Only runs when SEED_STAFF_PASSWORD is set, since a demo password should
+// never be baked into the repo — it's supplied at seed time from the vault.
+async function seedStaff(shops: any[]): Promise<void> {
+  const password = process.env.SEED_STAFF_PASSWORD;
+  if (!password) {
+    console.warn('⚠️  SEED_STAFF_PASSWORD not set — no staff logins seeded');
+    return;
+  }
+
+  const shop = shops.find((s) => s.key === 'Belconnen Pizza Palace'); // Pizzeria Kreuzberg
+  if (!shop) {
+    console.warn('⚠️  Pizzeria Kreuzberg not found — no staff logins seeded');
+    return;
+  }
+
+  console.log('\n👤 Creating staff logins on Pizzeria Kreuzberg...');
+  const passwordHash = await hashPassword(password);
+  const staffDefs: Array<{ username: string; role: 'manager' | 'staff' }> = [
+    { username: 'manager', role: 'manager' },
+    { username: 'kitchen', role: 'staff' },
+  ];
+  for (const def of staffDefs) {
+    const ts = now();
+    await createStaffAccount({
+      id: randomUUID(),
+      shopId: shop.id,
+      username: def.username,
+      displayName: null,
+      role: def.role,
+      passwordHash,
+      isActive: true,
+      isDeleted: false,
+      failedLoginCount: 0,
+      lockedUntil: null,
+      lastLoginAt: null,
+      createdBy: 'seed',
+      createdAt: ts,
+      updatedAt: ts,
+    });
+    console.log(`   ✓ ${shop.name} → ${def.username} (${def.role})`);
+  }
+}
+
+// ── 10. Seed Ma Pasta — real menu, switched off ──────────────────────────────
+// Dev only: kept `isPaused: true` until Manish confirms the allergen/additive
+// declarations the printed card leaves incomplete (see NEEDS-YOU).
+async function seedMaPasta(
+  members: Array<{ userId: string; role: 'owner'; isActive: boolean }>,
+): Promise<{ shop: any; categoryCount: number; productCount: number }> {
+  console.log('\n🍝 Creating Ma Pasta (switched off)...');
+
+  const shopTs = now();
+  const shop = await createShop({
+    id: randomUUID(),
+    slug: MA_PASTA_SHOP.slug,
+    name: MA_PASTA_SHOP.name,
+    industry: 'restaurant',
+    isDeleted: false,
+    isPaused: true,
+    paymentPolicy: 'pay_online',
+    orderAcceptanceMode: 'auto',
+    currency: 'EUR',
+    timezone: 'Europe/Berlin',
+    minOrderAmountCents: 0,
+    countryCode: 'DE',
+    menuLanguages: ['de'],
+    address: MA_PASTA_SHOP.address,
+    openingHours: MA_PASTA_SHOP.openingHours,
+    closures: [],
+    members,
+    branding: null,
+    createdAt: shopTs,
+    updatedAt: shopTs,
+  });
+  console.log(`   ✓ ${shop.name} (${shop.slug})`);
+
+  const toOptions = (options: Array<{ name: string; priceDelta: number }>) =>
+    options.map((o) => ({ id: randomUUID(), name: o.name, priceDelta: o.priceDelta, isAvailable: true }));
+
+  let productCount = 0;
+  for (let i = 0; i < MA_PASTA_MENU.length; i++) {
+    const category = MA_PASTA_MENU[i];
+    const catTs = now();
+    const createdCategory = await createCategory({
+      id: randomUUID(),
+      shopId: shop.id,
+      name: category.name,
+      nameTranslations: {},
+      sortOrder: i + 1,
+      taxClassId: category.taxClassId,
+      isDeleted: false,
+      createdAt: catTs,
+      updatedAt: catTs,
+    });
+
+    for (const dish of category.dishes) {
+      const { allergenIds, additiveIds } = resolveDishAllergensAndAdditives(dish);
+      const variantGroups = dish.groups
+        .filter((g) => g.kind === 'variant')
+        .map((g) => ({ id: randomUUID(), name: g.name, options: toOptions(g.options) }));
+      const addonGroups = dish.groups
+        .filter((g) => g.kind === 'addon')
+        .map((g) => ({
+          id: randomUUID(),
+          name: g.name,
+          minSelectable: g.minSelectable,
+          maxSelectable: g.maxSelectable,
+          options: toOptions(g.options),
+        }));
+
+      const productTs = now();
+      await createProduct({
+        id: randomUUID(),
+        shopId: shop.id,
+        name: dish.name,
+        description: dish.description,
+        nameTranslations: {},
+        descriptionTranslations: {},
+        price: dish.price,
+        categoryIds: [createdCategory.id],
+        images: [],
+        variantGroups,
+        addonGroups,
+        allergenIds,
+        additiveIds,
+        dietaryTagIds: [],
+        spiceLevel: null,
+        prepMinutes: null,
+        taxClassId: null,
+        isAvailable: true,
+        isDeleted: false,
+        schedule: null,
+        createdAt: productTs,
+        updatedAt: productTs,
+      });
+      productCount++;
+    }
+  }
+  console.log(`   ✓ ${MA_PASTA_MENU.length} categories, ${productCount} dishes`);
+
+  return { shop, categoryCount: MA_PASTA_MENU.length, productCount };
+}
+
 // ── main ──────────────────────────────────────────────────────────────────────
 async function main(): Promise<void> {
-  console.log('🌱 Online Ordering System — Seed Script');
+  console.log('🌱 Restaurant Ordering System — Seed Script');
   console.log('=========================================');
 
   await deleteAll();
+
+  console.log('\n🌍 Seeding platform reference lists (DE)...');
+  await saveReferenceLists({ ...DE_REFERENCE_LISTS, updatedAt: now(), updatedBy: 'seed' });
+
+  await seedPlans();
   const shops = await seedShops();
   const categoryMap = await seedCategories(shops);
   await seedProducts(shops, categoryMap);
 
+  const ownerOid = process.env.SEED_OWNER_OID;
+  const members = ownerOid ? [{ userId: ownerOid, role: 'owner' as const, isActive: true }] : [];
+  const maPasta = await seedMaPasta(members);
+
+  const allShops = [...shops, maPasta.shop];
+  await seedSubscriptionsAndUsage(allShops);
+  await seedStaff(shops);
+
+  const categoryCount = shops.length * 3 + maPasta.categoryCount;
+  const productCount = shops.length * 4 + maPasta.productCount;
+
   console.log('\n✅ Seed complete!');
-  console.log(`   ${shops.length} shops`);
-  console.log(`   ${shops.length * 3} categories`);
-  console.log(`   ${shops.length * 4} products`);
+  console.log(`   ${allShops.length} shops`);
+  console.log(`   ${categoryCount} categories`);
+  console.log(`   ${productCount} products`);
+  console.log(`   ${PLAN_DEFS.length} plans`);
   console.log('\n📋 Shop slugs:');
-  shops.forEach((s: any) => console.log(`   • ${s.slug}`));
+  allShops.forEach((s: any) => console.log(`   • ${s.slug}`));
 }
 
 main().catch((err) => {

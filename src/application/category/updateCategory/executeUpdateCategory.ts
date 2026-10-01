@@ -4,10 +4,12 @@ import {
   updateCategory as updateCategoryInRepo,
 } from '../../../infrastructure/cosmos/category/CosmosCategoryRepository';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
-import { checkShopPermission } from '../../_shared/permissions';
+import { getReferenceLists } from '../../../infrastructure/cosmos/reference/CosmosReferenceListsRepository';
+import { authorizeShopAction, toAuditActor } from '../../_shared/shopAccess';
 import { UpdateCategoryRequestDto, UpdateCategoryResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
-import { getActorFromAuth, diffFields, logAudit } from '../../_shared/auditHelpers';
+import { normaliseTranslations } from '../../../domain/menu/menuLanguage';
+import { diffFields, logAudit } from '../../_shared/auditHelpers';
 
 export async function executeUpdateCategory(
   request: UpdateCategoryRequestDto,
@@ -39,9 +41,6 @@ export async function executeUpdateCategory(
   }
 
   try {
-    const actor = await getActorFromAuth(httpRequest);
-    const userId = actor.userId;
-
     const existingCategory = await findCategoryById(
       request.categoryId.trim(),
       request.shopId.trim(),
@@ -60,19 +59,38 @@ export async function executeUpdateCategory(
       return { ok: false, code: 'NOT_FOUND', error: 'Shop not found' };
     }
 
-    const permError = checkShopPermission(shop, userId, 'manage_products');
-    if (permError) return permError;
+    const access = await authorizeShopAction(httpRequest, shop, 'manage_menu');
+    if (!access.ok) return access;
+
+    if (request.taxClassId !== undefined) {
+      const refs = await getReferenceLists(shop.countryCode ?? '');
+      const isActive = refs.taxClasses.some((c) => c.id === request.taxClassId && c.isActive);
+      if (!isActive) {
+        return { ok: false, code: 'INVALID_INPUT', error: `Unknown tax class: ${request.taxClassId}` };
+      }
+    }
+
+    let nameTranslations = existingCategory.nameTranslations;
+    if (request.nameTranslations !== undefined) {
+      const normalised = normaliseTranslations(request.nameTranslations, 120);
+      if (typeof normalised === 'string') {
+        return { ok: false, code: 'INVALID_INPUT', error: normalised };
+      }
+      nameTranslations = normalised;
+    }
 
     const now = new Date().toISOString();
 
     const updatedCategory = {
       ...existingCategory,
       name: request.name?.trim() || existingCategory.name,
+      nameTranslations,
       sortOrder:
         request.sortOrder !== undefined
           ? request.sortOrder
           : existingCategory.sortOrder,
       icon: request.icon !== undefined ? request.icon : existingCategory.icon,
+      taxClassId: request.taxClassId ?? existingCategory.taxClassId ?? null,
       updatedAt: now,
     };
 
@@ -81,31 +99,27 @@ export async function executeUpdateCategory(
     const changes = diffFields(
       existingCategory as unknown as Record<string, unknown>,
       updatedCategory as unknown as Record<string, unknown>,
-      ['name', 'sortOrder', 'icon'],
-      [],
+      ['name', 'sortOrder', 'icon', 'taxClassId'],
+      ['nameTranslations'],
     );
-    logAudit(
-      {
-        shopId: savedCategory.shopId,
-        timestamp: new Date().toISOString(),
-        actorId: actor.userId,
-        actorEmail: actor.email,
-        actorName: actor.name,
-        action: 'category.update',
-        entityType: 'category',
-        entityId: savedCategory.id,
-        entityName: savedCategory.name,
-        changes,
-      },
-      httpRequest,
-    );
+    await logAudit({
+      shopId: savedCategory.shopId,
+      ...toAuditActor(access.actor),
+      action: 'category.update',
+      entityType: 'category',
+      entityId: savedCategory.id,
+      entityName: savedCategory.name,
+      changes,
+    });
 
     const resultDto: UpdateCategoryResultDto = {
       id: savedCategory.id,
       shopId: savedCategory.shopId,
       name: savedCategory.name,
+      nameTranslations: savedCategory.nameTranslations ?? {},
       sortOrder: savedCategory.sortOrder,
       icon: savedCategory.icon,
+      taxClassId: savedCategory.taxClassId ?? null,
       isDeleted: savedCategory.isDeleted,
       createdAt: savedCategory.createdAt,
       updatedAt: savedCategory.updatedAt,

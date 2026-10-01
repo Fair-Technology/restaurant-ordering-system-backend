@@ -4,11 +4,13 @@ import {
   findCategoriesByShopId,
 } from '../../../infrastructure/cosmos/category/CosmosCategoryRepository';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
-import { checkShopPermission } from '../../_shared/permissions';
+import { getReferenceLists } from '../../../infrastructure/cosmos/reference/CosmosReferenceListsRepository';
+import { authorizeShopAction, toAuditActor } from '../../_shared/shopAccess';
 import { CreateCategoryRequestDto, CreateCategoryResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 import { Category } from '../../../domain/category/Category';
-import { getActorFromAuth, logAudit } from '../../_shared/auditHelpers';
+import { normaliseTranslations } from '../../../domain/menu/menuLanguage';
+import { logAudit } from '../../_shared/auditHelpers';
 
 export async function executeCreateCategory(
   request: CreateCategoryRequestDto,
@@ -40,16 +42,13 @@ export async function executeCreateCategory(
   }
 
   try {
-    const actor = await getActorFromAuth(httpRequest);
-    const userId = actor.userId;
-
     const shop = await findShopById(request.shopId.trim());
     if (!shop) {
       return { ok: false, code: 'NOT_FOUND', error: 'Shop not found' };
     }
 
-    const permError = checkShopPermission(shop, userId, 'manage_products');
-    if (permError) return permError;
+    const access = await authorizeShopAction(httpRequest, shop, 'manage_menu');
+    if (!access.ok) return access;
 
     const existing = await findCategoriesByShopId(request.shopId.trim());
     const duplicate = existing.find(
@@ -63,6 +62,20 @@ export async function executeCreateCategory(
       };
     }
 
+    const refs = await getReferenceLists(shop.countryCode ?? '');
+
+    if (request.taxClassId !== undefined) {
+      const isActive = refs.taxClasses.some((c) => c.id === request.taxClassId && c.isActive);
+      if (!isActive) {
+        return { ok: false, code: 'INVALID_INPUT', error: `Unknown tax class: ${request.taxClassId}` };
+      }
+    }
+
+    const nameTranslations = normaliseTranslations(request.nameTranslations, 120);
+    if (typeof nameTranslations === 'string') {
+      return { ok: false, code: 'INVALID_INPUT', error: nameTranslations };
+    }
+
     const now = new Date().toISOString();
     const categoryId = crypto.randomUUID();
 
@@ -70,8 +83,10 @@ export async function executeCreateCategory(
       id: categoryId,
       shopId: request.shopId.trim(),
       name: request.name.trim(),
+      nameTranslations,
       sortOrder: request.sortOrder || 0,
       icon: request.icon,
+      taxClassId: request.taxClassId ?? refs.defaultTaxClassId,
       isDeleted: false,
       createdAt: now,
       updatedAt: now,
@@ -79,27 +94,23 @@ export async function executeCreateCategory(
 
     const createdCategory = await createCategoryInRepo(category);
 
-    logAudit(
-      {
-        shopId: createdCategory.shopId,
-        timestamp: new Date().toISOString(),
-        actorId: actor.userId,
-        actorEmail: actor.email,
-        actorName: actor.name,
-        action: 'category.create',
-        entityType: 'category',
-        entityId: createdCategory.id,
-        entityName: createdCategory.name,
-      },
-      httpRequest,
-    );
+    await logAudit({
+      shopId: createdCategory.shopId,
+      ...toAuditActor(access.actor),
+      action: 'category.create',
+      entityType: 'category',
+      entityId: createdCategory.id,
+      entityName: createdCategory.name,
+    });
 
     const resultDto: CreateCategoryResultDto = {
       id: createdCategory.id,
       shopId: createdCategory.shopId,
       name: createdCategory.name,
+      nameTranslations: createdCategory.nameTranslations ?? {},
       sortOrder: createdCategory.sortOrder,
       icon: createdCategory.icon,
+      taxClassId: createdCategory.taxClassId ?? null,
       isDeleted: createdCategory.isDeleted,
       createdAt: createdCategory.createdAt,
       updatedAt: createdCategory.updatedAt,

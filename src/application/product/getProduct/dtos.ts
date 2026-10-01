@@ -1,11 +1,12 @@
 import { Product, ProductImage, ProductSchedule } from '../../../domain/product/Product';
+import { ProductMenuFieldsDto } from '../menuFieldsDto';
 
 export interface GetProductRequestDto {
   productId: string;
   shopId: string;
 }
 
-export interface GetProductResultDto {
+export interface GetProductResultDto extends ProductMenuFieldsDto {
   id: string;
   shopId: string;
   name: string;
@@ -13,8 +14,6 @@ export interface GetProductResultDto {
   price: number;
   isAvailable: boolean;
   isDeleted: boolean;
-  taxRateId: string | null;
-  specialInfo?: Array<{ name: string; icon: string }>;
   createdAt: string;
   updatedAt: string;
   images: ProductImage[];

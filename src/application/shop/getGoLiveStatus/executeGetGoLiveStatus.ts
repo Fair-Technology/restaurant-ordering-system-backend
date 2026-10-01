@@ -6,8 +6,7 @@ import {
 } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { findProductsByShopId } from '../../../infrastructure/cosmos/product/CosmosProductRepository';
 import { findCategoriesByShopId } from '../../../infrastructure/cosmos/category/CosmosCategoryRepository';
-import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
-import { checkIsOwner } from '../../_shared/permissions';
+import { authorizeShopAction } from '../../_shared/shopAccess';
 import { ApplicationResult } from '../../_shared/types';
 import {
   GetGoLiveStatusRequestDto,
@@ -15,6 +14,7 @@ import {
   GoLiveCriterion,
 } from './dtos';
 import { Shop } from '../../../domain/shop/Shop';
+import { isOnMenu } from '../../../domain/product/Product';
 
 function buildCriteria(
   shop: Shop,
@@ -42,7 +42,7 @@ function buildCriteria(
     {
       key: 'has_products',
       met: hasProducts,
-      description: 'Shop has at least one available product',
+      description: 'Shop has at least one available dish with allergens and additives declared',
     },
     {
       key: 'has_categories',
@@ -81,15 +81,13 @@ export async function executeGetGoLiveStatus(
   }
 
   try {
-    const userId = await getUserIdFromAuth(httpRequest);
-
     let shop = await findShopById(request.shopId.trim());
     if (!shop) {
       return { ok: false, code: 'NOT_FOUND', error: 'Shop not found' };
     }
 
-    const ownerError = checkIsOwner(shop, userId);
-    if (ownerError) return ownerError;
+    const access = await authorizeShopAction(httpRequest, shop, 'manage_shop');
+    if (!access.ok) return access;
 
     // Sync Stripe Connect status directly — don't rely solely on webhooks
     if (shop.stripe?.connectAccountId) {
@@ -121,7 +119,7 @@ export async function executeGetGoLiveStatus(
       findCategoriesByShopId(shop.id),
     ]);
 
-    const hasProducts = products.some((p) => p.isAvailable && !p.isDeleted);
+    const hasProducts = products.some((p) => isOnMenu(p));
     const hasCategories = categories.some((c) => !c.isDeleted);
 
     const criteria = buildCriteria(shop, hasProducts, hasCategories);

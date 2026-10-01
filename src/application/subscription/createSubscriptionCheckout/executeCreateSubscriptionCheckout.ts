@@ -1,11 +1,10 @@
 import { HttpRequest } from '@azure/functions';
 import Stripe from 'stripe';
-import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { findPlanById } from '../../../infrastructure/cosmos/plan/CosmosPlanRepository';
 import { findPricingByPlanAndCurrency } from '../../../infrastructure/cosmos/plan/CosmosPlanPricingRepository';
 import { findSubscriptionByShopId } from '../../../infrastructure/cosmos/subscription/CosmosSubscriptionRepository';
-import { checkIsOwner } from '../../_shared/permissions';
+import { authorizeShopAction } from '../../_shared/shopAccess';
 import { ApplicationResult } from '../../_shared/types';
 
 export interface CreateSubscriptionCheckoutResultDto {
@@ -31,15 +30,13 @@ export async function executeCreateSubscriptionCheckout(
       return { ok: false, code: 'INVALID_INPUT', error: 'billingInterval must be monthly or yearly' };
     }
 
-    const userId = await getUserIdFromAuth(httpRequest);
-
     const shop = await findShopById(shopId);
     if (!shop) {
       return { ok: false, code: 'NOT_FOUND', error: 'Shop not found' };
     }
 
-    const ownerError = checkIsOwner(shop, userId);
-    if (ownerError) return ownerError;
+    const access = await authorizeShopAction(httpRequest, shop, 'manage_billing');
+    if (!access.ok) return access;
 
     const plan = await findPlanById(planId);
     if (!plan) {

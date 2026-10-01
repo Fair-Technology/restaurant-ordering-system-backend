@@ -1,9 +1,10 @@
 import { HttpRequest } from '@azure/functions';
 import { findAuditEntriesByShop } from '../../../infrastructure/cosmos/audit/CosmosAuditRepository';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
-import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
-import { verifySuperAdminToken } from '../../../infrastructure/auth/superAdminAuthHelpers';
-import { checkIsOwner } from '../../_shared/permissions';
+import { findUserById } from '../../../infrastructure/cosmos/user/CosmosUserRepository';
+import { findStaffAccountById } from '../../../infrastructure/cosmos/staff/CosmosStaffAccountRepository';
+import { authorizeShopAction } from '../../_shared/shopAccess';
+import { resolveActorLabels } from '../../_shared/buildAuditEntry';
 import { GetAuditEntriesRequestDto, GetAuditEntriesResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 
@@ -24,20 +25,8 @@ export async function executeGetAuditEntries(
       return { ok: false, code: 'NOT_FOUND', error: 'Shop not found' };
     }
 
-    // Accept either a valid superadmin JWT or a regular owner JWT
-    const superAdminId = await verifySuperAdminToken(httpRequest);
-
-    if (!superAdminId) {
-      let userId: string;
-      try {
-        userId = await getUserIdFromAuth(httpRequest);
-      } catch {
-        return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
-      }
-
-      const ownerError = checkIsOwner(shop, userId);
-      if (ownerError) return ownerError;
-    }
+    const access = await authorizeShopAction(httpRequest, shop, 'view_audit', { allowSuperadmin: true });
+    if (!access.ok) return access;
 
     const { entries, total } = await findAuditEntriesByShop(
       request.shopId.trim(),
@@ -45,9 +34,29 @@ export async function executeGetAuditEntries(
       pageSize,
     );
 
+    const ownerIds = [...new Set(entries.filter((e) => e.actorType === 'owner').map((e) => e.actorId))];
+    const ownerEntries = await Promise.all(
+      ownerIds.map(async (id): Promise<[string, string | null]> => {
+        const user = await findUserById(id);
+        return [id, user?.name ?? user?.email ?? null];
+      }),
+    );
+    const owners = new Map(ownerEntries);
+
+    const staffIds = [...new Set(entries.filter((e) => e.actorType === 'staff').map((e) => e.actorId))];
+    const staffEntries = await Promise.all(
+      staffIds.map(async (id): Promise<[string, string | null]> => {
+        const acc = await findStaffAccountById(request.shopId.trim(), id);
+        return [id, acc && !acc.isDeleted ? (acc.displayName ?? acc.username) : null];
+      }),
+    );
+    const staff = new Map(staffEntries);
+
+    const actorLabels = resolveActorLabels(entries, { owners, staff });
+
     return {
       ok: true,
-      data: { entries, total, page, pageSize },
+      data: { entries, total, page, pageSize, actorLabels },
     };
   } catch (error: any) {
     if (error.message === 'Authentication required') {

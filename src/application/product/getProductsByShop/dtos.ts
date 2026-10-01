@@ -1,10 +1,11 @@
-import { ProductImage, ProductSchedule } from '../../../domain/product/Product';
+import { Product, ProductImage, ProductSchedule } from '../../../domain/product/Product';
+import { ProductMenuFieldsDto } from '../menuFieldsDto';
 
 export interface GetProductsByShopRequestDto {
   shopId: string;
 }
 
-export interface ProductDto {
+export interface ProductDto extends ProductMenuFieldsDto {
   // Identity & ownership
   id: string;
   shopId: string;
@@ -27,37 +28,11 @@ export interface ProductDto {
   // Images
   images: ProductImage[];
 
-  // Special info (dietary labels, badges, etc.)
-  specialInfo?: Array<{ name: string; icon: string }>;
-
   // Variants (optional)
-  variantGroups?: Array<{
-    id: string;
-    name: string;
-    options: Array<{
-      id: string;
-      name: string;
-      priceDelta: number;
-      isAvailable: boolean;
-    }>;
-  }>;
+  variantGroups: Product['variantGroups'];
 
   // Addons (optional)
-  addonGroups?: Array<{
-    id: string;
-    name: string;
-    minSelectable: number;
-    maxSelectable: number;
-    options: Array<{
-      id: string;
-      name: string;
-      priceDelta: number;
-      isAvailable: boolean;
-    }>;
-  }>;
-
-  // Tax
-  taxRateId: string | null;
+  addonGroups: Product['addonGroups'];
 
   // Availability schedule (optional)
   schedule?: ProductSchedule | null;

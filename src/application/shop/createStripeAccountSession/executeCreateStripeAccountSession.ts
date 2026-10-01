@@ -4,8 +4,7 @@ import {
   findShopById,
   updateShop,
 } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
-import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
-import { checkIsOwner } from '../../_shared/permissions';
+import { authorizeShopAction } from '../../_shared/shopAccess';
 import { ApplicationResult } from '../../_shared/types';
 import {
   CreateStripeAccountSessionRequestDto,
@@ -26,15 +25,13 @@ export async function executeCreateStripeAccountSession(
   }
 
   try {
-    const userId = await getUserIdFromAuth(httpRequest);
-
     let shop = await findShopById(request.shopId.trim());
     if (!shop) {
       return { ok: false, code: 'NOT_FOUND', error: 'Shop not found' };
     }
 
-    const ownerError = checkIsOwner(shop, userId);
-    if (ownerError) return ownerError;
+    const access = await authorizeShopAction(httpRequest, shop, 'manage_billing');
+    if (!access.ok) return access;
 
     const stripe = new Stripe(stripeSecretKey);
 

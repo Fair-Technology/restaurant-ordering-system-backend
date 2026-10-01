@@ -1,3 +1,5 @@
+import { FulfilmentMode } from '../../../domain/order/Order';
+
 export interface CheckoutItemDto {
   productId: string;
   quantity: number;
@@ -12,7 +14,7 @@ export interface CheckoutRequestDto {
   customerEmail: string;
   customerPhone: string;
   customerNotes?: string;
-  orderLocation?: string;
+  fulfilmentMode?: FulfilmentMode; // absent → 'collection'
 }
 
 export interface CheckoutResultDto {

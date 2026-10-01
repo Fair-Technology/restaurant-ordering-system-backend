@@ -1,5 +1,6 @@
-import { ShopUsage } from '../../../domain/usage/ShopUsage';
+import { ShopUsageDto } from '../shopUsageDto';
 
 export interface GetShopUsageResultDto {
-  usage: ShopUsage;
+  usage: ShopUsageDto;
+  ordersPerMonthLimit: number | null;
 }

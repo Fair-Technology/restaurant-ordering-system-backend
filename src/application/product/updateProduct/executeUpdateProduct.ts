@@ -3,14 +3,17 @@ import {
   findProductById,
   updateProduct as updateProductInRepo,
 } from '../../../infrastructure/cosmos/product/CosmosProductRepository';
-import { findCategoryById } from '../../../infrastructure/cosmos/category/CosmosCategoryRepository';
+import { findCategoriesByShopId } from '../../../infrastructure/cosmos/category/CosmosCategoryRepository';
+import { Category } from '../../../domain/category/Category';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
-import { checkShopPermission } from '../../_shared/permissions';
+import { getReferenceLists } from '../../../infrastructure/cosmos/reference/CosmosReferenceListsRepository';
+import { authorizeShopAction, toAuditActor } from '../../_shared/shopAccess';
 import { deleteBlob, extractBlobPath } from '../../../infrastructure/storage/blobStorageHelpers';
 import { UpdateProductRequestDto, UpdateProductResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
-import { getActorFromAuth, diffFields, logAudit } from '../../_shared/auditHelpers';
-import { checkProductLimit } from '../../_shared/checkProductLimit';
+import { validateMenuFields } from '../menuFields';
+import { toMenuFieldsDto } from '../menuFieldsDto';
+import { diffFields, logAudit } from '../../_shared/auditHelpers';
 
 export async function executeUpdateProduct(
   request: UpdateProductRequestDto,
@@ -42,13 +45,22 @@ export async function executeUpdateProduct(
   }
 
   try {
-    const actor = await getActorFromAuth(httpRequest);
-    const userId = actor.userId;
+    const shopId = request.shopId.trim();
+    const productId = request.productId.trim();
+    const needsCategoryLookup = request.categoryIds !== undefined && request.categoryIds.length > 0;
 
-    const product = await findProductById(
-      request.productId.trim(),
-      request.shopId.trim(),
-    );
+    // The product and shop reads don't depend on each other — findProductById
+    // is already keyed by shopId as the partition key, so the product's own
+    // shopId is guaranteed to match once it's found. The category existence
+    // check (when there are categoryIds to validate) only needs shopId too.
+    // Firing all three at once, instead of one after another and then a
+    // findCategoryById per category id, is most of why this used to take
+    // seconds.
+    const [product, shop, shopCategories] = await Promise.all([
+      findProductById(productId, shopId),
+      findShopById(shopId),
+      needsCategoryLookup ? findCategoriesByShopId(shopId) : Promise.resolve<Category[]>([]),
+    ]);
 
     if (!product) {
       return {
@@ -58,18 +70,21 @@ export async function executeUpdateProduct(
       };
     }
 
-    const shop = await findShopById(product.shopId);
     if (!shop) {
       return { ok: false, code: 'NOT_FOUND', error: 'Shop not found' };
     }
 
-    const permError = checkShopPermission(shop, userId, 'manage_products');
-    if (permError) return permError;
+    // Authorization and the reference lists are independent reads too —
+    // both only need `shop`, not each other's result.
+    const [access, refs] = await Promise.all([
+      authorizeShopAction(httpRequest, shop, 'manage_menu'),
+      getReferenceLists(shop.countryCode ?? ''),
+    ]);
+    if (!access.ok) return access;
 
-    // Enforce product limit when activating a previously inactive product
-    if (request.isAvailable === true && !product.isAvailable) {
-      const limitError = await checkProductLimit(shop.id, false);
-      if (limitError) return limitError;
+    const menu = validateMenuFields(request, refs, product);
+    if ('error' in menu) {
+      return { ok: false, code: 'INVALID_INPUT', error: menu.error };
     }
 
     // Guard: cannot set isAvailable=true on a product with no categories
@@ -85,31 +100,15 @@ export async function executeUpdateProduct(
       }
     }
 
-    // Validate categoryIds if provided
-    if (request.categoryIds !== undefined && request.categoryIds.length > 0) {
-      // De-duplicate categoryIds
-      const uniqueCategoryIds = [...new Set(request.categoryIds)];
-
-      // Validate each categoryId
-      const invalidCategoryIds: string[] = [];
-
-      for (const categoryId of uniqueCategoryIds) {
-        try {
-          const category = await findCategoryById(
-            categoryId,
-            request.shopId.trim(),
-          );
-          if (
-            !category ||
-            category.isDeleted ||
-            category.shopId !== request.shopId.trim()
-          ) {
-            invalidCategoryIds.push(categoryId);
-          }
-        } catch (error) {
-          invalidCategoryIds.push(categoryId);
-        }
-      }
+    // Validate categoryIds if provided, using the shop's categories already
+    // fetched above instead of a read per category id.
+    if (needsCategoryLookup) {
+      const uniqueCategoryIds = [...new Set(request.categoryIds!)];
+      const categoriesById = new Map(shopCategories.map((c) => [c.id, c]));
+      const invalidCategoryIds = uniqueCategoryIds.filter((categoryId) => {
+        const category = categoriesById.get(categoryId);
+        return !category || category.isDeleted || category.shopId !== shopId;
+      });
 
       if (invalidCategoryIds.length > 0) {
         return {
@@ -184,20 +183,11 @@ export async function executeUpdateProduct(
         categoryIds: request.categoryIds,
       }),
       ...(request.images !== undefined && { images: request.images }),
-      ...(request.specialInfo !== undefined && {
-        specialInfo: request.specialInfo,
-      }),
-      ...(request.variantGroups !== undefined && {
-        variantGroups: request.variantGroups,
-      }),
-      ...(request.addonGroups !== undefined && {
-        addonGroups: request.addonGroups,
-      }),
       ...(request.isAvailable !== undefined && {
         isAvailable: request.isAvailable,
       }),
-      ...(request.taxRateId !== undefined && { taxRateId: request.taxRateId }),
       ...(request.schedule !== undefined && { schedule: request.schedule }),
+      ...menu,
       updatedAt: new Date().toISOString(),
     };
 
@@ -206,37 +196,41 @@ export async function executeUpdateProduct(
     const changes = diffFields(
       product as unknown as Record<string, unknown>,
       updatedProduct as unknown as Record<string, unknown>,
-      ['name', 'price', 'isAvailable', 'taxRateId'],
-      ['variantGroups', 'addonGroups', 'schedule', 'specialInfo'],
+      ['name', 'price', 'isAvailable', 'spiceLevel', 'prepMinutes', 'taxClassId'],
+      [
+        'variantGroups',
+        'addonGroups',
+        'schedule',
+        'allergenIds',
+        'additiveIds',
+        'dietaryTagIds',
+        'nameTranslations',
+        'descriptionTranslations',
+      ],
     );
-    logAudit(
-      {
+    // The audit write and any removed-image blob cleanup don't depend on
+    // each other, so run them together instead of one after the other.
+    const removedImages = request.images !== undefined
+      ? (product.images ?? []).filter((old) => !(request.images ?? []).some((n) => n.id === old.id))
+      : [];
+    await Promise.all([
+      logAudit({
         shopId: result.shopId,
-        timestamp: new Date().toISOString(),
-        actorId: actor.userId,
-        actorEmail: actor.email,
-        actorName: actor.name,
+        ...toAuditActor(access.actor),
         action: 'product.update',
         entityType: 'product',
         entityId: result.id,
         entityName: result.name,
         changes,
-      },
-      httpRequest,
-    );
-
-    // Delete blobs for images removed from the array — best effort
-    if (request.images !== undefined) {
-      const removedImages = (product.images ?? []).filter(
-        (old) => !(request.images ?? []).some((n) => n.id === old.id),
-      );
-      await Promise.allSettled(
+      }),
+      // Delete blobs for images removed from the array — best effort
+      Promise.allSettled(
         removedImages.map((img) => {
           const path = extractBlobPath(img.url);
           return path ? deleteBlob(path) : Promise.resolve();
         }),
-      );
-    }
+      ),
+    ]);
 
     const resultDto: UpdateProductResultDto = {
       id: result.id,
@@ -246,10 +240,10 @@ export async function executeUpdateProduct(
       price: result.price,
       isAvailable: result.isAvailable,
       isDeleted: result.isDeleted,
-      taxRateId: result.taxRateId ?? null,
       schedule: result.schedule ?? null,
       createdAt: result.createdAt,
       updatedAt: result.updatedAt,
+      ...toMenuFieldsDto(result),
     };
 
     return {

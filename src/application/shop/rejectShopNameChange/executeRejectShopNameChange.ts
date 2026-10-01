@@ -3,9 +3,8 @@ import {
   findShopById,
   updateShop,
 } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
-import { verifySuperAdminToken } from '../../../infrastructure/auth/superAdminAuthHelpers';
-import { checkIsOwner } from '../../_shared/permissions';
-import { getActorFromAuth, logAudit } from '../../_shared/auditHelpers';
+import { authorizeShopAction, toAuditActor } from '../../_shared/shopAccess';
+import { logAudit } from '../../_shared/auditHelpers';
 import { ApplicationResult } from '../../_shared/types';
 import { RejectShopNameChangeRequestDto, RejectShopNameChangeResultDto } from './dtos';
 
@@ -28,35 +27,15 @@ export async function executeRejectShopNameChange(
     }
 
     // Allow superadmin OR the owner who originally submitted the request
-    let actorId: string;
-    let actorEmail: string | undefined;
-    let actorName: string | undefined;
+    const access = await authorizeShopAction(httpRequest, shop, 'manage_shop', { allowSuperadmin: true });
+    if (!access.ok) return access;
 
-    const superAdminId = await verifySuperAdminToken(httpRequest);
-    if (superAdminId) {
-      actorId = superAdminId;
-    } else {
-      let actor: { userId: string; email?: string; name?: string };
-      try {
-        actor = await getActorFromAuth(httpRequest);
-      } catch {
-        return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
-      }
-
-      const ownerError = checkIsOwner(shop, actor.userId);
-      const isRequester = shop.pendingNameChange.requestedBy === actor.userId;
-
-      if (ownerError || !isRequester) {
-        return {
-          ok: false,
-          code: 'FORBIDDEN',
-          error: 'Only the requesting owner or a superadmin can cancel this request',
-        };
-      }
-
-      actorId = actor.userId;
-      actorEmail = actor.email;
-      actorName = actor.name;
+    if (access.actor.actorType !== 'superadmin' && shop.pendingNameChange.requestedBy !== access.actor.actorId) {
+      return {
+        ok: false,
+        code: 'FORBIDDEN',
+        error: 'Only the requesting owner or a superadmin can cancel this request',
+      };
     }
 
     const rejectedName = shop.pendingNameChange.requestedName;
@@ -69,21 +48,15 @@ export async function executeRejectShopNameChange(
 
     const result = await updateShop(updatedShop);
 
-    logAudit(
-      {
-        shopId: result.id,
-        timestamp: new Date().toISOString(),
-        actorId,
-        actorEmail,
-        actorName,
-        action: 'shop.nameChange.rejected',
-        entityType: 'shop',
-        entityId: result.id,
-        entityName: result.name,
-        changes: [{ field: 'pendingNameChange', from: rejectedName, to: null }],
-      },
-      httpRequest,
-    );
+    await logAudit({
+      shopId: result.id,
+      ...toAuditActor(access.actor),
+      action: 'shop.nameChange.rejected',
+      entityType: 'shop',
+      entityId: result.id,
+      entityName: result.name,
+      changes: [{ field: 'pendingNameChange', from: rejectedName, to: null }],
+    });
 
     return {
       ok: true,

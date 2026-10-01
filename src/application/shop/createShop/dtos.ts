@@ -35,11 +35,6 @@ export interface CreateShopRequestDto {
     end: string;
     reason?: string;
   }>;
-  members?: Array<{
-    userId: string;
-    role: 'owner' | 'staff';
-    isActive: boolean;
-  }>;
   branding?: ShopBranding | null;
 }
 

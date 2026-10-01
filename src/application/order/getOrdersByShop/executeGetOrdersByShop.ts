@@ -3,10 +3,9 @@ import {
   countOrdersByShopId,
   findOrdersByShopIdPaginated,
 } from '../../../infrastructure/cosmos/order/CosmosOrderRepository';
+import { deriveDisplayState } from '../../../domain/order/orderLifecycle';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
-import { findUserById } from '../../../infrastructure/cosmos/user/CosmosUserRepository';
-import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
-import { checkShopPermission } from '../../_shared/permissions';
+import { authorizeShopAction } from '../../_shared/shopAccess';
 import {
   GetOrdersByShopRequestDto,
   GetOrdersByShopResultDto,
@@ -41,8 +40,6 @@ export async function executeGetOrdersByShop(
   }
 
   try {
-    const userId = await getUserIdFromAuth(httpRequest);
-
     const shopId = request.shopId.trim();
 
     const shop = await findShopById(shopId);
@@ -50,11 +47,8 @@ export async function executeGetOrdersByShop(
       return { ok: false, code: 'NOT_FOUND', error: 'Shop not found' };
     }
 
-    const user = await findUserById(userId);
-    if (user?.systemRole !== 'superadmin') {
-      const permError = checkShopPermission(shop, userId, 'view_orders');
-      if (permError) return permError;
-    }
+    const access = await authorizeShopAction(httpRequest, shop, 'view_orders', { allowSuperadmin: true });
+    if (!access.ok) return access;
 
     const [orders, total] = await Promise.all([
       findOrdersByShopIdPaginated(shopId, page, pageSize),
@@ -64,7 +58,12 @@ export async function executeGetOrdersByShop(
     const orderDtos: OrderDto[] = orders.map((order) => ({
       id: order.id,
       orderRef: order.orderRef,
-      status: order.status,
+      state: order.state,
+      displayState: deriveDisplayState(order, new Date()),
+      fulfilmentMode: order.fulfilmentMode,
+      paymentMethod: order.payment.method,
+      paymentStatus: order.payment.status,
+      readyAt: order.readyAt ?? null,
       items: order.items.map((item) => ({
         productId: item.productId,
         productName: item.productName,
@@ -82,7 +81,7 @@ export async function executeGetOrdersByShop(
       customerEmail: order.customerEmail,
       customerPhone: order.customerPhone,
       customerNotes: order.customerNotes,
-      orderLocation: order.orderLocation,
+      history: order.history,
       createdAt: order.createdAt,
     }));
 

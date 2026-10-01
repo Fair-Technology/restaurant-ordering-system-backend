@@ -1,29 +1,29 @@
-export interface ShopBrandingColors {
-  primary: string;
-  secondary: string;
-  tertiary: string;
-  background: string;
-}
+import { MenuLanguage } from '../reference/ReferenceLists';
 
 export interface ShopBranding {
   logoUrl: string | null;
   heroImageUrl: string | null;
-  colors: ShopBrandingColors;
+  accentColor: string | null;
 }
 
-export type ShopPermission = 'view_orders' | 'manage_products' | 'manage_shop';
+export type ShopRoleKey = 'owner' | 'manager' | 'staff';
 
-export interface ShopTaxRate {
-  id: string; // UUID
-  label: string; // e.g. "Standard (19%)", "Reduced (7%)"
-  rate: number; // decimal, e.g. 0.19 = 19%, 0.07 = 7%
-}
+export type ShopPermission =
+  | 'view_orders'
+  | 'manage_menu'
+  | 'manage_shop'
+  | 'manage_staff'
+  | 'manage_billing'
+  | 'view_audit';
 
-export interface ShopRole {
-  id: string; // UUID for custom roles; 'staff' for the seeded default
-  name: string; // display name: "Staff", "Kitchen", "Cashier"
-  permissions: ShopPermission[];
-}
+export const ALL_SHOP_PERMISSIONS: readonly ShopPermission[] = [
+  'view_orders',
+  'manage_menu',
+  'manage_shop',
+  'manage_staff',
+  'manage_billing',
+  'view_audit',
+];
 
 export interface Shop {
   // Identity
@@ -42,7 +42,6 @@ export interface Shop {
   // Payments & checkout
   paymentPolicy: 'pay_online' | string; // future-ready enum
   orderAcceptanceMode: 'auto'; // fixed for now
-  allowGuestCheckout: boolean;
 
   // Locale & rules
   currency: string; // ISO code, e.g. "AUD"
@@ -75,19 +74,18 @@ export interface Shop {
     reason?: string;
   }>;
 
-  // Admins & staff
+  // Admins & staff (only owners are Entra members; custom roles removed)
   members: Array<{
     userId: string; // Entra object id
-    role: string; // 'owner' is reserved; all other values must match a ShopRole.id
+    role: 'owner';
     isActive: boolean;
   }>;
 
-  // Custom roles (owner is hardcoded and not stored here)
-  roles: ShopRole[];
-
   // Tax configuration
   countryCode: string; // ISO 3166-1 alpha-2, e.g. "AU", "DE"
-  taxRates: ShopTaxRate[];
+
+  // Menu languages: [original, ...additional]. Original is fixed at creation.
+  menuLanguages: MenuLanguage[];
 
   // Branding
   branding: ShopBranding | null;

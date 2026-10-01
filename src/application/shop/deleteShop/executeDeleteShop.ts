@@ -3,8 +3,7 @@ import {
   findShopById,
   updateShop,
 } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
-import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
-import { checkShopPermission } from '../../_shared/permissions';
+import { authorizeShopAction } from '../../_shared/shopAccess';
 import { DeleteShopRequestDto, DeleteShopResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 
@@ -26,8 +25,6 @@ export async function executeDeleteShop(
   }
 
   try {
-    const userId = await getUserIdFromAuth(httpRequest);
-
     const shop = await findShopById(request.shopId.trim());
 
     if (!shop) {
@@ -38,8 +35,8 @@ export async function executeDeleteShop(
       };
     }
 
-    const permError = checkShopPermission(shop, userId, 'manage_shop');
-    if (permError) return permError;
+    const access = await authorizeShopAction(httpRequest, shop, 'manage_shop');
+    if (!access.ok) return access;
 
     // Soft delete by setting isDeleted flag
     const deletedShop = {

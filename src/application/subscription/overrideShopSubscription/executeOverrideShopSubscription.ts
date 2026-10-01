@@ -75,9 +75,9 @@ export async function executeOverrideShopSubscription(
 
     const result = await upsertSubscription(updated);
 
-    logAudit({
+    await logAudit({
       shopId,
-      timestamp: now,
+      actorType: 'superadmin',
       actorId: userId,
       action: 'subscription.override',
       entityType: 'subscription',
@@ -87,7 +87,7 @@ export async function executeOverrideShopSubscription(
         { field: 'planId', from: current.planId, to: request.planId },
         { field: 'planSource', from: current.planSource, to: 'superadmin_override' },
       ],
-    }, httpRequest);
+    });
 
     return { ok: true, data: { subscription: result } };
   } catch (error: any) {

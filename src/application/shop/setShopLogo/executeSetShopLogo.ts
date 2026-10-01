@@ -3,11 +3,11 @@ import {
   findShopById,
   updateShop as updateShopInRepo,
 } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
-import { checkShopPermission } from '../../_shared/permissions';
+import { authorizeShopAction, toAuditActor } from '../../_shared/shopAccess';
 import { deleteBlob, extractBlobPath } from '../../../infrastructure/storage/blobStorageHelpers';
 import { SetShopLogoRequestDto, SetShopLogoResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
-import { getActorFromAuth, logAudit } from '../../_shared/auditHelpers';
+import { logAudit } from '../../_shared/auditHelpers';
 
 export async function executeSetShopLogo(
   request: SetShopLogoRequestDto,
@@ -26,16 +26,13 @@ export async function executeSetShopLogo(
   }
 
   try {
-    const actor = await getActorFromAuth(httpRequest);
-    const userId = actor.userId;
-
     const shop = await findShopById(request.shopId.trim());
     if (!shop) {
       return { ok: false, code: 'NOT_FOUND', error: 'Shop not found' };
     }
 
-    const permError = checkShopPermission(shop, userId, 'manage_shop');
-    if (permError) return permError;
+    const access = await authorizeShopAction(httpRequest, shop, 'manage_shop');
+    if (!access.ok) return access;
 
     // Delete old logo blob if it exists and differs from the new URL
     const oldLogoUrl = shop.branding?.logoUrl;
@@ -47,11 +44,7 @@ export async function executeSetShopLogo(
     }
 
     const updatedBranding = {
-      ...(shop.branding ?? {
-        logoUrl: null,
-        heroImageUrl: null,
-        colors: { primary: '#1D4ED8', secondary: '#9333EA', tertiary: '#F59E0B', background: '#F9FAFB' },
-      }),
+      ...(shop.branding ?? { logoUrl: null, heroImageUrl: null, accentColor: null }),
       logoUrl: request.url,
     };
 
@@ -63,20 +56,14 @@ export async function executeSetShopLogo(
 
     const result = await updateShopInRepo(updatedShop);
 
-    logAudit(
-      {
-        shopId: result.id,
-        timestamp: new Date().toISOString(),
-        actorId: actor.userId,
-        actorEmail: actor.email,
-        actorName: actor.name,
-        action: 'shop.logo',
-        entityType: 'shop',
-        entityId: result.id,
-        entityName: result.name,
-      },
-      httpRequest,
-    );
+    await logAudit({
+      shopId: result.id,
+      ...toAuditActor(access.actor),
+      action: 'shop.logo',
+      entityType: 'shop',
+      entityId: result.id,
+      entityName: result.name,
+    });
 
     return {
       ok: true,

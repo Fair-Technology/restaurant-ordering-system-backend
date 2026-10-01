@@ -1,3 +1,6 @@
+import { TranslationMap } from '../menu/menuLanguage';
+import { SpiceLevel } from './dietary';
+
 export interface ProductSchedule {
   startDate: string; // "YYYY-MM-DD" — inclusive
   endDate?: string | null; // "YYYY-MM-DD" — inclusive; null/absent = run indefinitely
@@ -17,14 +20,40 @@ export interface ProductImage {
   createdAt: string; // ISO datetime when image was added
 }
 
+export interface ProductOption {
+  id: string;
+  name: string;
+  nameTranslations?: TranslationMap;
+  priceDelta: number; // cents
+  isAvailable: boolean; // independent availability
+}
+
+export interface ProductVariantGroup {
+  id: string;
+  name: string;
+  nameTranslations?: TranslationMap;
+  options: ProductOption[];
+}
+
+export interface ProductAddonGroup {
+  id: string;
+  name: string;
+  nameTranslations?: TranslationMap;
+  minSelectable: number; // e.g. 0 or 1
+  maxSelectable: number; // no unlimited; large number allowed
+  options: ProductOption[];
+}
+
 export interface Product {
   // Identity & ownership
   id: string; // UUID (Cosmos item id)
   shopId: string; // owning shop UUID
 
   // Core info
-  name: string; // product name
-  description: string;
+  name: string; // product name, original language
+  description: string; // original language
+  nameTranslations?: TranslationMap;
+  descriptionTranslations?: TranslationMap;
 
   // Pricing
   price: number; // base price in cents (mandatory, 0 only if truly free)
@@ -35,37 +64,23 @@ export interface Product {
   // Images
   images: ProductImage[];
 
-  // Special info (dietary labels, badges, etc.)
-  specialInfo?: Array<{ name: string; icon: string }>;
-
   // Variants (optional)
-  variantGroups?: Array<{
-    id: string;
-    name: string;
-    options: Array<{
-      id: string;
-      name: string;
-      priceDelta: number; // cents
-      isAvailable: boolean; // independent availability
-    }>;
-  }>;
+  variantGroups?: ProductVariantGroup[];
 
   // Addons (optional)
-  addonGroups?: Array<{
-    id: string;
-    name: string;
-    minSelectable: number; // e.g. 0 or 1
-    maxSelectable: number; // no unlimited; large number allowed
-    options: Array<{
-      id: string;
-      name: string;
-      priceDelta: number; // cents
-      isAvailable: boolean;
-    }>;
-  }>;
+  addonGroups?: ProductAddonGroup[];
+
+  // Food law: mandatory before the dish appears on the menu
+  allergenIds: string[] | null; // null = not yet declared
+  additiveIds: string[] | null;
+
+  // Dietary info
+  dietaryTagIds: string[];
+  spiceLevel: SpiceLevel | null;
+  prepMinutes: number | null; // 1..240
 
   // Tax
-  taxRateId: string | null; // references ShopTaxRate.id; null = no tax assigned
+  taxClassId: string | null; // per-dish override; null = inherit from category
 
   // Availability schedule (optional)
   schedule?: ProductSchedule | null;
@@ -77,4 +92,17 @@ export interface Product {
   // Audit
   createdAt: string; // ISO datetime
   updatedAt: string; // ISO datetime
+}
+
+export function isDeclared(p: { allergenIds?: string[] | null; additiveIds?: string[] | null }): boolean {
+  return Array.isArray(p.allergenIds) && Array.isArray(p.additiveIds);
+}
+
+export function isOnMenu(p: {
+  isAvailable: boolean;
+  isDeleted: boolean;
+  allergenIds?: string[] | null;
+  additiveIds?: string[] | null;
+}): boolean {
+  return p.isAvailable && !p.isDeleted && isDeclared(p);
 }

@@ -13,7 +13,6 @@ export interface GetShopBySlugResultDto {
   pausedMessage?: string;
   paymentPolicy: string;
   orderAcceptanceMode: string;
-  allowGuestCheckout: boolean;
   currency: string;
   timezone: string;
   minOrderAmountCents: number;
@@ -36,11 +35,6 @@ export interface GetShopBySlugResultDto {
     start: string;
     end: string;
     reason?: string;
-  }>;
-  members: Array<{
-    userId: string;
-    role: string;
-    isActive: boolean;
   }>;
   branding: ShopBranding | null;
   createdAt: string;

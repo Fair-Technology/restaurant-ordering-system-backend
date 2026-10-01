@@ -1,4 +1,5 @@
 import { ShopUsage } from '../../../domain/usage/ShopUsage';
+import { nextUsage } from '../../../application/_shared/usageCounter';
 import { usageContainer } from '../cosmosClient';
 
 export async function findUsageByShopId(shopId: string): Promise<ShopUsage | null> {
@@ -20,11 +21,10 @@ export async function upsertUsage(usage: ShopUsage): Promise<ShopUsage> {
   }
 }
 
-export async function incrementActiveProducts(shopId: string, delta: number): Promise<ShopUsage> {
+export async function incrementAcceptedOrders(shopId: string, periodKey: string): Promise<ShopUsage> {
   const MAX_RETRIES = 3;
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     try {
-      const now = new Date().toISOString();
       const item = usageContainer.item(shopId, shopId);
 
       let current: ShopUsage;
@@ -37,28 +37,23 @@ export async function incrementActiveProducts(shopId: string, delta: number): Pr
         etag = e!;
       } catch (readErr: any) {
         if (readErr.code === 404) {
-          // Create a new usage doc if missing
-          const newUsage: ShopUsage = {
-            id: shopId,
-            shopId,
-            activeProductCount: Math.max(0, delta),
-            periodStart: null,
-            periodEnd: null,
-            lastReconciled: null,
-            createdAt: now,
-            updatedAt: now,
-          };
-          const { resource } = await usageContainer.items.create<ShopUsage>(newUsage);
-          return resource!;
+          try {
+            const { resource } = await usageContainer.items.create<ShopUsage>(
+              nextUsage(null, shopId, periodKey, new Date()),
+            );
+            return resource!;
+          } catch (createErr: any) {
+            if (createErr.code === 409 && attempt < MAX_RETRIES - 1) {
+              // A concurrent request created the doc first — retry and increment it instead.
+              continue;
+            }
+            throw createErr;
+          }
         }
         throw readErr;
       }
 
-      const updated: ShopUsage = {
-        ...current,
-        activeProductCount: Math.max(0, current.activeProductCount + delta),
-        updatedAt: now,
-      };
+      const updated = nextUsage(current, shopId, periodKey, new Date());
 
       try {
         const { resource } = await item.replace<ShopUsage>(updated, {
@@ -76,5 +71,5 @@ export async function incrementActiveProducts(shopId: string, delta: number): Pr
       if (attempt === MAX_RETRIES - 1) throw error;
     }
   }
-  throw new Error('Failed to increment active products after retries');
+  throw new Error('Failed to increment accepted orders after retries');
 }

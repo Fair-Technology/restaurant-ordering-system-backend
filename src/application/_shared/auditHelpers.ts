@@ -1,10 +1,9 @@
 import { HttpRequest } from '@azure/functions';
 import { jwtVerify, createRemoteJWKSet } from 'jose';
-import { AuditChange, AuditEntry } from '../../domain/audit/AuditEntry';
+import { AuditChange, AuditInput } from '../../domain/audit/AuditEntry';
+import { buildAuditEntry } from './buildAuditEntry';
 import { createAuditEntry } from '../../infrastructure/cosmos/audit/CosmosAuditRepository';
 import { upsertUser } from '../../infrastructure/cosmos/user/CosmosUserRepository';
-
-const AUDIT_TTL = 7776000; // 90 days in seconds
 
 // Re-use CIAM JWKS from the existing auth flow (cached by jose)
 const tenantName = process.env.ENTRA_TENANT_NAME!;
@@ -88,22 +87,10 @@ export function diffFields<T extends Record<string, unknown>>(
   return changes;
 }
 
-export function logAudit(
-  entry: Omit<AuditEntry, 'id' | 'ttl'>,
-  request: HttpRequest,
-): void {
-  const full: AuditEntry = {
-    ...entry,
-    id: crypto.randomUUID(),
-    ttl: AUDIT_TTL,
-    ipAddress:
-      request.headers.get('x-forwarded-for') ??
-      request.headers.get('x-real-ip') ??
-      undefined,
-    userAgent: request.headers.get('user-agent') ?? undefined,
-  };
-
-  createAuditEntry(full).catch((err) => {
+export async function logAudit(input: AuditInput): Promise<void> {
+  try {
+    await createAuditEntry(buildAuditEntry(input, new Date(), crypto.randomUUID()));
+  } catch (err: any) {
     console.error('[audit] Failed to write audit entry:', err?.message);
-  });
+  }
 }

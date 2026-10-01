@@ -1,9 +1,8 @@
 export interface ShopUsage {
   id: string; // === shopId
   shopId: string;
-  activeProductCount: number;
-  periodStart: string | null;
-  periodEnd: string | null;
+  periodKey: string; // 'YYYY-MM' in the shop's timezone
+  acceptedOrderCount: number;
   lastReconciled: string | null;
   createdAt: string;
   updatedAt: string;

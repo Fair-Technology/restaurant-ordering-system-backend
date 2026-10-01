@@ -1,6 +1,8 @@
 import { HttpRequest } from '@azure/functions';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
-import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
+import { authenticate } from '../../../infrastructure/auth/principal';
+import { realDeps, resolveShopAccess } from '../../_shared/shopAccess';
+import { menuLanguagesOf } from '../../../domain/menu/menuLanguage';
 import { GetShopRequestDto, GetShopResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 
@@ -22,7 +24,7 @@ export async function executeGetShop(
   }
 
   try {
-    await getUserIdFromAuth(httpRequest);
+    const principal = await authenticate(httpRequest);
 
     const shop = await findShopById(request.shopId.trim());
 
@@ -34,6 +36,16 @@ export async function executeGetShop(
       };
     }
 
+    if (principal.kind === 'staff' && principal.shopId !== shop.id) {
+      return {
+        ok: false,
+        code: 'FORBIDDEN',
+        error: 'You do not have access to this restaurant',
+      };
+    }
+
+    const access = await resolveShopAccess(principal, shop, realDeps, { allowSuperadmin: true });
+
     const shopDto: GetShopResultDto = {
       id: shop.id,
       slug: shop.slug,
@@ -44,17 +56,16 @@ export async function executeGetShop(
       isDeactivatedDueToLimits: shop.isDeactivatedDueToLimits ?? false,
       paymentPolicy: shop.paymentPolicy,
       orderAcceptanceMode: shop.orderAcceptanceMode,
-      allowGuestCheckout: shop.allowGuestCheckout,
       currency: shop.currency,
       timezone: shop.timezone,
       minOrderAmountCents: shop.minOrderAmountCents,
       address: shop.address,
       openingHours: shop.openingHours,
       closures: shop.closures,
-      members: shop.members,
-      roles: shop.roles ?? [],
+      callerRole: access ? (access.actor.role ?? 'superadmin') : null,
+      callerPermissions: access?.permissions ?? [],
       countryCode: shop.countryCode ?? '',
-      taxRates: shop.taxRates ?? [],
+      menuLanguages: menuLanguagesOf(shop),
       branding: shop.branding ?? null,
       pendingNameChange: shop.pendingNameChange ?? null,
       stripe: shop.stripe

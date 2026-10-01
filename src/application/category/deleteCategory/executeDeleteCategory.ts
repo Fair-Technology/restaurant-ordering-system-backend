@@ -4,10 +4,10 @@ import {
   updateCategory,
 } from '../../../infrastructure/cosmos/category/CosmosCategoryRepository';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
-import { checkShopPermission } from '../../_shared/permissions';
+import { authorizeShopAction, toAuditActor } from '../../_shared/shopAccess';
 import { DeleteCategoryRequestDto, DeleteCategoryResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
-import { getActorFromAuth, logAudit } from '../../_shared/auditHelpers';
+import { logAudit } from '../../_shared/auditHelpers';
 
 export async function executeDeleteCategory(
   request: DeleteCategoryRequestDto,
@@ -39,9 +39,6 @@ export async function executeDeleteCategory(
   }
 
   try {
-    const actor = await getActorFromAuth(httpRequest);
-    const userId = actor.userId;
-
     const existingCategory = await findCategoryById(
       request.categoryId.trim(),
       request.shopId.trim(),
@@ -60,8 +57,8 @@ export async function executeDeleteCategory(
       return { ok: false, code: 'NOT_FOUND', error: 'Shop not found' };
     }
 
-    const permError = checkShopPermission(shop, userId, 'manage_products');
-    if (permError) return permError;
+    const access = await authorizeShopAction(httpRequest, shop, 'manage_menu');
+    if (!access.ok) return access;
 
     const now = new Date().toISOString();
 
@@ -74,20 +71,14 @@ export async function executeDeleteCategory(
 
     const savedCategory = await updateCategory(deletedCategory);
 
-    logAudit(
-      {
-        shopId: savedCategory.shopId,
-        timestamp: new Date().toISOString(),
-        actorId: actor.userId,
-        actorEmail: actor.email,
-        actorName: actor.name,
-        action: 'category.delete',
-        entityType: 'category',
-        entityId: savedCategory.id,
-        entityName: savedCategory.name,
-      },
-      httpRequest,
-    );
+    await logAudit({
+      shopId: savedCategory.shopId,
+      ...toAuditActor(access.actor),
+      action: 'category.delete',
+      entityType: 'category',
+      entityId: savedCategory.id,
+      entityName: savedCategory.name,
+    });
 
     const resultDto: DeleteCategoryResultDto = {
       id: savedCategory.id,

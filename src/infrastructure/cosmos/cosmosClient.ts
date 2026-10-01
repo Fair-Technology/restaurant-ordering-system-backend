@@ -42,9 +42,11 @@ const planPricingContainerId = process.env.COSMOS_PLAN_PRICING_CONTAINER || 'pla
 const subscriptionContainerId = process.env.COSMOS_SUBSCRIPTIONS_CONTAINER || 'shop_subscriptions';
 const usageContainerId = process.env.COSMOS_USAGE_CONTAINER || 'shop_usage';
 const systemConfigContainerId = process.env.COSMOS_SYSTEM_CONFIG_CONTAINER || 'system_config';
+const staffAccountsContainerId = process.env.COSMOS_STAFF_ACCOUNTS_CONTAINER || 'staff_accounts';
 
 export const planContainer: Container = database.container(planContainerId);
 export const planPricingContainer: Container = database.container(planPricingContainerId);
 export const subscriptionContainer: Container = database.container(subscriptionContainerId);
 export const usageContainer: Container = database.container(usageContainerId);
 export const systemConfigContainer: Container = database.container(systemConfigContainerId);
+export const staffAccountsContainer: Container = database.container(staffAccountsContainerId);

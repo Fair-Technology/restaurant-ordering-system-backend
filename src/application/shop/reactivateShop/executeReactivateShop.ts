@@ -1,5 +1,4 @@
 import { HttpRequest } from '@azure/functions';
-import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
 import {
   findShopById,
   updateShop,
@@ -7,7 +6,7 @@ import {
 import { findSubscriptionByShopId } from '../../../infrastructure/cosmos/subscription/CosmosSubscriptionRepository';
 import { findPlanById } from '../../../infrastructure/cosmos/plan/CosmosPlanRepository';
 import { findProductsByShopId } from '../../../infrastructure/cosmos/product/CosmosProductRepository';
-import { checkIsOwner } from '../../_shared/permissions';
+import { authorizeShopAction, toAuditActor } from '../../_shared/shopAccess';
 import { ApplicationResult } from '../../_shared/types';
 import { logAudit } from '../../_shared/auditHelpers';
 import { ReactivateShopResultDto } from './dtos';
@@ -21,15 +20,13 @@ export async function executeReactivateShop(
   }
 
   try {
-    const userId = await getUserIdFromAuth(httpRequest);
-
     const shop = await findShopById(shopId);
     if (!shop) {
       return { ok: false, code: 'NOT_FOUND', error: 'Shop not found' };
     }
 
-    const ownerError = checkIsOwner(shop, userId);
-    if (ownerError) return ownerError;
+    const access = await authorizeShopAction(httpRequest, shop, 'manage_billing');
+    if (!access.ok) return access;
 
     if (!shop.isDeactivatedDueToLimits) {
       return { ok: false, code: 'INVALID_INPUT', error: 'Shop is not deactivated due to plan limits' };
@@ -54,19 +51,15 @@ export async function executeReactivateShop(
     const now = new Date().toISOString();
     await updateShop({ ...shop, isDeactivatedDueToLimits: false, updatedAt: now });
 
-    logAudit(
-      {
-        actorId: userId,
-        action: 'shop.reactivated',
-        entityType: 'shop',
-        entityId: shopId,
-        entityName: `Shop ${shopId}`,
-        shopId,
-        changes: [],
-        timestamp: now,
-      },
-      httpRequest,
-    );
+    await logAudit({
+      ...toAuditActor(access.actor),
+      action: 'shop.reactivated',
+      entityType: 'shop',
+      entityId: shopId,
+      entityName: `Shop ${shopId}`,
+      shopId,
+      changes: [],
+    });
 
     return { ok: true, data: { id: shopId, isDeactivatedDueToLimits: false } };
   } catch (error: any) {

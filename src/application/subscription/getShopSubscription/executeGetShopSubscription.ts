@@ -1,10 +1,8 @@
 import { HttpRequest } from '@azure/functions';
-import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
-import { findUserById } from '../../../infrastructure/cosmos/user/CosmosUserRepository';
 import { findSubscriptionByShopId, upsertSubscription } from '../../../infrastructure/cosmos/subscription/CosmosSubscriptionRepository';
 import { findPlanByInternalKey, findPlanById } from '../../../infrastructure/cosmos/plan/CosmosPlanRepository';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
-import { checkShopPermission } from '../../_shared/permissions';
+import { authorizeShopAction } from '../../_shared/shopAccess';
 import { ApplicationResult } from '../../_shared/types';
 import { GetShopSubscriptionResultDto } from './dtos';
 import { ShopSubscription } from '../../../domain/subscription/ShopSubscription';
@@ -18,17 +16,13 @@ export async function executeGetShopSubscription(
   }
 
   try {
-    const userId = await getUserIdFromAuth(httpRequest);
-    const user = await findUserById(userId);
-
-    if (user?.systemRole !== 'superadmin') {
-      const shop = await findShopById(shopId);
-      if (!shop) {
-        return { ok: false, code: 'NOT_FOUND', error: 'Shop not found' };
-      }
-      const permError = checkShopPermission(shop, userId, 'view_orders');
-      if (permError) return permError;
+    const shop = await findShopById(shopId);
+    if (!shop) {
+      return { ok: false, code: 'NOT_FOUND', error: 'Shop not found' };
     }
+
+    const access = await authorizeShopAction(httpRequest, shop, 'manage_billing', { allowSuperadmin: true });
+    if (!access.ok) return access;
 
     let subscription = await findSubscriptionByShopId(shopId);
 

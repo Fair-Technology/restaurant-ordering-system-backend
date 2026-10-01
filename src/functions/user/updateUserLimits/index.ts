@@ -5,7 +5,7 @@ import { mapResultToHttp } from '../../_shared/mapResultToHttp';
 app.http('updateUserLimits', {
   methods: ['PATCH'],
   authLevel: 'anonymous',
-  route: 'admin/users/{userId}/limits',
+  route: 'platform/users/{userId}/limits',
   handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
     const userId = request.params.userId;
     const body = (await request.json()) as Record<string, unknown>;

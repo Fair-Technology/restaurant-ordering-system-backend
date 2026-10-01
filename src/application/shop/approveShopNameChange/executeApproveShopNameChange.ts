@@ -43,22 +43,19 @@ export async function executeApproveShopNameChange(
 
     const result = await updateShop(updatedShop);
 
-    logAudit(
-      {
-        shopId: result.id,
-        timestamp: new Date().toISOString(),
-        actorId: adminId,
-        action: 'shop.nameChange.approved',
-        entityType: 'shop',
-        entityId: result.id,
-        entityName: result.name,
-        changes: [
-          { field: 'name', from: shop.name, to: requestedName },
-          { field: 'slug', from: shop.slug, to: requestedSlug },
-        ],
-      },
-      httpRequest,
-    );
+    await logAudit({
+      shopId: result.id,
+      actorType: 'superadmin',
+      actorId: adminId,
+      action: 'shop.nameChange.approved',
+      entityType: 'shop',
+      entityId: result.id,
+      entityName: result.name,
+      changes: [
+        { field: 'name', from: shop.name, to: requestedName },
+        { field: 'slug', from: shop.slug, to: requestedSlug },
+      ],
+    });
 
     return {
       ok: true,

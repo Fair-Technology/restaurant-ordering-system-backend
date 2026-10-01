@@ -5,11 +5,15 @@ import {
 } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { findProductsByShopId } from '../../../infrastructure/cosmos/product/CosmosProductRepository';
 import { findCategoriesByShopId } from '../../../infrastructure/cosmos/category/CosmosCategoryRepository';
-import { checkShopPermission } from '../../_shared/permissions';
+import { authorizeShopAction, toAuditActor } from '../../_shared/shopAccess';
 import { UpdateShopRequestDto, UpdateShopResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
-import { getActorFromAuth, diffFields, logAudit } from '../../_shared/auditHelpers';
+import { diffFields, logAudit } from '../../_shared/auditHelpers';
 import { Shop } from '../../../domain/shop/Shop';
+import { validateAccentColor } from '../../_shared/contrast';
+import { menuLanguagesOf, validateMenuLanguagesChange } from '../../../domain/menu/menuLanguage';
+import { MenuLanguage } from '../../../domain/reference/ReferenceLists';
+import { isOnMenu } from '../../../domain/product/Product';
 
 async function validateGoLiveCriteria(shop: Shop): Promise<string | null> {
   const addr = shop.address ?? {};
@@ -41,8 +45,8 @@ async function validateGoLiveCriteria(shop: Shop): Promise<string | null> {
     findProductsByShopId(shop.id),
     findCategoriesByShopId(shop.id),
   ]);
-  if (!products.some((p) => p.isAvailable && !p.isDeleted)) {
-    return 'At least one available product is required';
+  if (!products.some((p) => isOnMenu(p))) {
+    return 'At least one dish with declared allergens and additives is required';
   }
   if (!categories.some((c) => !c.isDeleted)) {
     return 'At least one category is required';
@@ -97,18 +101,8 @@ function validateBranding(branding: unknown): string | null {
       return 'branding.heroImageUrl must be a valid https URL or null';
     }
   }
-  if (!b.colors || typeof b.colors !== 'object') {
-    return 'branding.colors is required and must be an object';
-  }
-  const hexRegex = /^#[0-9A-Fa-f]{6}$/;
-  for (const field of ['primary', 'secondary', 'tertiary', 'background']) {
-    if (typeof b.colors[field] !== 'string') {
-      return `branding.colors.${field} is required`;
-    }
-    if (!hexRegex.test(b.colors[field])) {
-      return `branding.colors.${field} must be a valid hex color (e.g. "#1D4ED8")`;
-    }
-  }
+  const accentError = validateAccentColor(b.accentColor);
+  if (accentError) return accentError;
   return null;
 }
 
@@ -144,9 +138,6 @@ export async function executeUpdateShop(
   }
 
   try {
-    const actor = await getActorFromAuth(httpRequest);
-    const userId = actor.userId;
-
     const shop = await findShopById(request.shopId.trim());
 
     if (!shop) {
@@ -157,8 +148,17 @@ export async function executeUpdateShop(
       };
     }
 
-    const permError = checkShopPermission(shop, userId, 'manage_shop');
-    if (permError) return permError;
+    const access = await authorizeShopAction(httpRequest, shop, 'manage_shop');
+    if (!access.ok) return access;
+
+    let nextLanguages: MenuLanguage[] | undefined;
+    if (request.menuLanguages !== undefined) {
+      const r = validateMenuLanguagesChange(menuLanguagesOf(shop), request.menuLanguages);
+      if (typeof r === 'string') {
+        return { ok: false, code: 'INVALID_INPUT', error: r };
+      }
+      nextLanguages = r;
+    }
 
     // Gate going live behind all criteria
     if (request.isPaused === false) {
@@ -178,9 +178,6 @@ export async function executeUpdateShop(
       ...(request.paymentPolicy !== undefined && {
         paymentPolicy: request.paymentPolicy,
       }),
-      ...(request.allowGuestCheckout !== undefined && {
-        allowGuestCheckout: request.allowGuestCheckout,
-      }),
       ...(request.minOrderAmountCents !== undefined && {
         minOrderAmountCents: request.minOrderAmountCents,
       }),
@@ -189,6 +186,7 @@ export async function executeUpdateShop(
       }),
       ...(request.branding !== undefined && { branding: request.branding }),
       ...(request.openingHours !== undefined && { openingHours: request.openingHours }),
+      ...(nextLanguages && { menuLanguages: nextLanguages }),
       updatedAt: new Date().toISOString(),
     };
 
@@ -198,23 +196,17 @@ export async function executeUpdateShop(
       shop as unknown as Record<string, unknown>,
       updatedShop as unknown as Record<string, unknown>,
       ['isPaused', 'pausedMessage', 'minOrderAmountCents', 'currency', 'timezone'],
-      ['openingHours', 'branding', 'address'],
+      ['openingHours', 'branding', 'address', 'menuLanguages'],
     );
-    logAudit(
-      {
-        shopId: result.id,
-        timestamp: new Date().toISOString(),
-        actorId: actor.userId,
-        actorEmail: actor.email,
-        actorName: actor.name,
-        action: 'shop.update',
-        entityType: 'shop',
-        entityId: result.id,
-        entityName: result.name,
-        changes,
-      },
-      httpRequest,
-    );
+    await logAudit({
+      shopId: result.id,
+      ...toAuditActor(access.actor),
+      action: 'shop.update',
+      entityType: 'shop',
+      entityId: result.id,
+      entityName: result.name,
+      changes,
+    });
 
     const resultDto: UpdateShopResultDto = {
       id: result.id,

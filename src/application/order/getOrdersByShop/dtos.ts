@@ -1,3 +1,12 @@
+import {
+  FulfilmentMode,
+  OrderHistoryEntry,
+  OrderState,
+  PaymentMethod,
+  PaymentStatus,
+  StoredOrderState,
+} from '../../../domain/order/Order';
+
 export type GetOrdersByShopRequestDto = {
   shopId: string;
   page?: number;
@@ -19,7 +28,12 @@ export type OrderItemDto = {
 export type OrderDto = {
   id: string;
   orderRef: string;
-  status: 'pending_payment' | 'paid' | 'failed' | 'cancelled' | 'refunded';
+  state: StoredOrderState;
+  displayState: OrderState;
+  fulfilmentMode: FulfilmentMode;
+  paymentMethod: PaymentMethod;
+  paymentStatus: PaymentStatus;
+  readyAt: string | null;
   items: OrderItemDto[];
   subtotalCents: number;
   currency: string;
@@ -27,7 +41,7 @@ export type OrderDto = {
   customerEmail: string;
   customerPhone: string;
   customerNotes?: string;
-  orderLocation?: string;
+  history: OrderHistoryEntry[];
   createdAt: string;
 };
 

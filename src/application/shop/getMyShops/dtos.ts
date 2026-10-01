@@ -12,7 +12,6 @@ export interface ShopSummaryDto {
   isDeactivatedDueToLimits: boolean;
   paymentPolicy: string;
   orderAcceptanceMode: string;
-  allowGuestCheckout: boolean;
   currency: string;
   timezone: string;
   minOrderAmountCents: number;
@@ -35,11 +34,6 @@ export interface ShopSummaryDto {
     start: string;
     end: string;
     reason?: string;
-  }>;
-  members: Array<{
-    userId: string;
-    role: string;
-    isActive: boolean;
   }>;
   branding: ShopBranding | null;
   pendingNameChange: {

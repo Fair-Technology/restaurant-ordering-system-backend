@@ -11,12 +11,14 @@ import { CreateShopRequestDto, CreateShopResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 import { Shop } from '../../../domain/shop/Shop';
 import { validateUniqueSlug } from './slugHelpers';
-import { seedTaxRatesForCountry } from '../../_shared/countryTaxRates';
+import { defaultMenuLanguageForCountry } from '../../../domain/menu/menuLanguage';
 import { upsertSubscription } from '../../../infrastructure/cosmos/subscription/CosmosSubscriptionRepository';
 import { upsertUsage } from '../../../infrastructure/cosmos/usage/CosmosUsageRepository';
 import { findPlanByInternalKey } from '../../../infrastructure/cosmos/plan/CosmosPlanRepository';
 import { ShopSubscription } from '../../../domain/subscription/ShopSubscription';
 import { ShopUsage } from '../../../domain/usage/ShopUsage';
+import { periodKeyFor } from '../../../domain/usage/usagePeriod';
+import { validateAccentColor } from '../../_shared/contrast';
 
 function validateBranding(branding: unknown): string | null {
   if (branding === null || branding === undefined) return null;
@@ -34,18 +36,8 @@ function validateBranding(branding: unknown): string | null {
       return 'branding.heroImageUrl must be a valid https URL or null';
     }
   }
-  if (!b.colors || typeof b.colors !== 'object') {
-    return 'branding.colors is required and must be an object';
-  }
-  const hexRegex = /^#[0-9A-Fa-f]{6}$/;
-  for (const field of ['primary', 'secondary', 'tertiary', 'background']) {
-    if (typeof b.colors[field] !== 'string') {
-      return `branding.colors.${field} is required`;
-    }
-    if (!hexRegex.test(b.colors[field])) {
-      return `branding.colors.${field} must be a valid hex color (e.g. "#1D4ED8")`;
-    }
-  }
+  const accentError = validateAccentColor(b.accentColor);
+  if (accentError) return accentError;
   return null;
 }
 
@@ -230,7 +222,6 @@ export async function executeCreateShop(
       // Set safe defaults automatically
       isDeleted: false,
       isPaused: true,
-      allowGuestCheckout: true,
       // Required fields from user
       countryCode,
       currency: request.currency.trim(),
@@ -244,8 +235,7 @@ export async function executeCreateShop(
       orderAcceptanceMode: request.orderAcceptanceMode || 'auto',
       closures: request.closures || [],
       members: [{ userId, role: 'owner', isActive: true }],
-      roles: [{ id: 'staff', name: 'Staff', permissions: ['view_orders' as const] }],
-      taxRates: seedTaxRatesForCountry(countryCode),
+      menuLanguages: [defaultMenuLanguageForCountry(countryCode)],
       branding: request.branding ?? null,
       createdAt: now,
       updatedAt: now,
@@ -279,9 +269,8 @@ export async function executeCreateShop(
     const usage: ShopUsage = {
       id: shopId,
       shopId,
-      activeProductCount: 0,
-      periodStart: null,
-      periodEnd: null,
+      periodKey: periodKeyFor(new Date(), createdShop.timezone),
+      acceptedOrderCount: 0,
       lastReconciled: null,
       createdAt: now,
       updatedAt: now,

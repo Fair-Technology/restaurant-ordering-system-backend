@@ -1,4 +1,5 @@
-import { ShopBranding, ShopTaxRate } from '../../../domain/shop/Shop';
+import { ShopBranding, ShopPermission, ShopRoleKey } from '../../../domain/shop/Shop';
+import { MenuLanguage } from '../../../domain/reference/ReferenceLists';
 
 export interface GetShopRequestDto {
   shopId: string;
@@ -14,7 +15,6 @@ export interface GetShopResultDto {
   isDeactivatedDueToLimits: boolean;
   paymentPolicy: string;
   orderAcceptanceMode: string;
-  allowGuestCheckout: boolean;
   currency: string;
   timezone: string;
   minOrderAmountCents: number;
@@ -38,18 +38,10 @@ export interface GetShopResultDto {
     end: string;
     reason?: string;
   }>;
-  members: Array<{
-    userId: string;
-    role: string;
-    isActive: boolean;
-  }>;
-  roles: Array<{
-    id: string;
-    name: string;
-    permissions: string[];
-  }>;
+  callerRole: ShopRoleKey | 'superadmin' | null;
+  callerPermissions: ShopPermission[];
   countryCode: string;
-  taxRates: ShopTaxRate[];
+  menuLanguages: MenuLanguage[];
   branding: ShopBranding | null;
   pendingNameChange: {
     requestedName: string;

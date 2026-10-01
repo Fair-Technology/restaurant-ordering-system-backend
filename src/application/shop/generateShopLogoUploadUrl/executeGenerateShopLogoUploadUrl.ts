@@ -1,7 +1,6 @@
 import { HttpRequest } from '@azure/functions';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
-import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
-import { checkShopPermission } from '../../_shared/permissions';
+import { authorizeShopAction } from '../../_shared/shopAccess';
 import {
   validateContentType,
   getFileExtensionFromContentType,
@@ -38,15 +37,13 @@ export async function executeGenerateShopLogoUploadUrl(
   try {
     validateContentType(request.contentType);
 
-    const userId = await getUserIdFromAuth(httpRequest);
-
     const shop = await findShopById(request.shopId.trim());
     if (!shop) {
       return { ok: false, code: 'NOT_FOUND', error: 'Shop not found' };
     }
 
-    const permError = checkShopPermission(shop, userId, 'manage_shop');
-    if (permError) return permError;
+    const access = await authorizeShopAction(httpRequest, shop, 'manage_shop');
+    if (!access.ok) return access;
 
     const imageId = crypto.randomUUID();
     const extension = getFileExtensionFromContentType(request.contentType);

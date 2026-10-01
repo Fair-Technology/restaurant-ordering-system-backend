@@ -18,18 +18,12 @@ function getJwks() {
 }
 
 /**
- * Extract user ID (oid claim) from the Bearer JWT in the Authorization header.
- * Verifies the JWT signature against Entra CIAM JWKS keys, validates the issuer,
- * and validates the audience against the registered backend API client ID.
+ * Verify a bearer JWT against Entra CIAM JWKS keys, validate the issuer and
+ * audience, and return the identity claims it carries.
  */
-export async function getUserIdFromAuth(request: HttpRequest): Promise<string> {
-  const authHeader = request.headers.get('authorization');
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    throw new Error('Authentication required');
-  }
-
-  const token = authHeader.slice(7);
-
+export async function verifyEntraAccessToken(
+  token: string,
+): Promise<{ oid: string; email?: string; name?: string }> {
   // CIAM issuers use the tenant ID as the subdomain, not the tenant name.
   // Confirmed via: https://{tenantName}.ciamlogin.com/{tenantId}/v2.0/.well-known/openid-configuration
   const expectedIssuer = `https://${tenantId}.ciamlogin.com/${tenantId}/v2.0`;
@@ -53,5 +47,25 @@ export async function getUserIdFromAuth(request: HttpRequest): Promise<string> {
     throw new Error('Authentication required');
   }
 
+  return {
+    oid,
+    email: payload['preferred_username'] as string | undefined,
+    name: payload['name'] as string | undefined,
+  };
+}
+
+/**
+ * Extract user ID (oid claim) from the Bearer JWT in the Authorization header.
+ * Verifies the JWT signature against Entra CIAM JWKS keys, validates the issuer,
+ * and validates the audience against the registered backend API client ID.
+ */
+export async function getUserIdFromAuth(request: HttpRequest): Promise<string> {
+  const authHeader = request.headers.get('authorization');
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    throw new Error('Authentication required');
+  }
+
+  const token = authHeader.slice(7);
+  const { oid } = await verifyEntraAccessToken(token);
   return oid;
 }
