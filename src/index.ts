@@ -85,6 +85,8 @@ import './functions/reference/updateReferenceLists/index';
 // Legal endpoints
 import './functions/legal/getPlatformLegalIdentity/index';
 import './functions/legal/updatePlatformLegalIdentity/index';
+import './functions/legal/getShopLegal/index';
+import './functions/legal/updateShopLegal/index';
 
 // User admin endpoints
 import './functions/user/updateUserLimits/index';
