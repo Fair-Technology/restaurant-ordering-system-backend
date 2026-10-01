@@ -91,3 +91,22 @@ describe('executeGetGoLiveStatus stripe_connected criterion', () => {
     }
   });
 });
+
+describe('executeGetGoLiveStatus logo', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (authorizeShopAction as any).mockResolvedValue(ownerAccess);
+    delete process.env.STRIPE_SECRET_KEY;
+  });
+
+  it('does not list a logo as a go-live criterion — the storefront shows initials instead', async () => {
+    (findShopById as any).mockResolvedValue(makeShop({ branding: null }));
+
+    const result = await executeGetGoLiveStatus({ shopId: 'shop-1' } as any, {} as any);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.data.criteria.map((c) => c.key)).not.toContain('profile_logo');
+    }
+  });
+});

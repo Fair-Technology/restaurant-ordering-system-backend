@@ -67,11 +67,6 @@ function buildCriteria(
       description: 'Full address is filled in (street, city, state, postcode, country)',
     },
     {
-      key: 'profile_logo',
-      met: !!(shop.branding?.logoUrl),
-      description: 'Shop logo is uploaded',
-    },
-    {
       key: 'opening_hours',
       met: hasOpeningHours,
       description: 'Opening hours are configured for at least one day',

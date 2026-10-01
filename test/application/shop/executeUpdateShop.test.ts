@@ -107,6 +107,21 @@ describe('executeUpdateShop payment policy / go-live', () => {
     expect(result.ok).toBe(true);
   });
 
+  it('allows going live with no logo uploaded', async () => {
+    (findShopById as any).mockResolvedValue(
+      makeGoLiveReadyShop({ branding: { logoUrl: null, heroImageUrl: null, accentColor: null } }),
+    );
+
+    (findProductsByShopId as any).mockResolvedValue([
+      { isAvailable: true, isDeleted: false, allergenIds: [], additiveIds: [] },
+    ]);
+    (findCategoriesByShopId as any).mockResolvedValue([{ isDeleted: false }]);
+
+    const result = await executeUpdateShop({ shopId: 'shop-1', isPaused: false } as any, {} as any);
+
+    expect(result.ok).toBe(true);
+  });
+
   it('refuses to go live on pay_online without completed Stripe onboarding', async () => {
     (findShopById as any).mockResolvedValue(makeGoLiveReadyShop({ paymentPolicy: 'pay_online', stripe: null }));
 

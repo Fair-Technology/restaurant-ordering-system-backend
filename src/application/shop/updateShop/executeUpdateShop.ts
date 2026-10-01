@@ -42,9 +42,6 @@ async function validateGoLiveCriteria(
   ) {
     return 'Full shop address is required (street, city, state, postcode, country)';
   }
-  if (!shop.branding?.logoUrl) {
-    return 'Shop logo is required';
-  }
   const hasOpeningHours = Object.values(shop.openingHours ?? {}).some(
     (slots) => Array.isArray(slots) && slots.length > 0,
   );
