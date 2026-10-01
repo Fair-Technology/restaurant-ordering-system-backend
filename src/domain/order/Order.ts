@@ -69,6 +69,7 @@ export interface Order {
   customerEmail: string;
   customerPhone: string;
   customerNotes?: string;
+  anonymisedAt?: string; // ISO, set only by customer erasure
   acceptedAt?: string; // ISO, set by ACCEPTED
   readyAt?: string; // ISO, set by ACCEPTED
   prepMinutes?: number; // set by ACCEPTED
