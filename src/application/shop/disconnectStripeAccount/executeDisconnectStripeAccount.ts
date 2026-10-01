@@ -28,6 +28,9 @@ export async function executeDisconnectStripeAccount(
       ...shop,
       stripe: null,
       isPaused: true,
+      // A shop can never claim online payment without Stripe — flip it back
+      // to pay_in_person in the same update that disconnects Stripe.
+      ...(shop.paymentPolicy === 'pay_online' && { paymentPolicy: 'pay_in_person' }),
       updatedAt: new Date().toISOString(),
     });
 

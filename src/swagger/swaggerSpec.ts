@@ -1046,13 +1046,12 @@ export const swaggerSpec = {
       CreateShopRequest: {
         type: 'object',
         description:
-          'Create a new shop. The following fields are automatically set: isDeleted=false, isPaused=false. The slug is auto-generated from the shop name. At least one day must have opening hours. If a shop with the same name already exists, an error will be returned.',
+          'Create a new shop. The following fields are automatically set: isDeleted=false, isPaused=false. The slug is auto-generated from the shop name. At least one day must have opening hours. If a shop with the same name already exists, an error will be returned. paymentPolicy defaults to pay_in_person — a new shop never has Stripe set up yet, so pay_online is coerced to pay_in_person until Stripe onboarding completes.',
         required: [
           'name',
           'currency',
           'timezone',
           'minOrderAmountCents',
-          'paymentPolicy',
           'address',
           'openingHours',
         ],
@@ -1079,8 +1078,9 @@ export const swaggerSpec = {
           },
           paymentPolicy: {
             type: 'string',
-            enum: ['pay_online'],
-            description: 'Payment policy',
+            enum: ['pay_online', 'pay_in_person'],
+            description:
+              'Payment policy (optional, defaults to pay_in_person). pay_online requires completed Stripe onboarding — a new shop never has that yet, so pay_online is coerced to pay_in_person.',
           },
           address: { $ref: '#/components/schemas/Address' },
           pausedMessage: {
@@ -1137,8 +1137,9 @@ export const swaggerSpec = {
           },
           paymentPolicy: {
             type: 'string',
-            enum: ['pay_online'],
-            description: 'Payment policy',
+            enum: ['pay_online', 'pay_in_person'],
+            description:
+              'Payment policy. pay_online can only be set once Stripe payments onboarding is complete.',
           },
           currency: { type: 'string', description: 'Shop currency' },
           timezone: { type: 'string', description: 'Shop timezone' },

@@ -40,7 +40,11 @@ export interface Shop {
   pausedMessage?: string; // required if isPaused === true
 
   // Payments & checkout
-  paymentPolicy: 'pay_online' | string; // future-ready enum
+  // 'pay_online' requires Stripe onboarding to be complete (see stripeReady
+  // below); 'pay_in_person' never does — a shop can go live taking cash on
+  // collection/delivery without ever touching Stripe. Stripe is a
+  // precondition for offering online payment only, never for going live.
+  paymentPolicy: 'pay_online' | 'pay_in_person';
   orderAcceptanceMode: 'auto'; // fixed for now
 
   // Locale & rules
@@ -110,4 +114,11 @@ export interface Shop {
   // Audit
   createdAt: string; // ISO
   updatedAt: string; // ISO
+}
+
+// Whether a shop's Stripe Connect onboarding is complete enough to accept
+// online payment. Precondition for paymentPolicy: 'pay_online' only — never
+// for going live, which pay_in_person can do with no Stripe at all.
+export function stripeReady(shop: Pick<Shop, 'stripe'>): boolean {
+  return shop.stripe?.connectOnboardingStatus === 'complete';
 }

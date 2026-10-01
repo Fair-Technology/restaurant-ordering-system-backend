@@ -21,6 +21,8 @@ vi.mock('../../../src/application/_shared/auditHelpers', () => ({
 
 import { authorizeShopAction } from '../../../src/application/_shared/shopAccess';
 import { findShopById, updateShop } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
+import { findProductsByShopId } from '../../../src/infrastructure/cosmos/product/CosmosProductRepository';
+import { findCategoriesByShopId } from '../../../src/infrastructure/cosmos/category/CosmosCategoryRepository';
 import { executeUpdateShop } from '../../../src/application/shop/updateShop/executeUpdateShop';
 
 const ownerAccess = {
@@ -69,6 +71,121 @@ describe('executeUpdateShop menu languages', () => {
       ok: false,
       code: 'INVALID_INPUT',
       error: 'The original menu language (de) cannot be changed',
+    });
+  });
+});
+
+describe('executeUpdateShop payment policy / go-live', () => {
+  function makeGoLiveReadyShop(overrides: any = {}) {
+    return makeShop({
+      name: 'Pizzeria',
+      address: { street: 'Main St 1', city: 'Berlin', state: 'Berlin', postcode: '10115', country: 'Germany' },
+      branding: { logoUrl: 'https://cdn.example.com/logo.png', heroImageUrl: null, accentColor: null },
+      openingHours: { mon: [{ open: '09:00', close: '17:00' }] },
+      paymentPolicy: 'pay_in_person',
+      stripe: null,
+      ...overrides,
+    });
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (authorizeShopAction as any).mockResolvedValue(ownerAccess);
+    (updateShop as any).mockImplementation(async (s: any) => s);
+  });
+
+  it('allows going live on pay_in_person with no Stripe set up', async () => {
+    (findShopById as any).mockResolvedValue(makeGoLiveReadyShop());
+
+    (findProductsByShopId as any).mockResolvedValue([
+      { isAvailable: true, isDeleted: false, allergenIds: [], additiveIds: [] },
+    ]);
+    (findCategoriesByShopId as any).mockResolvedValue([{ isDeleted: false }]);
+
+    const result = await executeUpdateShop({ shopId: 'shop-1', isPaused: false } as any, {} as any);
+
+    expect(result.ok).toBe(true);
+  });
+
+  it('refuses to go live on pay_online without completed Stripe onboarding', async () => {
+    (findShopById as any).mockResolvedValue(makeGoLiveReadyShop({ paymentPolicy: 'pay_online', stripe: null }));
+
+    (findProductsByShopId as any).mockResolvedValue([
+      { isAvailable: true, isDeleted: false, allergenIds: [], additiveIds: [] },
+    ]);
+    (findCategoriesByShopId as any).mockResolvedValue([{ isDeleted: false }]);
+
+    const result = await executeUpdateShop({ shopId: 'shop-1', isPaused: false } as any, {} as any);
+
+    expect(result).toEqual({
+      ok: false,
+      code: 'INVALID_INPUT',
+      error: 'Stripe payments onboarding is not complete',
+    });
+  });
+
+  it('allows switching to pay_in_person and unpausing in the same request, with no Stripe', async () => {
+    (findShopById as any).mockResolvedValue(
+      makeGoLiveReadyShop({ paymentPolicy: 'pay_online', stripe: null, isPaused: true }),
+    );
+
+    (findProductsByShopId as any).mockResolvedValue([
+      { isAvailable: true, isDeleted: false, allergenIds: [], additiveIds: [] },
+    ]);
+    (findCategoriesByShopId as any).mockResolvedValue([{ isDeleted: false }]);
+
+    const result = await executeUpdateShop(
+      { shopId: 'shop-1', isPaused: false, paymentPolicy: 'pay_in_person' } as any,
+      {} as any,
+    );
+
+    expect(result.ok).toBe(true);
+    expect(updateShop).toHaveBeenCalledWith(
+      expect.objectContaining({ paymentPolicy: 'pay_in_person', isPaused: false }),
+    );
+  });
+
+  it('rejects switching to pay_online while Stripe is not ready', async () => {
+    (findShopById as any).mockResolvedValue(makeGoLiveReadyShop({ paymentPolicy: 'pay_in_person', stripe: null }));
+
+    const result = await executeUpdateShop(
+      { shopId: 'shop-1', paymentPolicy: 'pay_online' } as any,
+      {} as any,
+    );
+
+    expect(result).toEqual({
+      ok: false,
+      code: 'INVALID_INPUT',
+      error: 'Set up Stripe payments before offering online payment',
+    });
+  });
+
+  it('allows switching to pay_online once Stripe onboarding is complete', async () => {
+    (findShopById as any).mockResolvedValue(
+      makeGoLiveReadyShop({
+        paymentPolicy: 'pay_in_person',
+        stripe: { connectAccountId: 'acct_1', connectOnboardingStatus: 'complete' },
+      }),
+    );
+
+    const result = await executeUpdateShop(
+      { shopId: 'shop-1', paymentPolicy: 'pay_online' } as any,
+      {} as any,
+    );
+
+    expect(result.ok).toBe(true);
+    expect(updateShop).toHaveBeenCalledWith(expect.objectContaining({ paymentPolicy: 'pay_online' }));
+  });
+
+  it('rejects an invalid paymentPolicy value', async () => {
+    (findShopById as any).mockResolvedValue(makeGoLiveReadyShop());
+
+    const result = await executeUpdateShop({ shopId: 'shop-1', paymentPolicy: 'bitcoin' } as any, {} as any);
+
+    expect(result).toEqual({
+      ok: false,
+      code: 'INVALID_INPUT',
+      error: "paymentPolicy must be 'pay_online' or 'pay_in_person'",
     });
   });
 });

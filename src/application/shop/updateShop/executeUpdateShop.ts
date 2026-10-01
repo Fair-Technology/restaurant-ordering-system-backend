@@ -9,15 +9,25 @@ import { authorizeShopAction, toAuditActor } from '../../_shared/shopAccess';
 import { UpdateShopRequestDto, UpdateShopResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 import { diffFields, logAudit } from '../../_shared/auditHelpers';
-import { Shop } from '../../../domain/shop/Shop';
+import { Shop, stripeReady } from '../../../domain/shop/Shop';
 import { validateAccentColor } from '../../_shared/contrast';
 import { menuLanguagesOf, validateMenuLanguagesChange } from '../../../domain/menu/menuLanguage';
 import { MenuLanguage } from '../../../domain/reference/ReferenceLists';
 import { isOnMenu } from '../../../domain/product/Product';
 
-async function validateGoLiveCriteria(shop: Shop): Promise<string | null> {
+const VALID_PAYMENT_POLICIES = ['pay_online', 'pay_in_person'] as const;
+
+// `resultingPolicy` is the payment policy the shop will have AFTER this
+// update is applied (the request's value if it sets one, else the shop's
+// current value) — Stripe is only required when that resulting policy is
+// pay_online, never for pay_in_person. This lets a single request both
+// switch to pay_in_person and unpause in one call.
+async function validateGoLiveCriteria(
+  shop: Shop,
+  resultingPolicy: Shop['paymentPolicy'],
+): Promise<string | null> {
   const addr = shop.address ?? {};
-  if (shop.stripe?.connectOnboardingStatus !== 'complete') {
+  if (resultingPolicy === 'pay_online' && !stripeReady(shop)) {
     return 'Stripe payments onboarding is not complete';
   }
   if (!shop.name?.trim()) {
@@ -137,6 +147,17 @@ export async function executeUpdateShop(
     }
   }
 
+  if (
+    request.paymentPolicy !== undefined &&
+    !VALID_PAYMENT_POLICIES.includes(request.paymentPolicy)
+  ) {
+    return {
+      ok: false,
+      code: 'INVALID_INPUT',
+      error: "paymentPolicy must be 'pay_online' or 'pay_in_person'",
+    };
+  }
+
   try {
     const shop = await findShopById(request.shopId.trim());
 
@@ -151,6 +172,14 @@ export async function executeUpdateShop(
     const access = await authorizeShopAction(httpRequest, shop, 'manage_shop');
     if (!access.ok) return access;
 
+    if (request.paymentPolicy === 'pay_online' && !stripeReady(shop)) {
+      return {
+        ok: false,
+        code: 'INVALID_INPUT',
+        error: 'Set up Stripe payments before offering online payment',
+      };
+    }
+
     let nextLanguages: MenuLanguage[] | undefined;
     if (request.menuLanguages !== undefined) {
       const r = validateMenuLanguagesChange(menuLanguagesOf(shop), request.menuLanguages);
@@ -162,7 +191,8 @@ export async function executeUpdateShop(
 
     // Gate going live behind all criteria
     if (request.isPaused === false) {
-      const criteriaError = await validateGoLiveCriteria(shop);
+      const resultingPolicy = request.paymentPolicy ?? shop.paymentPolicy;
+      const criteriaError = await validateGoLiveCriteria(shop, resultingPolicy);
       if (criteriaError) {
         return { ok: false, code: 'INVALID_INPUT', error: criteriaError };
       }

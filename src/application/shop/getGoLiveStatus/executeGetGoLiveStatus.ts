@@ -13,7 +13,7 @@ import {
   GetGoLiveStatusResultDto,
   GoLiveCriterion,
 } from './dtos';
-import { Shop } from '../../../domain/shop/Shop';
+import { Shop, stripeReady } from '../../../domain/shop/Shop';
 import { isOnMenu } from '../../../domain/product/Product';
 
 function buildCriteria(
@@ -33,11 +33,18 @@ function buildCriteria(
     (slots) => Array.isArray(slots) && slots.length > 0,
   );
 
+  // Stripe is only required when the shop wants online payment — a shop set
+  // to pay_in_person can go live with no Stripe at all. Keep the criterion
+  // key (stripe_connected) stable since the admin UI links out to Stripe on it.
+  const stripeOrNotNeeded = shop.paymentPolicy === 'pay_in_person' || stripeReady(shop);
+
   return [
     {
       key: 'stripe_connected',
-      met: shop.stripe?.connectOnboardingStatus === 'complete',
-      description: 'Stripe payments onboarding is complete',
+      met: stripeOrNotNeeded,
+      description: stripeOrNotNeeded
+        ? 'Stripe payments onboarding is complete'
+        : 'Online payment needs Stripe set up — finish Stripe or switch to payment in person',
     },
     {
       key: 'has_products',
