@@ -6,7 +6,7 @@ export interface UpdateShopRequestDto {
   isPaused?: boolean;
   menuLanguages?: MenuLanguage[];
   pausedMessage?: string;
-  paymentPolicy?: 'pay_online' | string;
+  paymentPolicy?: 'pay_online' | 'pay_in_person';
   minOrderAmountCents?: number;
   address?: {
     street?: string;
