@@ -91,6 +91,8 @@ import './functions/legal/acceptDpa/index';
 import './functions/legal/getPublicLegalPack/index';
 import './functions/legal/getDpaDocument/index';
 import './functions/legal/getPlatformLegal/index';
+import './functions/legal/exportShopData/index';
+import './functions/legal/eraseCustomer/index';
 
 // User admin endpoints
 import './functions/user/updateUserLimits/index';
