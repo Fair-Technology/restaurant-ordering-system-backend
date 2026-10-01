@@ -14,6 +14,10 @@ vi.mock('../../../src/infrastructure/cosmos/product/CosmosProductRepository', ()
 vi.mock('../../../src/infrastructure/cosmos/category/CosmosCategoryRepository', () => ({
   findCategoriesByShopId: vi.fn(async () => []),
 }));
+vi.mock('../../../src/infrastructure/cosmos/system/CosmosPlatformLegalIdentityRepository', async () => {
+  const { COMPLETE_IDENTITY } = await import('../../fixtures/legal');
+  return { getPlatformLegalIdentity: vi.fn(async () => COMPLETE_IDENTITY) };
+});
 vi.mock('../../../src/application/_shared/auditHelpers', () => ({
   logAudit: vi.fn(),
   diffFields: vi.fn(() => []),
@@ -23,6 +27,7 @@ import { authorizeShopAction } from '../../../src/application/_shared/shopAccess
 import { findShopById, updateShop } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
 import { findProductsByShopId } from '../../../src/infrastructure/cosmos/product/CosmosProductRepository';
 import { findCategoriesByShopId } from '../../../src/infrastructure/cosmos/category/CosmosCategoryRepository';
+import { ACCEPTED_DPA, COMPLETE_LEGAL } from '../../fixtures/legal';
 import { executeUpdateShop } from '../../../src/application/shop/updateShop/executeUpdateShop';
 
 const ownerAccess = {
@@ -84,6 +89,8 @@ describe('executeUpdateShop payment policy / go-live', () => {
       openingHours: { mon: [{ open: '09:00', close: '17:00' }] },
       paymentPolicy: 'pay_in_person',
       stripe: null,
+      legal: COMPLETE_LEGAL,
+      dpaAcceptance: ACCEPTED_DPA,
       ...overrides,
     });
   }
@@ -105,6 +112,23 @@ describe('executeUpdateShop payment policy / go-live', () => {
     const result = await executeUpdateShop({ shopId: 'shop-1', isPaused: false } as any, {} as any);
 
     expect(result.ok).toBe(true);
+  });
+
+  it('refuses to go live without an accepted DPA', async () => {
+    (findShopById as any).mockResolvedValue(makeGoLiveReadyShop({ dpaAcceptance: null }));
+    (findProductsByShopId as any).mockResolvedValue([
+      { isAvailable: true, isDeleted: false, allergenIds: [], additiveIds: [] },
+    ]);
+    (findCategoriesByShopId as any).mockResolvedValue([{ isDeleted: false }]);
+
+    const result = await executeUpdateShop({ shopId: 'shop-1', isPaused: false } as any, {} as any);
+
+    expect(result).toEqual({
+      ok: false,
+      code: 'INVALID_INPUT',
+      error: 'Accept the data processing agreement before going live',
+    });
+    expect(updateShop).not.toHaveBeenCalled();
   });
 
   it('allows going live with no logo uploaded', async () => {

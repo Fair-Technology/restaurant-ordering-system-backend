@@ -14,6 +14,8 @@ import { validateAccentColor } from '../../_shared/contrast';
 import { menuLanguagesOf, validateMenuLanguagesChange } from '../../../domain/menu/menuLanguage';
 import { MenuLanguage } from '../../../domain/reference/ReferenceLists';
 import { isOnMenu } from '../../../domain/product/Product';
+import { LEGAL_GO_LIVE_ERRORS, legalCriteria } from '../../../domain/legal/legalReadiness';
+import { getPlatformLegalIdentity } from '../../../infrastructure/cosmos/system/CosmosPlatformLegalIdentityRepository';
 
 const VALID_PAYMENT_POLICIES = ['pay_online', 'pay_in_person'] as const;
 
@@ -58,6 +60,9 @@ async function validateGoLiveCriteria(
   if (!categories.some((c) => !c.isDeleted)) {
     return 'At least one category is required';
   }
+  const identity = await getPlatformLegalIdentity();
+  const unmetLegal = legalCriteria(shop, identity).find((c) => !c.met);
+  if (unmetLegal) return LEGAL_GO_LIVE_ERRORS[unmetLegal.key];
   return null;
 }
 

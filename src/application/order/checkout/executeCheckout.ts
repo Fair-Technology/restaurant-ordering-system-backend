@@ -8,6 +8,7 @@ import { isProductScheduleActive } from '../../_shared/scheduleUtils';
 import { FULFILMENT_MODES, OrderItem } from '../../../domain/order/Order';
 import { CheckoutSession } from '../../../domain/order/CheckoutSession';
 import { isDeclared } from '../../../domain/product/Product';
+import { LEGAL_PACK_INCOMPLETE_ERROR, isLegalPackComplete } from '../../../domain/legal/legalReadiness';
 
 function getStripe(): Stripe {
   const key = process.env.STRIPE_SECRET_KEY;
@@ -87,6 +88,9 @@ export async function executeCheckout(
           ? shop.pausedMessage
           : 'This shop is not currently accepting orders',
       };
+    }
+    if (!isLegalPackComplete(shop)) {
+      return { ok: false, code: 'INVALID_INPUT', error: LEGAL_PACK_INCOMPLETE_ERROR };
     }
     if (!shop.stripe?.connectAccountId || shop.stripe?.connectOnboardingStatus !== 'complete') {
       return {

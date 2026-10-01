@@ -15,11 +15,15 @@ import {
 } from './dtos';
 import { Shop, stripeReady } from '../../../domain/shop/Shop';
 import { isOnMenu } from '../../../domain/product/Product';
+import { legalCriteria } from '../../../domain/legal/legalReadiness';
+import { PlatformLegalIdentity } from '../../../domain/legal/PlatformLegalIdentity';
+import { getPlatformLegalIdentity } from '../../../infrastructure/cosmos/system/CosmosPlatformLegalIdentityRepository';
 
 function buildCriteria(
   shop: Shop,
   hasProducts: boolean,
   hasCategories: boolean,
+  identity: PlatformLegalIdentity,
 ): GoLiveCriterion[] {
   const addr = shop.address ?? {};
   const addressComplete =
@@ -71,6 +75,7 @@ function buildCriteria(
       met: hasOpeningHours,
       description: 'Opening hours are configured for at least one day',
     },
+    ...legalCriteria(shop, identity),
   ];
 }
 
@@ -116,15 +121,16 @@ export async function executeGetGoLiveStatus(
       }
     }
 
-    const [products, categories] = await Promise.all([
+    const [products, categories, identity] = await Promise.all([
       findProductsByShopId(shop.id),
       findCategoriesByShopId(shop.id),
+      getPlatformLegalIdentity(),
     ]);
 
     const hasProducts = products.some((p) => isOnMenu(p));
     const hasCategories = categories.some((c) => !c.isDeleted);
 
-    const criteria = buildCriteria(shop, hasProducts, hasCategories);
+    const criteria = buildCriteria(shop, hasProducts, hasCategories, identity);
     const allMet = criteria.every((c) => c.met);
 
     return { ok: true, data: { allMet, criteria } };
