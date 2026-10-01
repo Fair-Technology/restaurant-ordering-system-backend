@@ -82,6 +82,10 @@ import './functions/systemConfig/updateRolePermissions/index';
 import './functions/reference/getReferenceLists/index';
 import './functions/reference/updateReferenceLists/index';
 
+// Legal endpoints
+import './functions/legal/getPlatformLegalIdentity/index';
+import './functions/legal/updatePlatformLegalIdentity/index';
+
 // User admin endpoints
 import './functions/user/updateUserLimits/index';
 
