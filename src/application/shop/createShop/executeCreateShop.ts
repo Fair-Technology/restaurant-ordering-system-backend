@@ -9,7 +9,8 @@ import { findUserById } from '../../../infrastructure/cosmos/user/CosmosUserRepo
 import { getSystemConfig } from '../../../infrastructure/cosmos/system/CosmosSystemConfigRepository';
 import { CreateShopRequestDto, CreateShopResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
-import { Shop } from '../../../domain/shop/Shop';
+import { DpaAcceptance, Shop } from '../../../domain/shop/Shop';
+import { CURRENT_DPA, DPA_CHANGED_ERROR } from '../../../domain/legal/platformDocuments';
 import { validateUniqueSlug } from './slugHelpers';
 import { defaultMenuLanguageForCountry } from '../../../domain/menu/menuLanguage';
 import { upsertSubscription } from '../../../infrastructure/cosmos/subscription/CosmosSubscriptionRepository';
@@ -173,6 +174,10 @@ export async function executeCreateShop(
     return { ok: false, code: 'INVALID_INPUT', error: brandingError };
   }
 
+  if (request.acceptDpaVersion !== undefined && request.acceptDpaVersion !== CURRENT_DPA.version) {
+    return { ok: false, code: 'INVALID_INPUT', error: DPA_CHANGED_ERROR };
+  }
+
   try {
     const userId = await getUserIdFromAuth(httpRequest);
 
@@ -214,6 +219,15 @@ export async function executeCreateShop(
     const shopId = crypto.randomUUID();
     const countryCode = request.countryCode.trim().toUpperCase();
 
+    const dpaAcceptance: DpaAcceptance | null = request.acceptDpaVersion
+      ? {
+          version: request.acceptDpaVersion,
+          acceptedAt: now,
+          acceptedByUserId: userId,
+          shopNameAtAcceptance: request.name.trim(),
+        }
+      : null;
+
     const shop: Shop = {
       id: shopId,
       slug: generatedSlug,
@@ -242,6 +256,8 @@ export async function executeCreateShop(
       members: [{ userId, role: 'owner', isActive: true }],
       menuLanguages: [defaultMenuLanguageForCountry(countryCode)],
       branding: request.branding ?? null,
+      dpaAcceptance,
+      dpaAcceptanceHistory: dpaAcceptance ? [dpaAcceptance] : [],
       createdAt: now,
       updatedAt: now,
     };

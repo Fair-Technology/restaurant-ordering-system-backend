@@ -36,6 +36,9 @@ export interface CreateShopRequestDto {
     reason?: string;
   }>;
   branding?: ShopBranding | null;
+
+  // Version of the data processing agreement the owner ticked. Absent = not accepted yet.
+  acceptDpaVersion?: string;
 }
 
 export interface CreateShopResultDto {

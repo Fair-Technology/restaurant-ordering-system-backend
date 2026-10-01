@@ -89,6 +89,9 @@ const DPA_2026_10_01_DRAFT: PlatformDocument = {
 export const DPA_VERSIONS: readonly PlatformDocument[] = [DPA_2026_10_01_DRAFT];
 export const CURRENT_DPA: PlatformDocument = DPA_VERSIONS[DPA_VERSIONS.length - 1];
 
+export const DPA_CHANGED_ERROR =
+  'The data processing agreement has changed — reload and accept the current version';
+
 export interface SubProcessor {
   id: 'azure' | 'entra' | 'acs';
   name: string;
