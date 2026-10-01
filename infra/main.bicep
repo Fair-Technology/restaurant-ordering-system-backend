@@ -150,7 +150,7 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
     serverFarmId: plan.id
     httpsOnly: true
     functionAppConfig: {
-      runtime: { name: 'node', version: '20' }
+      runtime: { name: 'node', version: '22' }
       scaleAndConcurrency: { instanceMemoryMB: 2048, maximumInstanceCount: 40 }
       deployment: {
         storage: {
@@ -161,6 +161,11 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
       }
     }
     siteConfig: {
+      // The three front-ends call the API from the browser, so their origins
+      // must be allowed here or every request is blocked.
+      cors: {
+        allowedOrigins: [for (app, i) in staticApps: 'https://${staticSites[i].properties.defaultHostname}']
+      }
       appSettings: [
         { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: insights.properties.ConnectionString }
         { name: 'COSMOS_DB_ENDPOINT', value: cosmos.properties.documentEndpoint }
@@ -175,6 +180,8 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
         { name: 'COSMOS_USAGE_CONTAINER', value: 'shop_usage' }
         { name: 'COSMOS_CHECKOUT_SESSION_CONTAINER', value: 'checkout_sessions' }
         { name: 'STORAGE_ACCOUNT_NAME', value: storageName }
+        // Where Stripe sends the owner back after subscription checkout.
+        { name: 'ADMIN_APP_URL', value: 'https://${staticSites[indexOf(staticApps, 'admin')].properties.defaultHostname}' }
         // Secrets — COSMOS_DB_KEY, STORAGE_ACCOUNT_KEY, ENTRA_*, STRIPE_* — are
         // set after deployment from the vault .env, never committed here.
       ]
