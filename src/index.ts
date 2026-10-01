@@ -88,6 +88,9 @@ import './functions/legal/updatePlatformLegalIdentity/index';
 import './functions/legal/getShopLegal/index';
 import './functions/legal/updateShopLegal/index';
 import './functions/legal/acceptDpa/index';
+import './functions/legal/getPublicLegalPack/index';
+import './functions/legal/getDpaDocument/index';
+import './functions/legal/getPlatformLegal/index';
 
 // User admin endpoints
 import './functions/user/updateUserLimits/index';
