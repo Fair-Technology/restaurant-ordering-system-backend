@@ -26,6 +26,10 @@ export function buildAutoAcceptedOrder(input: {
     customerEmail: session.customerEmail,
     customerPhone: session.customerPhone,
     ...(session.customerNotes ? { customerNotes: session.customerNotes } : {}),
+    // Sessions created before slice 4 lack these; copy only what is there.
+    ...(session.taxBreakdown ? { taxBreakdown: session.taxBreakdown } : {}),
+    ...(session.language ? { language: session.language } : {}),
+    ...(session.legalRevisions ? { legalRevisions: session.legalRevisions } : {}),
     history: [{ from: null, to: 'PLACED', at, actor: { type: 'system' } }],
     createdAt: at,
     updatedAt: at,

@@ -46,4 +46,16 @@ describe('buildAutoAcceptedOrder', () => {
     });
     expect(order).not.toHaveProperty('ttl');
   });
+
+  it('copies the tax breakdown from the session', () => {
+    const taxBreakdown = [{ rateBasisPoints: 700, grossCents: 1800, taxCents: 118 }];
+    const order = buildAutoAcceptedOrder({
+      session: { ...session, taxBreakdown },
+      paymentIntentId: 'pi_1',
+      orderRef: 'AB3-K7P',
+      now: new Date('2026-09-30T22:30:00Z'),
+      timeZone: 'Europe/Berlin',
+    });
+    expect(order.taxBreakdown).toEqual(taxBreakdown);
+  });
 });
