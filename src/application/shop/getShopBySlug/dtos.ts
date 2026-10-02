@@ -1,3 +1,4 @@
+import { FulfilmentMode } from '../../../domain/order/Order';
 import { ShopBranding } from '../../../domain/shop/Shop';
 
 export interface GetShopBySlugRequestDto {
@@ -37,6 +38,7 @@ export interface GetShopBySlugResultDto {
     reason?: string;
   }>;
   branding: ShopBranding | null;
+  fulfilment: { modes: FulfilmentMode[]; prepMinutes: Record<FulfilmentMode, number> };
   createdAt: string;
   updatedAt: string;
 }
