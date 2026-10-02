@@ -45,7 +45,12 @@ export async function executeExportShopData(
     }
 
     const exportOrders = orders.map((o): ExportOrder => {
-      const { customerNotes: _notes, ...rest } = stripCosmosMeta(o);
+      const {
+        customerNotes: _notes,
+        customerAccessToken: _token,
+        idempotencyKey: _key,
+        ...rest
+      } = stripCosmosMeta(o);
       return rest;
     });
 
