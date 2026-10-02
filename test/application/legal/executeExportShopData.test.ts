@@ -24,6 +24,7 @@ import { executeExportShopData } from '../../../src/application/legal/exportShop
 const o1 = {
   id: 'o1', state: 'COMPLETED', customerName: 'Anna A', customerEmail: 'Anna@Example.com', customerPhone: '111',
   customerNotes: 'no nuts', createdAt: '2026-10-01T10:00:00Z', _etag: 'x',
+  customerAccessToken: 'T'.repeat(32), idempotencyKey: 'key-12345678',
 };
 const o2 = {
   id: 'o2', state: 'COMPLETED', customerName: 'Anna B', customerEmail: 'anna@example.com', customerPhone: '222',
@@ -59,6 +60,8 @@ describe('executeExportShopData', () => {
     expect(r.data.orders).toHaveLength(3);
     for (const o of r.data.orders) {
       expect('customerNotes' in o).toBe(false);
+      expect('customerAccessToken' in o).toBe(false);
+      expect('idempotencyKey' in o).toBe(false);
       expect('_etag' in o).toBe(false);
     }
     expect(r.data.categories.map((c: any) => c.id)).toEqual(['c1']);

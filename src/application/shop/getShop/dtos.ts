@@ -1,4 +1,5 @@
 import { ShopBranding, ShopPermission, ShopRoleKey } from '../../../domain/shop/Shop';
+import { OrderSettings } from '../../../domain/order/orderSettings';
 import { MenuLanguage } from '../../../domain/reference/ReferenceLists';
 
 export interface GetShopRequestDto {
@@ -53,6 +54,7 @@ export interface GetShopResultDto {
     connectAccountId: string | null;
     connectOnboardingStatus: 'not_started' | 'pending' | 'complete' | null;
   } | null;
+  orderSettings: OrderSettings;
   createdAt: string;
   updatedAt: string;
 }

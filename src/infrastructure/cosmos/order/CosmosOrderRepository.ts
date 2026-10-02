@@ -1,4 +1,4 @@
-import { Order } from '../../../domain/order/Order';
+import { Order, StoredOrderState } from '../../../domain/order/Order';
 import { orderContainer } from '../cosmosClient';
 
 export async function createOrder(order: Order): Promise<Order> {
@@ -102,4 +102,57 @@ export async function findOrdersByShopIdAndCustomerEmail(shopId: string, emailLo
 export async function replaceOrder(order: Order): Promise<Order> {
   const { resource } = await orderContainer.item(order.id, order.id).replace<Order>(order);
   return resource!;
+}
+
+export async function findOrderWithEtag(orderId: string): Promise<{ order: Order; etag: string } | null> {
+  try {
+    const { resource, etag } = await orderContainer.item(orderId, orderId).read<Order>();
+    return resource && etag ? { order: resource, etag } : null;
+  } catch (error: any) {
+    if (error.code === 404) return null;
+    throw error;
+  }
+}
+
+/** Replaces the order only if nobody changed it since it was read; 'conflict' means someone did. */
+export async function replaceOrderIfMatch(order: Order, etag: string): Promise<'ok' | 'conflict'> {
+  try {
+    await orderContainer.item(order.id, order.id).replace<Order>(order, {
+      accessCondition: { type: 'IfMatch', condition: etag },
+    });
+    return 'ok';
+  } catch (error: any) {
+    if (error.code === 412) return 'conflict';
+    throw error;
+  }
+}
+
+export async function findOrdersByShopIdAndStates(shopId: string, states: StoredOrderState[]): Promise<Order[]> {
+  const querySpec = {
+    query: 'SELECT * FROM c WHERE c.shopId = @shopId AND ARRAY_CONTAINS(@states, c.state) ORDER BY c.createdAt ASC',
+    parameters: [
+      { name: '@shopId', value: shopId },
+      { name: '@states', value: states },
+    ],
+  };
+  const { resources } = await orderContainer.items.query<Order>(querySpec).fetchAll();
+  return resources;
+}
+
+export async function findPlacedOrdersCreatedBefore(cutoffIso: string): Promise<Order[]> {
+  const querySpec = {
+    query: "SELECT * FROM c WHERE c.state = 'PLACED' AND c.createdAt <= @cutoff",
+    parameters: [{ name: '@cutoff', value: cutoffIso }],
+  };
+  const { resources } = await orderContainer.items.query<Order>(querySpec).fetchAll();
+  return resources;
+}
+
+export async function findOrdersInState(state: StoredOrderState): Promise<Order[]> {
+  const querySpec = {
+    query: 'SELECT * FROM c WHERE c.state = @state',
+    parameters: [{ name: '@state', value: state }],
+  };
+  const { resources } = await orderContainer.items.query<Order>(querySpec).fetchAll();
+  return resources;
 }

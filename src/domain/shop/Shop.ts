@@ -1,5 +1,6 @@
 import { MenuLanguage } from '../reference/ReferenceLists';
 import { ShopLegal } from '../legal/legalTexts';
+import type { OrderSettings } from '../order/orderSettings';
 
 export interface ShopBranding {
   logoUrl: string | null;
@@ -124,6 +125,9 @@ export interface Shop {
   // Data processing agreement acceptance. Absent or null = not accepted.
   dpaAcceptance?: DpaAcceptance | null;
   dpaAcceptanceHistory?: DpaAcceptance[];
+
+  // Order alert settings. Absent = defaults; read via orderSettingsOf().
+  orderSettings?: OrderSettings | null;
 
   // Audit
   createdAt: string; // ISO

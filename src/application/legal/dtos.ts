@@ -70,7 +70,8 @@ export interface ExportCustomer {
   lastOrderAt: string;
 }
 
-export type ExportOrder = Omit<Order, 'customerNotes'>;
+// customerNotes and the two secrets (order-link token, idempotency key) are never exported.
+export type ExportOrder = Omit<Order, 'customerNotes' | 'customerAccessToken' | 'idempotencyKey'>;
 
 export interface ShopDataExportDto {
   formatVersion: 1;

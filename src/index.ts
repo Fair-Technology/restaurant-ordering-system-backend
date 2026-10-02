@@ -18,6 +18,7 @@ import './functions/shop/reactivateShop/index';
 import './functions/shop/getGoLiveStatus/index';
 import './functions/shop/createStripeAccountSession/index';
 import './functions/shop/disconnectStripeAccount/index';
+import './functions/shop/updateOrderSettings/index';
 
 // Product endpoints
 import './functions/product/getProductsByShop/index';
@@ -42,6 +43,15 @@ import './functions/order/stripeWebhook/index';
 import './functions/order/stripeConnectWebhook/index';
 import './functions/order/getOrderByPaymentIntent/index';
 import './functions/order/getOrdersByShop/index';
+import './functions/order/quoteBasket/index';
+import './functions/order/getOrderQueue/index';
+import './functions/order/acceptOrder/index';
+import './functions/order/rejectOrder/index';
+import './functions/order/markOrderReady/index';
+import './functions/order/completeOrder/index';
+import './functions/order/viewCustomerOrder/index';
+import './functions/order/cancelCustomerOrder/index';
+import './functions/order/orderTimers/index';
 
 // Audit endpoints
 import './functions/audit/getAuditEntries/index';

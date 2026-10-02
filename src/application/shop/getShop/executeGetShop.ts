@@ -1,3 +1,4 @@
+import { orderSettingsOf } from '../../../domain/order/orderSettings';
 import { HttpRequest } from '@azure/functions';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { authenticate } from '../../../infrastructure/auth/principal';
@@ -74,6 +75,7 @@ export async function executeGetShop(
             connectOnboardingStatus: shop.stripe.connectOnboardingStatus ?? null,
           }
         : null,
+      orderSettings: orderSettingsOf(shop),
       createdAt: shop.createdAt,
       updatedAt: shop.updatedAt,
     };

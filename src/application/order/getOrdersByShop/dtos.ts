@@ -5,6 +5,7 @@ import {
   PaymentMethod,
   PaymentStatus,
   StoredOrderState,
+  TaxBreakdownEntry,
 } from '../../../domain/order/Order';
 
 export type GetOrdersByShopRequestDto = {
@@ -43,6 +44,11 @@ export type OrderDto = {
   customerNotes?: string;
   history: OrderHistoryEntry[];
   createdAt: string;
+  autoRejectAt: string | null;
+  acceptedAt: string | null;
+  prepMinutes: number | null;
+  taxBreakdown: TaxBreakdownEntry[];
+  rejectionNote: string | null;
 };
 
 export type GetOrdersByShopResultDto = {

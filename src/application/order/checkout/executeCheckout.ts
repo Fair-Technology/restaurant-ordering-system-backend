@@ -1,14 +1,39 @@
 import Stripe from 'stripe';
-import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
-import { findProductById } from '../../../infrastructure/cosmos/product/CosmosProductRepository';
-import { createCheckoutSession } from '../../../infrastructure/cosmos/order/CosmosCheckoutSessionRepository';
-import { CheckoutRequestDto, CheckoutResultDto } from './dtos';
-import { ApplicationResult } from '../../_shared/types';
-import { isProductScheduleActive } from '../../_shared/scheduleUtils';
-import { FULFILMENT_MODES, OrderItem } from '../../../domain/order/Order';
-import { CheckoutSession } from '../../../domain/order/CheckoutSession';
-import { isDeclared } from '../../../domain/product/Product';
+import { EMAIL_PATTERN } from '../../../domain/legal/impressum';
 import { LEGAL_PACK_INCOMPLETE_ERROR, isLegalPackComplete } from '../../../domain/legal/legalReadiness';
+import { legalOf } from '../../../domain/legal/legalTexts';
+import { menuLanguagesOf, resolveMenuLanguage } from '../../../domain/menu/menuLanguage';
+import { CheckoutSession } from '../../../domain/order/CheckoutSession';
+import { ORDER_MODE_UNAVAILABLE_ERROR, ORDERABLE_MODES } from '../../../domain/order/fulfilment';
+import { isOpenForAsapOrder } from '../../../domain/order/openingHours';
+import {
+  BASKET_CHANGED_ERROR,
+  IDEMPOTENCY_KEY_ERROR,
+  LEGAL_CHANGED_ERROR,
+  NO_PAYMENT_SETUP_ERROR,
+  PAYMENT_METHOD_NOT_OFFERED_ERROR,
+  SHOP_CLOSED_ERROR,
+} from '../../../domain/order/orderErrors';
+import {
+  IDEMPOTENCY_KEY_PATTERN,
+  generateAccessToken,
+  orderIdForIdempotencyKey,
+} from '../../../domain/order/orderIds';
+import { orderSettingsOf } from '../../../domain/order/orderSettings';
+import { generateOrderRef } from '../../../domain/order/orderRef';
+import { DEFAULT_PREP_MINUTES, FULFILMENT_MODES, LegalRevisions, Order, PaymentMethod } from '../../../domain/order/Order';
+import { offeredPaymentMethods } from '../../../domain/order/paymentMethods';
+import { createCheckoutSession } from '../../../infrastructure/cosmos/order/CosmosCheckoutSessionRepository';
+import { createOrder, findOrderById } from '../../../infrastructure/cosmos/order/CosmosOrderRepository';
+import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
+import { ApplicationResult } from '../../_shared/types';
+import { loadPricingContext } from '../_shared/loadPricingContext';
+import { priceBasket, validateBasketItems } from '../_shared/priceBasket';
+import { notifyCustomer } from '../notifications/notifyOrder';
+import { CashCheckoutResultDto, CheckoutRequestDto, CheckoutResultDto } from './dtos';
+
+const MAX_NAME_CHARS = 200;
+const MAX_NOTES_CHARS = 500;
 
 function getStripe(): Stripe {
   const key = process.env.STRIPE_SECRET_KEY;
@@ -18,63 +43,83 @@ function getStripe(): Stripe {
   return new Stripe(key);
 }
 
+function toCashResult(order: Order): CashCheckoutResultDto {
+  return {
+    kind: 'cash',
+    orderId: order.id,
+    orderRef: order.orderRef,
+    accessToken: order.customerAccessToken ?? '',
+    subtotalCents: order.subtotalCents,
+    currency: order.currency,
+    state: 'PLACED',
+    autoRejectAt: order.autoRejectAt ?? '',
+  };
+}
+
+function isWholeNumber(n: unknown): n is number {
+  return typeof n === 'number' && Number.isInteger(n);
+}
+
 export async function executeCheckout(
   request: CheckoutRequestDto,
+  options: { now?: Date } = {},
 ): Promise<ApplicationResult<CheckoutResultDto>> {
   // --- Basic input validation ---
   if (!request.shopId || typeof request.shopId !== 'string') {
     return { ok: false, code: 'INVALID_INPUT', error: 'shopId is required' };
   }
-
-  if (!Array.isArray(request.items) || request.items.length === 0) {
-    return {
-      ok: false,
-      code: 'INVALID_INPUT',
-      error: 'items must be a non-empty array',
-    };
-  }
-
-  for (let i = 0; i < request.items.length; i++) {
-    const item = request.items[i];
-    if (!item.productId || typeof item.productId !== 'string') {
-      return {
-        ok: false,
-        code: 'INVALID_INPUT',
-        error: `items[${i}].productId is required`,
-      };
-    }
-    if (
-      typeof item.quantity !== 'number' ||
-      !Number.isInteger(item.quantity) ||
-      item.quantity < 1
-    ) {
-      return {
-        ok: false,
-        code: 'INVALID_INPUT',
-        error: `items[${i}].quantity must be a positive integer`,
-      };
-    }
-  }
+  const itemsError = validateBasketItems(request.items);
+  if (itemsError) return { ok: false, code: 'INVALID_INPUT', error: itemsError };
 
   if (!request.customerName || typeof request.customerName !== 'string') {
     return { ok: false, code: 'INVALID_INPUT', error: 'customerName is required' };
   }
+  if (request.customerName.length > MAX_NAME_CHARS) {
+    return { ok: false, code: 'INVALID_INPUT', error: `customerName must be at most ${MAX_NAME_CHARS} characters` };
+  }
   if (!request.customerEmail || typeof request.customerEmail !== 'string') {
     return { ok: false, code: 'INVALID_INPUT', error: 'customerEmail is required' };
   }
+  if (!EMAIL_PATTERN.test(request.customerEmail.trim())) {
+    return { ok: false, code: 'INVALID_INPUT', error: 'customerEmail must be a valid email address' };
+  }
   if (!request.customerPhone || typeof request.customerPhone !== 'string') {
     return { ok: false, code: 'INVALID_INPUT', error: 'customerPhone is required' };
+  }
+  if (request.customerNotes !== undefined && request.customerNotes !== null) {
+    if (typeof request.customerNotes !== 'string' || request.customerNotes.length > MAX_NOTES_CHARS) {
+      return { ok: false, code: 'INVALID_INPUT', error: `customerNotes must be at most ${MAX_NOTES_CHARS} characters` };
+    }
+  }
+  if (request.paymentMethod !== undefined && request.paymentMethod !== 'cash' && request.paymentMethod !== 'card') {
+    return { ok: false, code: 'INVALID_INPUT', error: 'paymentMethod must be cash or card' };
+  }
+  const requestedRevisions = request.legalRevisions;
+  if (
+    requestedRevisions !== undefined &&
+    (typeof requestedRevisions !== 'object' ||
+      requestedRevisions === null ||
+      !isWholeNumber(requestedRevisions.terms) ||
+      !isWholeNumber(requestedRevisions.withdrawal))
+  ) {
+    return { ok: false, code: 'INVALID_INPUT', error: 'legalRevisions must have whole-number terms and withdrawal' };
+  }
+  const method: PaymentMethod = request.paymentMethod ?? 'card';
+  if (method === 'cash' && (typeof request.idempotencyKey !== 'string' || !IDEMPOTENCY_KEY_PATTERN.test(request.idempotencyKey))) {
+    return { ok: false, code: 'INVALID_INPUT', error: IDEMPOTENCY_KEY_ERROR };
   }
 
   const mode = request.fulfilmentMode ?? 'collection';
   if (!FULFILMENT_MODES.includes(mode)) {
     return { ok: false, code: 'INVALID_INPUT', error: 'fulfilmentMode must be one of collection, delivery, dine_in' };
   }
-  if (mode !== 'collection') {
-    return { ok: false, code: 'INVALID_INPUT', error: 'Only collection orders are available at the moment' };
+  if (!ORDERABLE_MODES.includes(mode)) {
+    return { ok: false, code: 'INVALID_INPUT', error: ORDER_MODE_UNAVAILABLE_ERROR };
   }
 
   try {
+    const now = options.now ?? new Date();
+
     // --- Fetch and validate shop ---
     const shop = await findShopById(request.shopId);
     if (!shop || shop.isDeleted) {
@@ -92,133 +137,49 @@ export async function executeCheckout(
     if (!isLegalPackComplete(shop)) {
       return { ok: false, code: 'INVALID_INPUT', error: LEGAL_PACK_INCOMPLETE_ERROR };
     }
-    if (!shop.stripe?.connectAccountId || shop.stripe?.connectOnboardingStatus !== 'complete') {
-      return {
-        ok: false,
-        code: 'INVALID_INPUT',
-        error: 'This shop is not set up to accept payments yet',
-      };
+
+    // --- Payment method: what this restaurant offers decides, not what the request asks for ---
+    const offered = offeredPaymentMethods(shop);
+    if (offered.length === 0) {
+      return { ok: false, code: 'INVALID_INPUT', error: NO_PAYMENT_SETUP_ERROR };
+    }
+    if (!offered.includes(method)) {
+      return { ok: false, code: 'INVALID_INPUT', error: PAYMENT_METHOD_NOT_OFFERED_ERROR };
+    }
+
+    // --- A repeated cash submit (double click, retry) returns the order it already made ---
+    let cashOrderId: string | null = null;
+    if (method === 'cash') {
+      cashOrderId = orderIdForIdempotencyKey(shop.id, request.idempotencyKey as string);
+      const existing = await findOrderById(cashOrderId);
+      if (existing) return { ok: true, data: toCashResult(existing) };
+    }
+
+    // --- The diner must have seen the terms that are in force now ---
+    const legal = legalOf(shop);
+    const current: LegalRevisions = {
+      terms: legal.terms?.revision ?? 0,
+      withdrawal: legal.withdrawal?.revision ?? 0,
+    };
+    if (
+      requestedRevisions &&
+      (requestedRevisions.terms !== current.terms || requestedRevisions.withdrawal !== current.withdrawal)
+    ) {
+      return { ok: false, code: 'CONFLICT', error: LEGAL_CHANGED_ERROR };
+    }
+
+    if (!isOpenForAsapOrder(shop.openingHours, shop.closures, shop.timezone, now, DEFAULT_PREP_MINUTES[mode])) {
+      return { ok: false, code: 'INVALID_INPUT', error: SHOP_CLOSED_ERROR };
     }
 
     // --- Resolve prices server-side (never trust client amounts) ---
-    const orderItems: OrderItem[] = [];
-    let subtotalCents = 0;
-
-    for (let i = 0; i < request.items.length; i++) {
-      const item = request.items[i];
-
-      const product = await findProductById(item.productId, request.shopId);
-      if (!product || product.isDeleted) {
-        return {
-          ok: false,
-          code: 'INVALID_INPUT',
-          error: `Product not found: ${item.productId}`,
-        };
-      }
-      if (!product.isAvailable) {
-        return {
-          ok: false,
-          code: 'INVALID_INPUT',
-          error: `Product is not available: ${product.name}`,
-        };
-      }
-      if (!isDeclared(product)) {
-        return {
-          ok: false,
-          code: 'INVALID_INPUT',
-          error: `Product is not available: ${product.name}`,
-        };
-      }
-      if (product.schedule) {
-        const scheduleActive = isProductScheduleActive(product.schedule, shop.timezone);
-        if (!scheduleActive) {
-          const from = product.schedule.startTime || '00:00';
-          const to = product.schedule.endTime || '23:59';
-          return {
-            ok: false,
-            code: 'INVALID_INPUT',
-            error: `Product is not available at this time: ${product.name} (available ${from}–${to})`,
-          };
-        }
-      }
-
-      let unitPriceCents = product.price;
-      let selectedVariantOptionName: string | undefined;
-      const selectedAddonOptionNames: string[] = [];
-
-      // Add selected variant priceDelta
-      if (item.selectedVariantOptionId) {
-        let found = false;
-        outer: for (const vg of product.variantGroups ?? []) {
-          for (const opt of vg.options) {
-            if (opt.id === item.selectedVariantOptionId) {
-              if (!opt.isAvailable) {
-                return {
-                  ok: false,
-                  code: 'INVALID_INPUT',
-                  error: `Variant option is not available: ${opt.name}`,
-                };
-              }
-              unitPriceCents += opt.priceDelta;
-              selectedVariantOptionName = opt.name;
-              found = true;
-              break outer;
-            }
-          }
-        }
-        if (!found) {
-          return {
-            ok: false,
-            code: 'INVALID_INPUT',
-            error: `Variant option not found: ${item.selectedVariantOptionId}`,
-          };
-        }
-      }
-
-      // Add selected addon priceDelta(s)
-      for (const addonOptId of item.selectedAddonOptionIds ?? []) {
-        let found = false;
-        outer: for (const ag of product.addonGroups ?? []) {
-          for (const opt of ag.options) {
-            if (opt.id === addonOptId) {
-              if (!opt.isAvailable) {
-                return {
-                  ok: false,
-                  code: 'INVALID_INPUT',
-                  error: `Addon option is not available: ${opt.name}`,
-                };
-              }
-              unitPriceCents += opt.priceDelta;
-              selectedAddonOptionNames.push(opt.name);
-              found = true;
-              break outer;
-            }
-          }
-        }
-        if (!found) {
-          return {
-            ok: false,
-            code: 'INVALID_INPUT',
-            error: `Addon option not found: ${addonOptId}`,
-          };
-        }
-      }
-
-      const lineTotalCents = unitPriceCents * item.quantity;
-      subtotalCents += lineTotalCents;
-
-      orderItems.push({
-        productId: product.id,
-        productName: product.name,
-        quantity: item.quantity,
-        unitPriceCents,
-        selectedVariantOptionId: item.selectedVariantOptionId,
-        selectedVariantOptionName,
-        selectedAddonOptionIds: item.selectedAddonOptionIds,
-        selectedAddonOptionNames: selectedAddonOptionNames.length > 0 ? selectedAddonOptionNames : undefined,
-        lineTotalCents,
-      });
+    const context = await loadPricingContext(shop, request.items.map((i) => i.productId));
+    const language = resolveMenuLanguage(request.language, menuLanguagesOf(shop));
+    const priced = priceBasket({ items: request.items, ...context, shop, mode, now, language });
+    if (!priced.allOk) {
+      return { ok: false, code: 'CONFLICT', error: BASKET_CHANGED_ERROR };
     }
+    const { items: orderItems, subtotalCents, taxBreakdown } = priced;
 
     // --- Enforce minimum order amount ---
     if (subtotalCents < shop.minOrderAmountCents) {
@@ -230,7 +191,49 @@ export async function executeCheckout(
       };
     }
 
-    // --- Create Stripe PaymentIntent ---
+    const at = now.toISOString();
+
+    // --- Cash: the order is placed now and waits for the restaurant to accept it ---
+    if (method === 'cash') {
+      const autoRejectAt = new Date(now.getTime() + orderSettingsOf(shop).autoRejectMinutes * 60_000).toISOString();
+      const order: Order = {
+        id: cashOrderId as string,
+        shopId: shop.id,
+        orderRef: generateOrderRef(),
+        state: 'PLACED',
+        fulfilmentMode: mode,
+        payment: { method: 'cash', status: 'cash_due', stripePaymentIntentId: null },
+        items: orderItems,
+        subtotalCents,
+        currency: shop.currency,
+        customerName: request.customerName,
+        customerEmail: request.customerEmail,
+        customerPhone: request.customerPhone,
+        ...(request.customerNotes ? { customerNotes: request.customerNotes } : {}),
+        taxBreakdown,
+        language,
+        legalRevisions: current,
+        customerAccessToken: generateAccessToken(),
+        idempotencyKey: request.idempotencyKey,
+        autoRejectAt,
+        history: [{ from: null, to: 'PLACED', at, actor: { type: 'customer' } }],
+        createdAt: at,
+        updatedAt: at,
+      };
+      try {
+        await createOrder(order);
+      } catch (error: any) {
+        if (error?.code !== 409) throw error;
+        // A concurrent submit with the same key won the race: hand back its order.
+        const winner = await findOrderById(order.id);
+        if (!winner) throw error;
+        return { ok: true, data: toCashResult(winner) };
+      }
+      await notifyCustomer('order_received', order, shop);
+      return { ok: true, data: toCashResult(order) };
+    }
+
+    // --- Card: create Stripe PaymentIntent ---
     const sessionId = crypto.randomUUID();
     const stripe = getStripe();
 
@@ -244,7 +247,6 @@ export async function executeCheckout(
     );
 
     // --- Persist checkout session (no Order created until payment succeeds) ---
-    const now = new Date().toISOString();
     const session: CheckoutSession = {
       id: sessionId,
       shopId: shop.id,
@@ -257,7 +259,10 @@ export async function executeCheckout(
       customerPhone: request.customerPhone,
       customerNotes: request.customerNotes,
       fulfilmentMode: mode,
-      createdAt: now,
+      taxBreakdown,
+      language,
+      legalRevisions: requestedRevisions ?? current,
+      createdAt: at,
       ttl: 3600,
     };
 
@@ -266,6 +271,7 @@ export async function executeCheckout(
     return {
       ok: true,
       data: {
+        kind: 'card',
         sessionId,
         clientSecret: paymentIntent.client_secret!,
         subtotalCents,

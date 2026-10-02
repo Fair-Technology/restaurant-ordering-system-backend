@@ -3,8 +3,8 @@ import {
   countOrdersByShopId,
   findOrdersByShopIdPaginated,
 } from '../../../infrastructure/cosmos/order/CosmosOrderRepository';
-import { deriveDisplayState } from '../../../domain/order/orderLifecycle';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
+import { toOrderDto } from '../_shared/toOrderDto';
 import { authorizeShopAction } from '../../_shared/shopAccess';
 import {
   GetOrdersByShopRequestDto,
@@ -55,35 +55,8 @@ export async function executeGetOrdersByShop(
       countOrdersByShopId(shopId),
     ]);
 
-    const orderDtos: OrderDto[] = orders.map((order) => ({
-      id: order.id,
-      orderRef: order.orderRef,
-      state: order.state,
-      displayState: deriveDisplayState(order, new Date()),
-      fulfilmentMode: order.fulfilmentMode,
-      paymentMethod: order.payment.method,
-      paymentStatus: order.payment.status,
-      readyAt: order.readyAt ?? null,
-      items: order.items.map((item) => ({
-        productId: item.productId,
-        productName: item.productName,
-        quantity: item.quantity,
-        unitPriceCents: item.unitPriceCents,
-        selectedVariantOptionId: item.selectedVariantOptionId,
-        selectedVariantOptionName: item.selectedVariantOptionName,
-        selectedAddonOptionIds: item.selectedAddonOptionIds,
-        selectedAddonOptionNames: item.selectedAddonOptionNames,
-        lineTotalCents: item.lineTotalCents,
-      })),
-      subtotalCents: order.subtotalCents,
-      currency: order.currency,
-      customerName: order.customerName,
-      customerEmail: order.customerEmail,
-      customerPhone: order.customerPhone,
-      customerNotes: order.customerNotes,
-      history: order.history,
-      createdAt: order.createdAt,
-    }));
+    const now = new Date();
+    const orderDtos: OrderDto[] = orders.map((order) => toOrderDto(order, now));
 
     return {
       ok: true,

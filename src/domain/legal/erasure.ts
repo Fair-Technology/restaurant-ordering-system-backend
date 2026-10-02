@@ -5,7 +5,7 @@ export const ANONYMISED_CUSTOMER_NAME = 'Deleted customer';
 
 /** Strips the diner's personal data; the order itself stays for the restaurant's tax records. */
 export function anonymiseOrder(o: Order, now: string): Order {
-  const { customerNotes: _removed, ...rest } = o;
+  const { customerNotes: _removedNotes, customerAccessToken: _removedToken, ...rest } = o;
   return {
     ...rest,
     customerName: ANONYMISED_CUSTOMER_NAME,
