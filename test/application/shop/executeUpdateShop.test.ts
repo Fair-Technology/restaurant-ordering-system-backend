@@ -133,6 +133,22 @@ describe('executeUpdateShop payment policy / go-live', () => {
     expect(updateShop).not.toHaveBeenCalled();
   });
 
+  it('lets an already-live shop save its status while only an outdated DPA version is accepted', async () => {
+    (findShopById as any).mockResolvedValue(
+      makeGoLiveReadyShop({ isPaused: false, dpaAcceptance: { ...ACCEPTED_DPA, version: '2025-01-01' } }),
+    );
+
+    const result = await executeUpdateShop(
+      { shopId: 'shop-1', isPaused: false, pausedMessage: 'Back soon' } as any,
+      {} as any,
+    );
+
+    expect(result.ok).toBe(true);
+    expect(updateShop).toHaveBeenCalledWith(
+      expect.objectContaining({ isPaused: false, pausedMessage: 'Back soon' }),
+    );
+  });
+
   it('refuses to go live without an accepted DPA', async () => {
     (findShopById as any).mockResolvedValue(makeGoLiveReadyShop({ dpaAcceptance: null }));
     (findProductsByShopId as any).mockResolvedValue([

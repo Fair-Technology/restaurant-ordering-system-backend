@@ -191,8 +191,11 @@ export async function executeUpdateShop(
       nextLanguages = r;
     }
 
-    // Gate going live behind all criteria
-    if (request.isPaused === false) {
+    // Gate going live behind all criteria — only when actually switching on.
+    // A shop that is already live re-sends isPaused: false on every status save;
+    // re-checking then would block the save (e.g. after a new DPA version) while
+    // the shop stays online anyway.
+    if (request.isPaused === false && shop.isPaused !== false) {
       const resultingPolicy = request.paymentPolicy ?? shop.paymentPolicy;
       const criteriaError = await validateGoLiveCriteria(shop, resultingPolicy);
       if (criteriaError) {
