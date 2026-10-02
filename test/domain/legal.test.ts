@@ -163,4 +163,12 @@ describe('erasure', () => {
     });
     expect('customerNotes' in r).toBe(false);
   });
+
+  it('removes the order link token', () => {
+    const r = anonymiseOrder(
+      { id: 'o1', customerName: 'A', customerEmail: 'a@x', customerPhone: '1', customerAccessToken: 't', updatedAt: 'old' } as any,
+      '2026-10-05T00:00:00.000Z',
+    );
+    expect('customerAccessToken' in r).toBe(false);
+  });
 });
