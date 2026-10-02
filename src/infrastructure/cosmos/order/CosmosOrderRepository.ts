@@ -86,3 +86,20 @@ export async function findOrdersByShopIdPaginated(
   const { resources } = await orderContainer.items.query<Order>(querySpec).fetchAll();
   return resources;
 }
+
+export async function findOrdersByShopIdAndCustomerEmail(shopId: string, emailLower: string): Promise<Order[]> {
+  const querySpec = {
+    query: 'SELECT * FROM c WHERE c.shopId = @shopId AND LOWER(c.customerEmail) = @email',
+    parameters: [
+      { name: '@shopId', value: shopId },
+      { name: '@email', value: emailLower },
+    ],
+  };
+  const { resources } = await orderContainer.items.query<Order>(querySpec).fetchAll();
+  return resources;
+}
+
+export async function replaceOrder(order: Order): Promise<Order> {
+  const { resource } = await orderContainer.item(order.id, order.id).replace<Order>(order);
+  return resource!;
+}

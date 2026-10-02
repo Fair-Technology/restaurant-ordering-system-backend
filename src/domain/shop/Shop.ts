@@ -1,4 +1,5 @@
 import { MenuLanguage } from '../reference/ReferenceLists';
+import { ShopLegal } from '../legal/legalTexts';
 
 export interface ShopBranding {
   logoUrl: string | null;
@@ -24,6 +25,13 @@ export const ALL_SHOP_PERMISSIONS: readonly ShopPermission[] = [
   'manage_billing',
   'view_audit',
 ];
+
+export interface DpaAcceptance {
+  version: string;
+  acceptedAt: string; // ISO
+  acceptedByUserId: string;
+  shopNameAtAcceptance: string;
+}
 
 export interface Shop {
   // Identity
@@ -110,6 +118,12 @@ export interface Shop {
 
   // Subscription enforcement
   isDeactivatedDueToLimits?: boolean; // set by webhook when active products exceed free plan limit on cancellation
+
+  // Legal pack: Impressum, terms, withdrawal, privacy addition. Absent on older shops; read via legalOf().
+  legal?: ShopLegal;
+  // Data processing agreement acceptance. Absent or null = not accepted.
+  dpaAcceptance?: DpaAcceptance | null;
+  dpaAcceptanceHistory?: DpaAcceptance[];
 
   // Audit
   createdAt: string; // ISO

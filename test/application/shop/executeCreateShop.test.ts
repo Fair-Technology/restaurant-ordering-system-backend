@@ -25,6 +25,7 @@ vi.mock('../../../src/infrastructure/cosmos/plan/CosmosPlanRepository', () => ({
 }));
 
 import { createShop as createShopInRepo } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
+import { CURRENT_DPA } from '../../../src/domain/legal/platformDocuments';
 import { executeCreateShop } from '../../../src/application/shop/createShop/executeCreateShop';
 
 function baseRequest(overrides: any = {}) {
@@ -82,5 +83,46 @@ describe('executeCreateShop payment policy', () => {
       code: 'INVALID_INPUT',
       error: "paymentPolicy must be 'pay_online' or 'pay_in_person'",
     });
+  });
+});
+
+describe('executeCreateShop DPA acceptance', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (createShopInRepo as any).mockImplementation(async (s: any) => s);
+  });
+
+  it('records DPA acceptance when the current version is sent', async () => {
+    const result = await executeCreateShop(baseRequest({ acceptDpaVersion: CURRENT_DPA.version }), {} as any);
+
+    expect(result.ok).toBe(true);
+    expect(createShopInRepo).toHaveBeenCalledWith(
+      expect.objectContaining({
+        dpaAcceptance: expect.objectContaining({
+          version: CURRENT_DPA.version,
+          acceptedByUserId: 'user-1',
+          shopNameAtAcceptance: 'Pizzeria Napoli',
+        }),
+      }),
+    );
+  });
+
+  it('rejects an outdated DPA version', async () => {
+    const result = await executeCreateShop(baseRequest({ acceptDpaVersion: '2025-01-01' }), {} as any);
+
+    expect(result).toEqual({
+      ok: false,
+      code: 'INVALID_INPUT',
+      error: 'The data processing agreement has changed — reload and accept the current version',
+    });
+    expect(createShopInRepo).not.toHaveBeenCalled();
+  });
+
+  it('leaves dpaAcceptance null when none is sent', async () => {
+    await executeCreateShop(baseRequest(), {} as any);
+
+    expect(createShopInRepo).toHaveBeenCalledWith(
+      expect.objectContaining({ dpaAcceptance: null, dpaAcceptanceHistory: [] }),
+    );
   });
 });

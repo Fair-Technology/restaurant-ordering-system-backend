@@ -12,6 +12,7 @@ vi.mock('../../../src/infrastructure/cosmos/order/CosmosCheckoutSessionRepositor
 
 import { findShopById } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
 import { findProductById } from '../../../src/infrastructure/cosmos/product/CosmosProductRepository';
+import { ACCEPTED_DPA, COMPLETE_LEGAL } from '../../fixtures/legal';
 import { executeCheckout } from '../../../src/application/order/checkout/executeCheckout';
 import { CheckoutRequestDto } from '../../../src/application/order/checkout/dtos';
 
@@ -58,6 +59,8 @@ describe('executeCheckout menu declaration', () => {
       timezone: 'Europe/Berlin',
       currency: 'EUR',
       stripe: { connectAccountId: 'acct_1', connectOnboardingStatus: 'complete' },
+      legal: COMPLETE_LEGAL,
+      dpaAcceptance: ACCEPTED_DPA,
     });
     (findProductById as any).mockResolvedValue({
       id: 'p1',
@@ -74,5 +77,25 @@ describe('executeCheckout menu declaration', () => {
     const res = await executeCheckout(baseRequest);
 
     expect(res).toEqual({ ok: false, code: 'INVALID_INPUT', error: 'Product is not available: Margherita' });
+  });
+
+  it('refuses an order while the legal pack is incomplete', async () => {
+    (findShopById as any).mockResolvedValue({
+      id: 'shop-1',
+      isDeleted: false,
+      isPaused: false,
+      timezone: 'Europe/Berlin',
+      currency: 'EUR',
+      stripe: { connectAccountId: 'acct_1', connectOnboardingStatus: 'complete' },
+    });
+
+    const res = await executeCheckout(baseRequest);
+
+    expect(res).toEqual({
+      ok: false,
+      code: 'INVALID_INPUT',
+      error: 'This restaurant has not finished its legal setup yet',
+    });
+    expect(findProductById).not.toHaveBeenCalled();
   });
 });

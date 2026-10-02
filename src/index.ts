@@ -82,6 +82,18 @@ import './functions/systemConfig/updateRolePermissions/index';
 import './functions/reference/getReferenceLists/index';
 import './functions/reference/updateReferenceLists/index';
 
+// Legal endpoints
+import './functions/legal/getPlatformLegalIdentity/index';
+import './functions/legal/updatePlatformLegalIdentity/index';
+import './functions/legal/getShopLegal/index';
+import './functions/legal/updateShopLegal/index';
+import './functions/legal/acceptDpa/index';
+import './functions/legal/getPublicLegalPack/index';
+import './functions/legal/getDpaDocument/index';
+import './functions/legal/getPlatformLegal/index';
+import './functions/legal/exportShopData/index';
+import './functions/legal/eraseCustomer/index';
+
 // User admin endpoints
 import './functions/user/updateUserLimits/index';
 
