@@ -9,19 +9,21 @@ import {
 import { orderSettingsOf } from '../../../domain/order/orderSettings';
 import type { Shop } from '../../../domain/shop/Shop';
 import {
+  findInvoicedOrdersWithRefunds,
   findOrdersAwaitingRelease,
   findOrdersMissingInvoice,
   findOrdersInState,
   findPlacedOrdersCreatedBefore,
 } from '../../../infrastructure/cosmos/order/CosmosOrderRepository';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
-import { issueInvoiceForOrder, needsInvoice } from '../invoices/issueInvoice';
+import { issueCorrectionForRefund, issueInvoiceForOrder, needsInvoice } from '../invoices/issueInvoice';
 import { notifyCustomer, notifyRestaurantEscalation } from '../notifications/notifyOrder';
 import { acceptPlacedOrder } from '../_shared/acceptPlacedOrder';
 import { releaseClosedOrderPayment } from '../_shared/releasePayment';
 import { transitionOrder } from '../_shared/transitionOrder';
 
 const INVOICE_CATCH_UP_DAYS = 7;
+const CORRECTION_CATCH_UP_DAYS = 30;
 
 export interface OrderTimersResult {
   escalated: number;
@@ -145,6 +147,22 @@ export async function executeProcessOrderTimers(input: { now: Date }): Promise<O
       result.invoicesIssued++;
     } catch {
       console.error('[timers:error] invoice', o.id);
+    }
+  }
+
+  const correctionsSince = new Date(now.getTime() - CORRECTION_CATCH_UP_DAYS * 24 * 3_600_000).toISOString();
+  const refunded = await findInvoicedOrdersWithRefunds(correctionsSince);
+  for (const o of refunded) {
+    try {
+      const shop = await shopOf(o.shopId);
+      if (!shop) continue;
+      const refunds = o.refunds ?? [];
+      for (let i = 0; i < refunds.length; i++) {
+        if (refunds[i].correctionNumber) continue;
+        if (await issueCorrectionForRefund(o, i, shop, now)) result.correctionsIssued++;
+      }
+    } catch {
+      console.error('[timers:error] correction', o.id);
     }
   }
   return result;

@@ -177,3 +177,14 @@ export async function findOrdersMissingInvoice(sinceIso: string): Promise<Order[
   const { resources } = await orderContainer.items.query<Order>(querySpec).fetchAll();
   return resources;
 }
+
+/** Invoiced card orders changed since the given time that have at least one refund (the timer checks each has its correction invoice). */
+export async function findInvoicedOrdersWithRefunds(sinceIso: string): Promise<Order[]> {
+  const querySpec = {
+    query:
+      "SELECT * FROM c WHERE c.payment.method = 'card' AND IS_DEFINED(c.invoiceNumber) AND ARRAY_LENGTH(c.refunds) > 0 AND c.updatedAt >= @since",
+    parameters: [{ name: '@since', value: sinceIso }],
+  };
+  const { resources } = await orderContainer.items.query<Order>(querySpec).fetchAll();
+  return resources;
+}

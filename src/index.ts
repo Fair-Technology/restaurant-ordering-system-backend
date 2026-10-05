@@ -47,6 +47,7 @@ import './functions/order/quoteBasket/index';
 import './functions/order/getOrderQueue/index';
 import './functions/order/acceptOrder/index';
 import './functions/order/rejectOrder/index';
+import './functions/order/refundOrder/index';
 import './functions/order/markOrderReady/index';
 import './functions/order/completeOrder/index';
 import './functions/order/viewCustomerOrder/index';
