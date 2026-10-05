@@ -21,12 +21,12 @@ import {
 import { findShopById } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
 import { sendEmail } from '../../../src/infrastructure/email/emailSender';
 import { CANNOT_CANCEL_ERROR } from '../../../src/domain/order/orderErrors';
-import { CASH_SHOP, PLACED_CASH_ORDER } from '../../fixtures/orders';
+import { CARD_SHOP, PLACED_CARD_ORDER } from '../../fixtures/orders';
 
 const TOKEN = 'T'.repeat(32);
 const now = new Date('2026-10-05T10:05:00Z');
 
-function stored(order = PLACED_CASH_ORDER): void {
+function stored(order = PLACED_CARD_ORDER): void {
   (findOrderById as any).mockResolvedValue(order);
   (findOrderWithEtag as any).mockResolvedValue({ order, etag: 'etag-1' });
 }
@@ -34,7 +34,7 @@ function stored(order = PLACED_CASH_ORDER): void {
 describe('customer order page', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (findShopById as any).mockResolvedValue(CASH_SHOP);
+    (findShopById as any).mockResolvedValue(CARD_SHOP);
     (replaceOrderIfMatch as any).mockResolvedValue('ok');
     stored();
   });
@@ -60,7 +60,7 @@ describe('customer order page', () => {
   });
 
   it('an order without a token is never shown', async () => {
-    stored({ ...PLACED_CASH_ORDER, customerAccessToken: undefined });
+    stored({ ...PLACED_CARD_ORDER, customerAccessToken: undefined });
     const res = await executeGetCustomerOrder({ orderId: 'o1', token: '' }, { now });
     expect(res).toEqual({ ok: false, code: 'NOT_FOUND', error: 'Order not found' });
   });
@@ -77,7 +77,7 @@ describe('customer order page', () => {
   });
 
   it('cannot cancel once accepted', async () => {
-    stored({ ...PLACED_CASH_ORDER, state: 'ACCEPTED', readyAt: '2026-10-05T10:25:00.000Z', prepMinutes: 20 });
+    stored({ ...PLACED_CARD_ORDER, state: 'ACCEPTED', readyAt: '2026-10-05T10:25:00.000Z', prepMinutes: 20 });
     const res = await executeCancelCustomerOrder({ orderId: 'o1', token: TOKEN }, { now });
     expect(res).toEqual({ ok: false, code: 'CONFLICT', error: CANNOT_CANCEL_ERROR });
     expect(replaceOrderIfMatch).not.toHaveBeenCalled();

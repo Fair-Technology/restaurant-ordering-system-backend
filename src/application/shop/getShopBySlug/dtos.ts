@@ -12,7 +12,6 @@ export interface GetShopBySlugResultDto {
   isDeleted: boolean;
   isPaused: boolean;
   pausedMessage?: string;
-  paymentPolicy: 'pay_online' | 'pay_in_person';
   orderAcceptanceMode: string;
   currency: string;
   timezone: string;

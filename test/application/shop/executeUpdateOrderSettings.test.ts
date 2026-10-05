@@ -14,7 +14,7 @@ import { authorizeShopAction } from '../../../src/application/_shared/shopAccess
 import { logAudit } from '../../../src/application/_shared/auditHelpers';
 import { executeUpdateOrderSettings } from '../../../src/application/shop/updateOrderSettings/executeUpdateOrderSettings';
 import { findShopById, updateShop } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
-import { CASH_SHOP } from '../../fixtures/orders';
+import { CARD_SHOP } from '../../fixtures/orders';
 
 const http = {} as any;
 
@@ -26,7 +26,7 @@ describe('executeUpdateOrderSettings', () => {
       actor: { actorType: 'owner', actorId: 'u1', role: 'owner' },
       permissions: ['manage_shop'],
     });
-    (findShopById as any).mockResolvedValue(CASH_SHOP);
+    (findShopById as any).mockResolvedValue(CARD_SHOP);
   });
 
   it('saves the settings', async () => {

@@ -12,7 +12,7 @@ vi.mock('../../../src/infrastructure/cosmos/reference/CosmosReferenceListsReposi
 import { executeQuoteBasket } from '../../../src/application/order/quoteBasket/executeQuoteBasket';
 import { findProductById } from '../../../src/infrastructure/cosmos/product/CosmosProductRepository';
 import { findShopById } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
-import { CASH_SHOP, NOW_CLOSED, NOW_OPEN, P_COLA, P_PASTA } from '../../fixtures/orders';
+import { CARD_SHOP, NOW_CLOSED, NOW_OPEN, P_COLA, P_PASTA } from '../../fixtures/orders';
 
 const request = {
   shopId: 'shop-1',
@@ -25,7 +25,7 @@ const request = {
 describe('executeQuoteBasket', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (findShopById as any).mockResolvedValue(CASH_SHOP);
+    (findShopById as any).mockResolvedValue(CARD_SHOP);
     (findProductById as any).mockImplementation(async (id: string) => (id === 'p1' ? P_PASTA : id === 'p2' ? P_COLA : null));
   });
 
@@ -50,7 +50,7 @@ describe('executeQuoteBasket', () => {
   });
 
   it('refuses a paused shop', async () => {
-    (findShopById as any).mockResolvedValue({ ...CASH_SHOP, isPaused: true });
+    (findShopById as any).mockResolvedValue({ ...CARD_SHOP, isPaused: true });
     const res = await executeQuoteBasket(request, { now: NOW_OPEN });
     expect(res).toEqual({ ok: false, code: 'INVALID_INPUT', error: 'This shop is not currently accepting orders' });
   });

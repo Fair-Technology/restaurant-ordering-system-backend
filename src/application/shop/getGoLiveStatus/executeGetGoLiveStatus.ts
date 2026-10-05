@@ -37,10 +37,9 @@ function buildCriteria(
     (slots) => Array.isArray(slots) && slots.length > 0,
   );
 
-  // Stripe is only required when the shop wants online payment — a shop set
-  // to pay_in_person can go live with no Stripe at all. Keep the criterion
+  // Every order is paid by card, so Stripe is always required. Keep the criterion
   // key (stripe_connected) stable since the admin UI links out to Stripe on it.
-  const stripeOrNotNeeded = shop.paymentPolicy === 'pay_in_person' || stripeReady(shop);
+  const stripeOrNotNeeded = stripeReady(shop);
 
   return [
     {
@@ -48,7 +47,7 @@ function buildCriteria(
       met: stripeOrNotNeeded,
       description: stripeOrNotNeeded
         ? 'Stripe payments onboarding is complete'
-        : 'Online payment needs Stripe set up — finish Stripe or switch to payment in person',
+        : 'Orders are paid by card, so Stripe must be set up — finish Stripe onboarding',
     },
     {
       key: 'has_products',

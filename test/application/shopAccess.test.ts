@@ -26,7 +26,7 @@ describe('resolveShopAccess', () => {
     const principal: Principal = { kind: 'entra', userId: 'u-owner' };
     const access = await resolveShopAccess(principal, shop, makeDeps(false));
     expect(access?.actor).toEqual({ actorType: 'owner', actorId: 'u-owner', role: 'owner' });
-    expect(access?.permissions).toHaveLength(6);
+    expect(access?.permissions).toHaveLength(7);
   });
 
   it('inactive owner is refused', async () => {
@@ -89,7 +89,7 @@ describe('resolveShopAccess (staff)', () => {
       makeStaffDeps({ ...baseAccount, role: 'manager' }),
     );
     expect(access?.actor).toEqual({ actorType: 'staff', actorId: 'st-1', role: 'manager' });
-    expect(access?.permissions).toEqual(['view_orders', 'manage_menu', 'manage_staff', 'view_audit']);
+    expect(access?.permissions).toEqual(['view_orders', 'manage_menu', 'manage_staff', 'view_audit', 'refund_orders']);
   });
 
   it('other restaurant refused', async () => {

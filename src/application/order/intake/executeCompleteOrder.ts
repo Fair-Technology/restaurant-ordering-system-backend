@@ -6,7 +6,7 @@ import { toOrderDto } from '../_shared/toOrderDto';
 import type { OrderDto } from '../getOrdersByShop/dtos';
 import { loadShopForOrderAction } from './loadShopForOrderAction';
 
-/** "Handed over": completes the order and, for a pay-on-collection order, records the money as collected. */
+/** "Handed over": completes the order. */
 export async function executeCompleteOrder(
   request: { shopId: string; orderId: string },
   httpRequest: HttpRequest,
@@ -21,11 +21,7 @@ export async function executeCompleteOrder(
     const moved = await transitionOrder({
       orderId: request.orderId,
       shopId: shop.id,
-      change: (current) => {
-        const res = applyTransition(current, 'COMPLETED', { now, actor: shopActorToOrderActor(actor) });
-        if (!res.ok || res.order.payment.status !== 'cash_due') return res;
-        return { ok: true, order: { ...res.order, payment: { ...res.order.payment, status: 'cash_collected' } } };
-      },
+      change: (current) => applyTransition(current, 'COMPLETED', { now, actor: shopActorToOrderActor(actor) }),
     });
     if (!moved.ok) return moved;
     return { ok: true, data: toOrderDto(moved.order, now) };

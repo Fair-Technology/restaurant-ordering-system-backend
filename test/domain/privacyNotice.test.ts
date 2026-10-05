@@ -27,6 +27,15 @@ describe('buildPrivacyNotice', () => {
     expect(buildPrivacyNotice(base).sections[2].paragraphs.join(' ')).toContain('Fair Technology Pty Ltd');
   });
 
+  it('mentions the billing address and invoice retention', () => {
+    const de = buildPrivacyNotice(base).sections.flatMap((x) => x.paragraphs).join(' ');
+    expect(de).toContain('Rechnungsadresse');
+    expect(de).toContain('acht Jahre');
+    const en = buildPrivacyNotice({ ...base, lang: 'en' }).sections.flatMap((x) => x.paragraphs).join(' ');
+    expect(en).toContain('billing address');
+    expect(en).toContain('eight years');
+  });
+
   it('is marked draft', () => {
     const n = buildPrivacyNotice(base);
     expect(n.isDraft).toBe(true);

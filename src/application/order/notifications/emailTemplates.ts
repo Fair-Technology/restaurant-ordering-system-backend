@@ -33,6 +33,10 @@ const REJECT_SENTENCES: Record<RejectReason, Bilingual> = {
     de: 'Das Restaurant hat Ihre Bestellung nicht rechtzeitig bestätigt.',
     en: 'The restaurant did not confirm your order in time.',
   },
+  payment_failed: {
+    de: 'Die Zahlung konnte nicht abgebucht werden.',
+    en: 'The payment could not be taken.',
+  },
 };
 
 function escapeHtml(value: string): string {
@@ -140,8 +144,7 @@ export function buildOrderEmail(input: {
       break;
     case 'order_rejected': {
       const sentence = pick(REJECT_SENTENCES[rejectionReasonOf(order)]);
-      kindLine =
-        order.payment.method === 'cash' ? `${sentence} ${de ? 'Es wurde nichts berechnet.' : 'You have not been charged.'}` : sentence;
+      kindLine = sentence;
       break;
     }
     case 'order_cancelled':
@@ -167,9 +170,6 @@ export function buildOrderEmail(input: {
     { type: 'items', rows: itemRows },
     { type: 'p', text: `${de ? 'Summe' : 'Total'}: ${f.money(order.subtotalCents)}` },
   ];
-  if (order.payment.method === 'cash') {
-    blocks.push({ type: 'p', text: de ? 'Zahlung: bei Abholung' : 'Payment: on collection' });
-  }
   blocks.push({ type: 'p', text: linkLine });
   if (impressum) {
     blocks.push({

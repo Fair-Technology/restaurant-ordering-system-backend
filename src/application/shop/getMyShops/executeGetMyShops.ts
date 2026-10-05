@@ -21,7 +21,6 @@ export async function executeGetMyShops(
       isPaused: shop.isPaused,
       pausedMessage: shop.pausedMessage,
       isDeactivatedDueToLimits: shop.isDeactivatedDueToLimits ?? false,
-      paymentPolicy: shop.paymentPolicy,
       orderAcceptanceMode: shop.orderAcceptanceMode,
       currency: shop.currency,
       timezone: shop.timezone,

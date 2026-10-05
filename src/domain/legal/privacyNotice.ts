@@ -41,12 +41,12 @@ export function buildPrivacyNotice(input: {
       heading: de ? 'Welche Daten wir verarbeiten und warum' : 'What data we process and why',
       paragraphs: de
         ? [
-            'Wir verarbeiten Name, E-Mail-Adresse, Telefonnummer, den Inhalt der Bestellung und optional Hinweise für die Küche.',
+            'Wir verarbeiten Name, E-Mail-Adresse, Telefonnummer, den Inhalt der Bestellung, optional Hinweise für die Küche und – wenn angegeben oder bei Bestellungen über 250 € erforderlich – Ihre Rechnungsadresse. Rechnungen mit Name und Adresse bewahrt das Restaurant acht Jahre auf.',
             'Das geschieht, um die Bestellung anzunehmen, zuzubereiten und zu übergeben und um Sie dazu zu kontaktieren (Art. 6 Abs. 1 lit. b DSGVO).',
             'Bitte geben Sie in den Hinweisen keine Gesundheitsdaten ein.',
           ]
         : [
-            'We process your name, email address, phone number, the contents of your order and, optionally, kitchen notes.',
+            'We process your name, email address, phone number, the contents of your order, optionally kitchen notes and – if you give it, or for orders over €250 – your billing address. The restaurant keeps invoices with your name and address for eight years.',
             'We do this to take, prepare and hand over your order and to contact you about it (Art. 6(1)(b) GDPR).',
             "Please don't enter health information in the notes.",
           ],

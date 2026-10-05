@@ -8,29 +8,19 @@ import { ORDER_MODE_UNAVAILABLE_ERROR, ORDERABLE_MODES } from '../../../domain/o
 import { isOpenForAsapOrder } from '../../../domain/order/openingHours';
 import {
   BASKET_CHANGED_ERROR,
-  IDEMPOTENCY_KEY_ERROR,
   LEGAL_CHANGED_ERROR,
   NO_PAYMENT_SETUP_ERROR,
-  PAYMENT_METHOD_NOT_OFFERED_ERROR,
+  PAYMENT_METHOD_ERROR,
   SHOP_CLOSED_ERROR,
 } from '../../../domain/order/orderErrors';
-import {
-  IDEMPOTENCY_KEY_PATTERN,
-  generateAccessToken,
-  orderIdForIdempotencyKey,
-} from '../../../domain/order/orderIds';
-import { orderSettingsOf } from '../../../domain/order/orderSettings';
-import { generateOrderRef } from '../../../domain/order/orderRef';
-import { DEFAULT_PREP_MINUTES, FULFILMENT_MODES, LegalRevisions, Order, PaymentMethod } from '../../../domain/order/Order';
+import { DEFAULT_PREP_MINUTES, FULFILMENT_MODES, LegalRevisions, PaymentMethod } from '../../../domain/order/Order';
 import { offeredPaymentMethods } from '../../../domain/order/paymentMethods';
 import { createCheckoutSession } from '../../../infrastructure/cosmos/order/CosmosCheckoutSessionRepository';
-import { createOrder, findOrderById } from '../../../infrastructure/cosmos/order/CosmosOrderRepository';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { ApplicationResult } from '../../_shared/types';
 import { loadPricingContext } from '../_shared/loadPricingContext';
 import { priceBasket, validateBasketItems } from '../_shared/priceBasket';
-import { notifyCustomer } from '../notifications/notifyOrder';
-import { CashCheckoutResultDto, CheckoutRequestDto, CheckoutResultDto } from './dtos';
+import { CheckoutRequestDto, CheckoutResultDto } from './dtos';
 
 const MAX_NAME_CHARS = 200;
 const MAX_NOTES_CHARS = 500;
@@ -41,19 +31,6 @@ function getStripe(): Stripe {
     throw new Error('STRIPE_SECRET_KEY is not configured');
   }
   return new Stripe(key);
-}
-
-function toCashResult(order: Order): CashCheckoutResultDto {
-  return {
-    kind: 'cash',
-    orderId: order.id,
-    orderRef: order.orderRef,
-    accessToken: order.customerAccessToken ?? '',
-    subtotalCents: order.subtotalCents,
-    currency: order.currency,
-    state: 'PLACED',
-    autoRejectAt: order.autoRejectAt ?? '',
-  };
 }
 
 function isWholeNumber(n: unknown): n is number {
@@ -91,8 +68,8 @@ export async function executeCheckout(
       return { ok: false, code: 'INVALID_INPUT', error: `customerNotes must be at most ${MAX_NOTES_CHARS} characters` };
     }
   }
-  if (request.paymentMethod !== undefined && request.paymentMethod !== 'cash' && request.paymentMethod !== 'card') {
-    return { ok: false, code: 'INVALID_INPUT', error: 'paymentMethod must be cash or card' };
+  if (request.paymentMethod !== undefined && request.paymentMethod !== 'card') {
+    return { ok: false, code: 'INVALID_INPUT', error: PAYMENT_METHOD_ERROR };
   }
   const requestedRevisions = request.legalRevisions;
   if (
@@ -105,9 +82,6 @@ export async function executeCheckout(
     return { ok: false, code: 'INVALID_INPUT', error: 'legalRevisions must have whole-number terms and withdrawal' };
   }
   const method: PaymentMethod = request.paymentMethod ?? 'card';
-  if (method === 'cash' && (typeof request.idempotencyKey !== 'string' || !IDEMPOTENCY_KEY_PATTERN.test(request.idempotencyKey))) {
-    return { ok: false, code: 'INVALID_INPUT', error: IDEMPOTENCY_KEY_ERROR };
-  }
 
   const mode = request.fulfilmentMode ?? 'collection';
   if (!FULFILMENT_MODES.includes(mode)) {
@@ -144,15 +118,7 @@ export async function executeCheckout(
       return { ok: false, code: 'INVALID_INPUT', error: NO_PAYMENT_SETUP_ERROR };
     }
     if (!offered.includes(method)) {
-      return { ok: false, code: 'INVALID_INPUT', error: PAYMENT_METHOD_NOT_OFFERED_ERROR };
-    }
-
-    // --- A repeated cash submit (double click, retry) returns the order it already made ---
-    let cashOrderId: string | null = null;
-    if (method === 'cash') {
-      cashOrderId = orderIdForIdempotencyKey(shop.id, request.idempotencyKey as string);
-      const existing = await findOrderById(cashOrderId);
-      if (existing) return { ok: true, data: toCashResult(existing) };
+      return { ok: false, code: 'INVALID_INPUT', error: PAYMENT_METHOD_ERROR };
     }
 
     // --- The diner must have seen the terms that are in force now ---
@@ -192,46 +158,6 @@ export async function executeCheckout(
     }
 
     const at = now.toISOString();
-
-    // --- Cash: the order is placed now and waits for the restaurant to accept it ---
-    if (method === 'cash') {
-      const autoRejectAt = new Date(now.getTime() + orderSettingsOf(shop).autoRejectMinutes * 60_000).toISOString();
-      const order: Order = {
-        id: cashOrderId as string,
-        shopId: shop.id,
-        orderRef: generateOrderRef(),
-        state: 'PLACED',
-        fulfilmentMode: mode,
-        payment: { method: 'cash', status: 'cash_due', stripePaymentIntentId: null },
-        items: orderItems,
-        subtotalCents,
-        currency: shop.currency,
-        customerName: request.customerName,
-        customerEmail: request.customerEmail,
-        customerPhone: request.customerPhone,
-        ...(request.customerNotes ? { customerNotes: request.customerNotes } : {}),
-        taxBreakdown,
-        language,
-        legalRevisions: current,
-        customerAccessToken: generateAccessToken(),
-        idempotencyKey: request.idempotencyKey,
-        autoRejectAt,
-        history: [{ from: null, to: 'PLACED', at, actor: { type: 'customer' } }],
-        createdAt: at,
-        updatedAt: at,
-      };
-      try {
-        await createOrder(order);
-      } catch (error: any) {
-        if (error?.code !== 409) throw error;
-        // A concurrent submit with the same key won the race: hand back its order.
-        const winner = await findOrderById(order.id);
-        if (!winner) throw error;
-        return { ok: true, data: toCashResult(winner) };
-      }
-      await notifyCustomer('order_received', order, shop);
-      return { ok: true, data: toCashResult(order) };
-    }
 
     // --- Card: create Stripe PaymentIntent ---
     const sessionId = crypto.randomUUID();

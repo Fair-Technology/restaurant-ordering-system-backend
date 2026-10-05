@@ -36,7 +36,7 @@ import { createCheckoutSession } from '../../../src/infrastructure/cosmos/order/
 import { createOrder, findOrderById } from '../../../src/infrastructure/cosmos/order/CosmosOrderRepository';
 import { sendEmail } from '../../../src/infrastructure/email/emailSender';
 import { ACCEPTED_DPA, COMPLETE_LEGAL } from '../../fixtures/legal';
-import { CASH_SHOP, LUNCH_HOURS, NOW_CLOSED, NOW_OPEN, P_COLA, P_PASTA, PLACED_CASH_ORDER } from '../../fixtures/orders';
+import { CARD_SHOP, LUNCH_HOURS, NOW_CLOSED, NOW_OPEN, P_COLA, P_PASTA, PLACED_CARD_ORDER } from '../../fixtures/orders';
 import { executeCheckout } from '../../../src/application/order/checkout/executeCheckout';
 import { CheckoutRequestDto } from '../../../src/application/order/checkout/dtos';
 import {
@@ -163,7 +163,7 @@ describe('executeCheckout cash and card placement', () => {
   });
   beforeEach(() => {
     vi.clearAllMocks();
-    (findShopById as any).mockResolvedValue(CASH_SHOP);
+    (findShopById as any).mockResolvedValue(CARD_SHOP);
     (findProductById as any).mockImplementation(async (id: string) => (id === 'p1' ? P_PASTA : id === 'p2' ? P_COLA : null));
     (findOrderById as any).mockResolvedValue(null);
   });
@@ -204,7 +204,7 @@ describe('executeCheckout cash and card placement', () => {
   });
 
   it('returns the existing order for a repeated idempotency key', async () => {
-    (findOrderById as any).mockResolvedValue(PLACED_CASH_ORDER);
+    (findOrderById as any).mockResolvedValue(PLACED_CARD_ORDER);
     const res = await executeCheckout(cashRequest, { now: NOW_OPEN });
     expect(res).toEqual({
       ok: true,
@@ -225,7 +225,7 @@ describe('executeCheckout cash and card placement', () => {
 
   it('returns the winner when a concurrent submit created the order first', async () => {
     (createOrder as any).mockRejectedValueOnce({ code: 409 });
-    (findOrderById as any).mockResolvedValueOnce(null).mockResolvedValueOnce(PLACED_CASH_ORDER);
+    (findOrderById as any).mockResolvedValueOnce(null).mockResolvedValueOnce(PLACED_CARD_ORDER);
     const res = await executeCheckout(cashRequest, { now: NOW_OPEN });
     expect(res.ok && res.data.kind === 'cash' && res.data.orderId).toBe('o1');
     expect(sendEmail).not.toHaveBeenCalled();
@@ -267,7 +267,7 @@ describe('executeCheckout cash and card placement', () => {
 
   it('card branch still creates a Stripe payment', async () => {
     (findShopById as any).mockResolvedValue({
-      ...CASH_SHOP,
+      ...CARD_SHOP,
       paymentPolicy: 'pay_online',
       stripe: { connectAccountId: 'acct_1', connectOnboardingStatus: 'complete' },
     });

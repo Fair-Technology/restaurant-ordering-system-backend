@@ -17,7 +17,7 @@ export interface CheckoutRequestDto {
   customerNotes?: string;
   fulfilmentMode?: FulfilmentMode; // absent → 'collection'
   paymentMethod?: PaymentMethod; // absent → 'card' (what the deployed storefront means)
-  idempotencyKey?: string; // required when paymentMethod === 'cash'
+  idempotencyKey?: string;
   language?: string;
   legalRevisions?: LegalRevisions;
 }
@@ -31,15 +31,4 @@ export interface CardCheckoutResultDto {
   stripeConnectAccountId: string;
 }
 
-export interface CashCheckoutResultDto {
-  kind: 'cash';
-  orderId: string;
-  orderRef: string;
-  accessToken: string;
-  subtotalCents: number;
-  currency: string;
-  state: 'PLACED';
-  autoRejectAt: string;
-}
-
-export type CheckoutResultDto = CardCheckoutResultDto | CashCheckoutResultDto;
+export type CheckoutResultDto = CardCheckoutResultDto;

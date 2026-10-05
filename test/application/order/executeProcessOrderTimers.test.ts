@@ -21,17 +21,17 @@ import {
 } from '../../../src/infrastructure/cosmos/order/CosmosOrderRepository';
 import { findShopById } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
 import { sendEmail } from '../../../src/infrastructure/email/emailSender';
-import { CASH_SHOP, PLACED_CASH_ORDER } from '../../fixtures/orders';
+import { CARD_SHOP, PLACED_CARD_ORDER } from '../../fixtures/orders';
 
-function storedOrder(order = PLACED_CASH_ORDER): void {
+function storedOrder(order = PLACED_CARD_ORDER): void {
   (findOrderWithEtag as any).mockResolvedValue({ order, etag: 'etag-1' });
 }
 
 describe('executeProcessOrderTimers', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (findShopById as any).mockResolvedValue(CASH_SHOP);
-    (findPlacedOrdersCreatedBefore as any).mockResolvedValue([PLACED_CASH_ORDER]);
+    (findShopById as any).mockResolvedValue(CARD_SHOP);
+    (findPlacedOrdersCreatedBefore as any).mockResolvedValue([PLACED_CARD_ORDER]);
     (findOrdersInState as any).mockResolvedValue([]);
     (replaceOrderIfMatch as any).mockResolvedValue('ok');
     storedOrder();
@@ -51,7 +51,7 @@ describe('executeProcessOrderTimers', () => {
 
   it('escalation also goes to the alert address', async () => {
     (findShopById as any).mockResolvedValue({
-      ...CASH_SHOP,
+      ...CARD_SHOP,
       orderSettings: { autoRejectMinutes: 10, alertEmail: 'boss@mapasta.example' },
     });
     await executeProcessOrderTimers({ now: new Date('2026-10-05T10:03:00Z') });
@@ -79,7 +79,7 @@ describe('executeProcessOrderTimers', () => {
   });
 
   it('completes a ready order after midnight', async () => {
-    const ready = { ...PLACED_CASH_ORDER, state: 'READY' as const, readyAt: '2026-10-05T19:00:00.000Z' };
+    const ready = { ...PLACED_CARD_ORDER, state: 'READY' as const, readyAt: '2026-10-05T19:00:00.000Z' };
     (findPlacedOrdersCreatedBefore as any).mockResolvedValue([]);
     (findOrdersInState as any).mockResolvedValue([ready]);
     storedOrder(ready);

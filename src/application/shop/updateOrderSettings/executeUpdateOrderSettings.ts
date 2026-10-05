@@ -49,7 +49,7 @@ export async function executeUpdateOrderSettings(
     }
 
     const before = orderSettingsOf(shop);
-    const orderSettings = { autoRejectMinutes, alertEmail: alert };
+    const orderSettings = { autoRejectMinutes, alertEmail: alert, autoAccept: before.autoAccept };
     await updateShop({ ...shop, orderSettings, updatedAt: (input.now ?? new Date()).toISOString() });
     await logAudit({
       shopId: shop.id,

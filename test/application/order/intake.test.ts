@@ -28,7 +28,7 @@ import { findShopById } from '../../../src/infrastructure/cosmos/shop/CosmosShop
 import { incrementAcceptedOrders } from '../../../src/infrastructure/cosmos/usage/CosmosUsageRepository';
 import { sendEmail } from '../../../src/infrastructure/email/emailSender';
 import { ORDER_CHANGED_ERROR, ORDER_NOT_FOUND_ERROR, PREP_MINUTES_ERROR, REJECT_REASON_ERROR } from '../../../src/domain/order/orderErrors';
-import { CASH_SHOP, PLACED_CASH_ORDER } from '../../fixtures/orders';
+import { CARD_SHOP, PLACED_CARD_ORDER } from '../../fixtures/orders';
 
 const http = {} as any;
 const now = new Date('2026-10-05T10:05:00Z');
@@ -39,13 +39,13 @@ const STAFF_ACCESS = {
   permissions: ['view_orders'],
 };
 const ACCEPTED_ORDER = {
-  ...PLACED_CASH_ORDER,
+  ...PLACED_CARD_ORDER,
   state: 'ACCEPTED' as const,
   readyAt: '2026-10-05T10:25:00.000Z',
   prepMinutes: 20,
 };
 
-function storedOrder(order = PLACED_CASH_ORDER): void {
+function storedOrder(order = PLACED_CARD_ORDER): void {
   (findOrderWithEtag as any).mockResolvedValue({ order, etag: 'etag-1' });
 }
 
@@ -53,7 +53,7 @@ describe('kitchen intake', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     (authorizeShopAction as any).mockResolvedValue(STAFF_ACCESS);
-    (findShopById as any).mockResolvedValue(CASH_SHOP);
+    (findShopById as any).mockResolvedValue(CARD_SHOP);
     (replaceOrderIfMatch as any).mockResolvedValue('ok');
     storedOrder();
   });
@@ -109,7 +109,7 @@ describe('kitchen intake', () => {
   });
 
   it('an order from another restaurant is not found', async () => {
-    storedOrder({ ...PLACED_CASH_ORDER, shopId: 'shop-2' });
+    storedOrder({ ...PLACED_CARD_ORDER, shopId: 'shop-2' });
     const res = await executeAcceptOrder(ids, http, { now });
     expect(res).toEqual({ ok: false, code: 'NOT_FOUND', error: ORDER_NOT_FOUND_ERROR });
   });
@@ -120,7 +120,7 @@ describe('kitchen intake', () => {
     expect(written.state).toBe('REJECTED');
     expect(written.history.at(-1).reason).toBe('too_busy');
     expect(written.rejectionNote).toBe('Ofen kaputt');
-    expect(written.payment).toEqual(PLACED_CASH_ORDER.payment);
+    expect(written.payment).toEqual(PLACED_CARD_ORDER.payment);
     expect(sendEmail).toHaveBeenCalledWith(
       expect.objectContaining({ subject: 'Ma Pasta: Bestellung AB3-K7P abgelehnt' }),
     );
@@ -155,7 +155,7 @@ describe('kitchen intake', () => {
   });
 
   it('queue lists active orders', async () => {
-    (findOrdersByShopIdAndStates as any).mockResolvedValue([PLACED_CASH_ORDER]);
+    (findOrdersByShopIdAndStates as any).mockResolvedValue([PLACED_CARD_ORDER]);
     const res = await executeGetOrderQueue({ shopId: 'shop-1' }, http, { now });
     expect(findOrdersByShopIdAndStates).toHaveBeenCalledWith('shop-1', ['PLACED', 'ACCEPTED', 'READY']);
     expect(res.ok).toBe(true);
