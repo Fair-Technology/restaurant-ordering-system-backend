@@ -85,6 +85,7 @@ export interface OrderRefund {
   lines?: RefundLine[]; // present only for item refunds; absent = free amount
   correctionNumber?: string;
   correctionKind?: CorrectionKind;
+  correctionEmailedAt?: string; // ISO, written just before the timer emails a late correction
 }
 
 export interface PaymentReleaseFailure {
@@ -132,6 +133,7 @@ export interface Order {
   refunds?: OrderRefund[];
   releaseFailure?: PaymentReleaseFailure; // the reservation could not be released yet
   invoiceNumber?: string; // set once the invoice is issued
+  invoiceEmailedAt?: string; // ISO, written just before the timer emails a late invoice
   captureStartedAt?: string; // ISO, claim written just before the money is taken
   captureAttempts?: number; // claims written so far; a retry after a failed capture uses a new Stripe key
   anonymisedAt?: string; // ISO, set only by customer erasure

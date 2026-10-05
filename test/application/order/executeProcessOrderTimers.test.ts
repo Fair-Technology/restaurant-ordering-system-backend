@@ -37,6 +37,9 @@ import {
   findPlacedOrdersCreatedBefore,
   replaceOrderIfMatch,
 } from '../../../src/infrastructure/cosmos/order/CosmosOrderRepository';
+import { buildInvoice } from '../../../src/domain/invoice/invoice';
+import { findInvoiceById } from '../../../src/infrastructure/cosmos/invoice/CosmosInvoiceRepository';
+import { findInvoicedOrdersWithRefunds } from '../../../src/infrastructure/cosmos/order/CosmosOrderRepository';
 import { findShopById } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
 import { sendEmail } from '../../../src/infrastructure/email/emailSender';
 import { capturePaymentIntent, releaseAuthorization } from '../../../src/infrastructure/stripe/stripeClient';
@@ -62,6 +65,8 @@ describe('executeProcessOrderTimers', () => {
     (findOrdersInState as any).mockResolvedValue([]);
     (findOrdersAwaitingRelease as any).mockResolvedValue([]);
     (findOrdersMissingInvoice as any).mockResolvedValue([]);
+    (findInvoicedOrdersWithRefunds as any).mockResolvedValue([]);
+    (findInvoiceById as any).mockImplementation(async () => null);
     (capturePaymentIntent as any).mockResolvedValue(undefined);
     storedOrder();
   });
@@ -196,5 +201,62 @@ describe('executeProcessOrderTimers', () => {
     expect(written.state).toBe('COMPLETED');
     expect(written.payment.status).toBe('paid');
     expect(res.autoCompleted).toBe(1);
+  });
+
+  it('issues a missing invoice, emails it once and looks back 7 days', async () => {
+    const order = { ...ACCEPTED_CARD_ORDER, state: 'COMPLETED' as const };
+    (findPlacedOrdersCreatedBefore as any).mockResolvedValue([]);
+    (findOrdersMissingInvoice as any).mockResolvedValue([order]);
+    const store = storedOrder(order);
+    const now = new Date('2026-10-06T10:00:00Z');
+    const res = await executeProcessOrderTimers({ now });
+    expect((findOrdersMissingInvoice as any).mock.calls[0][0]).toBe('2026-09-29T10:00:00.000Z');
+    expect(res.invoicesIssued).toBe(1);
+    expect(store.current.invoiceNumber).toBe('R-2026-00001');
+    expect(store.current.invoiceEmailedAt).toBe(now.toISOString());
+    expect(sendEmail).toHaveBeenCalledTimes(1);
+    const mail = (sendEmail as any).mock.calls[0][0];
+    expect(mail.to).toEqual([order.customerEmail]);
+    expect(mail.attachments[0].name).toBe('Rechnung-R-2026-00001.pdf');
+
+    // Next minute the order is still in the list (stale query result), but is not emailed again.
+    (findInvoiceById as any).mockImplementation(async (_s: string, id: string) =>
+      id === order.id ? buildInvoice({ order, shop: CARD_SHOP, number: 'R-2026-00001', now }) : null,
+    );
+    await executeProcessOrderTimers({ now: new Date('2026-10-06T10:01:00Z') });
+    expect(sendEmail).toHaveBeenCalledTimes(1);
+  });
+
+  it('makes a missing correction invoice, emails it once and looks back 30 days', async () => {
+    const order = {
+      ...ACCEPTED_CARD_ORDER,
+      state: 'COMPLETED' as const,
+      invoiceNumber: 'R-2026-00001',
+      payment: { ...ACCEPTED_CARD_ORDER.payment, status: 'partially_refunded' as const },
+      refunds: [
+        {
+          id: 'r1',
+          amountCents: 300,
+          reason: 'cold',
+          at: '2026-10-05T11:00:00.000Z',
+          actor: { type: 'staff' as const, id: 'm1' },
+          stripeRefundId: 're_1',
+        },
+      ],
+    };
+    const now = new Date('2026-10-06T10:00:00Z');
+    const original = buildInvoice({ order, shop: CARD_SHOP, number: 'R-2026-00001', now: new Date('2026-10-05T10:05:00Z') });
+    (findInvoiceById as any).mockImplementation(async (_s: string, id: string) => (id === order.id ? original : null));
+    (findPlacedOrdersCreatedBefore as any).mockResolvedValue([]);
+    (findInvoicedOrdersWithRefunds as any).mockResolvedValue([order]);
+    const store = storedOrder(order);
+    const res = await executeProcessOrderTimers({ now });
+    expect((findInvoicedOrdersWithRefunds as any).mock.calls[0][0]).toBe('2026-09-06T10:00:00.000Z');
+    expect(res.correctionsIssued).toBe(1);
+    expect(store.current.refunds![0]).toEqual(
+      expect.objectContaining({ correctionNumber: 'R-2026-00001', correctionKind: 'correction', correctionEmailedAt: now.toISOString() }),
+    );
+    expect(sendEmail).toHaveBeenCalledTimes(1);
+    expect((sendEmail as any).mock.calls[0][0].attachments[0].name).toMatch(/^Rechnungskorrektur-R-2026-/);
   });
 });

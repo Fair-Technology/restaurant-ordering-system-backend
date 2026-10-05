@@ -1,3 +1,5 @@
+import { invoiceFileName, invoiceTitle } from '../../../domain/invoice/invoice';
+import type { InvoiceDoc } from '../../../domain/invoice/invoice';
 import type { Order } from '../../../domain/order/Order';
 import { applyTransition } from '../../../domain/order/orderLifecycle';
 import { hasFreshCaptureClaim, isDueForReleaseRetry } from '../../../domain/order/payment';
@@ -15,12 +17,41 @@ import {
   findOrdersInState,
   findPlacedOrdersCreatedBefore,
 } from '../../../infrastructure/cosmos/order/CosmosOrderRepository';
+import { findInvoiceById } from '../../../infrastructure/cosmos/invoice/CosmosInvoiceRepository';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { issueCorrectionForRefund, issueInvoiceForOrder, needsInvoice } from '../invoices/issueInvoice';
 import { notifyCustomer, notifyRestaurantEscalation } from '../notifications/notifyOrder';
 import { acceptPlacedOrder } from '../_shared/acceptPlacedOrder';
 import { releaseClosedOrderPayment } from '../_shared/releasePayment';
+import { renderInvoicePdf } from '../../../infrastructure/pdf/invoicePdf';
 import { transitionOrder } from '../_shared/transitionOrder';
+
+/**
+ * Emails a document the timer issued late. The mark is written before sending, so a crash in between
+ * loses one email instead of repeating it every minute. Never throws.
+ */
+async function emailLateDocument(
+  orderId: string,
+  shop: Shop,
+  doc: InvoiceDoc,
+  now: Date,
+  mark: (current: Order) => Order | null,
+  email: (latest: Order) => Promise<void>,
+): Promise<void> {
+  try {
+    const moved = await transitionOrder({
+      orderId,
+      shopId: shop.id,
+      change: (x) => {
+        const next = mark(x);
+        return next ? { ok: true, order: { ...next, updatedAt: now.toISOString() } } : { ok: false, error: 'skip' };
+      },
+    });
+    if (moved.ok) await email(moved.order);
+  } catch {
+    console.error('[timers:error] late document email', orderId, doc.number);
+  }
+}
 
 const INVOICE_CATCH_UP_DAYS = 7;
 const CORRECTION_CATCH_UP_DAYS = 30;
@@ -143,8 +174,26 @@ export async function executeProcessOrderTimers(input: { now: Date }): Promise<O
       if (!needsInvoice(o)) continue;
       const shop = await shopOf(o.shopId);
       if (!shop) continue;
-      await issueInvoiceForOrder(o, shop, now);
+      const existed = !!(await findInvoiceById(shop.id, o.id));
+      const doc = await issueInvoiceForOrder(o, shop, now);
       result.invoicesIssued++;
+      // A document that already existed was emailed (or tried) when it was made.
+      if (existed) continue;
+      const pdf = await renderInvoicePdf(doc);
+      await emailLateDocument(
+        o.id,
+        shop,
+        doc,
+        now,
+        (x) => (x.invoiceEmailedAt ? null : { ...x, invoiceEmailedAt: now.toISOString() }),
+        (latest) =>
+          notifyCustomer('order_accepted', latest, shop, {
+            attachments: [
+              { name: invoiceFileName(doc), contentType: 'application/pdf', contentInBase64: Buffer.from(pdf).toString('base64') },
+            ],
+            attachedDocument: { title: invoiceTitle('invoice', doc.language), number: doc.number },
+          }),
+      );
     } catch {
       console.error('[timers:error] invoice', o.id);
     }
@@ -159,7 +208,38 @@ export async function executeProcessOrderTimers(input: { now: Date }): Promise<O
       const refunds = o.refunds ?? [];
       for (let i = 0; i < refunds.length; i++) {
         if (refunds[i].correctionNumber) continue;
-        if (await issueCorrectionForRefund(o, i, shop, now)) result.correctionsIssued++;
+        const existed = !!(await findInvoiceById(shop.id, `${o.id}-c${i + 1}`));
+        const doc = await issueCorrectionForRefund(o, i, shop, now);
+        if (!doc) continue;
+        result.correctionsIssued++;
+        if (existed) continue;
+        const pdf = await renderInvoicePdf(doc);
+        const refundId = refunds[i].id;
+        await emailLateDocument(
+          o.id,
+          shop,
+          doc,
+          now,
+          (x) =>
+            (x.refunds ?? []).some((r) => r.id === refundId && !r.correctionEmailedAt)
+              ? {
+                  ...x,
+                  refunds: (x.refunds ?? []).map((r) =>
+                    r.id === refundId ? { ...r, correctionEmailedAt: now.toISOString() } : r,
+                  ),
+                }
+              : null,
+          (latest) => {
+            const upTo = (latest.refunds ?? []).findIndex((r) => r.id === refundId) + 1;
+            // The refund email names the last refund's amount, so cut the list at this one.
+            return notifyCustomer('order_refunded', { ...latest, refunds: (latest.refunds ?? []).slice(0, upTo) }, shop, {
+              attachments: [
+                { name: invoiceFileName(doc), contentType: 'application/pdf', contentInBase64: Buffer.from(pdf).toString('base64') },
+              ],
+              attachedDocument: { title: invoiceTitle(doc.documentType, doc.language), number: doc.number },
+            });
+          },
+        );
       }
     } catch {
       console.error('[timers:error] correction', o.id);
