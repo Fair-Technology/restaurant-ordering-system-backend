@@ -6,6 +6,12 @@ vi.mock('../../../src/infrastructure/cosmos/order/CosmosOrderRepository', () => 
   findOrderWithEtag: vi.fn(),
   replaceOrderIfMatch: vi.fn(),
 }));
+vi.mock('../../../src/infrastructure/stripe/stripeClient', () => ({
+  capturePaymentIntent: vi.fn(async () => undefined),
+  releaseAuthorization: vi.fn(async () => 'canceled'),
+  createRefund: vi.fn(async () => ({ id: 're_1' })),
+  isRetryableStripeError: (e: any) => ['StripeConnectionError', 'StripeAPIError', 'StripeRateLimitError'].includes(e?.type),
+}));
 vi.mock('../../../src/infrastructure/email/emailSender', () => ({
   sendEmail: vi.fn(async () => undefined),
   emailTransportName: () => 'log',
@@ -21,21 +27,24 @@ import {
 import { findShopById } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
 import { sendEmail } from '../../../src/infrastructure/email/emailSender';
 import { CANNOT_CANCEL_ERROR } from '../../../src/domain/order/orderErrors';
-import { CARD_SHOP, PLACED_CARD_ORDER } from '../../fixtures/orders';
+import { releaseAuthorization } from '../../../src/infrastructure/stripe/stripeClient';
+import { CARD_SHOP, orderStore, PLACED_CARD_ORDER } from '../../fixtures/orders';
 
 const TOKEN = 'T'.repeat(32);
 const now = new Date('2026-10-05T10:05:00Z');
 
-function stored(order = PLACED_CARD_ORDER): void {
+function stored(order = PLACED_CARD_ORDER) {
+  const store = orderStore(order);
   (findOrderById as any).mockResolvedValue(order);
-  (findOrderWithEtag as any).mockResolvedValue({ order, etag: 'etag-1' });
+  (findOrderWithEtag as any).mockImplementation(store.findOrderWithEtag);
+  (replaceOrderIfMatch as any).mockImplementation(store.replaceOrderIfMatch);
+  return store;
 }
 
 describe('customer order page', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     (findShopById as any).mockResolvedValue(CARD_SHOP);
-    (replaceOrderIfMatch as any).mockResolvedValue('ok');
     stored();
   });
 
@@ -50,7 +59,9 @@ describe('customer order page', () => {
       sellerPhone: '069 1234567',
       canCancel: true,
       rejectionReason: null,
-      paymentMethod: 'cash',
+      paymentStatus: 'authorized',
+      refundedCents: 0,
+      documents: [],
     });
   });
 
@@ -66,12 +77,18 @@ describe('customer order page', () => {
   });
 
   it('customer cancels before acceptance', async () => {
+    const store = stored();
     const res = await executeCancelCustomerOrder({ orderId: 'o1', token: TOKEN }, { now });
     const written = (replaceOrderIfMatch as any).mock.calls[0][0];
     expect(written.state).toBe('CANCELLED');
+    expect(releaseAuthorization).toHaveBeenCalledWith(expect.objectContaining({ idempotencyKey: 'release-o1' }));
+    expect(store.current.payment.status).toBe('canceled');
     expect(written.history.at(-1)).toMatchObject({ actor: { type: 'customer' }, reason: 'customer_cancelled' });
     expect(sendEmail).toHaveBeenCalledWith(
-      expect.objectContaining({ subject: 'Ma Pasta: Bestellung AB3-K7P storniert' }),
+      expect.objectContaining({
+        subject: 'Ma Pasta: Bestellung AB3-K7P storniert',
+        text: expect.stringContaining('Es wurde nichts abgebucht.'),
+      }),
     );
     expect(res.ok && res.data.canCancel).toBe(false);
   });
@@ -81,5 +98,13 @@ describe('customer order page', () => {
     const res = await executeCancelCustomerOrder({ orderId: 'o1', token: TOKEN }, { now });
     expect(res).toEqual({ ok: false, code: 'CONFLICT', error: CANNOT_CANCEL_ERROR });
     expect(replaceOrderIfMatch).not.toHaveBeenCalled();
+  });
+
+  it('cannot cancel while the restaurant is taking the payment', async () => {
+    stored({ ...PLACED_CARD_ORDER, captureStartedAt: '2026-10-05T10:04:30.000Z' });
+    const res = await executeCancelCustomerOrder({ orderId: 'o1', token: TOKEN }, { now });
+    expect(res).toEqual({ ok: false, code: 'CONFLICT', error: CANNOT_CANCEL_ERROR });
+    expect(replaceOrderIfMatch).not.toHaveBeenCalled();
+    expect(releaseAuthorization).not.toHaveBeenCalled();
   });
 });

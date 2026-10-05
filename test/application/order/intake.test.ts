@@ -8,6 +8,12 @@ vi.mock('../../../src/infrastructure/cosmos/order/CosmosOrderRepository', () => 
   findOrdersByShopIdAndStates: vi.fn(),
 }));
 vi.mock('../../../src/infrastructure/cosmos/usage/CosmosUsageRepository', () => ({ incrementAcceptedOrders: vi.fn() }));
+vi.mock('../../../src/infrastructure/stripe/stripeClient', () => ({
+  capturePaymentIntent: vi.fn(async () => undefined),
+  releaseAuthorization: vi.fn(async () => 'canceled'),
+  createRefund: vi.fn(async () => ({ id: 're_1' })),
+  isRetryableStripeError: (e: any) => ['StripeConnectionError', 'StripeAPIError', 'StripeRateLimitError'].includes(e?.type),
+}));
 vi.mock('../../../src/infrastructure/email/emailSender', () => ({
   sendEmail: vi.fn(async () => undefined),
   emailTransportName: () => 'log',
@@ -28,7 +34,8 @@ import { findShopById } from '../../../src/infrastructure/cosmos/shop/CosmosShop
 import { incrementAcceptedOrders } from '../../../src/infrastructure/cosmos/usage/CosmosUsageRepository';
 import { sendEmail } from '../../../src/infrastructure/email/emailSender';
 import { ORDER_CHANGED_ERROR, ORDER_NOT_FOUND_ERROR, PREP_MINUTES_ERROR, REJECT_REASON_ERROR } from '../../../src/domain/order/orderErrors';
-import { CARD_SHOP, PLACED_CARD_ORDER } from '../../fixtures/orders';
+import { releaseAuthorization } from '../../../src/infrastructure/stripe/stripeClient';
+import { CARD_SHOP, orderStore, PLACED_CARD_ORDER } from '../../fixtures/orders';
 
 const http = {} as any;
 const now = new Date('2026-10-05T10:05:00Z');
@@ -45,8 +52,11 @@ const ACCEPTED_ORDER = {
   prepMinutes: 20,
 };
 
-function storedOrder(order = PLACED_CARD_ORDER): void {
-  (findOrderWithEtag as any).mockResolvedValue({ order, etag: 'etag-1' });
+function storedOrder(order = PLACED_CARD_ORDER) {
+  const store = orderStore(order);
+  (findOrderWithEtag as any).mockImplementation(store.findOrderWithEtag);
+  (replaceOrderIfMatch as any).mockImplementation(store.replaceOrderIfMatch);
+  return store;
 }
 
 describe('kitchen intake', () => {
@@ -54,7 +64,6 @@ describe('kitchen intake', () => {
     vi.clearAllMocks();
     (authorizeShopAction as any).mockResolvedValue(STAFF_ACCESS);
     (findShopById as any).mockResolvedValue(CARD_SHOP);
-    (replaceOrderIfMatch as any).mockResolvedValue('ok');
     storedOrder();
   });
 
@@ -115,15 +124,28 @@ describe('kitchen intake', () => {
   });
 
   it('rejects with a reason and tells the customer', async () => {
+    const store = storedOrder();
     await executeRejectOrder({ ...ids, reason: 'too_busy', note: 'Ofen kaputt' }, http, { now });
     const written = (replaceOrderIfMatch as any).mock.calls[0][0];
     expect(written.state).toBe('REJECTED');
     expect(written.history.at(-1).reason).toBe('too_busy');
     expect(written.rejectionNote).toBe('Ofen kaputt');
-    expect(written.payment).toEqual(PLACED_CARD_ORDER.payment);
+    expect(releaseAuthorization).toHaveBeenCalledWith(expect.objectContaining({ idempotencyKey: 'release-o1' }));
+    expect(store.current.payment.status).toBe('canceled');
     expect(sendEmail).toHaveBeenCalledWith(
-      expect.objectContaining({ subject: 'Ma Pasta: Bestellung AB3-K7P abgelehnt' }),
+      expect.objectContaining({
+        subject: 'Ma Pasta: Bestellung AB3-K7P abgelehnt',
+        text: expect.stringContaining('Es wurde nichts abgebucht.'),
+      }),
     );
+  });
+
+  it('cannot decline while another accept is taking the payment', async () => {
+    storedOrder({ ...PLACED_CARD_ORDER, captureStartedAt: '2026-10-05T10:04:30.000Z' });
+    const res = await executeRejectOrder({ ...ids, reason: 'too_busy' }, http, { now });
+    expect(res).toEqual({ ok: false, code: 'CONFLICT', error: ORDER_CHANGED_ERROR });
+    expect(replaceOrderIfMatch).not.toHaveBeenCalled();
+    expect(releaseAuthorization).not.toHaveBeenCalled();
   });
 
   it('refuses an unknown reason', async () => {
@@ -140,11 +162,11 @@ describe('kitchen intake', () => {
     );
   });
 
-  it('handing over a cash order marks the cash collected', async () => {
-    storedOrder({ ...ACCEPTED_ORDER, state: 'READY' });
+  it('handing over completes the order and leaves the payment alone', async () => {
+    storedOrder({ ...ACCEPTED_ORDER, state: 'READY', payment: { ...PLACED_CARD_ORDER.payment, status: 'paid' } });
     const res = await executeCompleteOrder(ids, http, { now });
     expect(res.ok && res.data.state).toBe('COMPLETED');
-    expect(res.ok && res.data.paymentStatus).toBe('cash_collected');
+    expect(res.ok && res.data.paymentStatus).toBe('paid');
   });
 
   it('without permission is refused', async () => {
@@ -163,5 +185,16 @@ describe('kitchen intake', () => {
     expect(res.data.orders[0].autoRejectAt).toBe('2026-10-05T10:10:00.000Z');
     expect(res.data.defaultPrepMinutes.collection).toBe(20);
     expect('customerAccessToken' in res.data.orders[0]).toBe(false);
+    expect(res.data.timezone).toBe('Europe/Berlin');
+    expect(res.data.orders[0]).toMatchObject({
+      paymentStatus: 'authorized',
+      documents: [],
+      customerAddress: null,
+      releaseFailure: null,
+      refundedCents: 0,
+      refunds: [],
+      autoAccepted: false,
+    });
+    expect('paymentMethod' in res.data.orders[0]).toBe(false);
   });
 });

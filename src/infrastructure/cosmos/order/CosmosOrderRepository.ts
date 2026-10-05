@@ -156,3 +156,13 @@ export async function findOrdersInState(state: StoredOrderState): Promise<Order[
   const { resources } = await orderContainer.items.query<Order>(querySpec).fetchAll();
   return resources;
 }
+
+/** Declined or cancelled card orders whose reservation (or money) has not been given back yet. */
+export async function findOrdersAwaitingRelease(): Promise<Order[]> {
+  const querySpec = {
+    query:
+      "SELECT * FROM c WHERE c.payment.method = 'card' AND ARRAY_CONTAINS(['REJECTED', 'CANCELLED'], c.state) AND ARRAY_CONTAINS(['authorized', 'paid'], c.payment.status)",
+  };
+  const { resources } = await orderContainer.items.query<Order>(querySpec).fetchAll();
+  return resources;
+}

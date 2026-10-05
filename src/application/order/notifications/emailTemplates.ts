@@ -2,6 +2,7 @@ import { buildImpressumLines } from '../../../domain/legal/impressum';
 import { legalOf } from '../../../domain/legal/legalTexts';
 import { menuLanguagesOf } from '../../../domain/menu/menuLanguage';
 import type { Order, RejectReason } from '../../../domain/order/Order';
+import { displayPaymentStatus, isCaptured } from '../../../domain/order/payment';
 import type { MenuLanguage } from '../../../domain/reference/ReferenceLists';
 import type { Shop } from '../../../domain/shop/Shop';
 
@@ -11,7 +12,15 @@ export type OrderEmailKind =
   | 'order_ready'
   | 'order_rejected'
   | 'order_cancelled'
-  | 'order_escalation';
+  | 'order_escalation'
+  | 'order_refunded'
+  | 'payment_release_failed';
+
+/** A PDF attached to the email (the invoice or a correction); the text points to it. */
+export interface AttachedDocument {
+  title: string;
+  number: string;
+}
 
 export interface OrderEmailContent {
   subject: string;
@@ -34,8 +43,8 @@ const REJECT_SENTENCES: Record<RejectReason, Bilingual> = {
     en: 'The restaurant did not confirm your order in time.',
   },
   payment_failed: {
-    de: 'Die Zahlung konnte nicht abgebucht werden.',
-    en: 'The payment could not be taken.',
+    de: 'Die Zahlung konnte bei der Annahme nicht abgeschlossen werden.',
+    en: 'The payment could not be completed when the restaurant accepted.',
   },
 };
 
@@ -88,6 +97,27 @@ function buildEscalationEmail(order: Order, shop: Shop, adminOrdersUrl: string):
   ]);
 }
 
+/** The restaurant is told (in its own language) that giving the diner's money back failed. */
+function buildReleaseFailedEmail(order: Order, shop: Shop, adminOrdersUrl: string): OrderEmailContent {
+  const lang = menuLanguagesOf(shop)[0];
+  const de = lang === 'de';
+  const money = formatters(lang, order.currency, shop.timezone).money(order.subtotalCents);
+  const ref = order.orderRef;
+  const message = order.releaseFailure?.message ?? '';
+  return render(
+    de ? `Zahlung für Bestellung ${ref} konnte nicht freigegeben werden` : `Payment for order ${ref} could not be released`,
+    [
+      {
+        type: 'p',
+        text: de
+          ? `Die Reservierung bzw. Erstattung von ${money} für Bestellung ${ref} ist fehlgeschlagen. Stripe meldet: ${message}. Wir versuchen es alle 15 Minuten erneut. Bitte prüfen Sie Ihr Stripe-Konto.`
+          : `Releasing or refunding ${money} for order ${ref} failed. Stripe says: ${message}. We retry every 15 minutes. Please check your Stripe account.`,
+      },
+      { type: 'p', text: `${de ? 'Zu den Bestellungen' : 'Open orders'}: ${adminOrdersUrl}` },
+    ],
+  );
+}
+
 function formatters(lang: MenuLanguage, currency: string, timeZone: string) {
   const locale = lang === 'de' ? 'de-DE' : 'en-GB';
   const money = new Intl.NumberFormat(locale, { style: 'currency', currency });
@@ -104,9 +134,11 @@ export function buildOrderEmail(input: {
   shop: Shop;
   customerOrderUrl: string;
   adminOrdersUrl: string;
+  attachedDocument?: AttachedDocument;
 }): OrderEmailContent {
   const { kind, order, shop } = input;
   if (kind === 'order_escalation') return buildEscalationEmail(order, shop, input.adminOrdersUrl);
+  if (kind === 'payment_release_failed') return buildReleaseFailedEmail(order, shop, input.adminOrdersUrl);
 
   const lang = order.language ?? menuLanguagesOf(shop)[0];
   const de = lang === 'de';
@@ -116,7 +148,7 @@ export function buildOrderEmail(input: {
   const time = order.readyAt ? f.time(order.readyAt) : '';
   const name = shop.name;
 
-  const subjects: Record<Exclude<OrderEmailKind, 'order_escalation'>, Bilingual> = {
+  const subjects: Record<Exclude<OrderEmailKind, 'order_escalation' | 'payment_release_failed'>, Bilingual> = {
     order_received: { de: `${name}: Bestellung ${ref} eingegangen`, en: `${name}: order ${ref} received` },
     order_accepted: {
       de: `${name}: Bestellung ${ref} angenommen – abholbereit um ${time}`,
@@ -125,6 +157,7 @@ export function buildOrderEmail(input: {
     order_ready: { de: `${name}: Bestellung ${ref} ist abholbereit`, en: `${name}: order ${ref} is ready to collect` },
     order_rejected: { de: `${name}: Bestellung ${ref} abgelehnt`, en: `${name}: order ${ref} declined` },
     order_cancelled: { de: `${name}: Bestellung ${ref} storniert`, en: `${name}: order ${ref} cancelled` },
+    order_refunded: { de: `${name}: Erstattung für Bestellung ${ref}`, en: `${name}: refund for order ${ref}` },
   };
 
   let kindLine: string;
@@ -150,6 +183,13 @@ export function buildOrderEmail(input: {
     case 'order_cancelled':
       kindLine = de ? 'Sie haben Ihre Bestellung storniert.' : 'You cancelled your order.';
       break;
+    case 'order_refunded': {
+      const last = f.money((order.refunds ?? []).at(-1)?.amountCents ?? 0);
+      kindLine = de
+        ? `Wir haben Ihnen ${last} erstattet. Die Gutschrift kann je nach Bank einige Tage dauern.`
+        : `We have refunded ${last} to you. It can take a few days to appear, depending on your bank.`;
+      break;
+    }
   }
 
   const itemRows = order.items.map((i) => {
@@ -164,12 +204,50 @@ export function buildOrderEmail(input: {
       : `${de ? 'Bestellung ansehen' : 'View your order'}: ${input.customerOrderUrl}`;
 
   const impressum = legalOf(shop).impressum;
+  const total = f.money(order.subtotalCents);
+  const status = displayPaymentStatus(order);
+  let paymentLine: string | null = null;
+  if (kind === 'order_received' || kind === 'order_accepted' || kind === 'order_ready') {
+    if (status === 'authorized') {
+      paymentLine = de
+        ? `Betrag reserviert: ${total} – abgebucht wird erst, wenn ${name} annimmt.`
+        : `Amount reserved: ${total} – you are only charged when ${name} accepts.`;
+    } else if (isCaptured(order)) {
+      paymentLine = de ? `Bezahlt (online): ${total}` : `Paid (online): ${total}`;
+    }
+  }
+  let moneyLine: string | null = null;
+  if (kind === 'order_rejected' || kind === 'order_cancelled') {
+    if (status === 'canceled' || status === 'authorized') {
+      moneyLine = de
+        ? 'Es wurde nichts abgebucht. Die Reservierung auf Ihrer Karte wird aufgehoben; je nach Bank kann sie noch einige Tage angezeigt werden.'
+        : 'You have not been charged. The reservation on your card is being released; your bank may show it for a few more days.';
+    } else if (status === 'refunded' || status === 'paid') {
+      moneyLine = de
+        ? `Wir erstatten Ihnen den vollen Betrag von ${total}. Die Gutschrift kann je nach Bank einige Tage dauern.`
+        : `We are refunding the full amount of ${total}. It can take a few days to appear, depending on your bank.`;
+    }
+  }
+  const doc = input.attachedDocument;
+
   const blocks: Block[] = [
     { type: 'p', text: `${de ? 'Hallo' : 'Hello'} ${order.customerName},` },
     { type: 'p', text: kindLine },
-    { type: 'items', rows: itemRows },
-    { type: 'p', text: `${de ? 'Summe' : 'Total'}: ${f.money(order.subtotalCents)}` },
   ];
+  if (moneyLine) blocks.push({ type: 'p', text: moneyLine });
+  if (doc) {
+    blocks.push({
+      type: 'p',
+      text: de
+        ? `Ihre ${doc.title} ${doc.number} finden Sie im Anhang.`
+        : `Your ${doc.title.toLowerCase()} ${doc.number} is attached.`,
+    });
+  }
+  blocks.push(
+    { type: 'items', rows: itemRows },
+    { type: 'p', text: `${de ? 'Summe' : 'Total'}: ${total}` },
+  );
+  if (paymentLine) blocks.push({ type: 'p', text: paymentLine });
   blocks.push({ type: 'p', text: linkLine });
   if (impressum) {
     blocks.push({

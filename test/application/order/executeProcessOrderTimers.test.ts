@@ -4,8 +4,17 @@ vi.mock('../../../src/infrastructure/cosmos/shop/CosmosShopRepository', () => ({
 vi.mock('../../../src/infrastructure/cosmos/order/CosmosOrderRepository', () => ({
   findPlacedOrdersCreatedBefore: vi.fn(),
   findOrdersInState: vi.fn(),
+  findOrdersAwaitingRelease: vi.fn(),
+  findOrdersMissingInvoice: vi.fn(async () => []),
+  findInvoicedOrdersWithRefunds: vi.fn(async () => []),
   findOrderWithEtag: vi.fn(),
   replaceOrderIfMatch: vi.fn(),
+}));
+vi.mock('../../../src/infrastructure/stripe/stripeClient', () => ({
+  capturePaymentIntent: vi.fn(async () => undefined),
+  releaseAuthorization: vi.fn(async () => 'canceled'),
+  createRefund: vi.fn(async () => ({ id: 're_1' })),
+  isRetryableStripeError: (e: any) => ['StripeConnectionError', 'StripeAPIError', 'StripeRateLimitError'].includes(e?.type),
 }));
 vi.mock('../../../src/infrastructure/email/emailSender', () => ({
   sendEmail: vi.fn(async () => undefined),
@@ -15,16 +24,23 @@ vi.mock('../../../src/infrastructure/email/emailSender', () => ({
 import { executeProcessOrderTimers } from '../../../src/application/order/timers/executeProcessOrderTimers';
 import {
   findOrderWithEtag,
+  findOrdersAwaitingRelease,
   findOrdersInState,
   findPlacedOrdersCreatedBefore,
   replaceOrderIfMatch,
 } from '../../../src/infrastructure/cosmos/order/CosmosOrderRepository';
 import { findShopById } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
 import { sendEmail } from '../../../src/infrastructure/email/emailSender';
-import { CARD_SHOP, PLACED_CARD_ORDER } from '../../fixtures/orders';
+import { releaseAuthorization } from '../../../src/infrastructure/stripe/stripeClient';
+import { CARD_SHOP, orderStore, PLACED_CARD_ORDER } from '../../fixtures/orders';
 
-function storedOrder(order = PLACED_CARD_ORDER): void {
-  (findOrderWithEtag as any).mockResolvedValue({ order, etag: 'etag-1' });
+const NO_EXTRAS = { autoAccepted: 0, released: 0, invoicesIssued: 0, correctionsIssued: 0 };
+
+function storedOrder(order = PLACED_CARD_ORDER) {
+  const store = orderStore(order);
+  (findOrderWithEtag as any).mockImplementation(store.findOrderWithEtag);
+  (replaceOrderIfMatch as any).mockImplementation(store.replaceOrderIfMatch);
+  return store;
 }
 
 describe('executeProcessOrderTimers', () => {
@@ -33,7 +49,7 @@ describe('executeProcessOrderTimers', () => {
     (findShopById as any).mockResolvedValue(CARD_SHOP);
     (findPlacedOrdersCreatedBefore as any).mockResolvedValue([PLACED_CARD_ORDER]);
     (findOrdersInState as any).mockResolvedValue([]);
-    (replaceOrderIfMatch as any).mockResolvedValue('ok');
+    (findOrdersAwaitingRelease as any).mockResolvedValue([]);
     storedOrder();
   });
 
@@ -46,7 +62,7 @@ describe('executeProcessOrderTimers', () => {
         subject: 'Bestellung AB3-K7P wartet seit 3 Minuten auf Annahme',
       }),
     );
-    expect(res).toEqual({ escalated: 1, autoRejected: 0, autoCompleted: 0 });
+    expect(res).toEqual({ escalated: 1, autoRejected: 0, autoCompleted: 0, ...NO_EXTRAS });
   });
 
   it('escalation also goes to the alert address', async () => {
@@ -61,14 +77,55 @@ describe('executeProcessOrderTimers', () => {
   });
 
   it('auto-rejects at the timeout', async () => {
+    const store = storedOrder();
     const res = await executeProcessOrderTimers({ now: new Date('2026-10-05T10:10:00Z') });
     const written = (replaceOrderIfMatch as any).mock.calls[0][0];
     expect(written.state).toBe('REJECTED');
+    expect(releaseAuthorization).toHaveBeenCalledWith(expect.objectContaining({ idempotencyKey: 'release-o1' }));
+    expect(store.current.payment.status).toBe('canceled');
     expect(written.history.at(-1)).toMatchObject({ actor: { type: 'system' }, reason: 'no_response' });
     expect(sendEmail).toHaveBeenCalledWith(
-      expect.objectContaining({ subject: 'Ma Pasta: Bestellung AB3-K7P abgelehnt' }),
+      expect.objectContaining({
+        subject: 'Ma Pasta: Bestellung AB3-K7P abgelehnt',
+        text: expect.stringContaining('Es wurde nichts abgebucht.'),
+      }),
     );
     expect(res.autoRejected).toBe(1);
+  });
+
+  it('leaves an order alone while an accept is taking its payment', async () => {
+    storedOrder({ ...PLACED_CARD_ORDER, captureStartedAt: '2026-10-05T10:09:30.000Z' });
+    const res = await executeProcessOrderTimers({ now: new Date('2026-10-05T10:10:00Z') });
+    expect(res.autoRejected).toBe(0);
+    expect(replaceOrderIfMatch).not.toHaveBeenCalled();
+    expect(releaseAuthorization).not.toHaveBeenCalled();
+  });
+
+  it('retries a release that failed 15 minutes ago', async () => {
+    const stuck = {
+      ...PLACED_CARD_ORDER,
+      state: 'REJECTED' as const,
+      releaseFailure: { at: '2026-10-05T10:00:00.000Z', message: 'API down', notifiedAt: '2026-10-05T10:00:00.000Z' },
+    };
+    (findPlacedOrdersCreatedBefore as any).mockResolvedValue([]);
+    (findOrdersAwaitingRelease as any).mockResolvedValue([stuck]);
+    const store = storedOrder(stuck);
+    const res = await executeProcessOrderTimers({ now: new Date('2026-10-05T10:15:00Z') });
+    expect(res.released).toBe(1);
+    expect(store.current.payment.status).toBe('canceled');
+  });
+
+  it('waits before retrying a fresh release failure', async () => {
+    const stuck = {
+      ...PLACED_CARD_ORDER,
+      state: 'REJECTED' as const,
+      releaseFailure: { at: '2026-10-05T10:00:00.000Z', message: 'API down', notifiedAt: '2026-10-05T10:00:00.000Z' },
+    };
+    (findPlacedOrdersCreatedBefore as any).mockResolvedValue([]);
+    (findOrdersAwaitingRelease as any).mockResolvedValue([stuck]);
+    const res = await executeProcessOrderTimers({ now: new Date('2026-10-05T10:14:59Z') });
+    expect(res.released).toBe(0);
+    expect(releaseAuthorization).not.toHaveBeenCalled();
   });
 
   it('skips an order someone just accepted', async () => {
@@ -79,14 +136,19 @@ describe('executeProcessOrderTimers', () => {
   });
 
   it('completes a ready order after midnight', async () => {
-    const ready = { ...PLACED_CARD_ORDER, state: 'READY' as const, readyAt: '2026-10-05T19:00:00.000Z' };
+    const ready = {
+      ...PLACED_CARD_ORDER,
+      state: 'READY' as const,
+      payment: { ...PLACED_CARD_ORDER.payment, status: 'paid' as const },
+      readyAt: '2026-10-05T19:00:00.000Z',
+    };
     (findPlacedOrdersCreatedBefore as any).mockResolvedValue([]);
     (findOrdersInState as any).mockResolvedValue([ready]);
     storedOrder(ready);
     const res = await executeProcessOrderTimers({ now: new Date('2026-10-05T22:00:00Z') });
     const written = (replaceOrderIfMatch as any).mock.calls[0][0];
     expect(written.state).toBe('COMPLETED');
-    expect(written.payment.status).toBe('cash_due');
+    expect(written.payment.status).toBe('paid');
     expect(res.autoCompleted).toBe(1);
   });
 });

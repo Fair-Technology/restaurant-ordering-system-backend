@@ -1,12 +1,13 @@
 import {
+  CustomerAddress,
+  DisplayPaymentStatus,
   FulfilmentMode,
   OrderHistoryEntry,
   OrderState,
-  PaymentMethod,
-  PaymentStatus,
   StoredOrderState,
   TaxBreakdownEntry,
 } from '../../../domain/order/Order';
+import type { OrderDocumentDto } from '../invoices/issueInvoice';
 
 export type GetOrdersByShopRequestDto = {
   shopId: string;
@@ -32,8 +33,7 @@ export type OrderDto = {
   state: StoredOrderState;
   displayState: OrderState;
   fulfilmentMode: FulfilmentMode;
-  paymentMethod: PaymentMethod;
-  paymentStatus: PaymentStatus;
+  paymentStatus: DisplayPaymentStatus;
   readyAt: string | null;
   items: OrderItemDto[];
   subtotalCents: number;
@@ -49,6 +49,17 @@ export type OrderDto = {
   prepMinutes: number | null;
   taxBreakdown: TaxBreakdownEntry[];
   rejectionNote: string | null;
+  customerAddress: CustomerAddress | null;
+  refundedCents: number;
+  refunds: Array<{
+    amountCents: number;
+    reason: string;
+    at: string;
+    lines: Array<{ lineIndex: number; quantity: number }>;
+  }>;
+  releaseFailure: { at: string; message: string } | null;
+  documents: OrderDocumentDto[];
+  autoAccepted: boolean;
 };
 
 export type GetOrdersByShopResultDto = {

@@ -2,10 +2,12 @@ import { legalOf } from '../../../domain/legal/legalTexts';
 import { menuLanguagesOf } from '../../../domain/menu/menuLanguage';
 import { Order, REJECT_REASON_CODES, RejectReason } from '../../../domain/order/Order';
 import { deriveDisplayState } from '../../../domain/order/orderLifecycle';
+import { displayPaymentStatus, refundedCents } from '../../../domain/order/payment';
 import type { Shop } from '../../../domain/shop/Shop';
+import { documentsOf } from '../invoices/issueInvoice';
 import type { CustomerOrderDto } from './dtos';
 
-const KNOWN_REASONS: readonly string[] = [...REJECT_REASON_CODES, 'no_response'];
+const KNOWN_REASONS: readonly string[] = [...REJECT_REASON_CODES, 'no_response', 'payment_failed'];
 
 /** The diner's view of an order: never the staff note, the token, or other people's data. */
 export function toCustomerOrderDto(order: Order, shop: Shop, now: Date): CustomerOrderDto {
@@ -26,8 +28,9 @@ export function toCustomerOrderDto(order: Order, shop: Shop, now: Date): Custome
     state: order.state,
     displayState: deriveDisplayState(order, now),
     fulfilmentMode: order.fulfilmentMode,
-    paymentMethod: order.payment.method,
-    paymentStatus: order.payment.status,
+    paymentStatus: displayPaymentStatus(order),
+    refundedCents: refundedCents(order),
+    documents: documentsOf(order),
     readyAt: order.readyAt ?? null,
     items: order.items.map((i) => ({
       productName: i.productName,

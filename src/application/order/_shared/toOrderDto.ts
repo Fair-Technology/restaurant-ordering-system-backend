@@ -1,5 +1,7 @@
 import type { Order } from '../../../domain/order/Order';
 import { deriveDisplayState } from '../../../domain/order/orderLifecycle';
+import { displayPaymentStatus, refundedCents, wasAutoAccepted } from '../../../domain/order/payment';
+import { documentsOf } from '../invoices/issueInvoice';
 import type { OrderDto } from '../getOrdersByShop/dtos';
 
 /** The restaurant's view of an order. Deliberately omits customerAccessToken and idempotencyKey. */
@@ -10,8 +12,7 @@ export function toOrderDto(order: Order, now: Date): OrderDto {
     state: order.state,
     displayState: deriveDisplayState(order, now),
     fulfilmentMode: order.fulfilmentMode,
-    paymentMethod: order.payment.method,
-    paymentStatus: order.payment.status,
+    paymentStatus: displayPaymentStatus(order),
     readyAt: order.readyAt ?? null,
     items: order.items.map((item) => ({
       productId: item.productId,
@@ -37,5 +38,16 @@ export function toOrderDto(order: Order, now: Date): OrderDto {
     prepMinutes: order.prepMinutes ?? null,
     taxBreakdown: order.taxBreakdown ?? [],
     rejectionNote: order.rejectionNote ?? null,
+    customerAddress: order.customerAddress ?? null,
+    refundedCents: refundedCents(order),
+    refunds: (order.refunds ?? []).map((r) => ({
+      amountCents: r.amountCents,
+      reason: r.reason,
+      at: r.at,
+      lines: (r.lines ?? []).map((l) => ({ lineIndex: l.lineIndex, quantity: l.quantity })),
+    })),
+    releaseFailure: order.releaseFailure ? { at: order.releaseFailure.at, message: order.releaseFailure.message } : null,
+    documents: documentsOf(order),
+    autoAccepted: wasAutoAccepted(order),
   };
 }

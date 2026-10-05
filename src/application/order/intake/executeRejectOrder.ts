@@ -1,8 +1,10 @@
 import type { HttpRequest } from '@azure/functions';
 import { REJECT_REASON_CODES, StaffRejectReason } from '../../../domain/order/Order';
-import { REJECT_REASON_ERROR } from '../../../domain/order/orderErrors';
+import { ORDER_CHANGED_ERROR, REJECT_REASON_ERROR } from '../../../domain/order/orderErrors';
 import { applyTransition } from '../../../domain/order/orderLifecycle';
+import { hasFreshCaptureClaim } from '../../../domain/order/payment';
 import type { ApplicationResult } from '../../_shared/types';
+import { releaseClosedOrderPayment } from '../_shared/releasePayment';
 import { notifyCustomer } from '../notifications/notifyOrder';
 import { shopActorToOrderActor, transitionOrder } from '../_shared/transitionOrder';
 import { toOrderDto } from '../_shared/toOrderDto';
@@ -36,6 +38,7 @@ export async function executeRejectOrder(
       orderId: request.orderId,
       shopId: shop.id,
       change: (current) => {
+        if (hasFreshCaptureClaim(current, now)) return { ok: false, error: ORDER_CHANGED_ERROR };
         const res = applyTransition(current, 'REJECTED', {
           now,
           actor: shopActorToOrderActor(actor),
@@ -46,8 +49,10 @@ export async function executeRejectOrder(
     });
     if (!moved.ok) return moved;
 
-    await notifyCustomer('order_rejected', moved.order, shop);
-    return { ok: true, data: toOrderDto(moved.order, now) };
+    const released = await releaseClosedOrderPayment(moved.order.id, shop, now);
+    const order = released.order ?? moved.order;
+    await notifyCustomer('order_rejected', order, shop);
+    return { ok: true, data: toOrderDto(order, now) };
   } catch {
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to decline order' };
   }

@@ -1,5 +1,6 @@
 import type { Order } from '../../../domain/order/Order';
 import { applyTransition } from '../../../domain/order/orderLifecycle';
+import { hasFreshCaptureClaim, isDueForReleaseRetry } from '../../../domain/order/payment';
 import {
   ESCALATE_AFTER_MINUTES,
   isDueForAutoComplete,
@@ -8,27 +9,41 @@ import {
 } from '../../../domain/order/orderTimers';
 import type { Shop } from '../../../domain/shop/Shop';
 import {
+  findOrdersAwaitingRelease,
   findOrdersInState,
   findPlacedOrdersCreatedBefore,
 } from '../../../infrastructure/cosmos/order/CosmosOrderRepository';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { notifyCustomer, notifyRestaurantEscalation } from '../notifications/notifyOrder';
+import { releaseClosedOrderPayment } from '../_shared/releasePayment';
 import { transitionOrder } from '../_shared/transitionOrder';
 
 export interface OrderTimersResult {
   escalated: number;
   autoRejected: number;
   autoCompleted: number;
+  autoAccepted: number;
+  released: number;
+  invoicesIssued: number;
+  correctionsIssued: number;
 }
 
 /**
  * Runs every minute. For orders nobody has answered: emails the restaurant after 3 minutes, declines at
- * the restaurant's timeout. For ready orders nobody collected: completes them once the local day is over.
+ * the restaurant's timeout (and gives the money back). Declined orders whose payment could not be released are retried every 15 minutes. For ready orders nobody collected: completes them once the local day is over.
  * One bad order never stops the rest; a lost race with staff is skipped silently.
  */
 export async function executeProcessOrderTimers(input: { now: Date }): Promise<OrderTimersResult> {
   const { now } = input;
-  const result: OrderTimersResult = { escalated: 0, autoRejected: 0, autoCompleted: 0 };
+  const result: OrderTimersResult = {
+    escalated: 0,
+    autoRejected: 0,
+    autoCompleted: 0,
+    autoAccepted: 0,
+    released: 0,
+    invoicesIssued: 0,
+    correctionsIssued: 0,
+  };
   const shops = new Map<string, Shop | null>();
   const shopOf = async (id: string): Promise<Shop | null> => {
     if (!shops.has(id)) shops.set(id, await findShopById(id));
@@ -45,10 +60,14 @@ export async function executeProcessOrderTimers(input: { now: Date }): Promise<O
         const moved = await transitionOrder({
           orderId: o.id,
           shopId: o.shopId,
-          change: (x) => applyTransition(x, 'REJECTED', { now, actor: { type: 'system' }, reason: 'no_response' }),
+          change: (x) =>
+            hasFreshCaptureClaim(x, now)
+              ? { ok: false, error: 'skip' } // an accept is taking the money right now
+              : applyTransition(x, 'REJECTED', { now, actor: { type: 'system' }, reason: 'no_response' }),
         });
         if (moved.ok) {
-          await notifyCustomer('order_rejected', moved.order, shop);
+          const released = await releaseClosedOrderPayment(moved.order.id, shop, now);
+          await notifyCustomer('order_rejected', released.order ?? moved.order, shop);
           result.autoRejected++;
         }
       } else if (isDueForEscalation(o, now)) {
@@ -84,6 +103,19 @@ export async function executeProcessOrderTimers(input: { now: Date }): Promise<O
       if (moved.ok) result.autoCompleted++;
     } catch {
       console.error('[timers:error] ready order', o.id);
+    }
+  }
+
+  const awaiting = await findOrdersAwaitingRelease();
+  for (const o of awaiting) {
+    try {
+      if (!isDueForReleaseRetry(o, now)) continue;
+      const shop = await shopOf(o.shopId);
+      if (!shop) continue;
+      const { outcome } = await releaseClosedOrderPayment(o.id, shop, now);
+      if (outcome === 'released' || outcome === 'refunded') result.released++;
+    } catch {
+      console.error('[timers:error] release', o.id);
     }
   }
   return result;
