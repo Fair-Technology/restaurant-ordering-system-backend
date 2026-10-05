@@ -5,7 +5,7 @@ import {
   findOrderWithEtag,
   replaceOrderIfMatch,
 } from '../../../infrastructure/cosmos/order/CosmosOrderRepository';
-import { createRefund, releaseAuthorization } from '../../../infrastructure/stripe/stripeClient';
+import { createRefund, findLiveRefund, releaseAuthorization } from '../../../infrastructure/stripe/stripeClient';
 import { notifyRestaurantReleaseFailed } from '../notifications/notifyOrder';
 
 export type ReleaseOutcome = 'released' | 'refunded' | 'failed' | 'not_needed';
@@ -50,12 +50,17 @@ export async function releaseClosedOrderPayment(
     const paymentIntentId = order.payment.stripePaymentIntentId;
     if (!connectAccountId || !paymentIntentId) throw new Error('The restaurant has no Stripe account');
 
+    // Stripe replays the stored answer for a repeated key, a failure included, so a retry after a
+    // recorded failure uses a new key.
+    const attempts = order.releaseFailure?.attempts ?? (order.releaseFailure ? 1 : 0);
+    const keySuffix = attempts > 0 ? `-${attempts}` : '';
+
     let reservationOnly = order.payment.status === 'authorized';
     if (reservationOnly) {
       const result = await releaseAuthorization({
         connectAccountId,
         paymentIntentId,
-        idempotencyKey: `release-${order.id}`,
+        idempotencyKey: `release-${order.id}${keySuffix}`,
       });
       reservationOnly = result === 'canceled';
     }
@@ -67,12 +72,15 @@ export async function releaseClosedOrderPayment(
         return { ...rest, payment: { ...current.payment, status: 'canceled' }, updatedAt: now.toISOString() };
       });
     } else {
-      const refund = await createRefund({
-        connectAccountId,
-        paymentIntentId,
-        amountCents: order.subtotalCents,
-        idempotencyKey: `auto-refund-${order.id}`,
-      });
+      // A new key could refund twice if an earlier try got through, so Stripe is asked first.
+      const refund =
+        (attempts > 0 ? await findLiveRefund({ connectAccountId, paymentIntentId }) : null) ??
+        (await createRefund({
+          connectAccountId,
+          paymentIntentId,
+          amountCents: order.subtotalCents,
+          idempotencyKey: `auto-refund-${order.id}${keySuffix}`,
+        }));
       recorded = await writeOrder(order.id, (current) => {
         const { releaseFailure: _cleared, ...rest } = current;
         return {
@@ -113,9 +121,10 @@ async function recordFailure(
     const written = await writeOrder(orderId, (current) => {
       const notifiedAt = current.releaseFailure?.notifiedAt ?? now.toISOString();
       firstTime = !current.releaseFailure?.notifiedAt;
+      const attempts = (current.releaseFailure?.attempts ?? (current.releaseFailure ? 1 : 0)) + 1;
       return {
         ...current,
-        releaseFailure: { at: now.toISOString(), message, notifiedAt },
+        releaseFailure: { at: now.toISOString(), message, notifiedAt, attempts },
         updatedAt: now.toISOString(),
       };
     });

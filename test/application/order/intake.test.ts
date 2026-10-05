@@ -7,11 +7,17 @@ vi.mock('../../../src/infrastructure/cosmos/order/CosmosOrderRepository', () => 
   replaceOrderIfMatch: vi.fn(),
   findOrdersByShopIdAndStates: vi.fn(),
 }));
+vi.mock('../../../src/infrastructure/cosmos/invoice/CosmosInvoiceRepository', () => ({
+  findInvoiceById: vi.fn(async () => null),
+  findInvoiceCounter: vi.fn(async () => null),
+  commitInvoice: vi.fn(async () => 'ok'),
+}));
 vi.mock('../../../src/infrastructure/cosmos/usage/CosmosUsageRepository', () => ({ incrementAcceptedOrders: vi.fn() }));
 vi.mock('../../../src/infrastructure/stripe/stripeClient', () => ({
   capturePaymentIntent: vi.fn(async () => undefined),
   releaseAuthorization: vi.fn(async () => 'canceled'),
   createRefund: vi.fn(async () => ({ id: 're_1' })),
+  findLiveRefund: vi.fn(async () => null),
   isRetryableStripeError: (e: any) => ['StripeConnectionError', 'StripeAPIError', 'StripeRateLimitError'].includes(e?.type),
 }));
 vi.mock('../../../src/infrastructure/email/emailSender', () => ({
@@ -33,8 +39,16 @@ import {
 import { findShopById } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
 import { incrementAcceptedOrders } from '../../../src/infrastructure/cosmos/usage/CosmosUsageRepository';
 import { sendEmail } from '../../../src/infrastructure/email/emailSender';
-import { ORDER_CHANGED_ERROR, ORDER_NOT_FOUND_ERROR, PREP_MINUTES_ERROR, REJECT_REASON_ERROR } from '../../../src/domain/order/orderErrors';
-import { releaseAuthorization } from '../../../src/infrastructure/stripe/stripeClient';
+import {
+  ORDER_CHANGED_ERROR,
+  ORDER_NOT_FOUND_ERROR,
+  PAYMENT_CAPTURE_FAILED_ERROR,
+  PAYMENT_SERVICE_UNAVAILABLE_ERROR,
+  PREP_MINUTES_ERROR,
+  REJECT_REASON_ERROR,
+} from '../../../src/domain/order/orderErrors';
+import { commitInvoice } from '../../../src/infrastructure/cosmos/invoice/CosmosInvoiceRepository';
+import { capturePaymentIntent, releaseAuthorization } from '../../../src/infrastructure/stripe/stripeClient';
 import { CARD_SHOP, orderStore, PLACED_CARD_ORDER } from '../../fixtures/orders';
 
 const http = {} as any;
@@ -68,17 +82,36 @@ describe('kitchen intake', () => {
   });
 
   it('staff accepts with the default prep time', async () => {
+    const store = storedOrder();
     const res = await executeAcceptOrder(ids, http, { now });
-    expect(replaceOrderIfMatch).toHaveBeenCalledWith(
+    expect(capturePaymentIntent).toHaveBeenCalledWith({
+      connectAccountId: 'acct_1',
+      paymentIntentId: 'pi_1',
+      idempotencyKey: 'capture-o1',
+    });
+    expect(replaceOrderIfMatch).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ state: 'PLACED', captureStartedAt: now.toISOString() }),
+      'etag-1',
+    );
+    expect(store.current).toEqual(
       expect.objectContaining({
         state: 'ACCEPTED',
         readyAt: '2026-10-05T10:25:00.000Z',
         prepMinutes: 20,
         usagePeriodKey: '2026-10',
+        invoiceNumber: 'R-2026-00001',
       }),
-      'etag-1',
     );
-    const written = (replaceOrderIfMatch as any).mock.calls[0][0];
+    expect(store.current.payment.status).toBe('paid');
+    expect(store.current.captureStartedAt).toBeUndefined();
+    expect(commitInvoice).toHaveBeenCalledTimes(1);
+    expect(commitInvoice).toHaveBeenCalledWith(
+      expect.anything(),
+      null,
+      expect.objectContaining({ number: 'R-2026-00001' }),
+    );
+    const written = (replaceOrderIfMatch as any).mock.calls.find((c: any[]) => c[0].state === 'ACCEPTED')[0];
     expect(written.history.at(-1)).toEqual({
       from: 'PLACED',
       to: 'ACCEPTED',
@@ -87,14 +120,75 @@ describe('kitchen intake', () => {
     });
     expect(incrementAcceptedOrders).toHaveBeenCalledWith('shop-1', '2026-10');
     expect(sendEmail).toHaveBeenCalledWith(
-      expect.objectContaining({ subject: 'Ma Pasta: Bestellung AB3-K7P angenommen – abholbereit um 12:25' }),
+      expect.objectContaining({
+        subject: 'Ma Pasta: Bestellung AB3-K7P angenommen – abholbereit um 12:25',
+        text: expect.stringContaining('Ihre Rechnung R-2026-00001 finden Sie im Anhang.'),
+        attachments: [expect.objectContaining({ name: 'Rechnung-R-2026-00001.pdf', contentType: 'application/pdf' })],
+      }),
     );
     expect(res.ok && res.data.state).toBe('ACCEPTED');
+    expect(res.ok && res.data.documents).toEqual([{ id: 'o1', kind: 'invoice', number: 'R-2026-00001' }]);
+  });
+
+  it('a refused capture declines the order and tells everyone', async () => {
+    (capturePaymentIntent as any).mockRejectedValueOnce(Object.assign(new Error('declined'), { type: 'StripeCardError' }));
+    const store = storedOrder();
+    const res = await executeAcceptOrder(ids, http, { now });
+    expect(res).toEqual({ ok: false, code: 'CONFLICT', error: PAYMENT_CAPTURE_FAILED_ERROR });
+    expect(store.current.state).toBe('REJECTED');
+    expect(store.current.history.at(-1)).toEqual(
+      expect.objectContaining({ to: 'REJECTED', reason: 'payment_failed', actor: { type: 'system' } }),
+    );
+    expect(store.current.captureStartedAt).toBeUndefined();
+    expect(releaseAuthorization).toHaveBeenCalledWith(expect.objectContaining({ idempotencyKey: 'release-o1' }));
+    expect(store.current.payment.status).toBe('canceled');
+    expect(sendEmail).toHaveBeenCalledWith(expect.objectContaining({ tag: 'order_rejected' }));
+    expect(incrementAcceptedOrders).not.toHaveBeenCalled();
+    expect(commitInvoice).not.toHaveBeenCalled();
+  });
+
+  it('a Stripe outage leaves the order waiting', async () => {
+    (capturePaymentIntent as any).mockRejectedValueOnce(Object.assign(new Error('down'), { type: 'StripeConnectionError' }));
+    const store = storedOrder();
+    const res = await executeAcceptOrder(ids, http, { now });
+    expect(res).toEqual({ ok: false, code: 'CONFLICT', error: PAYMENT_SERVICE_UNAVAILABLE_ERROR });
+    expect(store.current.state).toBe('PLACED');
+    expect(store.current.captureStartedAt).toBeUndefined();
+    expect(sendEmail).not.toHaveBeenCalled();
+
+    // Trying again takes the money under a key of its own, not the one that may hold a stored failure.
+    await executeAcceptOrder(ids, http, { now });
+    expect((capturePaymentIntent as any).mock.calls[1][0].idempotencyKey).toBe('capture-o1-2');
+    expect(store.current.state).toBe('ACCEPTED');
+  });
+
+  it('cannot accept while another accept is taking the payment', async () => {
+    storedOrder({ ...PLACED_CARD_ORDER, captureStartedAt: '2026-10-05T10:04:30.000Z' });
+    const res = await executeAcceptOrder(ids, http, { now });
+    expect(res).toEqual({ ok: false, code: 'CONFLICT', error: ORDER_CHANGED_ERROR });
+    expect(capturePaymentIntent).not.toHaveBeenCalled();
+  });
+
+  it('an old claim from a crashed accept does not block', async () => {
+    const store = storedOrder({ ...PLACED_CARD_ORDER, captureStartedAt: '2026-10-05T10:00:00.000Z', captureAttempts: 1 });
+    await executeAcceptOrder(ids, http, { now });
+    expect((capturePaymentIntent as any).mock.calls[0][0].idempotencyKey).toBe('capture-o1-2');
+    expect(store.current.state).toBe('ACCEPTED');
+  });
+
+  it('accepting still works when the invoice cannot be issued', async () => {
+    (commitInvoice as any).mockRejectedValueOnce(new Error('database down'));
+    const store = storedOrder();
+    const res = await executeAcceptOrder(ids, http, { now });
+    expect(res.ok && res.data.state).toBe('ACCEPTED');
+    expect(store.current.invoiceNumber).toBeUndefined();
+    const mail = (sendEmail as any).mock.calls.find((c: any[]) => c[0].tag === 'order_accepted')[0];
+    expect(mail.attachments).toBeUndefined();
   });
 
   it('accepts with an adjusted prep time', async () => {
     await executeAcceptOrder({ ...ids, prepMinutes: 35 }, http, { now });
-    expect((replaceOrderIfMatch as any).mock.calls[0][0].readyAt).toBe('2026-10-05T10:40:00.000Z');
+    expect((replaceOrderIfMatch as any).mock.calls.at(-1)[0].readyAt).toBe('2026-10-05T10:40:00.000Z');
   });
 
   it('refuses a prep time out of range', async () => {

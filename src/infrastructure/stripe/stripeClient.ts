@@ -35,16 +35,33 @@ export async function createPaymentIntent(
   return { id: intent.id, clientSecret: intent.client_secret };
 }
 
+/**
+ * Takes the reserved money. If the call fails but Stripe says the payment has in fact been taken
+ * (an earlier try whose answer got lost), that counts as success.
+ */
 export async function capturePaymentIntent(input: {
   connectAccountId: string;
   paymentIntentId: string;
   idempotencyKey: string;
 }): Promise<void> {
-  await getStripe().paymentIntents.capture(
-    input.paymentIntentId,
-    {},
-    { stripeAccount: input.connectAccountId, idempotencyKey: input.idempotencyKey },
-  );
+  const stripe = getStripe();
+  try {
+    await stripe.paymentIntents.capture(
+      input.paymentIntentId,
+      {},
+      { stripeAccount: input.connectAccountId, idempotencyKey: input.idempotencyKey },
+    );
+  } catch (err: unknown) {
+    let status: string | undefined;
+    try {
+      status = (
+        await stripe.paymentIntents.retrieve(input.paymentIntentId, { stripeAccount: input.connectAccountId })
+      ).status;
+    } catch {
+      throw err;
+    }
+    if (status !== 'succeeded') throw err;
+  }
 }
 
 /**
@@ -86,6 +103,19 @@ export async function createRefund(input: {
     { stripeAccount: input.connectAccountId, idempotencyKey: input.idempotencyKey },
   );
   return { id: refund.id };
+}
+
+/** The first refund on the payment that has not failed or been cancelled, or null when none was made. */
+export async function findLiveRefund(input: {
+  connectAccountId: string;
+  paymentIntentId: string;
+}): Promise<{ id: string } | null> {
+  const list = await getStripe().refunds.list(
+    { payment_intent: input.paymentIntentId, limit: 10 },
+    { stripeAccount: input.connectAccountId },
+  );
+  const live = list.data.find((r) => r.status !== 'failed' && r.status !== 'canceled');
+  return live ? { id: live.id } : null;
 }
 
 /** Apple Pay / Google Pay style wallets need the storefront domain registered with Stripe once. */

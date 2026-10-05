@@ -46,6 +46,18 @@ describe('order emails', () => {
     expect(mail.text).toContain('Es wurde nichts abgebucht.');
   });
 
+  it('accepted email mentions the attached invoice', () => {
+    const mail = buildOrderEmail({
+      kind: 'order_accepted',
+      order: ACCEPTED_CARD_ORDER,
+      shop: CARD_SHOP,
+      customerOrderUrl,
+      adminOrdersUrl,
+      attachedDocument: { title: 'Rechnung', number: 'R-2026-00001' },
+    });
+    expect(mail.text).toContain('Ihre Rechnung R-2026-00001 finden Sie im Anhang.');
+  });
+
   it('refund email names the amount and the correction invoice', () => {
     const mail = buildOrderEmail({
       kind: 'order_refunded',

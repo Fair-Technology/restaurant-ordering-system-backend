@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const m = vi.hoisted(() => ({
   refundsCreate: vi.fn(),
+  refundsList: vi.fn(),
   domainsList: vi.fn(),
   domainsCreate: vi.fn(),
   piCreate: vi.fn(),
@@ -13,7 +14,7 @@ const m = vi.hoisted(() => ({
 vi.mock('stripe', () => ({
   default: function () {
     return {
-      refunds: { create: m.refundsCreate },
+      refunds: { create: m.refundsCreate, list: m.refundsList },
       paymentMethodDomains: { list: m.domainsList, create: m.domainsCreate },
       paymentIntents: {
         create: m.piCreate,
@@ -30,6 +31,7 @@ import {
   createPaymentIntent,
   createRefund,
   ensurePaymentMethodDomain,
+  findLiveRefund,
   isRetryableStripeError,
   releaseAuthorization,
   storefrontDomainName,
@@ -132,6 +134,22 @@ describe('stripeClient', () => {
     await expect(
       capturePaymentIntent({ connectAccountId: 'acct_1', paymentIntentId: 'pi_1', idempotencyKey: 'k' }),
     ).rejects.toThrow('STRIPE_SECRET_KEY is not configured');
+  });
+
+  it('a capture that failed but whose money was in fact taken counts as done', async () => {
+    const input = { connectAccountId: 'acct_1', paymentIntentId: 'pi_1', idempotencyKey: 'capture-o1-2' };
+    m.piCapture.mockRejectedValue(new Error('already captured'));
+    m.piRetrieve.mockResolvedValue({ status: 'succeeded' });
+    await expect(capturePaymentIntent(input)).resolves.toBeUndefined();
+    m.piRetrieve.mockResolvedValue({ status: 'requires_capture' });
+    await expect(capturePaymentIntent(input)).rejects.toThrow('already captured');
+  });
+
+  it('finds an earlier refund that did not fail', async () => {
+    m.refundsList.mockResolvedValue({ data: [{ id: 're_bad', status: 'failed' }, { id: 're_ok', status: 'succeeded' }] });
+    expect(await findLiveRefund({ connectAccountId: 'acct_1', paymentIntentId: 'pi_1' })).toEqual({ id: 're_ok' });
+    m.refundsList.mockResolvedValue({ data: [] });
+    expect(await findLiveRefund({ connectAccountId: 'acct_1', paymentIntentId: 'pi_1' })).toBeNull();
   });
 
   it('storefront domain comes from the storefront URL', () => {

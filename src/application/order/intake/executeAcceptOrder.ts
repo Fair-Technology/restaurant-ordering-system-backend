@@ -1,12 +1,8 @@
 import type { HttpRequest } from '@azure/functions';
 import { PREP_MINUTES_ERROR } from '../../../domain/order/orderErrors';
-import { applyTransition } from '../../../domain/order/orderLifecycle';
-import { DEFAULT_PREP_MINUTES } from '../../../domain/order/Order';
-import { periodKeyFor } from '../../../domain/usage/usagePeriod';
-import { incrementAcceptedOrders } from '../../../infrastructure/cosmos/usage/CosmosUsageRepository';
 import type { ApplicationResult } from '../../_shared/types';
-import { notifyCustomer } from '../notifications/notifyOrder';
-import { shopActorToOrderActor, transitionOrder } from '../_shared/transitionOrder';
+import { acceptPlacedOrder } from '../_shared/acceptPlacedOrder';
+import { shopActorToOrderActor } from '../_shared/transitionOrder';
 import { toOrderDto } from '../_shared/toOrderDto';
 import type { OrderDto } from '../getOrdersByShop/dtos';
 import type { AcceptOrderBody } from './dtos';
@@ -37,31 +33,16 @@ export async function executeAcceptOrder(
       return { ok: false, code: 'INVALID_INPUT', error: PREP_MINUTES_ERROR };
     }
 
-    const usagePeriodKey = periodKeyFor(now, shop.timezone);
-    const moved = await transitionOrder({
+    const accepted = await acceptPlacedOrder({
       orderId: request.orderId,
-      shopId: shop.id,
-      change: (current) => {
-        const prepMinutes = requested ?? DEFAULT_PREP_MINUTES[current.fulfilmentMode];
-        const res = applyTransition(current, 'ACCEPTED', {
-          now,
-          actor: shopActorToOrderActor(actor),
-          readyAt: new Date(now.getTime() + prepMinutes * 60_000),
-          prepMinutes,
-        });
-        return res.ok ? { ok: true, order: { ...res.order, usagePeriodKey } } : res;
-      },
+      shop,
+      actor: shopActorToOrderActor(actor),
+      now,
+      prepMinutes: requested,
     });
-    if (!moved.ok) return moved;
-
-    try {
-      await incrementAcceptedOrders(shop.id, usagePeriodKey);
-    } catch {
-      // The order is accepted; a usage counter miss is repaired by reconcileShopUsage.
-      console.error('[usage:error] could not count accepted order');
-    }
-    await notifyCustomer('order_accepted', moved.order, shop);
-    return { ok: true, data: toOrderDto(moved.order, now) };
+    if (!accepted.ok) return accepted;
+    const order = accepted.data;
+    return { ok: true, data: toOrderDto(order, now) };
   } catch {
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to accept order' };
   }

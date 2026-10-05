@@ -12,6 +12,7 @@ vi.mock('../../../src/infrastructure/stripe/stripeClient', () => ({
   capturePaymentIntent: vi.fn(async () => undefined),
   releaseAuthorization: vi.fn(async () => 'canceled'),
   createRefund: vi.fn(async () => ({ id: 're_1' })),
+  findLiveRefund: vi.fn(async () => null),
   isRetryableStripeError: (e: any) => ['StripeConnectionError', 'StripeAPIError', 'StripeRateLimitError'].includes(e?.type),
 }));
 
@@ -21,7 +22,7 @@ import {
   replaceOrderIfMatch,
 } from '../../../src/infrastructure/cosmos/order/CosmosOrderRepository';
 import { sendEmail } from '../../../src/infrastructure/email/emailSender';
-import { createRefund, releaseAuthorization } from '../../../src/infrastructure/stripe/stripeClient';
+import { createRefund, findLiveRefund, releaseAuthorization } from '../../../src/infrastructure/stripe/stripeClient';
 import type { Order } from '../../../src/domain/order/Order';
 import { CARD_SHOP, LEGACY_CASH_ORDER, orderStore, PLACED_CARD_ORDER } from '../../fixtures/orders';
 
@@ -89,6 +90,7 @@ describe('releaseClosedOrderPayment', () => {
       at: now.toISOString(),
       message: 'API down',
       notifiedAt: now.toISOString(),
+      attempts: 1,
     });
     expect(sendEmail).toHaveBeenCalledTimes(1);
     expect(sendEmail).toHaveBeenCalledWith(
@@ -109,6 +111,40 @@ describe('releaseClosedOrderPayment', () => {
     const res = await releaseClosedOrderPayment('o1', CARD_SHOP, now);
     expect(res.outcome).toBe('released');
     expect(store.current.releaseFailure).toBeUndefined();
+  });
+
+  it('a retry after a failure uses new Stripe keys so a stored failure is not replayed', async () => {
+    storeOf({
+      ...REJECTED_ORDER,
+      releaseFailure: { at: '2026-10-05T10:00:00.000Z', message: 'x', notifiedAt: '2026-10-05T10:00:00.000Z', attempts: 2 },
+    });
+    await releaseClosedOrderPayment('o1', CARD_SHOP, now);
+    expect(releaseAuthorization).toHaveBeenCalledWith(expect.objectContaining({ idempotencyKey: 'release-o1-2' }));
+  });
+
+  it('a refund retried under a new key never refunds twice', async () => {
+    const paid = { ...REJECTED_ORDER, payment: { ...REJECTED_ORDER.payment, status: 'paid' as const } };
+    const failure = { at: '2026-10-05T10:00:00.000Z', message: 'x', notifiedAt: '2026-10-05T10:00:00.000Z', attempts: 1 };
+
+    // Stripe already holds the refund from the earlier try: it is recorded, not made again.
+    const first = storeOf({ ...paid, releaseFailure: failure });
+    (findLiveRefund as any).mockResolvedValueOnce({ id: 're_earlier' });
+    const res = await releaseClosedOrderPayment('o1', CARD_SHOP, now);
+    expect(createRefund).not.toHaveBeenCalled();
+    expect(res.outcome).toBe('refunded');
+    expect(first.current.refunds?.[0]).toEqual(expect.objectContaining({ stripeRefundId: 're_earlier' }));
+
+    // Nothing there yet: it is made under a key of its own.
+    storeOf({ ...paid, releaseFailure: failure });
+    await releaseClosedOrderPayment('o1', CARD_SHOP, now);
+    expect(createRefund).toHaveBeenCalledWith(expect.objectContaining({ idempotencyKey: 'auto-refund-o1-1' }));
+  });
+
+  it('the first refund try asks nothing and uses the plain key', async () => {
+    storeOf({ ...REJECTED_ORDER, payment: { ...REJECTED_ORDER.payment, status: 'paid' } });
+    await releaseClosedOrderPayment('o1', CARD_SHOP, now);
+    expect(findLiveRefund).not.toHaveBeenCalled();
+    expect(createRefund).toHaveBeenCalledWith(expect.objectContaining({ idempotencyKey: 'auto-refund-o1' }));
   });
 
   it('nothing on an old pay-at-collection order', async () => {

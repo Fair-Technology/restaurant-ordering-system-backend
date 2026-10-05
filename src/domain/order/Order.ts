@@ -91,6 +91,7 @@ export interface PaymentReleaseFailure {
   at: string; // ISO
   message: string;
   notifiedAt: string | null;
+  attempts?: number; // failed tries so far; a retry after a failure uses a new Stripe key
 }
 
 export interface LegalRevisions {
@@ -132,6 +133,7 @@ export interface Order {
   releaseFailure?: PaymentReleaseFailure; // the reservation could not be released yet
   invoiceNumber?: string; // set once the invoice is issued
   captureStartedAt?: string; // ISO, claim written just before the money is taken
+  captureAttempts?: number; // claims written so far; a retry after a failed capture uses a new Stripe key
   anonymisedAt?: string; // ISO, set only by customer erasure
   acceptedAt?: string; // ISO, set by ACCEPTED
   readyAt?: string; // ISO, set by ACCEPTED
