@@ -49,6 +49,22 @@ describe('executeUpdateShopLegal', () => {
     expect(updateShop).not.toHaveBeenCalled();
   });
 
+  it('saves the tax number for invoices', async () => {
+    const r: any = await executeUpdateShopLegal({ shopId: 'shop-1', body: { taxNumber: ' 045/123/45678 ' } }, {} as any);
+    expect(updateShop).toHaveBeenCalledWith(
+      expect.objectContaining({ legal: expect.objectContaining({ taxNumber: '045/123/45678' }) }),
+    );
+    expect(r.data.taxNumber).toBe('045/123/45678');
+    expect(JSON.stringify((logAudit as any).mock.calls)).toContain('taxNumber');
+    expect(JSON.stringify((logAudit as any).mock.calls)).not.toContain('045/123');
+  });
+
+  it('refuses an overlong tax number', async () => {
+    const r = await executeUpdateShopLegal({ shopId: 'shop-1', body: { taxNumber: '1'.repeat(31) } }, {} as any);
+    expect(r).toEqual({ ok: false, code: 'INVALID_INPUT', error: 'taxNumber must be at most 30 characters' });
+    expect(updateShop).not.toHaveBeenCalled();
+  });
+
   it('saves terms as revision 1', async () => {
     const r: any = await executeUpdateShopLegal({ shopId: 'shop-1', body: { terms: TERMS_TEXT } }, {} as any);
     expect(updateShop).toHaveBeenCalledWith(

@@ -7,16 +7,28 @@ import {
   orderIdForIdempotencyKey,
 } from '../../src/domain/order/orderIds';
 import { isDueForAutoComplete, isDueForAutoReject, isDueForEscalation } from '../../src/domain/order/orderTimers';
-import { escalationRecipients } from '../../src/domain/order/orderSettings';
-import { CASH_SHOP, PLACED_CASH_ORDER } from '../fixtures/orders';
+import { addressRequired } from '../../src/domain/order/Order';
+import { escalationRecipients, orderSettingsOf } from '../../src/domain/order/orderSettings';
+import { CARD_SHOP, PLACED_CARD_ORDER } from '../fixtures/orders';
 
 describe('order rules', () => {
-  it('offers cash or card by payment setting', () => {
-    expect(offeredPaymentMethods({ paymentPolicy: 'pay_in_person' })).toEqual(['cash']);
+  it('offers card only once Stripe is ready', () => {
+    expect(offeredPaymentMethods({ stripe: { connectOnboardingStatus: 'complete' } })).toEqual(['card']);
+    expect(offeredPaymentMethods({ stripe: { connectOnboardingStatus: 'pending' } })).toEqual([]);
+    expect(offeredPaymentMethods({ stripe: null })).toEqual([]);
+  });
+
+  it('auto-accept is on unless switched off', () => {
+    expect(orderSettingsOf({})).toEqual({ autoRejectMinutes: 10, alertEmail: null, autoAccept: true });
     expect(
-      offeredPaymentMethods({ paymentPolicy: 'pay_online', stripe: { connectOnboardingStatus: 'complete' } }),
-    ).toEqual(['card']);
-    expect(offeredPaymentMethods({ paymentPolicy: 'pay_online', stripe: null })).toEqual([]);
+      orderSettingsOf({ orderSettings: { autoRejectMinutes: 15, alertEmail: null, autoAccept: false } }).autoAccept,
+    ).toBe(false);
+    expect(orderSettingsOf({ orderSettings: { autoRejectMinutes: 15, alertEmail: null } }).autoAccept).toBe(true);
+  });
+
+  it('an address is needed only above 250 euros', () => {
+    expect(addressRequired(25000)).toBe(false);
+    expect(addressRequired(25001)).toBe(true);
   });
 
   it('derives the same order id from the same key', () => {
@@ -48,17 +60,17 @@ describe('order rules', () => {
   });
 
   it('escalation is due after three minutes', () => {
-    expect(isDueForEscalation(PLACED_CASH_ORDER, new Date('2026-10-05T10:02:59Z'))).toBe(false);
-    expect(isDueForEscalation(PLACED_CASH_ORDER, new Date('2026-10-05T10:03:00Z'))).toBe(true);
+    expect(isDueForEscalation(PLACED_CARD_ORDER, new Date('2026-10-05T10:02:59Z'))).toBe(false);
+    expect(isDueForEscalation(PLACED_CARD_ORDER, new Date('2026-10-05T10:03:00Z'))).toBe(true);
     const later = new Date('2026-10-05T10:03:00Z');
-    expect(isDueForEscalation({ ...PLACED_CASH_ORDER, escalatedAt: '2026-10-05T10:03:00.000Z' }, later)).toBe(false);
-    expect(isDueForEscalation({ ...PLACED_CASH_ORDER, state: 'ACCEPTED' }, later)).toBe(false);
+    expect(isDueForEscalation({ ...PLACED_CARD_ORDER, escalatedAt: '2026-10-05T10:03:00.000Z' }, later)).toBe(false);
+    expect(isDueForEscalation({ ...PLACED_CARD_ORDER, state: 'ACCEPTED' }, later)).toBe(false);
   });
 
   it('auto-reject is due at the deadline', () => {
-    expect(isDueForAutoReject(PLACED_CASH_ORDER, new Date('2026-10-05T10:09:59Z'))).toBe(false);
-    expect(isDueForAutoReject(PLACED_CASH_ORDER, new Date('2026-10-05T10:10:00Z'))).toBe(true);
-    expect(isDueForAutoReject({ ...PLACED_CASH_ORDER, autoRejectAt: undefined }, new Date('2026-10-05T10:10:00Z'))).toBe(
+    expect(isDueForAutoReject(PLACED_CARD_ORDER, new Date('2026-10-05T10:09:59Z'))).toBe(false);
+    expect(isDueForAutoReject(PLACED_CARD_ORDER, new Date('2026-10-05T10:10:00Z'))).toBe(true);
+    expect(isDueForAutoReject({ ...PLACED_CARD_ORDER, autoRejectAt: undefined }, new Date('2026-10-05T10:10:00Z'))).toBe(
       false,
     );
   });
@@ -70,12 +82,12 @@ describe('order rules', () => {
   });
 
   it('escalation goes to the Impressum and alert addresses', () => {
-    expect(escalationRecipients(CASH_SHOP)).toEqual(['info@mapasta.example']);
+    expect(escalationRecipients(CARD_SHOP)).toEqual(['info@mapasta.example']);
     expect(
-      escalationRecipients({ ...CASH_SHOP, orderSettings: { autoRejectMinutes: 10, alertEmail: 'boss@mapasta.example' } }),
+      escalationRecipients({ ...CARD_SHOP, orderSettings: { autoRejectMinutes: 10, alertEmail: 'boss@mapasta.example', autoAccept: true } }),
     ).toEqual(['info@mapasta.example', 'boss@mapasta.example']);
     expect(
-      escalationRecipients({ ...CASH_SHOP, orderSettings: { autoRejectMinutes: 10, alertEmail: 'INFO@mapasta.example' } }),
+      escalationRecipients({ ...CARD_SHOP, orderSettings: { autoRejectMinutes: 10, alertEmail: 'INFO@mapasta.example', autoAccept: true } }),
     ).toEqual(['info@mapasta.example']);
   });
 });

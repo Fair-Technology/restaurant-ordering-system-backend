@@ -1,7 +1,8 @@
 import { app, HttpRequest, HttpResponseInit } from '@azure/functions';
 import Stripe from 'stripe';
-import { deleteCheckoutSession } from '../../../infrastructure/cosmos/order/CosmosCheckoutSessionRepository';
-import { executeHandlePaymentSucceeded } from '../../../application/order/handlePaymentSucceeded/executeHandlePaymentSucceeded';
+import { executeHandlePaymentAuthorized } from '../../../application/order/handlePaymentAuthorized/executeHandlePaymentAuthorized';
+import { executePaymentIntentUpdates } from '../../../application/order/paymentIntentUpdates/executePaymentIntentUpdates';
+import { getStripe } from '../../../infrastructure/stripe/stripeClient';
 import {
   findShopByStripeConnectAccountId,
   updateShop,
@@ -22,7 +23,7 @@ app.http('stripeConnectWebhook', {
       };
     }
 
-    const stripe = new Stripe(stripeSecretKey);
+    const stripe = getStripe();
 
     const rawBody = Buffer.from(await request.arrayBuffer());
     const sig = request.headers.get('stripe-signature');
@@ -40,19 +41,25 @@ app.http('stripeConnectWebhook', {
 
     try {
       switch (event.type) {
-        case 'payment_intent.succeeded': {
+        case 'payment_intent.amount_capturable_updated': {
+          // The card money is reserved: this is the moment the order comes into being.
           const pi = event.data.object as Stripe.PaymentIntent;
           const { sessionId } = pi.metadata;
           if (!sessionId) break;
-          await executeHandlePaymentSucceeded({ sessionId, paymentIntentId: pi.id });
+          await executeHandlePaymentAuthorized({
+            sessionId,
+            paymentIntentId: pi.id,
+            connectAccountId: event.account ?? null,
+          });
           break;
         }
-        case 'payment_intent.payment_failed': {
+        case 'payment_intent.canceled': {
           const pi = event.data.object as Stripe.PaymentIntent;
-          const { sessionId } = pi.metadata;
-          if (sessionId) await deleteCheckoutSession(sessionId);
+          await executePaymentIntentUpdates({ sessionId: pi.metadata.sessionId, paymentIntentId: pi.id });
           break;
         }
+        // payment_intent.payment_failed is deliberately not handled: the diner can try another card
+        // on the same payment, so the checkout must stay.
         case 'account.updated': {
           const account = event.data.object as Stripe.Account;
           const shop = await findShopByStripeConnectAccountId(account.id);

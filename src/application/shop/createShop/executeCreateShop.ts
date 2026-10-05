@@ -124,18 +124,6 @@ export async function executeCreateShop(
   }
 
   if (
-    request.paymentPolicy !== undefined &&
-    request.paymentPolicy !== 'pay_online' &&
-    request.paymentPolicy !== 'pay_in_person'
-  ) {
-    return {
-      ok: false,
-      code: 'INVALID_INPUT',
-      error: "paymentPolicy must be 'pay_online' or 'pay_in_person'",
-    };
-  }
-
-  if (
     typeof request.minOrderAmountCents !== 'number' ||
     request.minOrderAmountCents < 0
   ) {
@@ -240,12 +228,6 @@ export async function executeCreateShop(
       countryCode,
       currency: request.currency.trim(),
       timezone: request.timezone.trim(),
-      // A brand-new shop never has Stripe set up yet, so pay_online can't be
-      // honoured even if requested — coerce to pay_in_person instead of
-      // rejecting, since the currently deployed admin still sends pay_online
-      // on every create call and must keep working until it's updated.
-      paymentPolicy:
-        request.paymentPolicy === 'pay_online' ? 'pay_in_person' : request.paymentPolicy ?? 'pay_in_person',
       minOrderAmountCents: request.minOrderAmountCents,
       address: request.address,
       openingHours: request.openingHours,

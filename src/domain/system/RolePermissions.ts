@@ -9,7 +9,7 @@ export interface RolePermissionsDoc {
 }
 
 export const DEFAULT_ROLE_PERMISSIONS: Pick<RolePermissionsDoc, 'manager' | 'staff'> = {
-  manager: ['view_orders', 'manage_menu', 'manage_staff', 'view_audit'],
+  manager: ['view_orders', 'manage_menu', 'manage_staff', 'view_audit', 'refund_orders'],
   staff: ['view_orders'],
 };
 

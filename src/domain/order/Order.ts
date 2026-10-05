@@ -16,15 +16,11 @@ export type FulfilmentMode = 'collection' | 'delivery' | 'dine_in';
 
 export const FULFILMENT_MODES: readonly FulfilmentMode[] = ['collection', 'delivery', 'dine_in'];
 
-export type PaymentMethod = 'card' | 'cash';
+export type PaymentMethod = 'card';
 
-export type PaymentStatus =
-  | 'paid'
-  | 'refunded'
-  | 'partially_refunded'
-  | 'cash_due'
-  | 'cash_collected'
-  | 'refunded_in_cash';
+export type PaymentStatus = 'authorized' | 'paid' | 'partially_refunded' | 'refunded' | 'canceled';
+/** What the app shows: stored values the code does not know (old pay-in-person orders) read as 'not_paid_online'. */
+export type DisplayPaymentStatus = PaymentStatus | 'not_paid_online';
 
 export interface OrderPayment {
   method: PaymentMethod;
@@ -47,13 +43,56 @@ export interface OrderHistoryEntry {
 
 export const REJECT_REASON_CODES = ['too_busy', 'item_unavailable', 'closing_soon', 'other'] as const;
 export type StaffRejectReason = (typeof REJECT_REASON_CODES)[number];
-export type RejectReason = StaffRejectReason | 'no_response'; // 'no_response' = automatic decline
+export type RejectReason = StaffRejectReason | 'no_response' | 'payment_failed'; // 'no_response' = automatic decline
 export const CUSTOMER_CANCEL_REASON = 'customer_cancelled';
 
 export interface TaxBreakdownEntry {
   rateBasisPoints: number;
   grossCents: number;
   taxCents: number;
+}
+
+export interface CustomerAddress {
+  street: string;
+  postcode: string;
+  city: string;
+  country: string;
+}
+
+/** Bills of more than 250,00 EUR (strictly) need the diner's address (section 33 UStDV). */
+export const ADDRESS_REQUIRED_ABOVE_CENTS = 25000;
+export function addressRequired(subtotalCents: number): boolean {
+  return subtotalCents > ADDRESS_REQUIRED_ABOVE_CENTS;
+}
+
+export type CorrectionKind = 'cancellation' | 'correction';
+
+/** One ticked order line in an item refund. grossCents = unit price x quantity, at the line's own VAT rate. */
+export interface RefundLine {
+  lineIndex: number;
+  quantity: number;
+  grossCents: number;
+  taxRateBasisPoints: number;
+}
+
+export interface OrderRefund {
+  id: string;
+  amountCents: number;
+  reason: string;
+  at: string; // ISO
+  actor: OrderActor;
+  stripeRefundId: string;
+  lines?: RefundLine[]; // present only for item refunds; absent = free amount
+  correctionNumber?: string;
+  correctionKind?: CorrectionKind;
+  correctionEmailedAt?: string; // ISO, written just before the timer emails a late correction
+}
+
+export interface PaymentReleaseFailure {
+  at: string; // ISO
+  message: string;
+  notifiedAt: string | null;
+  attempts?: number; // failed tries so far; a retry after a failure uses a new Stripe key
 }
 
 export interface LegalRevisions {
@@ -90,6 +129,13 @@ export interface Order {
   customerEmail: string;
   customerPhone: string;
   customerNotes?: string;
+  customerAddress?: CustomerAddress; // optional; required above ADDRESS_REQUIRED_ABOVE_CENTS
+  refunds?: OrderRefund[];
+  releaseFailure?: PaymentReleaseFailure; // the reservation could not be released yet
+  invoiceNumber?: string; // set once the invoice is issued
+  invoiceEmailedAt?: string; // ISO, written just before the timer emails a late invoice
+  captureStartedAt?: string; // ISO, claim written just before the money is taken
+  captureAttempts?: number; // claims written so far; a retry after a failed capture uses a new Stripe key
   anonymisedAt?: string; // ISO, set only by customer erasure
   acceptedAt?: string; // ISO, set by ACCEPTED
   readyAt?: string; // ISO, set by ACCEPTED
@@ -99,7 +145,7 @@ export interface Order {
   language?: MenuLanguage; // the diner's menu language, used for emails
   legalRevisions?: LegalRevisions; // terms/withdrawal revisions the diner was shown
   customerAccessToken?: string; // secret order-page link token; removed by erasure and export
-  idempotencyKey?: string; // cash orders only
+  idempotencyKey?: string;
   autoRejectAt?: string; // ISO, set only when the order needs manual acceptance
   escalatedAt?: string; // ISO, written just before the escalation email
   rejectionNote?: string; // staff-only, never shown to the diner

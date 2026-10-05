@@ -1,5 +1,6 @@
-import { ORDER_NOT_FOUND_ERROR } from '../../../domain/order/orderErrors';
+import { ORDER_NOT_FOUND_ERROR, PAYMENT_CONFIRMING_ERROR } from '../../../domain/order/orderErrors';
 import { accessTokenMatches } from '../../../domain/order/orderIds';
+import { findCheckoutSessionById } from '../../../infrastructure/cosmos/order/CosmosCheckoutSessionRepository';
 import { findOrderById } from '../../../infrastructure/cosmos/order/CosmosOrderRepository';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import type { ApplicationResult } from '../../_shared/types';
@@ -13,6 +14,13 @@ export async function executeGetCustomerOrder(
 ): Promise<ApplicationResult<CustomerOrderDto>> {
   try {
     const order = request.orderId ? await findOrderById(request.orderId) : null;
+    if (!order && request.orderId) {
+      // The diner has paid but Stripe has not told us yet: the checkout exists, the order does not.
+      const session = await findCheckoutSessionById(request.orderId);
+      if (session && accessTokenMatches(session.customerAccessToken, request.token)) {
+        return { ok: false, code: 'NOT_FOUND', error: PAYMENT_CONFIRMING_ERROR };
+      }
+    }
     if (!order || !accessTokenMatches(order.customerAccessToken, request.token)) {
       return { ok: false, code: 'NOT_FOUND', error: ORDER_NOT_FOUND_ERROR };
     }

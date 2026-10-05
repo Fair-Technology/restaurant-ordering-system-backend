@@ -25,7 +25,6 @@ function makeShop(overrides: any = {}) {
     slug: 'p',
     isDeleted: false,
     isPaused: false,
-    paymentPolicy: 'pay_online',
     stripe: { connectAccountId: 'acct_1', connectOnboardingStatus: 'complete' },
     createdAt: 'x',
     updatedAt: 'x',
@@ -40,25 +39,12 @@ describe('executeDisconnectStripeAccount', () => {
     (updateShop as any).mockImplementation(async (s: any) => s);
   });
 
-  it('flips a pay_online shop back to pay_in_person when Stripe is disconnected', async () => {
-    (findShopById as any).mockResolvedValue(makeShop({ paymentPolicy: 'pay_online' }));
+  it('disconnecting Stripe takes the shop offline', async () => {
+    (findShopById as any).mockResolvedValue(makeShop());
 
     const result = await executeDisconnectStripeAccount({ shopId: 'shop-1' } as any, {} as any);
 
     expect(result.ok).toBe(true);
-    expect(updateShop).toHaveBeenCalledWith(
-      expect.objectContaining({ stripe: null, paymentPolicy: 'pay_in_person', isPaused: true }),
-    );
-  });
-
-  it('leaves an already pay_in_person shop alone', async () => {
-    (findShopById as any).mockResolvedValue(makeShop({ paymentPolicy: 'pay_in_person' }));
-
-    const result = await executeDisconnectStripeAccount({ shopId: 'shop-1' } as any, {} as any);
-
-    expect(result.ok).toBe(true);
-    expect(updateShop).toHaveBeenCalledWith(
-      expect.objectContaining({ stripe: null, paymentPolicy: 'pay_in_person' }),
-    );
+    expect(updateShop).toHaveBeenCalledWith(expect.objectContaining({ stripe: null, isPaused: true }));
   });
 });

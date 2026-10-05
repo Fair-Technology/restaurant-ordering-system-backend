@@ -25,6 +25,7 @@ export interface ShopLegal {
   withdrawal: LegalText | null;
   privacyAddition: LegalText | null;
   revisions: LegalTextRevision[]; // superseded texts only, oldest first
+  taxNumber?: string; // private Steuernummer for invoices; never printed in the Impressum
 }
 
 export const EMPTY_SHOP_LEGAL: ShopLegal = {
@@ -37,6 +38,21 @@ export const EMPTY_SHOP_LEGAL: ShopLegal = {
 
 export function legalOf(shop: { legal?: ShopLegal | null }): ShopLegal {
   return shop.legal ?? structuredClone(EMPTY_SHOP_LEGAL);
+}
+
+/** The seller's tax ids as printed on invoices; '' when not set. */
+export function invoiceTaxIdsOf(shop: { legal?: ShopLegal | null }): { vatId: string; taxNumber: string } {
+  const legal = legalOf(shop);
+  return {
+    vatId: legal.impressum?.vatId?.trim() ?? '',
+    taxNumber: legal.taxNumber?.trim() ?? '',
+  };
+}
+
+/** An invoice needs a VAT ID or a tax number (section 14 UStG). */
+export function hasInvoiceTaxId(shop: { legal?: ShopLegal | null }): boolean {
+  const ids = invoiceTaxIdsOf(shop);
+  return ids.vatId !== '' || ids.taxNumber !== '';
 }
 
 /** text is trimmed first. '' → next null. Same trimmed text as current → { next: current, archived: null }.

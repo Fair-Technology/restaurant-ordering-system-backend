@@ -12,7 +12,6 @@ export interface ShopSummaryDto {
   isPaused: boolean;
   pausedMessage?: string;
   isDeactivatedDueToLimits: boolean;
-  paymentPolicy: 'pay_online' | 'pay_in_person';
   orderAcceptanceMode: string;
   currency: string;
   timezone: string;

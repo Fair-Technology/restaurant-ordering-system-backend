@@ -3,6 +3,7 @@ import type { OrderDto } from '../getOrdersByShop/dtos';
 
 export interface OrderQueueDto {
   serverTime: string;
+  timezone: string; // the restaurant's, so a tablet elsewhere shows its times correctly
   defaultPrepMinutes: Record<FulfilmentMode, number>;
   orders: OrderDto[];
 }

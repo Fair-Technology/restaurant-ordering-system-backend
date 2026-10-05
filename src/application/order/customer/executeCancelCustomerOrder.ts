@@ -2,9 +2,11 @@ import { CUSTOMER_CANCEL_REASON } from '../../../domain/order/Order';
 import { CANNOT_CANCEL_ERROR, ORDER_NOT_FOUND_ERROR } from '../../../domain/order/orderErrors';
 import { accessTokenMatches } from '../../../domain/order/orderIds';
 import { applyTransition } from '../../../domain/order/orderLifecycle';
+import { hasFreshCaptureClaim } from '../../../domain/order/payment';
 import { findOrderById } from '../../../infrastructure/cosmos/order/CosmosOrderRepository';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import type { ApplicationResult } from '../../_shared/types';
+import { releaseClosedOrderPayment } from '../_shared/releasePayment';
 import { notifyCustomer } from '../notifications/notifyOrder';
 import { transitionOrder } from '../_shared/transitionOrder';
 import type { CustomerOrderDto } from './dtos';
@@ -28,7 +30,7 @@ export async function executeCancelCustomerOrder(
       orderId: order.id,
       shopId: null, // access was proven by the token above
       change: (current) =>
-        current.state !== 'PLACED'
+        current.state !== 'PLACED' || hasFreshCaptureClaim(current, now)
           ? { ok: false, error: CANNOT_CANCEL_ERROR }
           : applyTransition(current, 'CANCELLED', {
               now,
@@ -38,8 +40,10 @@ export async function executeCancelCustomerOrder(
     });
     if (!moved.ok) return moved;
 
-    await notifyCustomer('order_cancelled', moved.order, shop);
-    return { ok: true, data: toCustomerOrderDto(moved.order, shop, now) };
+    const released = await releaseClosedOrderPayment(moved.order.id, shop, now);
+    const closed = released.order ?? moved.order;
+    await notifyCustomer('order_cancelled', closed, shop);
+    return { ok: true, data: toCustomerOrderDto(closed, shop, now) };
   } catch {
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to cancel order' };
   }

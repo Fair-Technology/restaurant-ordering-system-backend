@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { permissionsForRole } from '../../src/domain/system/RolePermissions';
+import { DEFAULT_ROLE_PERMISSIONS, permissionsForRole } from '../../src/domain/system/RolePermissions';
 
 describe('permissionsForRole', () => {
   it('owner gets every permission', () => {
     const result = permissionsForRole('owner', { manager: [], staff: [] });
-    expect(result).toHaveLength(6);
+    expect(result).toHaveLength(7);
   });
 
   it('manager with defaults', () => {
@@ -13,6 +13,11 @@ describe('permissionsForRole', () => {
       staff: ['view_orders'],
     });
     expect(result).toEqual(['view_orders', 'manage_menu', 'manage_staff', 'view_audit']);
+  });
+
+  it('managers can refund by default', () => {
+    expect(DEFAULT_ROLE_PERMISSIONS.manager).toContain('refund_orders');
+    expect(DEFAULT_ROLE_PERMISSIONS.staff).not.toContain('refund_orders');
   });
 
   it('staff with defaults', () => {
@@ -25,6 +30,6 @@ describe('permissionsForRole', () => {
 
   it('owner ignores the stored doc', () => {
     const result = permissionsForRole('owner', { manager: [], staff: [] });
-    expect(result).toHaveLength(6);
+    expect(result).toHaveLength(7);
   });
 });

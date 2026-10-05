@@ -9,6 +9,7 @@ import {
   legalOf,
   nextLegalText,
 } from '../../../domain/legal/legalTexts';
+import { TAX_NUMBER_ERROR } from '../../../domain/order/orderErrors';
 import { AuditChange } from '../../../domain/audit/AuditEntry';
 import { logAudit } from '../../_shared/auditHelpers';
 import { authorizeShopAction, toAuditActor } from '../../_shared/shopAccess';
@@ -16,6 +17,7 @@ import { ApplicationResult } from '../../_shared/types';
 import { ShopLegalSettingsDto, UpdateShopLegalBody } from '../dtos';
 import { toShopLegalSettingsDto } from '../toShopLegalSettingsDto';
 
+const TAX_NUMBER_MAX_CHARS = 30;
 const TEXT_KINDS: readonly LegalTextKind[] = ['terms', 'withdrawal', 'privacyAddition'];
 
 export async function executeUpdateShopLegal(
@@ -58,6 +60,19 @@ export async function executeUpdateShopLegal(
       }
       if (changes.length > 0 || before === null) {
         legal.impressum = { ...valid, updatedAt: nowIso, updatedBy: by } as StoredImpressum;
+      }
+    }
+
+    if (body.taxNumber !== undefined) {
+      if (typeof body.taxNumber !== 'string' || body.taxNumber.trim().length > TAX_NUMBER_MAX_CHARS) {
+        return { ok: false, code: 'INVALID_INPUT', error: TAX_NUMBER_ERROR };
+      }
+      const taxNumber = body.taxNumber.trim();
+      if (taxNumber !== (current.taxNumber ?? '')) {
+        if (taxNumber === '') delete legal.taxNumber;
+        else legal.taxNumber = taxNumber;
+        // The value itself is never written to the audit log.
+        changes.push({ field: 'taxNumber', from: null, to: null });
       }
     }
 

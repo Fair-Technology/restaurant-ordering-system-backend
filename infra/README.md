@@ -83,6 +83,55 @@ Function App. The dev app already has it.
 settings list.** Every hand-set secret and the settings above would be wiped.
 Re-apply them from the vault `.env` straight after any deployment.
 
+## Card payments and invoices
+
+Every order is paid by card. At checkout the diner's card is only **reserved**
+(Stripe "manual capture"); the money is **taken when the restaurant accepts**
+the order. If the restaurant declines, the diner cancels, or the order times
+out, the reservation is released and the diner is never charged. With
+auto-accept on (the default, per restaurant) the capture happens at once.
+
+**Invoices.** An invoice is issued when an order is accepted (card orders
+only), numbered `R-YYYY-NNNNN` with a counter per year, and emailed to the
+diner as a PDF. A refund produces a correction invoice (`R-YYYY-NNNNN` too); if
+the first refund covers the whole order it is a cancellation invoice
+(Stornorechnung). The restaurant needs a VAT ID or a tax number (Legal page)
+before it can go live, because an invoice needs one of the two.
+
+**Two refund modes** (staff, on an accepted order):
+- *Choose items*: each ticked item is refunded at its own VAT rate (a drink at
+  19 %, food at 7 %), so the correction invoice is right per rate.
+- *Enter an amount*: a goodwill refund not tied to an item; split across the
+  rates in proportion to the order.
+
+**Cosmos container.** Create it before the first deploy of the invoice code.
+The unique key on `/number` cannot be added to an existing container later:
+
+```
+az cosmosdb sql container create -g rg-restaurant-ordering-system-dev -a restaurant-ordering-system-db-dev -d restaurant-ordering-system-db -n invoices -p /shopId --unique-key-policy '{"uniqueKeys":[{"paths":["/number"]}]}'
+```
+
+(`main.bicep` lists the same container for new environments. Do not redeploy
+it to dev, see below.)
+
+**App settings.** `STOREFRONT_BASE_URL` must be the public storefront address
+(it also decides which domain is registered for Apple Pay / Google Pay on each
+restaurant's Stripe account; localhost is skipped):
+
+```
+az functionapp config appsettings set -g rg-restaurant-ordering-system-dev -n restaurant-ordering-system-dev --settings STOREFRONT_BASE_URL=https://salmon-mushroom-015326603.2.azurestaticapps.net
+```
+
+**Stripe webhook.** The Connect endpoint `/api/webhooks/stripe-connect` must
+send five events: `payment_intent.amount_capturable_updated`,
+`payment_intent.succeeded`, `payment_intent.canceled`,
+`payment_intent.payment_failed` and `account.updated`. Its signing secret is
+`STRIPE_CONNECT_WEBHOOK_SECRET`. Locally:
+
+```
+stripe listen --forward-connect-to localhost:7071/api/webhooks/stripe-connect
+```
+
 ## Two things to know
 
 **Do not deploy this to the existing dev resource group.** Dev's App Service

@@ -23,6 +23,7 @@
     "axios": "^1.20.0",
     "jose": "^6.2.12",
     "openapi": "^1.0.0",
+    "pdf-lib": "^1.17.1",
     "stripe": "^20.4.1"
   },
   "devDependencies": {

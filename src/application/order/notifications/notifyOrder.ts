@@ -2,8 +2,8 @@ import { legalOf } from '../../../domain/legal/legalTexts';
 import type { Order } from '../../../domain/order/Order';
 import { escalationRecipients } from '../../../domain/order/orderSettings';
 import type { Shop } from '../../../domain/shop/Shop';
-import { sendEmail } from '../../../infrastructure/email/emailSender';
-import { buildOrderEmail, OrderEmailKind } from './emailTemplates';
+import { EmailAttachment, sendEmail } from '../../../infrastructure/email/emailSender';
+import { AttachedDocument, buildOrderEmail, OrderEmailKind } from './emailTemplates';
 
 export function customerOrderUrl(shop: Pick<Shop, 'slug'>, order: Pick<Order, 'id' | 'customerAccessToken'>): string {
   const base = process.env.STOREFRONT_BASE_URL ?? 'http://localhost:5175';
@@ -16,9 +16,10 @@ function adminOrdersUrl(shop: Pick<Shop, 'id'>): string {
 
 /** Emails the diner about their order. Never throws: a mail problem must not undo an order. */
 export async function notifyCustomer(
-  kind: Exclude<OrderEmailKind, 'order_escalation'>,
+  kind: Exclude<OrderEmailKind, 'order_escalation' | 'payment_release_failed'>,
   order: Order,
   shop: Shop,
+  options: { attachments?: EmailAttachment[]; attachedDocument?: AttachedDocument } = {},
 ): Promise<void> {
   try {
     if (order.customerEmail === '') return; // erased customer
@@ -28,11 +29,13 @@ export async function notifyCustomer(
       shop,
       customerOrderUrl: customerOrderUrl(shop, order),
       adminOrdersUrl: adminOrdersUrl(shop),
+      attachedDocument: options.attachedDocument,
     });
     await sendEmail({
       to: [order.customerEmail],
       ...content,
       replyTo: legalOf(shop).impressum?.email?.trim() || null,
+      attachments: options.attachments,
       tag: kind,
     });
   } catch {
@@ -55,5 +58,23 @@ export async function notifyRestaurantEscalation(order: Order, shop: Shop): Prom
     await sendEmail({ to, ...content, replyTo: null, tag: 'order_escalation' });
   } catch {
     console.error('[email:error]', 'order_escalation');
+  }
+}
+
+/** Emails the restaurant that a declined order's payment could not be given back. Never throws. */
+export async function notifyRestaurantReleaseFailed(order: Order, shop: Shop): Promise<void> {
+  try {
+    const to = escalationRecipients(shop);
+    if (to.length === 0) return;
+    const content = buildOrderEmail({
+      kind: 'payment_release_failed',
+      order,
+      shop,
+      customerOrderUrl: customerOrderUrl(shop, order),
+      adminOrdersUrl: adminOrdersUrl(shop),
+    });
+    await sendEmail({ to, ...content, replyTo: null, tag: 'payment_release_failed' });
+  } catch {
+    console.error('[email:error]', 'payment_release_failed');
   }
 }

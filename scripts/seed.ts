@@ -307,7 +307,6 @@ async function seedShops(): Promise<any[]> {
       isPaused: def.key !== 'Belconnen Pizza Palace',
       // None of these seeded shops have a completed Stripe account, so none
       // of them can claim online payment — see stripeReady() in Shop.ts.
-      paymentPolicy: 'pay_in_person',
       orderAcceptanceMode: 'auto',
       currency: 'EUR',
       timezone: 'Europe/Berlin',
@@ -1054,7 +1053,6 @@ async function seedMaPasta(
     isDeleted: false,
     isPaused: true,
     // No completed Stripe account for this seeded shop either.
-    paymentPolicy: 'pay_in_person',
     orderAcceptanceMode: 'auto',
     currency: 'EUR',
     timezone: 'Europe/Berlin',

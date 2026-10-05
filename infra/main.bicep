@@ -52,6 +52,7 @@ var containers = [
   { name: 'auditLogs', pk: '/id', uniqueKeys: [] }
   { name: 'system_config', pk: '/id', uniqueKeys: [] }
   { name: 'staff_accounts', pk: '/shopId', uniqueKeys: [ '/username' ] }
+  { name: 'invoices', pk: '/shopId', uniqueKeys: [ '/number' ] }
 ]
 
 var staticApps = ['storefront', 'admin', 'superadmin']

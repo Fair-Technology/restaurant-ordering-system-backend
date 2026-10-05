@@ -4,14 +4,16 @@ import type { Shop } from '../shop/Shop';
 export interface OrderSettings {
   autoRejectMinutes: number;
   alertEmail: string | null;
+  autoAccept: boolean;
 }
 
-export const DEFAULT_ORDER_SETTINGS: OrderSettings = { autoRejectMinutes: 10, alertEmail: null };
+export const DEFAULT_ORDER_SETTINGS: OrderSettings = { autoRejectMinutes: 10, alertEmail: null, autoAccept: true };
 export const AUTO_REJECT_MIN_MINUTES = 5;
 export const AUTO_REJECT_MAX_MINUTES = 30;
 
-export function orderSettingsOf(shop: { orderSettings?: OrderSettings | null }): OrderSettings {
-  return shop.orderSettings ?? { ...DEFAULT_ORDER_SETTINGS };
+/** Defaults merged with what is stored, so a restaurant saved before auto-accept existed counts as on. */
+export function orderSettingsOf(shop: { orderSettings?: Partial<OrderSettings> | null }): OrderSettings {
+  return { ...DEFAULT_ORDER_SETTINGS, ...(shop.orderSettings ?? {}) };
 }
 
 /** Who gets the "order waiting" email: the Impressum address plus the optional alert address, without duplicates. */

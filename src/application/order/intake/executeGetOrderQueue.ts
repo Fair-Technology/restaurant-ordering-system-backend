@@ -21,6 +21,7 @@ export async function executeGetOrderQueue(
       ok: true,
       data: {
         serverTime: now.toISOString(),
+        timezone: loaded.shop.timezone,
         defaultPrepMinutes: { ...DEFAULT_PREP_MINUTES },
         orders: orders.map((o) => toOrderDto(o, now)),
       },

@@ -1,4 +1,3 @@
-import Stripe from 'stripe';
 import { EMAIL_PATTERN } from '../../../domain/legal/impressum';
 import { LEGAL_PACK_INCOMPLETE_ERROR, isLegalPackComplete } from '../../../domain/legal/legalReadiness';
 import { legalOf } from '../../../domain/legal/legalTexts';
@@ -7,53 +6,56 @@ import { CheckoutSession } from '../../../domain/order/CheckoutSession';
 import { ORDER_MODE_UNAVAILABLE_ERROR, ORDERABLE_MODES } from '../../../domain/order/fulfilment';
 import { isOpenForAsapOrder } from '../../../domain/order/openingHours';
 import {
+  ADDRESS_INVALID_ERROR,
+  ADDRESS_REQUIRED_ERROR,
   BASKET_CHANGED_ERROR,
   IDEMPOTENCY_KEY_ERROR,
   LEGAL_CHANGED_ERROR,
   NO_PAYMENT_SETUP_ERROR,
-  PAYMENT_METHOD_NOT_OFFERED_ERROR,
+  PAYMENT_METHOD_ERROR,
   SHOP_CLOSED_ERROR,
 } from '../../../domain/order/orderErrors';
 import {
-  IDEMPOTENCY_KEY_PATTERN,
-  generateAccessToken,
-  orderIdForIdempotencyKey,
-} from '../../../domain/order/orderIds';
-import { orderSettingsOf } from '../../../domain/order/orderSettings';
+  addressRequired,
+  CustomerAddress,
+  DEFAULT_PREP_MINUTES,
+  FULFILMENT_MODES,
+  LegalRevisions,
+  PaymentMethod,
+} from '../../../domain/order/Order';
+import { generateAccessToken, IDEMPOTENCY_KEY_PATTERN, orderIdForIdempotencyKey } from '../../../domain/order/orderIds';
 import { generateOrderRef } from '../../../domain/order/orderRef';
-import { DEFAULT_PREP_MINUTES, FULFILMENT_MODES, LegalRevisions, Order, PaymentMethod } from '../../../domain/order/Order';
 import { offeredPaymentMethods } from '../../../domain/order/paymentMethods';
-import { createCheckoutSession } from '../../../infrastructure/cosmos/order/CosmosCheckoutSessionRepository';
-import { createOrder, findOrderById } from '../../../infrastructure/cosmos/order/CosmosOrderRepository';
+import {
+  findCheckoutSessionById,
+  upsertCheckoutSession,
+} from '../../../infrastructure/cosmos/order/CosmosCheckoutSessionRepository';
+import { findOrderById } from '../../../infrastructure/cosmos/order/CosmosOrderRepository';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
+import { createPaymentIntent, isStripeIdempotencyError } from '../../../infrastructure/stripe/stripeClient';
 import { ApplicationResult } from '../../_shared/types';
 import { loadPricingContext } from '../_shared/loadPricingContext';
 import { priceBasket, validateBasketItems } from '../_shared/priceBasket';
-import { notifyCustomer } from '../notifications/notifyOrder';
-import { CashCheckoutResultDto, CheckoutRequestDto, CheckoutResultDto } from './dtos';
+import { CheckoutRequestDto, CheckoutResultDto } from './dtos';
 
 const MAX_NAME_CHARS = 200;
 const MAX_NOTES_CHARS = 500;
 
-function getStripe(): Stripe {
-  const key = process.env.STRIPE_SECRET_KEY;
-  if (!key) {
-    throw new Error('STRIPE_SECRET_KEY is not configured');
-  }
-  return new Stripe(key);
-}
+const MAX_ADDRESS_FIELD_CHARS = 200;
 
-function toCashResult(order: Order): CashCheckoutResultDto {
-  return {
-    kind: 'cash',
-    orderId: order.id,
-    orderRef: order.orderRef,
-    accessToken: order.customerAccessToken ?? '',
-    subtotalCents: order.subtotalCents,
-    currency: order.currency,
-    state: 'PLACED',
-    autoRejectAt: order.autoRejectAt ?? '',
-  };
+/** The trimmed address, or null when it is not an object with four non-empty fields of at most 200 characters. */
+function cleanAddress(value: unknown): CustomerAddress | null {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return null;
+  const raw = value as Record<string, unknown>;
+  const out: Record<string, string> = {};
+  for (const field of ['street', 'postcode', 'city', 'country']) {
+    const v = raw[field];
+    if (typeof v !== 'string') return null;
+    const trimmed = v.trim();
+    if (trimmed === '' || trimmed.length > MAX_ADDRESS_FIELD_CHARS) return null;
+    out[field] = trimmed;
+  }
+  return out as unknown as CustomerAddress;
 }
 
 function isWholeNumber(n: unknown): n is number {
@@ -91,8 +93,8 @@ export async function executeCheckout(
       return { ok: false, code: 'INVALID_INPUT', error: `customerNotes must be at most ${MAX_NOTES_CHARS} characters` };
     }
   }
-  if (request.paymentMethod !== undefined && request.paymentMethod !== 'cash' && request.paymentMethod !== 'card') {
-    return { ok: false, code: 'INVALID_INPUT', error: 'paymentMethod must be cash or card' };
+  if (request.paymentMethod !== undefined && request.paymentMethod !== 'card') {
+    return { ok: false, code: 'INVALID_INPUT', error: PAYMENT_METHOD_ERROR };
   }
   const requestedRevisions = request.legalRevisions;
   if (
@@ -105,8 +107,15 @@ export async function executeCheckout(
     return { ok: false, code: 'INVALID_INPUT', error: 'legalRevisions must have whole-number terms and withdrawal' };
   }
   const method: PaymentMethod = request.paymentMethod ?? 'card';
-  if (method === 'cash' && (typeof request.idempotencyKey !== 'string' || !IDEMPOTENCY_KEY_PATTERN.test(request.idempotencyKey))) {
+  if (typeof request.idempotencyKey !== 'string' || !IDEMPOTENCY_KEY_PATTERN.test(request.idempotencyKey)) {
     return { ok: false, code: 'INVALID_INPUT', error: IDEMPOTENCY_KEY_ERROR };
+  }
+  const idempotencyKey = request.idempotencyKey;
+  let customerAddress: CustomerAddress | undefined;
+  if (request.customerAddress !== undefined && request.customerAddress !== null) {
+    const cleaned = cleanAddress(request.customerAddress);
+    if (!cleaned) return { ok: false, code: 'INVALID_INPUT', error: ADDRESS_INVALID_ERROR };
+    customerAddress = cleaned;
   }
 
   const mode = request.fulfilmentMode ?? 'collection';
@@ -144,15 +153,24 @@ export async function executeCheckout(
       return { ok: false, code: 'INVALID_INPUT', error: NO_PAYMENT_SETUP_ERROR };
     }
     if (!offered.includes(method)) {
-      return { ok: false, code: 'INVALID_INPUT', error: PAYMENT_METHOD_NOT_OFFERED_ERROR };
+      return { ok: false, code: 'INVALID_INPUT', error: PAYMENT_METHOD_ERROR };
     }
 
-    // --- A repeated cash submit (double click, retry) returns the order it already made ---
-    let cashOrderId: string | null = null;
-    if (method === 'cash') {
-      cashOrderId = orderIdForIdempotencyKey(shop.id, request.idempotencyKey as string);
-      const existing = await findOrderById(cashOrderId);
-      if (existing) return { ok: true, data: toCashResult(existing) };
+    // --- A repeated submit (double click, retry) whose order already exists returns that order ---
+    const sessionId = orderIdForIdempotencyKey(shop.id, idempotencyKey);
+    const existing = await findOrderById(sessionId);
+    if (existing) {
+      return {
+        ok: true,
+        data: {
+          kind: 'placed',
+          orderId: existing.id,
+          orderRef: existing.orderRef,
+          accessToken: existing.customerAccessToken ?? '',
+          subtotalCents: existing.subtotalCents,
+          currency: existing.currency,
+        },
+      };
     }
 
     // --- The diner must have seen the terms that are in force now ---
@@ -191,62 +209,35 @@ export async function executeCheckout(
       };
     }
 
-    const at = now.toISOString();
-
-    // --- Cash: the order is placed now and waits for the restaurant to accept it ---
-    if (method === 'cash') {
-      const autoRejectAt = new Date(now.getTime() + orderSettingsOf(shop).autoRejectMinutes * 60_000).toISOString();
-      const order: Order = {
-        id: cashOrderId as string,
-        shopId: shop.id,
-        orderRef: generateOrderRef(),
-        state: 'PLACED',
-        fulfilmentMode: mode,
-        payment: { method: 'cash', status: 'cash_due', stripePaymentIntentId: null },
-        items: orderItems,
-        subtotalCents,
-        currency: shop.currency,
-        customerName: request.customerName,
-        customerEmail: request.customerEmail,
-        customerPhone: request.customerPhone,
-        ...(request.customerNotes ? { customerNotes: request.customerNotes } : {}),
-        taxBreakdown,
-        language,
-        legalRevisions: current,
-        customerAccessToken: generateAccessToken(),
-        idempotencyKey: request.idempotencyKey,
-        autoRejectAt,
-        history: [{ from: null, to: 'PLACED', at, actor: { type: 'customer' } }],
-        createdAt: at,
-        updatedAt: at,
-      };
-      try {
-        await createOrder(order);
-      } catch (error: any) {
-        if (error?.code !== 409) throw error;
-        // A concurrent submit with the same key won the race: hand back its order.
-        const winner = await findOrderById(order.id);
-        if (!winner) throw error;
-        return { ok: true, data: toCashResult(winner) };
-      }
-      await notifyCustomer('order_received', order, shop);
-      return { ok: true, data: toCashResult(order) };
+    if (addressRequired(subtotalCents) && !customerAddress) {
+      return { ok: false, code: 'INVALID_INPUT', error: ADDRESS_REQUIRED_ERROR };
     }
 
-    // --- Card: create Stripe PaymentIntent ---
-    const sessionId = crypto.randomUUID();
-    const stripe = getStripe();
+    const at = now.toISOString();
+    const connectAccountId = shop.stripe!.connectAccountId!;
 
-    const paymentIntent = await stripe.paymentIntents.create(
-      {
-        amount: subtotalCents,
-        currency: shop.currency.toLowerCase(),
-        metadata: { sessionId, shopId: shop.id },
-      },
-      { stripeAccount: shop.stripe!.connectAccountId! },
-    );
+    // --- Card: reserve the money on the restaurant's account. A repeated submit reuses its payment, ref and link. ---
+    const prior = await findCheckoutSessionById(sessionId);
+    const orderRef = prior?.orderRef ?? generateOrderRef();
+    const accessToken = prior?.customerAccessToken ?? generateAccessToken();
+    let paymentIntent: { id: string; clientSecret: string | null };
+    try {
+      paymentIntent = await createPaymentIntent({
+        connectAccountId,
+        amountCents: subtotalCents,
+        currency: shop.currency,
+        description: `${shop.name} ${orderRef}`,
+        orderRef,
+        sessionId,
+        idempotencyKey: `checkout-${sessionId}`,
+      });
+    } catch (err: unknown) {
+      // Same key, different payment details: the basket is no longer the one the first submit paid for.
+      if (isStripeIdempotencyError(err)) return { ok: false, code: 'CONFLICT', error: BASKET_CHANGED_ERROR };
+      throw err;
+    }
 
-    // --- Persist checkout session (no Order created until payment succeeds) ---
+    // --- Keep the checkout (no order exists until Stripe confirms the reservation). A declined card keeps it. ---
     const session: CheckoutSession = {
       id: sessionId,
       shopId: shop.id,
@@ -255,28 +246,33 @@ export async function executeCheckout(
       subtotalCents,
       currency: shop.currency,
       customerName: request.customerName,
-      customerEmail: request.customerEmail,
+      customerEmail: request.customerEmail.trim(),
       customerPhone: request.customerPhone,
       customerNotes: request.customerNotes,
+      ...(customerAddress ? { customerAddress } : {}),
       fulfilmentMode: mode,
       taxBreakdown,
       language,
       legalRevisions: requestedRevisions ?? current,
-      createdAt: at,
+      customerAccessToken: accessToken,
+      idempotencyKey,
+      orderRef,
+      createdAt: prior?.createdAt ?? at,
       ttl: 3600,
     };
-
-    await createCheckoutSession(session);
+    await upsertCheckoutSession(session);
 
     return {
       ok: true,
       data: {
         kind: 'card',
         sessionId,
-        clientSecret: paymentIntent.client_secret!,
+        orderId: sessionId,
+        accessToken,
+        clientSecret: paymentIntent.clientSecret!,
         subtotalCents,
         currency: shop.currency,
-        stripeConnectAccountId: shop.stripe!.connectAccountId!,
+        stripeConnectAccountId: connectAccountId,
       },
     };
   } catch (error: any) {

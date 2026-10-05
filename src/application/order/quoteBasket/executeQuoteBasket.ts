@@ -1,7 +1,7 @@
 import { menuLanguagesOf, resolveMenuLanguage } from '../../../domain/menu/menuLanguage';
 import { ORDER_MODE_UNAVAILABLE_ERROR, ORDERABLE_MODES } from '../../../domain/order/fulfilment';
 import { isOpenForAsapOrder } from '../../../domain/order/openingHours';
-import { DEFAULT_PREP_MINUTES, FULFILMENT_MODES } from '../../../domain/order/Order';
+import { addressRequired, DEFAULT_PREP_MINUTES, FULFILMENT_MODES } from '../../../domain/order/Order';
 import { offeredPaymentMethods } from '../../../domain/order/paymentMethods';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { ApplicationResult } from '../../_shared/types';
@@ -66,6 +66,7 @@ export async function executeQuoteBasket(
         belowMinimum: priced.subtotalCents < shop.minOrderAmountCents,
         openNow: isOpenForAsapOrder(shop.openingHours, shop.closures, shop.timezone, now, prepMinutes),
         paymentMethods: offeredPaymentMethods(shop),
+        addressRequired: addressRequired(priced.subtotalCents),
         prepMinutes,
       },
     };

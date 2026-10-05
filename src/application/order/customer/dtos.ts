@@ -1,11 +1,11 @@
 import type {
   FulfilmentMode,
   OrderState,
-  PaymentMethod,
-  PaymentStatus,
+  DisplayPaymentStatus,
   RejectReason,
   StoredOrderState,
 } from '../../../domain/order/Order';
+import type { OrderDocumentDto } from '../invoices/issueInvoice';
 import type { MenuLanguage } from '../../../domain/reference/ReferenceLists';
 
 export interface CustomerOrderTokenBody {
@@ -23,8 +23,9 @@ export interface CustomerOrderDto {
   state: StoredOrderState;
   displayState: OrderState;
   fulfilmentMode: FulfilmentMode;
-  paymentMethod: PaymentMethod;
-  paymentStatus: PaymentStatus;
+  paymentStatus: DisplayPaymentStatus;
+  refundedCents: number;
+  documents: OrderDocumentDto[];
   readyAt: string | null;
   items: Array<{
     productName: string;

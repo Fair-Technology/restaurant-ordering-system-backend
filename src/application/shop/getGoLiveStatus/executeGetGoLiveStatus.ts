@@ -16,6 +16,7 @@ import {
 import { Shop, stripeReady } from '../../../domain/shop/Shop';
 import { isOnMenu } from '../../../domain/product/Product';
 import { legalCriteria } from '../../../domain/legal/legalReadiness';
+import { hasInvoiceTaxId } from '../../../domain/legal/legalTexts';
 import { PlatformLegalIdentity } from '../../../domain/legal/PlatformLegalIdentity';
 import { getPlatformLegalIdentity } from '../../../infrastructure/cosmos/system/CosmosPlatformLegalIdentityRepository';
 
@@ -37,18 +38,18 @@ function buildCriteria(
     (slots) => Array.isArray(slots) && slots.length > 0,
   );
 
-  // Stripe is only required when the shop wants online payment — a shop set
-  // to pay_in_person can go live with no Stripe at all. Keep the criterion
+  // Every order is paid by card, so Stripe is always required. Keep the criterion
   // key (stripe_connected) stable since the admin UI links out to Stripe on it.
-  const stripeOrNotNeeded = shop.paymentPolicy === 'pay_in_person' || stripeReady(shop);
+  const stripeOk = stripeReady(shop);
+  const taxIdOk = hasInvoiceTaxId(shop);
 
   return [
     {
       key: 'stripe_connected',
-      met: stripeOrNotNeeded,
-      description: stripeOrNotNeeded
+      met: stripeOk,
+      description: stripeOk
         ? 'Stripe payments onboarding is complete'
-        : 'Online payment needs Stripe set up — finish Stripe or switch to payment in person',
+        : 'Connect Stripe — every order is paid online',
     },
     {
       key: 'has_products',
@@ -76,6 +77,13 @@ function buildCriteria(
       description: 'Opening hours are configured for at least one day',
     },
     ...legalCriteria(shop, identity),
+    {
+      key: 'invoice_tax_id',
+      met: taxIdOk,
+      description: taxIdOk
+        ? 'Tax number or VAT ID for invoices is set'
+        : 'Enter a tax number (Steuernummer) or VAT ID for invoices (Legal → Impressum)',
+    },
   ];
 }
 

@@ -4,6 +4,7 @@ import {
   findShopById,
   updateShop,
 } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
+import { registerStorefrontDomain } from '../_shared/registerStorefrontDomain';
 import { authorizeShopAction } from '../../_shared/shopAccess';
 import { ApplicationResult } from '../../_shared/types';
 import {
@@ -66,6 +67,9 @@ export async function executeCreateStripeAccountSession(
         updatedAt: new Date().toISOString(),
       });
     }
+
+    // Apple Pay / Google Pay need the storefront domain on the restaurant's account (once; no-op if present).
+    await registerStorefrontDomain(shop.stripe!.connectAccountId!);
 
     // Pick the right Stripe component based on purpose
     const purpose = request.purpose ?? 'onboarding';

@@ -38,7 +38,6 @@ export async function executeGetShopBySlug(
       isDeleted: shop.isDeleted,
       isPaused: shop.isPaused,
       pausedMessage: shop.pausedMessage,
-      paymentPolicy: shop.paymentPolicy,
       orderAcceptanceMode: shop.orderAcceptanceMode,
       currency: shop.currency,
       timezone: shop.timezone,

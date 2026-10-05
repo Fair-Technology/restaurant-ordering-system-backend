@@ -11,26 +11,18 @@ import { ApplicationResult } from '../../_shared/types';
 import { diffFields, logAudit } from '../../_shared/auditHelpers';
 import { Shop, stripeReady } from '../../../domain/shop/Shop';
 import { validateAccentColor } from '../../_shared/contrast';
+import { GO_LIVE_STRIPE_ERROR, GO_LIVE_TAX_ID_ERROR } from '../../../domain/order/orderErrors';
 import { menuLanguagesOf, validateMenuLanguagesChange } from '../../../domain/menu/menuLanguage';
 import { MenuLanguage } from '../../../domain/reference/ReferenceLists';
 import { isOnMenu } from '../../../domain/product/Product';
 import { LEGAL_GO_LIVE_ERRORS, legalCriteria } from '../../../domain/legal/legalReadiness';
+import { hasInvoiceTaxId } from '../../../domain/legal/legalTexts';
 import { getPlatformLegalIdentity } from '../../../infrastructure/cosmos/system/CosmosPlatformLegalIdentityRepository';
 
-const VALID_PAYMENT_POLICIES = ['pay_online', 'pay_in_person'] as const;
-
-// `resultingPolicy` is the payment policy the shop will have AFTER this
-// update is applied (the request's value if it sets one, else the shop's
-// current value) — Stripe is only required when that resulting policy is
-// pay_online, never for pay_in_person. This lets a single request both
-// switch to pay_in_person and unpause in one call.
-async function validateGoLiveCriteria(
-  shop: Shop,
-  resultingPolicy: Shop['paymentPolicy'],
-): Promise<string | null> {
+async function validateGoLiveCriteria(shop: Shop): Promise<string | null> {
   const addr = shop.address ?? {};
-  if (resultingPolicy === 'pay_online' && !stripeReady(shop)) {
-    return 'Stripe payments onboarding is not complete';
+  if (!stripeReady(shop)) {
+    return GO_LIVE_STRIPE_ERROR;
   }
   if (!shop.name?.trim()) {
     return 'Shop name is required';
@@ -63,6 +55,8 @@ async function validateGoLiveCriteria(
   const identity = await getPlatformLegalIdentity();
   const unmetLegal = legalCriteria(shop, identity).find((c) => !c.met);
   if (unmetLegal) return LEGAL_GO_LIVE_ERRORS[unmetLegal.key];
+  // Every order gets an invoice, and an invoice needs the seller's VAT ID or tax number.
+  if (!hasInvoiceTaxId(shop)) return GO_LIVE_TAX_ID_ERROR;
   return null;
 }
 
@@ -149,17 +143,6 @@ export async function executeUpdateShop(
     }
   }
 
-  if (
-    request.paymentPolicy !== undefined &&
-    !VALID_PAYMENT_POLICIES.includes(request.paymentPolicy)
-  ) {
-    return {
-      ok: false,
-      code: 'INVALID_INPUT',
-      error: "paymentPolicy must be 'pay_online' or 'pay_in_person'",
-    };
-  }
-
   try {
     const shop = await findShopById(request.shopId.trim());
 
@@ -173,14 +156,6 @@ export async function executeUpdateShop(
 
     const access = await authorizeShopAction(httpRequest, shop, 'manage_shop');
     if (!access.ok) return access;
-
-    if (request.paymentPolicy === 'pay_online' && !stripeReady(shop)) {
-      return {
-        ok: false,
-        code: 'INVALID_INPUT',
-        error: 'Set up Stripe payments before offering online payment',
-      };
-    }
 
     let nextLanguages: MenuLanguage[] | undefined;
     if (request.menuLanguages !== undefined) {
@@ -196,8 +171,7 @@ export async function executeUpdateShop(
     // re-checking then would block the save (e.g. after a new DPA version) while
     // the shop stays online anyway.
     if (request.isPaused === false && shop.isPaused !== false) {
-      const resultingPolicy = request.paymentPolicy ?? shop.paymentPolicy;
-      const criteriaError = await validateGoLiveCriteria(shop, resultingPolicy);
+      const criteriaError = await validateGoLiveCriteria(shop);
       if (criteriaError) {
         return { ok: false, code: 'INVALID_INPUT', error: criteriaError };
       }
@@ -209,9 +183,6 @@ export async function executeUpdateShop(
       ...(request.isPaused !== undefined && { isPaused: request.isPaused }),
       ...(request.pausedMessage !== undefined && {
         pausedMessage: request.pausedMessage,
-      }),
-      ...(request.paymentPolicy !== undefined && {
-        paymentPolicy: request.paymentPolicy,
       }),
       ...(request.minOrderAmountCents !== undefined && {
         minOrderAmountCents: request.minOrderAmountCents,
