@@ -48,41 +48,11 @@ describe('executeCreateShop payment policy', () => {
     (createShopInRepo as any).mockImplementation(async (s: any) => s);
   });
 
-  it('defaults to pay_in_person when paymentPolicy is omitted', async () => {
-    const result = await executeCreateShop(baseRequest(), {} as any);
-
-    expect(result.ok).toBe(true);
-    expect(createShopInRepo).toHaveBeenCalledWith(
-      expect.objectContaining({ paymentPolicy: 'pay_in_person' }),
-    );
-  });
-
-  it('coerces a requested pay_online to pay_in_person — a new shop never has Stripe yet', async () => {
-    const result = await executeCreateShop(baseRequest({ paymentPolicy: 'pay_online' }), {} as any);
-
-    expect(result.ok).toBe(true);
-    expect(createShopInRepo).toHaveBeenCalledWith(
-      expect.objectContaining({ paymentPolicy: 'pay_in_person' }),
-    );
-  });
-
-  it('accepts an explicit pay_in_person', async () => {
+  it('ignores a paymentPolicy sent by an older admin', async () => {
     const result = await executeCreateShop(baseRequest({ paymentPolicy: 'pay_in_person' }), {} as any);
 
     expect(result.ok).toBe(true);
-    expect(createShopInRepo).toHaveBeenCalledWith(
-      expect.objectContaining({ paymentPolicy: 'pay_in_person' }),
-    );
-  });
-
-  it('rejects an invalid paymentPolicy value', async () => {
-    const result = await executeCreateShop(baseRequest({ paymentPolicy: 'bitcoin' }), {} as any);
-
-    expect(result).toEqual({
-      ok: false,
-      code: 'INVALID_INPUT',
-      error: "paymentPolicy must be 'pay_online' or 'pay_in_person'",
-    });
+    expect(createShopInRepo).toHaveBeenCalledWith(expect.not.objectContaining({ paymentPolicy: expect.anything() }));
   });
 });
 

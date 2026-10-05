@@ -35,16 +35,39 @@ describe('executeUpdateOrderSettings', () => {
       http,
     );
     expect(updateShop).toHaveBeenCalledWith(
-      expect.objectContaining({ orderSettings: { autoRejectMinutes: 15, alertEmail: 'Boss@MaPasta.example' } }),
+      expect.objectContaining({ orderSettings: { autoRejectMinutes: 15, alertEmail: 'Boss@MaPasta.example', autoAccept: true } }),
     );
     expect(logAudit).toHaveBeenCalledWith(expect.objectContaining({ action: 'shop.order_settings_update' }));
     expect(JSON.stringify((logAudit as any).mock.calls)).not.toContain('MaPasta.example');
-    expect(res).toEqual({ ok: true, data: { autoRejectMinutes: 15, alertEmail: 'Boss@MaPasta.example' } });
+    expect(res).toEqual({ ok: true, data: { autoRejectMinutes: 15, alertEmail: 'Boss@MaPasta.example', autoAccept: true } });
   });
 
   it('blank email clears it', async () => {
     const res = await executeUpdateOrderSettings({ shopId: 'shop-1', body: { autoRejectMinutes: 10, alertEmail: '' } }, http);
-    expect(res).toEqual({ ok: true, data: { autoRejectMinutes: 10, alertEmail: null } });
+    expect(res).toEqual({ ok: true, data: { autoRejectMinutes: 10, alertEmail: null, autoAccept: true } });
+  });
+
+  it('switches auto-accept off', async () => {
+    const res = await executeUpdateOrderSettings(
+      { shopId: 'shop-1', body: { autoRejectMinutes: 10, alertEmail: null, autoAccept: false } },
+      http,
+    );
+    expect(res).toEqual({ ok: true, data: { autoRejectMinutes: 10, alertEmail: null, autoAccept: false } });
+    expect(updateShop).toHaveBeenCalledWith(expect.objectContaining({ orderSettings: expect.objectContaining({ autoAccept: false }) }));
+    expect(logAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        changes: expect.arrayContaining([{ field: 'autoAccept', from: true, to: false }]),
+      }),
+    );
+  });
+
+  it('refuses a non-boolean auto-accept', async () => {
+    const res = await executeUpdateOrderSettings(
+      { shopId: 'shop-1', body: { autoRejectMinutes: 10, alertEmail: null, autoAccept: 'no' as any } },
+      http,
+    );
+    expect(res).toEqual({ ok: false, code: 'INVALID_INPUT', error: 'autoAccept must be true or false' });
+    expect(updateShop).not.toHaveBeenCalled();
   });
 
   it('refuses 4 minutes', async () => {

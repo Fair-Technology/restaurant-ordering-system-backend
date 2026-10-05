@@ -28,6 +28,7 @@ import { findShopById, updateShop } from '../../../src/infrastructure/cosmos/sho
 import { findProductsByShopId } from '../../../src/infrastructure/cosmos/product/CosmosProductRepository';
 import { findCategoriesByShopId } from '../../../src/infrastructure/cosmos/category/CosmosCategoryRepository';
 import { ACCEPTED_DPA, COMPLETE_LEGAL } from '../../fixtures/legal';
+import { GO_LIVE_TAX_ID_ERROR } from '../../../src/domain/order/orderErrors';
 import { executeUpdateShop } from '../../../src/application/shop/updateShop/executeUpdateShop';
 
 const ownerAccess = {
@@ -80,15 +81,14 @@ describe('executeUpdateShop menu languages', () => {
   });
 });
 
-describe('executeUpdateShop payment policy / go-live', () => {
+describe('executeUpdateShop go-live', () => {
   function makeGoLiveReadyShop(overrides: any = {}) {
     return makeShop({
       name: 'Pizzeria',
       address: { street: 'Main St 1', city: 'Berlin', state: 'Berlin', postcode: '10115', country: 'Germany' },
       branding: { logoUrl: 'https://cdn.example.com/logo.png', heroImageUrl: null, accentColor: null },
       openingHours: { mon: [{ open: '09:00', close: '17:00' }] },
-      paymentPolicy: 'pay_in_person',
-      stripe: null,
+      stripe: { connectAccountId: 'acct_1', connectOnboardingStatus: 'complete' },
       legal: COMPLETE_LEGAL,
       dpaAcceptance: ACCEPTED_DPA,
       ...overrides,
@@ -99,19 +99,6 @@ describe('executeUpdateShop payment policy / go-live', () => {
     vi.clearAllMocks();
     (authorizeShopAction as any).mockResolvedValue(ownerAccess);
     (updateShop as any).mockImplementation(async (s: any) => s);
-  });
-
-  it('allows going live on pay_in_person with no Stripe set up', async () => {
-    (findShopById as any).mockResolvedValue(makeGoLiveReadyShop());
-
-    (findProductsByShopId as any).mockResolvedValue([
-      { isAvailable: true, isDeleted: false, allergenIds: [], additiveIds: [] },
-    ]);
-    (findCategoriesByShopId as any).mockResolvedValue([{ isDeleted: false }]);
-
-    const result = await executeUpdateShop({ shopId: 'shop-1', isPaused: false } as any, {} as any);
-
-    expect(result.ok).toBe(true);
   });
 
   it('refuses to go live again while only an outdated DPA version is accepted', async () => {
@@ -180,14 +167,16 @@ describe('executeUpdateShop payment policy / go-live', () => {
 
     expect(result.ok).toBe(true);
   });
-
-  it('refuses to go live on pay_online without completed Stripe onboarding', async () => {
-    (findShopById as any).mockResolvedValue(makeGoLiveReadyShop({ paymentPolicy: 'pay_online', stripe: null }));
-
+  const READY_CATALOG = () => {
     (findProductsByShopId as any).mockResolvedValue([
       { isAvailable: true, isDeleted: false, allergenIds: [], additiveIds: [] },
     ]);
     (findCategoriesByShopId as any).mockResolvedValue([{ isDeleted: false }]);
+  };
+
+  it('refuses to go live without completed Stripe onboarding', async () => {
+    (findShopById as any).mockResolvedValue(makeGoLiveReadyShop({ stripe: null }));
+    READY_CATALOG();
 
     const result = await executeUpdateShop({ shopId: 'shop-1', isPaused: false } as any, {} as any);
 
@@ -198,68 +187,40 @@ describe('executeUpdateShop payment policy / go-live', () => {
     });
   });
 
-  it('allows switching to pay_in_person and unpausing in the same request, with no Stripe', async () => {
-    (findShopById as any).mockResolvedValue(
-      makeGoLiveReadyShop({ paymentPolicy: 'pay_online', stripe: null, isPaused: true }),
-    );
-
-    (findProductsByShopId as any).mockResolvedValue([
-      { isAvailable: true, isDeleted: false, allergenIds: [], additiveIds: [] },
-    ]);
-    (findCategoriesByShopId as any).mockResolvedValue([{ isDeleted: false }]);
-
-    const result = await executeUpdateShop(
-      { shopId: 'shop-1', isPaused: false, paymentPolicy: 'pay_in_person' } as any,
-      {} as any,
-    );
-
-    expect(result.ok).toBe(true);
-    expect(updateShop).toHaveBeenCalledWith(
-      expect.objectContaining({ paymentPolicy: 'pay_in_person', isPaused: false }),
-    );
-  });
-
-  it('rejects switching to pay_online while Stripe is not ready', async () => {
-    (findShopById as any).mockResolvedValue(makeGoLiveReadyShop({ paymentPolicy: 'pay_in_person', stripe: null }));
-
-    const result = await executeUpdateShop(
-      { shopId: 'shop-1', paymentPolicy: 'pay_online' } as any,
-      {} as any,
-    );
-
-    expect(result).toEqual({
-      ok: false,
-      code: 'INVALID_INPUT',
-      error: 'Set up Stripe payments before offering online payment',
-    });
-  });
-
-  it('allows switching to pay_online once Stripe onboarding is complete', async () => {
+  it('refuses to go live without a tax number or VAT ID', async () => {
     (findShopById as any).mockResolvedValue(
       makeGoLiveReadyShop({
-        paymentPolicy: 'pay_in_person',
-        stripe: { connectAccountId: 'acct_1', connectOnboardingStatus: 'complete' },
+        legal: { ...COMPLETE_LEGAL, impressum: { ...COMPLETE_LEGAL.impressum!, vatId: '' } },
       }),
     );
+    READY_CATALOG();
 
-    const result = await executeUpdateShop(
-      { shopId: 'shop-1', paymentPolicy: 'pay_online' } as any,
-      {} as any,
-    );
+    const result = await executeUpdateShop({ shopId: 'shop-1', isPaused: false } as any, {} as any);
 
-    expect(result.ok).toBe(true);
-    expect(updateShop).toHaveBeenCalledWith(expect.objectContaining({ paymentPolicy: 'pay_online' }));
+    expect(result).toEqual({ ok: false, code: 'INVALID_INPUT', error: GO_LIVE_TAX_ID_ERROR });
+    expect(updateShop).not.toHaveBeenCalled();
   });
 
-  it('rejects an invalid paymentPolicy value', async () => {
+  it('goes live with Stripe connected and a tax ID set', async () => {
+    (findShopById as any).mockResolvedValue(
+      makeGoLiveReadyShop({
+        legal: { ...COMPLETE_LEGAL, impressum: { ...COMPLETE_LEGAL.impressum!, vatId: '' }, taxNumber: '045/123/45678' },
+      }),
+    );
+    READY_CATALOG();
+
+    const result = await executeUpdateShop({ shopId: 'shop-1', isPaused: false } as any, {} as any);
+
+    expect(result.ok).toBe(true);
+    expect(updateShop).toHaveBeenCalledWith(expect.objectContaining({ isPaused: false }));
+  });
+
+  it('ignores a paymentPolicy sent by an older admin', async () => {
     (findShopById as any).mockResolvedValue(makeGoLiveReadyShop());
 
     const result = await executeUpdateShop({ shopId: 'shop-1', paymentPolicy: 'bitcoin' } as any, {} as any);
 
-    expect(result).toEqual({
-      ok: false,
-      code: 'INVALID_INPUT',
-      error: "paymentPolicy must be 'pay_online' or 'pay_in_person'",
-    });
+    expect(result.ok).toBe(true);
+    expect(updateShop).toHaveBeenCalledWith(expect.not.objectContaining({ paymentPolicy: expect.anything() }));
   });
 });

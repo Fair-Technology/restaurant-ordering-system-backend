@@ -851,6 +851,114 @@ export const swaggerSpec = {
         security: [{ bearerAuth: [] }],
       },
     },
+    '/shops/{shopId}/orders/{orderId}/refunds': {
+      post: {
+        summary: 'Refund an accepted order',
+        operationId: 'refundOrder',
+        tags: ['Orders'],
+        description:
+          'Refunds money already taken for an accepted card order. Send either items (the ticked units, each refunded at its own VAT rate) or amountCents (a free amount, split across the VAT rates in proportion), never both. The reason is internal and never emailed. The diner gets a correction invoice (a cancellation invoice when the first refund covers everything) with the refund email. Needs the refund_orders permission.',
+        parameters: [
+          { name: 'shopId', in: 'path', required: true, schema: { type: 'string' }, description: 'Shop ID' },
+          { name: 'orderId', in: 'path', required: true, schema: { type: 'string' }, description: 'Order ID' },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['reason'],
+                properties: {
+                  items: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      required: ['lineIndex', 'quantity'],
+                      properties: {
+                        lineIndex: { type: 'integer', minimum: 0, example: 1 },
+                        quantity: { type: 'integer', minimum: 1, example: 1 },
+                      },
+                    },
+                  },
+                  amountCents: { type: 'integer', minimum: 1, example: 300 },
+                  reason: { type: 'string', minLength: 1, maxLength: 200, example: 'Cold food' },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Refund recorded; returns the updated order',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/OrderResponse' } } },
+          },
+          '400': { $ref: '#/components/responses/BadRequest' },
+          '403': { $ref: '#/components/responses/Forbidden' },
+          '404': { $ref: '#/components/responses/NotFound' },
+          '409': { description: 'The order is not in a refundable state, or is already fully refunded' },
+          '500': { $ref: '#/components/responses/InternalError' },
+        },
+        security: [{ bearerAuth: [] }],
+      },
+    },
+    '/shops/{shopId}/orders/{orderId}/documents/{documentId}': {
+      get: {
+        summary: 'Download an invoice or correction invoice (staff)',
+        operationId: 'getOrderDocument',
+        tags: ['Orders'],
+        description:
+          'documentId is the order id for the invoice, or the order id followed by -c1, -c2 and so on for correction invoices. A document of another order or restaurant is 404.',
+        parameters: [
+          { name: 'shopId', in: 'path', required: true, schema: { type: 'string' }, description: 'Shop ID' },
+          { name: 'orderId', in: 'path', required: true, schema: { type: 'string' }, description: 'Order ID' },
+          { name: 'documentId', in: 'path', required: true, schema: { type: 'string' }, description: 'Document ID' },
+        ],
+        responses: {
+          '200': {
+            description: 'The PDF as base64',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/InvoiceFile' } } },
+          },
+          '403': { $ref: '#/components/responses/Forbidden' },
+          '404': { $ref: '#/components/responses/NotFound' },
+          '500': { $ref: '#/components/responses/InternalError' },
+        },
+        security: [{ bearerAuth: [] }],
+      },
+    },
+    '/customer-orders/{orderId}/documents/{documentId}': {
+      post: {
+        summary: 'Download an invoice or correction invoice (diner)',
+        operationId: 'viewCustomerDocument',
+        tags: ['Orders'],
+        description: 'The diner proves access with the secret token from the order link. A document of another order is 404.',
+        security: [],
+        parameters: [
+          { name: 'orderId', in: 'path', required: true, schema: { type: 'string' }, description: 'Order ID' },
+          { name: 'documentId', in: 'path', required: true, schema: { type: 'string' }, description: 'Document ID' },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['token'],
+                properties: { token: { type: 'string', description: 'Secret token from the order link' } },
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'The PDF as base64',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/InvoiceFile' } } },
+          },
+          '404': { $ref: '#/components/responses/NotFound' },
+          '500': { $ref: '#/components/responses/InternalError' },
+        },
+      },
+    },
     '/orders/by-payment-intent/{paymentIntentId}': {
       get: {
         summary: 'Get order by Stripe payment intent ID',
@@ -1046,7 +1154,7 @@ export const swaggerSpec = {
       CreateShopRequest: {
         type: 'object',
         description:
-          'Create a new shop. The following fields are automatically set: isDeleted=false, isPaused=false. The slug is auto-generated from the shop name. At least one day must have opening hours. If a shop with the same name already exists, an error will be returned. paymentPolicy defaults to pay_in_person — a new shop never has Stripe set up yet, so pay_online is coerced to pay_in_person until Stripe onboarding completes.',
+          'Create a new shop. The following fields are automatically set: isDeleted=false, isPaused=false. The slug is auto-generated from the shop name. At least one day must have opening hours. If a shop with the same name already exists, an error will be returned.',
         required: [
           'name',
           'currency',
@@ -1075,12 +1183,6 @@ export const swaggerSpec = {
             type: 'number',
             description: 'Minimum order amount in cents',
             example: 1500,
-          },
-          paymentPolicy: {
-            type: 'string',
-            enum: ['pay_online', 'pay_in_person'],
-            description:
-              'Payment policy (optional, defaults to pay_in_person). pay_online requires completed Stripe onboarding — a new shop never has that yet, so pay_online is coerced to pay_in_person.',
           },
           address: { $ref: '#/components/schemas/Address' },
           pausedMessage: {
@@ -1134,12 +1236,6 @@ export const swaggerSpec = {
           pausedMessage: {
             type: 'string',
             description: 'Message when shop is paused',
-          },
-          paymentPolicy: {
-            type: 'string',
-            enum: ['pay_online', 'pay_in_person'],
-            description:
-              'Payment policy. pay_online can only be set once Stripe payments onboarding is complete.',
           },
           currency: { type: 'string', description: 'Shop currency' },
           timezone: { type: 'string', description: 'Shop timezone' },
@@ -1972,6 +2068,15 @@ export const swaggerSpec = {
           },
         },
       },
+      InvoiceFile: {
+        type: 'object',
+        required: ['fileName', 'contentType', 'contentBase64'],
+        properties: {
+          fileName: { type: 'string', example: 'R-2026-00001.pdf' },
+          contentType: { type: 'string', enum: ['application/pdf'] },
+          contentBase64: { type: 'string', format: 'byte' },
+        },
+      },
       OrdersPageResponse: {
         type: 'object',
         required: ['orders', 'total', 'page', 'pageSize'],
@@ -1993,7 +2098,6 @@ export const swaggerSpec = {
           'state',
           'displayState',
           'fulfilmentMode',
-          'paymentMethod',
           'paymentStatus',
           'items',
           'subtotalCents',
@@ -2024,14 +2128,9 @@ export const swaggerSpec = {
             enum: ['collection', 'delivery', 'dine_in'],
             example: 'collection',
           },
-          paymentMethod: {
-            type: 'string',
-            enum: ['card', 'cash'],
-            example: 'card',
-          },
           paymentStatus: {
             type: 'string',
-            enum: ['paid', 'refunded', 'partially_refunded', 'cash_due', 'cash_collected', 'refunded_in_cash'],
+            enum: ['authorized', 'paid', 'partially_refunded', 'refunded', 'canceled'],
             example: 'paid',
           },
           readyAt: { type: 'string', format: 'date-time', nullable: true, example: '2026-03-02T10:20:00.000Z' },
@@ -2136,7 +2235,7 @@ export const swaggerSpec = {
           },
           paymentStatus: {
             type: 'string',
-            enum: ['paid', 'refunded', 'partially_refunded', 'cash_due', 'cash_collected', 'refunded_in_cash'],
+            enum: ['authorized', 'paid', 'partially_refunded', 'refunded', 'canceled'],
             example: 'paid',
           },
           readyAt: { type: 'string', format: 'date-time', nullable: true, example: '2026-03-02T10:20:00.000Z' },

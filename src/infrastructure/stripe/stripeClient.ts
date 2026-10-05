@@ -119,12 +119,19 @@ export async function findLiveRefund(input: {
   return live ? { id: live.id } : null;
 }
 
-/** Apple Pay / Google Pay style wallets need the storefront domain registered with Stripe once. */
-export async function ensurePaymentMethodDomain(domainName: string): Promise<'created' | 'exists'> {
+/**
+ * Apple Pay / Google Pay style wallets need the storefront domain registered with Stripe once.
+ * With a connected account id the domain is registered on that restaurant's account.
+ */
+export async function ensurePaymentMethodDomain(
+  domainName: string,
+  connectedAccountId?: string,
+): Promise<'created' | 'exists'> {
   const stripe = getStripe();
-  const existing = await stripe.paymentMethodDomains.list({ domain_name: domainName, limit: 1 });
+  const options = connectedAccountId ? { stripeAccount: connectedAccountId } : undefined;
+  const existing = await stripe.paymentMethodDomains.list({ domain_name: domainName, limit: 1 }, options);
   if (existing.data.length > 0) return 'exists';
-  await stripe.paymentMethodDomains.create({ domain_name: domainName });
+  await stripe.paymentMethodDomains.create({ domain_name: domainName }, options);
   return 'created';
 }
 

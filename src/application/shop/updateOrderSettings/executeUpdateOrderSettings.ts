@@ -1,4 +1,5 @@
 import type { HttpRequest } from '@azure/functions';
+import { AUTO_ACCEPT_ERROR } from '../../../domain/order/orderErrors';
 import { EMAIL_PATTERN } from '../../../domain/legal/impressum';
 import {
   AUTO_REJECT_MAX_MINUTES,
@@ -11,7 +12,7 @@ import { authorizeShopAction, toAuditActor } from '../../_shared/shopAccess';
 import type { ApplicationResult } from '../../_shared/types';
 import type { OrderSettingsResultDto, UpdateOrderSettingsBody } from './dtos';
 
-/** Owner-editable alert settings: how long an order may wait before auto-decline, and an extra alert address. */
+/** Owner-editable order settings: how long an order may wait before auto-decline, an extra alert address, and whether paid orders are accepted automatically. */
 export async function executeUpdateOrderSettings(
   input: { shopId: string; body: Partial<UpdateOrderSettingsBody>; now?: Date },
   httpRequest: HttpRequest,
@@ -26,7 +27,7 @@ export async function executeUpdateOrderSettings(
     const access = await authorizeShopAction(httpRequest, shop, 'manage_shop');
     if (!access.ok) return access;
 
-    const { autoRejectMinutes, alertEmail } = input.body;
+    const { autoRejectMinutes, alertEmail, autoAccept: requestedAutoAccept } = input.body;
     if (
       typeof autoRejectMinutes !== 'number' ||
       !Number.isInteger(autoRejectMinutes) ||
@@ -48,8 +49,13 @@ export async function executeUpdateOrderSettings(
       alert = trimmed === '' ? null : trimmed;
     }
 
+    if (requestedAutoAccept !== undefined && typeof requestedAutoAccept !== 'boolean') {
+      return { ok: false, code: 'INVALID_INPUT', error: AUTO_ACCEPT_ERROR };
+    }
+
     const before = orderSettingsOf(shop);
-    const orderSettings = { autoRejectMinutes, alertEmail: alert, autoAccept: before.autoAccept };
+    const autoAccept = requestedAutoAccept ?? before.autoAccept;
+    const orderSettings = { autoRejectMinutes, alertEmail: alert, autoAccept };
     await updateShop({ ...shop, orderSettings, updatedAt: (input.now ?? new Date()).toISOString() });
     await logAudit({
       shopId: shop.id,
@@ -62,6 +68,7 @@ export async function executeUpdateOrderSettings(
       changes: [
         { field: 'autoRejectMinutes', from: before.autoRejectMinutes, to: autoRejectMinutes },
         { field: 'alertEmail', from: null, to: null },
+        { field: 'autoAccept', from: before.autoAccept, to: autoAccept },
       ],
     });
     return { ok: true, data: orderSettings };

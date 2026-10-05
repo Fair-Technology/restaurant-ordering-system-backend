@@ -123,7 +123,11 @@ describe('stripeClient', () => {
   it('registers the storefront domain once', async () => {
     m.domainsList.mockResolvedValueOnce({ data: [] });
     await expect(ensurePaymentMethodDomain('shop.example')).resolves.toBe('created');
-    expect(m.domainsCreate).toHaveBeenCalledWith({ domain_name: 'shop.example' });
+    expect(m.domainsCreate).toHaveBeenCalledWith({ domain_name: 'shop.example' }, undefined);
+    m.domainsCreate.mockClear();
+    m.domainsList.mockResolvedValueOnce({ data: [] });
+    await ensurePaymentMethodDomain('shop.example', 'acct_1');
+    expect(m.domainsCreate).toHaveBeenCalledWith({ domain_name: 'shop.example' }, { stripeAccount: 'acct_1' });
     m.domainsCreate.mockClear();
     m.domainsList.mockResolvedValueOnce({ data: [{ id: 'pmd_1' }] });
     await expect(ensurePaymentMethodDomain('shop.example')).resolves.toBe('exists');

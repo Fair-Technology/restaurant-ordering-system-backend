@@ -24,6 +24,7 @@ export interface ShopLegalSettingsDto {
   dpa: { currentVersion: string; currentIsDraft: boolean; accepted: DpaAcceptance | null };
   platformIdentityComplete: boolean;
   callerIsOwner: boolean;
+  taxNumber: string; // private Steuernummer for invoices; '' when unset
 }
 
 export interface UpdateShopLegalBody {
@@ -31,6 +32,7 @@ export interface UpdateShopLegalBody {
   terms?: string;
   withdrawal?: string;
   privacyAddition?: string;
+  taxNumber?: string;
 }
 
 export interface AcceptDpaBody {

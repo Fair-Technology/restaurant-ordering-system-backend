@@ -19,10 +19,12 @@ vi.mock('../../../src/infrastructure/cosmos/system/CosmosPlatformLegalIdentityRe
 });
 
 import { authorizeShopAction } from '../../../src/application/_shared/shopAccess';
+import { findProductsByShopId } from '../../../src/infrastructure/cosmos/product/CosmosProductRepository';
+import { findCategoriesByShopId } from '../../../src/infrastructure/cosmos/category/CosmosCategoryRepository';
 import { findShopById } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
 import { getPlatformLegalIdentity } from '../../../src/infrastructure/cosmos/system/CosmosPlatformLegalIdentityRepository';
 import { DEFAULT_PLATFORM_LEGAL_IDENTITY } from '../../../src/domain/legal/PlatformLegalIdentity';
-import { COMPLETE_LEGAL } from '../../fixtures/legal';
+import { ACCEPTED_DPA, COMPLETE_LEGAL } from '../../fixtures/legal';
 import { executeGetGoLiveStatus } from '../../../src/application/shop/getGoLiveStatus/executeGetGoLiveStatus';
 
 const ownerAccess = {
@@ -39,7 +41,6 @@ function makeShop(overrides: any = {}) {
     address: {},
     openingHours: {},
     branding: null,
-    paymentPolicy: 'pay_in_person',
     stripe: null,
     createdAt: 'x',
     updatedAt: 'x',
@@ -54,20 +55,8 @@ describe('executeGetGoLiveStatus stripe_connected criterion', () => {
     delete process.env.STRIPE_SECRET_KEY;
   });
 
-  it('is met when the shop is pay_in_person, even with no Stripe at all', async () => {
-    (findShopById as any).mockResolvedValue(makeShop({ paymentPolicy: 'pay_in_person', stripe: null }));
-
-    const result = await executeGetGoLiveStatus({ shopId: 'shop-1' } as any, {} as any);
-
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      const criterion = result.data.criteria.find((c) => c.key === 'stripe_connected');
-      expect(criterion?.met).toBe(true);
-    }
-  });
-
-  it('is unmet when the shop is pay_online without completed Stripe onboarding', async () => {
-    (findShopById as any).mockResolvedValue(makeShop({ paymentPolicy: 'pay_online', stripe: null }));
+  it('stripe is required: unmet without completed onboarding', async () => {
+    (findShopById as any).mockResolvedValue(makeShop({ stripe: null }));
 
     const result = await executeGetGoLiveStatus({ shopId: 'shop-1' } as any, {} as any);
 
@@ -75,27 +64,61 @@ describe('executeGetGoLiveStatus stripe_connected criterion', () => {
     if (result.ok) {
       const criterion = result.data.criteria.find((c) => c.key === 'stripe_connected');
       expect(criterion?.met).toBe(false);
-      expect(criterion?.description).toBe(
-        'Online payment needs Stripe set up — finish Stripe or switch to payment in person',
-      );
+      expect(criterion?.description).toBe('Connect Stripe — every order is paid online');
     }
   });
 
-  it('is met when the shop is pay_online with completed Stripe onboarding', async () => {
+  it('stripe is met with completed onboarding', async () => {
     (findShopById as any).mockResolvedValue(
-      makeShop({
-        paymentPolicy: 'pay_online',
-        stripe: { connectAccountId: 'acct_1', connectOnboardingStatus: 'complete' },
-      }),
+      makeShop({ stripe: { connectAccountId: 'acct_1', connectOnboardingStatus: 'complete' } }),
     );
 
     const result = await executeGetGoLiveStatus({ shopId: 'shop-1' } as any, {} as any);
 
     expect(result.ok).toBe(true);
     if (result.ok) {
-      const criterion = result.data.criteria.find((c) => c.key === 'stripe_connected');
-      expect(criterion?.met).toBe(true);
+      expect(result.data.criteria.find((c) => c.key === 'stripe_connected')?.met).toBe(true);
     }
+  });
+
+  it('a tax number or VAT ID is a criterion', async () => {
+    const noVat = { ...COMPLETE_LEGAL, impressum: { ...COMPLETE_LEGAL.impressum!, vatId: '' } };
+    const met = async (shop: any) => {
+      (findShopById as any).mockResolvedValue(shop);
+      const result = await executeGetGoLiveStatus({ shopId: 'shop-1' } as any, {} as any);
+      if (!result.ok) throw new Error('expected ok');
+      return result.data.criteria.find((c) => c.key === 'invoice_tax_id')?.met;
+    };
+
+    expect(await met(makeShop({ legal: COMPLETE_LEGAL }))).toBe(true);
+    expect(await met(makeShop({ legal: { ...noVat, taxNumber: '045/123/45678' } }))).toBe(true);
+    expect(await met(makeShop({ legal: noVat }))).toBe(false);
+    expect(await met(makeShop())).toBe(false);
+  });
+
+  it('all met only when a tax ID is set too', async () => {
+    (findProductsByShopId as any).mockResolvedValue([
+      { isAvailable: true, isDeleted: false, allergenIds: [], additiveIds: [] },
+    ]);
+    (findCategoriesByShopId as any).mockResolvedValue([{ isDeleted: false }]);
+    const noVat = { ...COMPLETE_LEGAL, impressum: { ...COMPLETE_LEGAL.impressum!, vatId: '' } };
+    const ready = (legal: any) =>
+      makeShop({
+        legal,
+        dpaAcceptance: ACCEPTED_DPA,
+        stripe: { connectAccountId: 'acct_1', connectOnboardingStatus: 'complete' },
+        address: { street: 'S 1', city: 'Berlin', state: 'Berlin', postcode: '10115', country: 'Germany' },
+        openingHours: { mon: [{ open: '09:00', close: '17:00' }] },
+      });
+    const allMet = async (shop: any) => {
+      (findShopById as any).mockResolvedValue(shop);
+      const result = await executeGetGoLiveStatus({ shopId: 'shop-1' } as any, {} as any);
+      if (!result.ok) throw new Error('expected ok');
+      return result.data.allMet;
+    };
+
+    expect(await allMet(ready(COMPLETE_LEGAL))).toBe(true);
+    expect(await allMet(ready(noVat))).toBe(false);
   });
 });
 
@@ -125,7 +148,7 @@ describe('executeGetGoLiveStatus legal criteria', () => {
     delete process.env.STRIPE_SECRET_KEY;
   });
 
-  it('lists the five legal criteria after the existing six', async () => {
+  it('lists the legal criteria after the existing six, then the invoice tax id', async () => {
     (findShopById as any).mockResolvedValue(makeShop());
 
     const result = await executeGetGoLiveStatus({ shopId: 'shop-1' } as any, {} as any);
@@ -144,6 +167,7 @@ describe('executeGetGoLiveStatus legal criteria', () => {
         'terms',
         'withdrawal',
         'privacy_notice',
+        'invoice_tax_id',
       ]);
     }
   });

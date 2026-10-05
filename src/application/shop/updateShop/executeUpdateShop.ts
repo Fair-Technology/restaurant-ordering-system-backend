@@ -11,11 +11,12 @@ import { ApplicationResult } from '../../_shared/types';
 import { diffFields, logAudit } from '../../_shared/auditHelpers';
 import { Shop, stripeReady } from '../../../domain/shop/Shop';
 import { validateAccentColor } from '../../_shared/contrast';
-import { GO_LIVE_STRIPE_ERROR } from '../../../domain/order/orderErrors';
+import { GO_LIVE_STRIPE_ERROR, GO_LIVE_TAX_ID_ERROR } from '../../../domain/order/orderErrors';
 import { menuLanguagesOf, validateMenuLanguagesChange } from '../../../domain/menu/menuLanguage';
 import { MenuLanguage } from '../../../domain/reference/ReferenceLists';
 import { isOnMenu } from '../../../domain/product/Product';
 import { LEGAL_GO_LIVE_ERRORS, legalCriteria } from '../../../domain/legal/legalReadiness';
+import { hasInvoiceTaxId } from '../../../domain/legal/legalTexts';
 import { getPlatformLegalIdentity } from '../../../infrastructure/cosmos/system/CosmosPlatformLegalIdentityRepository';
 
 async function validateGoLiveCriteria(shop: Shop): Promise<string | null> {
@@ -54,6 +55,8 @@ async function validateGoLiveCriteria(shop: Shop): Promise<string | null> {
   const identity = await getPlatformLegalIdentity();
   const unmetLegal = legalCriteria(shop, identity).find((c) => !c.met);
   if (unmetLegal) return LEGAL_GO_LIVE_ERRORS[unmetLegal.key];
+  // Every order gets an invoice, and an invoice needs the seller's VAT ID or tax number.
+  if (!hasInvoiceTaxId(shop)) return GO_LIVE_TAX_ID_ERROR;
   return null;
 }
 
