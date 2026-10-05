@@ -116,6 +116,14 @@ describe('executeProcessOrderTimers', () => {
     expect(res).toEqual({ escalated: 1, autoRejected: 0, autoCompleted: 0, ...NO_EXTRAS });
   });
 
+  it('leaves a fresh order alone when the restaurant accepts by hand', async () => {
+    const res = await executeProcessOrderTimers({ now: new Date('2026-10-05T10:01:00Z') });
+    expect(replaceOrderIfMatch).not.toHaveBeenCalled();
+    expect(capturePaymentIntent).not.toHaveBeenCalled();
+    expect(sendEmail).not.toHaveBeenCalled();
+    expect(res).toEqual({ escalated: 0, autoRejected: 0, autoCompleted: 0, ...NO_EXTRAS });
+  });
+
   it('escalation also goes to the alert address', async () => {
     (findShopById as any).mockResolvedValue({
       ...CARD_SHOP,
