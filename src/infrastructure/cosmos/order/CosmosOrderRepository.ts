@@ -166,3 +166,14 @@ export async function findOrdersAwaitingRelease(): Promise<Order[]> {
   const { resources } = await orderContainer.items.query<Order>(querySpec).fetchAll();
   return resources;
 }
+
+/** Accepted card orders from the given time on that have no invoice number yet. */
+export async function findOrdersMissingInvoice(sinceIso: string): Promise<Order[]> {
+  const querySpec = {
+    query:
+      "SELECT * FROM c WHERE c.payment.method = 'card' AND ARRAY_CONTAINS(['ACCEPTED', 'READY', 'COMPLETED'], c.state) AND c.acceptedAt >= @since AND NOT IS_DEFINED(c.invoiceNumber)",
+    parameters: [{ name: '@since', value: sinceIso }],
+  };
+  const { resources } = await orderContainer.items.query<Order>(querySpec).fetchAll();
+  return resources;
+}

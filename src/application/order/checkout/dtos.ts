@@ -1,4 +1,4 @@
-import { FulfilmentMode, LegalRevisions, PaymentMethod } from '../../../domain/order/Order';
+import { CustomerAddress, FulfilmentMode, LegalRevisions, PaymentMethod } from '../../../domain/order/Order';
 
 export interface CheckoutItemDto {
   productId: string;
@@ -17,6 +17,7 @@ export interface CheckoutRequestDto {
   customerNotes?: string;
   fulfilmentMode?: FulfilmentMode; // absent → 'collection'
   paymentMethod?: PaymentMethod; // absent → 'card' (what the deployed storefront means)
+  customerAddress?: CustomerAddress; // optional; required above ADDRESS_REQUIRED_ABOVE_CENTS
   idempotencyKey?: string;
   language?: string;
   legalRevisions?: LegalRevisions;
@@ -25,10 +26,22 @@ export interface CheckoutRequestDto {
 export interface CardCheckoutResultDto {
   kind: 'card';
   sessionId: string;
+  orderId: string; // the same value as sessionId: the order will carry the session's id
+  accessToken: string; // secret order-page link token, created now so the page works while the payment is confirmed
   clientSecret: string;
   subtotalCents: number;
   currency: string;
   stripeConnectAccountId: string;
 }
 
-export type CheckoutResultDto = CardCheckoutResultDto;
+/** A repeated submit whose order already exists. */
+export interface PlacedCheckoutResultDto {
+  kind: 'placed';
+  orderId: string;
+  orderRef: string;
+  accessToken: string;
+  subtotalCents: number;
+  currency: string;
+}
+
+export type CheckoutResultDto = CardCheckoutResultDto | PlacedCheckoutResultDto;

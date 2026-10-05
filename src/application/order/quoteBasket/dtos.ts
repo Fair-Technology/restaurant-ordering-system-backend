@@ -30,5 +30,6 @@ export interface BasketQuoteDto {
   belowMinimum: boolean;
   openNow: boolean;
   paymentMethods: PaymentMethod[];
+  addressRequired: boolean; // the diner must give an address for this total
   prepMinutes: number;
 }

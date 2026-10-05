@@ -10,6 +10,13 @@ vi.mock('../../../src/infrastructure/cosmos/order/CosmosOrderRepository', () => 
   findOrderWithEtag: vi.fn(),
   replaceOrderIfMatch: vi.fn(),
 }));
+vi.mock('../../../src/infrastructure/cosmos/invoice/CosmosInvoiceRepository', () => ({
+  findInvoiceById: vi.fn(async () => null),
+  findInvoiceCounter: vi.fn(async () => null),
+  commitInvoice: vi.fn(async () => 'ok'),
+}));
+vi.mock('../../../src/infrastructure/cosmos/usage/CosmosUsageRepository', () => ({ incrementAcceptedOrders: vi.fn() }));
+vi.mock('../../../src/infrastructure/pdf/invoicePdf', () => ({ renderInvoicePdf: vi.fn(async () => new Uint8Array([1])) }));
 vi.mock('../../../src/infrastructure/stripe/stripeClient', () => ({
   capturePaymentIntent: vi.fn(async () => undefined),
   releaseAuthorization: vi.fn(async () => 'canceled'),
@@ -26,13 +33,17 @@ import {
   findOrderWithEtag,
   findOrdersAwaitingRelease,
   findOrdersInState,
+  findOrdersMissingInvoice,
   findPlacedOrdersCreatedBefore,
   replaceOrderIfMatch,
 } from '../../../src/infrastructure/cosmos/order/CosmosOrderRepository';
 import { findShopById } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
 import { sendEmail } from '../../../src/infrastructure/email/emailSender';
-import { releaseAuthorization } from '../../../src/infrastructure/stripe/stripeClient';
-import { CARD_SHOP, orderStore, PLACED_CARD_ORDER } from '../../fixtures/orders';
+import { capturePaymentIntent, releaseAuthorization } from '../../../src/infrastructure/stripe/stripeClient';
+import { ACCEPTED_CARD_ORDER, CARD_SHOP as DEFAULT_SHOP, orderStore, PLACED_CARD_ORDER } from '../../fixtures/orders';
+
+// A restaurant that accepts by hand; without orderSettings a shop auto-accepts.
+const CARD_SHOP = { ...DEFAULT_SHOP, orderSettings: { autoRejectMinutes: 10, alertEmail: null, autoAccept: false } };
 
 const NO_EXTRAS = { autoAccepted: 0, released: 0, invoicesIssued: 0, correctionsIssued: 0 };
 
@@ -50,7 +61,42 @@ describe('executeProcessOrderTimers', () => {
     (findPlacedOrdersCreatedBefore as any).mockResolvedValue([PLACED_CARD_ORDER]);
     (findOrdersInState as any).mockResolvedValue([]);
     (findOrdersAwaitingRelease as any).mockResolvedValue([]);
+    (findOrdersMissingInvoice as any).mockResolvedValue([]);
+    (capturePaymentIntent as any).mockResolvedValue(undefined);
     storedOrder();
+  });
+
+  it('accepts a missed order for an auto-accept restaurant', async () => {
+    (findShopById as any).mockResolvedValue(DEFAULT_SHOP); // no orderSettings: auto-accept is the default
+    const store = storedOrder();
+    const res = await executeProcessOrderTimers({ now: new Date('2026-10-05T10:01:00Z') });
+    expect(capturePaymentIntent).toHaveBeenCalledTimes(1);
+    expect(store.current.state).toBe('ACCEPTED');
+    expect(store.current.payment.status).toBe('paid');
+    expect(res.autoAccepted).toBe(1);
+    expect(res.escalated).toBe(0);
+  });
+
+  it('leaves an auto-accept order waiting when the payment service is down, and still declines it at the timeout', async () => {
+    (findShopById as any).mockResolvedValue(DEFAULT_SHOP);
+    (capturePaymentIntent as any).mockRejectedValue({ type: 'StripeConnectionError' });
+    const store = storedOrder();
+    const waiting = await executeProcessOrderTimers({ now: new Date('2026-10-05T10:01:00Z') });
+    expect(waiting.autoAccepted).toBe(0);
+    expect(store.current.state).toBe('PLACED');
+    const late = await executeProcessOrderTimers({ now: new Date('2026-10-05T10:10:00Z') });
+    expect(late.autoRejected).toBe(1);
+    expect(store.current.state).toBe('REJECTED');
+  });
+
+  it('issues the invoice an accepted order is missing', async () => {
+    (findPlacedOrdersCreatedBefore as any).mockResolvedValue([]);
+    (findOrdersMissingInvoice as any).mockResolvedValue([ACCEPTED_CARD_ORDER]);
+    storedOrder(ACCEPTED_CARD_ORDER);
+    const res = await executeProcessOrderTimers({ now: new Date('2026-10-05T10:30:00Z') });
+    expect(findOrdersMissingInvoice).toHaveBeenCalledWith('2026-09-28T10:30:00.000Z');
+    expect(res.invoicesIssued).toBe(1);
+    expect((replaceOrderIfMatch as any).mock.calls[0][0].invoiceNumber).toMatch(/^R-2026-/);
   });
 
   it('escalates an order waiting three minutes', async () => {
@@ -68,7 +114,7 @@ describe('executeProcessOrderTimers', () => {
   it('escalation also goes to the alert address', async () => {
     (findShopById as any).mockResolvedValue({
       ...CARD_SHOP,
-      orderSettings: { autoRejectMinutes: 10, alertEmail: 'boss@mapasta.example' },
+      orderSettings: { autoRejectMinutes: 10, alertEmail: 'boss@mapasta.example', autoAccept: false },
     });
     await executeProcessOrderTimers({ now: new Date('2026-10-05T10:03:00Z') });
     expect(sendEmail).toHaveBeenCalledWith(

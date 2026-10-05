@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../../src/infrastructure/cosmos/shop/CosmosShopRepository', () => ({ findShopById: vi.fn() }));
+vi.mock('../../../src/infrastructure/cosmos/order/CosmosCheckoutSessionRepository', () => ({
+  findCheckoutSessionById: vi.fn(async () => null),
+}));
 vi.mock('../../../src/infrastructure/cosmos/order/CosmosOrderRepository', () => ({
   findOrderById: vi.fn(),
   findOrderWithEtag: vi.fn(),
@@ -19,6 +22,7 @@ vi.mock('../../../src/infrastructure/email/emailSender', () => ({
 
 import { executeCancelCustomerOrder } from '../../../src/application/order/customer/executeCancelCustomerOrder';
 import { executeGetCustomerOrder } from '../../../src/application/order/customer/executeGetCustomerOrder';
+import { findCheckoutSessionById } from '../../../src/infrastructure/cosmos/order/CosmosCheckoutSessionRepository';
 import {
   findOrderById,
   findOrderWithEtag,
@@ -26,7 +30,7 @@ import {
 } from '../../../src/infrastructure/cosmos/order/CosmosOrderRepository';
 import { findShopById } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
 import { sendEmail } from '../../../src/infrastructure/email/emailSender';
-import { CANNOT_CANCEL_ERROR } from '../../../src/domain/order/orderErrors';
+import { CANNOT_CANCEL_ERROR, ORDER_NOT_FOUND_ERROR, PAYMENT_CONFIRMING_ERROR } from '../../../src/domain/order/orderErrors';
 import { releaseAuthorization } from '../../../src/infrastructure/stripe/stripeClient';
 import { CARD_SHOP, orderStore, PLACED_CARD_ORDER } from '../../fixtures/orders';
 
@@ -62,6 +66,22 @@ describe('customer order page', () => {
       paymentStatus: 'authorized',
       refundedCents: 0,
       documents: [],
+    });
+  });
+
+  it('says the payment is being confirmed while only the checkout exists', async () => {
+    (findOrderById as any).mockResolvedValue(null);
+    (findCheckoutSessionById as any).mockResolvedValue({ id: 'o1', customerAccessToken: TOKEN });
+    expect(await executeGetCustomerOrder({ orderId: 'o1', token: TOKEN }, { now })).toEqual({
+      ok: false,
+      code: 'NOT_FOUND',
+      error: PAYMENT_CONFIRMING_ERROR,
+    });
+    // a wrong token learns nothing about the checkout
+    expect(await executeGetCustomerOrder({ orderId: 'o1', token: 'x'.repeat(32) }, { now })).toEqual({
+      ok: false,
+      code: 'NOT_FOUND',
+      error: ORDER_NOT_FOUND_ERROR,
     });
   });
 

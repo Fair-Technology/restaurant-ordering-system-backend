@@ -29,12 +29,13 @@ describe('executeQuoteBasket', () => {
     (findProductById as any).mockImplementation(async (id: string) => (id === 'p1' ? P_PASTA : id === 'p2' ? P_COLA : null));
   });
 
-  it("quotes a cash shop's basket", async () => {
+  it("quotes a card shop's basket", async () => {
     const res = await executeQuoteBasket(request, { now: NOW_OPEN });
     expect(res.ok).toBe(true);
     if (!res.ok) return;
     expect(res.data).toMatchObject({
-      paymentMethods: ['cash'],
+      paymentMethods: ['card'],
+      addressRequired: false,
       openNow: true,
       subtotalCents: 1400,
       taxCents: 125,
@@ -42,6 +43,17 @@ describe('executeQuoteBasket', () => {
       belowMinimum: false,
     });
     expect(res.data.lines.map((l) => l.status)).toEqual(['ok', 'ok']);
+  });
+
+  it('offers nothing before Stripe is ready', async () => {
+    (findShopById as any).mockResolvedValue({ ...CARD_SHOP, stripe: undefined });
+    const res = await executeQuoteBasket(request, { now: NOW_OPEN });
+    expect(res.ok && res.data.paymentMethods).toEqual([]);
+  });
+
+  it('says an address is needed above €250', async () => {
+    const res = await executeQuoteBasket({ shopId: 'shop-1', items: [{ productId: 'p1', quantity: 24 }] }, { now: NOW_OPEN });
+    expect(res.ok && res.data.addressRequired).toBe(true);
   });
 
   it('reports closed', async () => {

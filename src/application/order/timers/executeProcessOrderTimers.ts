@@ -2,21 +2,26 @@ import type { Order } from '../../../domain/order/Order';
 import { applyTransition } from '../../../domain/order/orderLifecycle';
 import { hasFreshCaptureClaim, isDueForReleaseRetry } from '../../../domain/order/payment';
 import {
-  ESCALATE_AFTER_MINUTES,
   isDueForAutoComplete,
   isDueForAutoReject,
   isDueForEscalation,
 } from '../../../domain/order/orderTimers';
+import { orderSettingsOf } from '../../../domain/order/orderSettings';
 import type { Shop } from '../../../domain/shop/Shop';
 import {
   findOrdersAwaitingRelease,
+  findOrdersMissingInvoice,
   findOrdersInState,
   findPlacedOrdersCreatedBefore,
 } from '../../../infrastructure/cosmos/order/CosmosOrderRepository';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
+import { issueInvoiceForOrder, needsInvoice } from '../invoices/issueInvoice';
 import { notifyCustomer, notifyRestaurantEscalation } from '../notifications/notifyOrder';
+import { acceptPlacedOrder } from '../_shared/acceptPlacedOrder';
 import { releaseClosedOrderPayment } from '../_shared/releasePayment';
 import { transitionOrder } from '../_shared/transitionOrder';
+
+const INVOICE_CATCH_UP_DAYS = 7;
 
 export interface OrderTimersResult {
   escalated: number;
@@ -29,7 +34,8 @@ export interface OrderTimersResult {
 }
 
 /**
- * Runs every minute. For orders nobody has answered: emails the restaurant after 3 minutes, declines at
+ * Runs every minute. Accepts waiting orders for restaurants with auto-accept on (the retry for an order
+ * the webhook could not accept because the payment service was down). For orders nobody has answered: emails the restaurant after 3 minutes, declines at
  * the restaurant's timeout (and gives the money back). Declined orders whose payment could not be released are retried every 15 minutes. For ready orders nobody collected: completes them once the local day is over.
  * One bad order never stops the rest; a lost race with staff is skipped silently.
  */
@@ -50,12 +56,21 @@ export async function executeProcessOrderTimers(input: { now: Date }): Promise<O
     return shops.get(id) ?? null;
   };
 
-  const cutoff = new Date(now.getTime() - ESCALATE_AFTER_MINUTES * 60_000).toISOString();
-  const placed = await findPlacedOrdersCreatedBefore(cutoff);
+  // Every waiting order, whatever its age: auto-accept retries each minute, while escalation and
+  // auto-decline check their own times below.
+  const placed = await findPlacedOrdersCreatedBefore(now.toISOString());
   for (const o of placed) {
     try {
       const shop = await shopOf(o.shopId);
       if (!shop) continue;
+      if (orderSettingsOf(shop).autoAccept) {
+        const accepted = await acceptPlacedOrder({ orderId: o.id, shop, actor: { type: 'system' }, now });
+        if (accepted.ok) {
+          result.autoAccepted++;
+          continue;
+        }
+        // Not accepted (service down, declined card, lost race): what is still waiting falls through to the checks below.
+      }
       if (isDueForAutoReject(o, now)) {
         const moved = await transitionOrder({
           orderId: o.id,
@@ -116,6 +131,20 @@ export async function executeProcessOrderTimers(input: { now: Date }): Promise<O
       if (outcome === 'released' || outcome === 'refunded') result.released++;
     } catch {
       console.error('[timers:error] release', o.id);
+    }
+  }
+
+  const since = new Date(now.getTime() - INVOICE_CATCH_UP_DAYS * 24 * 3_600_000).toISOString();
+  const uninvoiced = await findOrdersMissingInvoice(since);
+  for (const o of uninvoiced) {
+    try {
+      if (!needsInvoice(o)) continue;
+      const shop = await shopOf(o.shopId);
+      if (!shop) continue;
+      await issueInvoiceForOrder(o, shop, now);
+      result.invoicesIssued++;
+    } catch {
+      console.error('[timers:error] invoice', o.id);
     }
   }
   return result;

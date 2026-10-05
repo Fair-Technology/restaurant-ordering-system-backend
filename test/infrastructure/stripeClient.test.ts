@@ -63,6 +63,7 @@ describe('stripeClient', () => {
       currency: 'EUR',
       description: 'Ma Pasta AB3-K7P',
       orderRef: 'AB3-K7P',
+      sessionId: 'sess-1',
       idempotencyKey: 'checkout-x',
     });
     expect(r).toEqual({ id: 'pi_1', clientSecret: 'cs_1' });
@@ -73,7 +74,7 @@ describe('stripeClient', () => {
         payment_method_types: ['card'],
         capture_method: 'manual',
         description: 'Ma Pasta AB3-K7P',
-        metadata: { orderRef: 'AB3-K7P' },
+        metadata: { orderRef: 'AB3-K7P', sessionId: 'sess-1' },
       },
       { stripeAccount: 'acct_1', idempotencyKey: 'checkout-x' },
     );

@@ -1887,8 +1887,23 @@ export const swaggerSpec = {
       },
       CheckoutRequest: {
         type: 'object',
-        required: ['shopId', 'items', 'customerName', 'customerEmail', 'customerPhone'],
+        required: ['shopId', 'items', 'customerName', 'customerEmail', 'customerPhone', 'idempotencyKey'],
         properties: {
+          idempotencyKey: {
+            type: 'string',
+            description: 'The diner\'s submit key (8 to 64 letters, digits or dashes). A repeated submit with the same key reuses the same payment and order link.',
+            example: 'a1b2c3d4-e5f6',
+          },
+          customerAddress: {
+            type: 'object',
+            description: 'Optional billing address; required when the total is above 250 EUR.',
+            properties: {
+              street: { type: 'string' },
+              postcode: { type: 'string' },
+              city: { type: 'string' },
+              country: { type: 'string' },
+            },
+          },
           shopId: {
             type: 'string',
             description: 'ID of the shop to order from',
@@ -1932,6 +1947,9 @@ export const swaggerSpec = {
         type: 'object',
         required: ['sessionId', 'clientSecret', 'subtotalCents', 'currency'],
         properties: {
+          orderId: { type: 'string', description: 'Id the order will have (same as sessionId). Open the order page with it and accessToken.' },
+          accessToken: { type: 'string', description: 'Secret token for the order page link.' },
+          stripeConnectAccountId: { type: 'string', description: 'The restaurant\'s Stripe account; the storefront loads Stripe with it.' },
           sessionId: {
             type: 'string',
             description: 'Checkout session ID',

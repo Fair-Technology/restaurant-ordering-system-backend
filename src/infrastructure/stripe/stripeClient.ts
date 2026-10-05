@@ -14,6 +14,7 @@ export interface CreatePaymentIntentInput {
   currency: string;
   description: string;
   orderRef: string;
+  sessionId: string; // the checkout session, which becomes the order id; the webhook finds it again by this
   idempotencyKey: string;
 }
 
@@ -28,7 +29,7 @@ export async function createPaymentIntent(
       payment_method_types: ['card'],
       capture_method: 'manual',
       description: input.description,
-      metadata: { orderRef: input.orderRef },
+      metadata: { orderRef: input.orderRef, sessionId: input.sessionId },
     },
     { stripeAccount: input.connectAccountId, idempotencyKey: input.idempotencyKey },
   );
