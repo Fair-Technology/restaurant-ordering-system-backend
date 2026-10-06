@@ -3,7 +3,7 @@ import { LEGAL_PACK_INCOMPLETE_ERROR, isLegalPackComplete } from '../../../domai
 import { legalOf } from '../../../domain/legal/legalTexts';
 import { menuLanguagesOf, resolveMenuLanguage } from '../../../domain/menu/menuLanguage';
 import { CheckoutSession } from '../../../domain/order/CheckoutSession';
-import { ORDER_MODE_UNAVAILABLE_ERROR, ORDERABLE_MODES } from '../../../domain/order/fulfilment';
+import { ORDER_MODE_UNAVAILABLE_ERROR, ORDERABLE_MODES, orderableModesFor } from '../../../domain/order/fulfilment';
 import { isOpenForAsapOrder } from '../../../domain/order/openingHours';
 import {
   ADDRESS_INVALID_ERROR,
@@ -11,9 +11,11 @@ import {
   BASKET_CHANGED_ERROR,
   IDEMPOTENCY_KEY_ERROR,
   LEGAL_CHANGED_ERROR,
+  MODE_NOT_OFFERED_ERROR,
   NO_PAYMENT_SETUP_ERROR,
   PAYMENT_METHOD_ERROR,
   SHOP_CLOSED_ERROR,
+  TABLE_INVALID_ERROR,
 } from '../../../domain/order/orderErrors';
 import {
   addressRequired,
@@ -21,8 +23,10 @@ import {
   DEFAULT_PREP_MINUTES,
   FULFILMENT_MODES,
   LegalRevisions,
+  OrderTable,
   PaymentMethod,
 } from '../../../domain/order/Order';
+import { normaliseTableLabel } from '../../../domain/order/table';
 import { generateAccessToken, IDEMPOTENCY_KEY_PATTERN, orderIdForIdempotencyKey } from '../../../domain/order/orderIds';
 import { generateOrderRef } from '../../../domain/order/orderRef';
 import { offeredPaymentMethods } from '../../../domain/order/paymentMethods';
@@ -125,6 +129,12 @@ export async function executeCheckout(
   if (!ORDERABLE_MODES.includes(mode)) {
     return { ok: false, code: 'INVALID_INPUT', error: ORDER_MODE_UNAVAILABLE_ERROR };
   }
+  let table: OrderTable | undefined;
+  if (mode === 'dine_in') {
+    const label = normaliseTableLabel(request.table);
+    if (!label) return { ok: false, code: 'INVALID_INPUT', error: TABLE_INVALID_ERROR };
+    table = { label };
+  }
 
   try {
     const now = options.now ?? new Date();
@@ -171,6 +181,11 @@ export async function executeCheckout(
           currency: existing.currency,
         },
       };
+    }
+
+    // --- After the repeat-submit short-cut, so a retry still finds its order even if dine-in was switched off since ---
+    if (!orderableModesFor(shop).includes(mode)) {
+      return { ok: false, code: 'INVALID_INPUT', error: MODE_NOT_OFFERED_ERROR };
     }
 
     // --- The diner must have seen the terms that are in force now ---
@@ -250,6 +265,7 @@ export async function executeCheckout(
       customerPhone: request.customerPhone,
       customerNotes: request.customerNotes,
       ...(customerAddress ? { customerAddress } : {}),
+      ...(table ? { table } : {}),
       fulfilmentMode: mode,
       taxBreakdown,
       language,

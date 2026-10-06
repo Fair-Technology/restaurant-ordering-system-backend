@@ -23,6 +23,7 @@ export interface CustomerOrderDto {
   state: StoredOrderState;
   displayState: OrderState;
   fulfilmentMode: FulfilmentMode;
+  table: { label: string } | null;
   paymentStatus: DisplayPaymentStatus;
   refundedCents: number;
   documents: OrderDocumentDto[];

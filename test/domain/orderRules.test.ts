@@ -9,6 +9,7 @@ import {
 import { isDueForAutoComplete, isDueForAutoReject, isDueForEscalation } from '../../src/domain/order/orderTimers';
 import { addressRequired } from '../../src/domain/order/Order';
 import { escalationRecipients, orderSettingsOf } from '../../src/domain/order/orderSettings';
+import { orderableModesFor } from '../../src/domain/order/fulfilment';
 import { CARD_SHOP, PLACED_CARD_ORDER } from '../fixtures/orders';
 
 describe('order rules', () => {
@@ -19,11 +20,18 @@ describe('order rules', () => {
   });
 
   it('auto-accept is on unless switched off', () => {
-    expect(orderSettingsOf({})).toEqual({ autoRejectMinutes: 10, alertEmail: null, autoAccept: true });
+    expect(orderSettingsOf({})).toEqual({ autoRejectMinutes: 10, alertEmail: null, autoAccept: true, dineIn: false });
     expect(
       orderSettingsOf({ orderSettings: { autoRejectMinutes: 15, alertEmail: null, autoAccept: false } }).autoAccept,
     ).toBe(false);
     expect(orderSettingsOf({ orderSettings: { autoRejectMinutes: 15, alertEmail: null } }).autoAccept).toBe(true);
+  });
+
+  it('dine-in is off until switched on', () => {
+    expect(orderableModesFor({})).toEqual(['collection']);
+    expect(
+      orderableModesFor({ orderSettings: { autoRejectMinutes: 10, alertEmail: null, autoAccept: true, dineIn: true } }),
+    ).toEqual(['collection', 'dine_in']);
   });
 
   it('an address is needed only above 250 euros', () => {

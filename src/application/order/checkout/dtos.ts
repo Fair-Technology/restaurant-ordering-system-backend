@@ -18,6 +18,7 @@ export interface CheckoutRequestDto {
   fulfilmentMode?: FulfilmentMode; // absent → 'collection'
   paymentMethod?: PaymentMethod; // absent → 'card' (what the deployed storefront means)
   customerAddress?: CustomerAddress; // optional; required above ADDRESS_REQUIRED_ABOVE_CENTS
+  table?: string; // required (valid) for dine_in; ignored otherwise
   idempotencyKey?: string;
   language?: string;
   legalRevisions?: LegalRevisions;

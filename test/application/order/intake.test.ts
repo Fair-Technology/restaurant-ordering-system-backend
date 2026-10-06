@@ -49,7 +49,7 @@ import {
 } from '../../../src/domain/order/orderErrors';
 import { commitInvoice } from '../../../src/infrastructure/cosmos/invoice/CosmosInvoiceRepository';
 import { capturePaymentIntent, releaseAuthorization } from '../../../src/infrastructure/stripe/stripeClient';
-import { CARD_SHOP, orderStore, PLACED_CARD_ORDER } from '../../fixtures/orders';
+import { CARD_SHOP, orderStore, PLACED_CARD_ORDER, PLACED_TABLE_ORDER } from '../../fixtures/orders';
 
 const http = {} as any;
 const now = new Date('2026-10-05T10:05:00Z');
@@ -290,5 +290,14 @@ describe('kitchen intake', () => {
       autoAccepted: false,
     });
     expect('paymentMethod' in res.data.orders[0]).toBe(false);
+  });
+
+  it('the board shows the table', async () => {
+    (findOrdersByShopIdAndStates as any).mockResolvedValue([PLACED_TABLE_ORDER, PLACED_CARD_ORDER]);
+    const res = await executeGetOrderQueue({ shopId: 'shop-1' }, http, { now });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.data.orders[0].table).toEqual({ label: '7' });
+    expect(res.data.orders[1].table).toBeNull();
   });
 });

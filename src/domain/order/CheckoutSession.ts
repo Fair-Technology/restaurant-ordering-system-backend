@@ -1,5 +1,5 @@
 import type { MenuLanguage } from '../reference/ReferenceLists';
-import { CustomerAddress, FulfilmentMode, LegalRevisions, OrderItem, TaxBreakdownEntry } from './Order';
+import { CustomerAddress, FulfilmentMode, LegalRevisions, OrderItem, OrderTable, TaxBreakdownEntry } from './Order';
 
 export interface CheckoutSession {
   id: string;                    // UUID — also the partition key
@@ -13,6 +13,7 @@ export interface CheckoutSession {
   customerPhone: string;
   customerNotes?: string;
   customerAddress?: CustomerAddress;
+  table?: OrderTable;
   fulfilmentMode: FulfilmentMode;
   taxBreakdown?: TaxBreakdownEntry[];
   language?: MenuLanguage;

@@ -68,4 +68,14 @@ describe('buildPlacedOrderFromSession', () => {
     expect(order).not.toHaveProperty('customerAccessToken');
     expect(order).not.toHaveProperty('taxBreakdown');
   });
+
+  it('copies the table from the session', () => {
+    const args = { paymentIntentId: 'pi_1', orderRef: 'AB3-K7P', autoRejectMinutes: 10, now };
+    const withTable = buildPlacedOrderFromSession({
+      ...args,
+      session: { ...session, fulfilmentMode: 'dine_in', table: { label: '7' } },
+    });
+    expect(withTable.table).toEqual({ label: '7' });
+    expect(buildPlacedOrderFromSession({ ...args, session })).not.toHaveProperty('table');
+  });
 });

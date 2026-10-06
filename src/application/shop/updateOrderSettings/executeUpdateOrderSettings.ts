@@ -1,5 +1,5 @@
 import type { HttpRequest } from '@azure/functions';
-import { AUTO_ACCEPT_ERROR } from '../../../domain/order/orderErrors';
+import { AUTO_ACCEPT_ERROR, DINE_IN_ERROR } from '../../../domain/order/orderErrors';
 import { EMAIL_PATTERN } from '../../../domain/legal/impressum';
 import {
   AUTO_REJECT_MAX_MINUTES,
@@ -12,7 +12,7 @@ import { authorizeShopAction, toAuditActor } from '../../_shared/shopAccess';
 import type { ApplicationResult } from '../../_shared/types';
 import type { OrderSettingsResultDto, UpdateOrderSettingsBody } from './dtos';
 
-/** Owner-editable order settings: how long an order may wait before auto-decline, an extra alert address, and whether paid orders are accepted automatically. */
+/** Owner-editable order settings: how long an order may wait before auto-decline, an extra alert address, and whether paid orders are accepted automatically and whether table (dine-in) orders are taken. */
 export async function executeUpdateOrderSettings(
   input: { shopId: string; body: Partial<UpdateOrderSettingsBody>; now?: Date },
   httpRequest: HttpRequest,
@@ -27,7 +27,7 @@ export async function executeUpdateOrderSettings(
     const access = await authorizeShopAction(httpRequest, shop, 'manage_shop');
     if (!access.ok) return access;
 
-    const { autoRejectMinutes, alertEmail, autoAccept: requestedAutoAccept } = input.body;
+    const { autoRejectMinutes, alertEmail, autoAccept: requestedAutoAccept, dineIn: requestedDineIn } = input.body;
     if (
       typeof autoRejectMinutes !== 'number' ||
       !Number.isInteger(autoRejectMinutes) ||
@@ -52,10 +52,14 @@ export async function executeUpdateOrderSettings(
     if (requestedAutoAccept !== undefined && typeof requestedAutoAccept !== 'boolean') {
       return { ok: false, code: 'INVALID_INPUT', error: AUTO_ACCEPT_ERROR };
     }
+    if (requestedDineIn !== undefined && typeof requestedDineIn !== 'boolean') {
+      return { ok: false, code: 'INVALID_INPUT', error: DINE_IN_ERROR };
+    }
 
     const before = orderSettingsOf(shop);
     const autoAccept = requestedAutoAccept ?? before.autoAccept;
-    const orderSettings = { autoRejectMinutes, alertEmail: alert, autoAccept };
+    const dineIn = requestedDineIn ?? before.dineIn;
+    const orderSettings = { autoRejectMinutes, alertEmail: alert, autoAccept, dineIn };
     await updateShop({ ...shop, orderSettings, updatedAt: (input.now ?? new Date()).toISOString() });
     await logAudit({
       shopId: shop.id,
@@ -69,6 +73,7 @@ export async function executeUpdateOrderSettings(
         { field: 'autoRejectMinutes', from: before.autoRejectMinutes, to: autoRejectMinutes },
         { field: 'alertEmail', from: null, to: null },
         { field: 'autoAccept', from: before.autoAccept, to: autoAccept },
+        { field: 'dineIn', from: before.dineIn, to: dineIn },
       ],
     });
     return { ok: true, data: orderSettings };

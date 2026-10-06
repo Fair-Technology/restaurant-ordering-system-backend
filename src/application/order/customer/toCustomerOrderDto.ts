@@ -28,6 +28,7 @@ export function toCustomerOrderDto(order: Order, shop: Shop, now: Date): Custome
     state: order.state,
     displayState: deriveDisplayState(order, now),
     fulfilmentMode: order.fulfilmentMode,
+    table: order.table ? { label: order.table.label } : null,
     paymentStatus: displayPaymentStatus(order),
     refundedCents: refundedCents(order),
     documents: documentsOf(order),

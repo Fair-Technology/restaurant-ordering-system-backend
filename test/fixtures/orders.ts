@@ -246,3 +246,6 @@ export function orderStore(initial: Order) {
     },
   };
 }
+
+export const DINE_IN_SHOP: Shop = { ...CARD_SHOP, orderSettings: { autoRejectMinutes: 10, alertEmail: null, autoAccept: true, dineIn: true } };
+export const PLACED_TABLE_ORDER: Order = { ...PLACED_CARD_ORDER, id: 'o2', fulfilmentMode: 'dine_in', table: { label: '7' } };

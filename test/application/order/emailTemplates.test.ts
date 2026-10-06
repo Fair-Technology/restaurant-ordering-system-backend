@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildOrderEmail } from '../../../src/application/order/notifications/emailTemplates';
-import { ACCEPTED_CARD_ORDER, CARD_SHOP, LEGACY_CASH_ORDER, PLACED_CARD_ORDER } from '../../fixtures/orders';
+import { ACCEPTED_CARD_ORDER, CARD_SHOP, LEGACY_CASH_ORDER, PLACED_CARD_ORDER, PLACED_TABLE_ORDER } from '../../fixtures/orders';
 
 const customerOrderUrl = 'https://shop.example/shops/mapasta/orders/o1?t=TT';
 const adminOrdersUrl = 'https://admin.example/shops/shop-1/orders';
@@ -115,5 +115,23 @@ describe('order emails', () => {
     expect(mail.subject).toBe('Zahlung für Bestellung AB3-K7P konnte nicht freigegeben werden');
     expect(mail.text).toContain('Stripe meldet: API down.');
     expect(mail.text).toContain(adminOrdersUrl);
+  });
+
+  it("a table order's email names the table and leaves out the pickup address", () => {
+    const mail = build('order_received', PLACED_TABLE_ORDER);
+    expect(mail.text).toContain('Tisch: 7');
+    expect(mail.text).not.toContain('Abholung:');
+    expect(build('order_received').text).toContain('Abholung:');
+  });
+
+  it("a table order's ready email says ready, not collect", () => {
+    const mail = build('order_ready', { ...PLACED_TABLE_ORDER, state: 'READY' });
+    expect(mail.subject).toBe('Ma Pasta: Bestellung AB3-K7P ist fertig');
+    expect(mail.text).toContain('Ihre Bestellung ist fertig.');
+    expect(mail.text).not.toContain('abholbereit');
+  });
+
+  it('the waiting-order email names the table', () => {
+    expect(build('order_escalation', PLACED_TABLE_ORDER).text).toContain('Tisch: 7');
   });
 });

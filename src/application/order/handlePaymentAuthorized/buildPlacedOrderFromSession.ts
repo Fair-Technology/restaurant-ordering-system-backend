@@ -3,7 +3,7 @@ import { Order } from '../../../domain/order/Order';
 
 /**
  * The one place a paid-for checkout becomes an order: placed, with the card money reserved.
- * It copies the session's fulfilment mode as it is, so a later slice can attach a table without changing this.
+ * It copies the session's fulfilment mode and table as they are.
  */
 export function buildPlacedOrderFromSession(input: {
   session: CheckoutSession;
@@ -29,6 +29,7 @@ export function buildPlacedOrderFromSession(input: {
     customerPhone: session.customerPhone,
     ...(session.customerNotes ? { customerNotes: session.customerNotes } : {}),
     ...(session.customerAddress ? { customerAddress: session.customerAddress } : {}),
+    ...(session.table ? { table: session.table } : {}),
     ...(session.taxBreakdown ? { taxBreakdown: session.taxBreakdown } : {}),
     ...(session.language ? { language: session.language } : {}),
     ...(session.legalRevisions ? { legalRevisions: session.legalRevisions } : {}),
