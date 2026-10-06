@@ -121,10 +121,26 @@ describe('shop cover image', () => {
       BASE + 'shops/shop-2/branding/img-1.jpg',
       BASE + 'shops/shop-1/branding/other.jpg',
       'https://evil.example/img-1.jpg',
+      'https://evil.example/product-media/shops/shop-1/branding/img-1.jpg',
+      BASE + 'shops/shop-1/branding/img-1./../../shop-2/x.jpg',
+      BASE + 'shops/shop-1/branding/img-1.jpg/extra.jpg',
+      BASE + 'shops/shop-1/branding/img-1.jpg?x=1',
+      BASE + 'shops/shop-1/branding/img-1.jpg#frag',
+      BASE + 'shops/shop-1/branding/img-1.gif',
     ]) {
       const r = await executeSetShopCoverImage({ shopId: 'shop-1', imageId: 'img-1', url }, httpRequest);
       expect(r).toEqual({ ok: false, code: 'INVALID_INPUT', error: 'url must be the cover image uploaded for this shop' });
     }
+    expect(updateShop).not.toHaveBeenCalled();
+  });
+
+  it('set cover: refuses an imageId that carries path segments', async () => {
+    const imageId = 'x/../../shop-2/y';
+    const r = await executeSetShopCoverImage(
+      { shopId: 'shop-1', imageId, url: BASE + `shops/shop-1/branding/${imageId}.jpg` },
+      httpRequest,
+    );
+    expect(r).toEqual({ ok: false, code: 'INVALID_INPUT', error: 'url must be the cover image uploaded for this shop' });
     expect(updateShop).not.toHaveBeenCalled();
   });
 

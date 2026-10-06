@@ -4,10 +4,14 @@ import {
   updateShop as updateShopInRepo,
 } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { authorizeShopAction, toAuditActor } from '../../_shared/shopAccess';
-import { deleteBlob, extractBlobPath } from '../../../infrastructure/storage/blobStorageHelpers';
+import { deleteBlob, extractBlobPath, generateBlobUrl } from '../../../infrastructure/storage/blobStorageHelpers';
 import { SetShopCoverImageRequestDto, ShopCoverImageResultDto, toCoverImageResult } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 import { logAudit } from '../../_shared/auditHelpers';
+
+// Extensions the upload-URL step can generate (getFileExtensionFromContentType).
+const COVER_IMAGE_EXTENSIONS = ['.jpg', '.png', '.webp'];
+const IMAGE_ID_PATTERN = /^[A-Za-z0-9-]+$/;
 
 export const COVER_IMAGE_URL_ERROR = 'url must be the cover image uploaded for this shop';
 
@@ -36,8 +40,12 @@ export async function executeSetShopCoverImage(
     const access = await authorizeShopAction(httpRequest, shop, 'manage_shop');
     if (!access.ok) return access;
 
-    const newPath = extractBlobPath(request.url);
-    if (!newPath || !newPath.startsWith(`shops/${shopId}/branding/${imageId}.`)) {
+    // The URL must be exactly one of the blob URLs the upload-URL step could have issued
+    // for this shop and imageId: no extra segments, "..", query or fragment.
+    const isIssuedUrl =
+      IMAGE_ID_PATTERN.test(imageId) &&
+      COVER_IMAGE_EXTENSIONS.some((ext) => request.url === generateBlobUrl(`shops/${shopId}/branding/${imageId}${ext}`));
+    if (!isIssuedUrl) {
       return { ok: false, code: 'INVALID_INPUT', error: COVER_IMAGE_URL_ERROR };
     }
 
