@@ -12,7 +12,8 @@ vi.mock('../../../src/infrastructure/cosmos/reference/CosmosReferenceListsReposi
 import { executeQuoteBasket } from '../../../src/application/order/quoteBasket/executeQuoteBasket';
 import { findProductById } from '../../../src/infrastructure/cosmos/product/CosmosProductRepository';
 import { findShopById } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
-import { CARD_SHOP, NOW_CLOSED, NOW_OPEN, P_COLA, P_PASTA } from '../../fixtures/orders';
+import { MODE_NOT_OFFERED_ERROR } from '../../../src/domain/order/orderErrors';
+import { CARD_SHOP, DINE_IN_SHOP, NOW_CLOSED, NOW_OPEN, P_COLA, P_PASTA } from '../../fixtures/orders';
 
 const request = {
   shopId: 'shop-1',
@@ -65,5 +66,16 @@ describe('executeQuoteBasket', () => {
     (findShopById as any).mockResolvedValue({ ...CARD_SHOP, isPaused: true });
     const res = await executeQuoteBasket(request, { now: NOW_OPEN });
     expect(res).toEqual({ ok: false, code: 'INVALID_INPUT', error: 'This shop is not currently accepting orders' });
+  });
+
+  it('quotes a table order when dine-in is on', async () => {
+    (findShopById as any).mockResolvedValue(DINE_IN_SHOP);
+    const res = await executeQuoteBasket({ ...request, fulfilmentMode: 'dine_in' as const }, { now: NOW_OPEN });
+    expect(res.ok && res.data).toMatchObject({ fulfilmentMode: 'dine_in', prepMinutes: 20, paymentMethods: ['card'] });
+  });
+
+  it('refuses a table order when dine-in is off', async () => {
+    const res = await executeQuoteBasket({ ...request, fulfilmentMode: 'dine_in' as const }, { now: NOW_OPEN });
+    expect(res).toEqual({ ok: false, code: 'INVALID_INPUT', error: MODE_NOT_OFFERED_ERROR });
   });
 });

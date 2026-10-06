@@ -1,5 +1,6 @@
 import { menuLanguagesOf, resolveMenuLanguage } from '../../../domain/menu/menuLanguage';
-import { ORDER_MODE_UNAVAILABLE_ERROR, ORDERABLE_MODES } from '../../../domain/order/fulfilment';
+import { ORDER_MODE_UNAVAILABLE_ERROR, ORDERABLE_MODES, orderableModesFor } from '../../../domain/order/fulfilment';
+import { MODE_NOT_OFFERED_ERROR } from '../../../domain/order/orderErrors';
 import { isOpenForAsapOrder } from '../../../domain/order/openingHours';
 import { addressRequired, DEFAULT_PREP_MINUTES, FULFILMENT_MODES } from '../../../domain/order/Order';
 import { offeredPaymentMethods } from '../../../domain/order/paymentMethods';
@@ -38,6 +39,9 @@ export async function executeQuoteBasket(
         code: 'INVALID_INPUT',
         error: shop.pausedMessage ? shop.pausedMessage : 'This shop is not currently accepting orders',
       };
+    }
+    if (!orderableModesFor(shop).includes(mode)) {
+      return { ok: false, code: 'INVALID_INPUT', error: MODE_NOT_OFFERED_ERROR };
     }
 
     const context = await loadPricingContext(shop, request.items.map((i) => i.productId));
