@@ -1,4 +1,4 @@
-import { ORDERABLE_MODES } from '../../../domain/order/fulfilment';
+import { orderableModesFor } from '../../../domain/order/fulfilment';
 import { DEFAULT_PREP_MINUTES } from '../../../domain/order/Order';
 import { findShopBySlug } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { GetShopBySlugRequestDto, GetShopBySlugResultDto } from './dtos';
@@ -46,7 +46,7 @@ export async function executeGetShopBySlug(
       openingHours: shop.openingHours,
       closures: shop.closures,
       branding: shop.branding ?? null,
-      fulfilment: { modes: [...ORDERABLE_MODES], prepMinutes: { ...DEFAULT_PREP_MINUTES } },
+      fulfilment: { modes: orderableModesFor(shop), prepMinutes: { ...DEFAULT_PREP_MINUTES } },
       createdAt: shop.createdAt,
       updatedAt: shop.updatedAt,
     };
