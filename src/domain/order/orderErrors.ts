@@ -36,3 +36,6 @@ export const GO_LIVE_STRIPE_ERROR = 'Stripe payments onboarding is not complete'
 export const GO_LIVE_TAX_ID_ERROR = 'Enter a tax number or VAT ID for invoices before going live';
 export const AUTO_ACCEPT_ERROR = 'autoAccept must be true or false';
 export const TAX_NUMBER_ERROR = 'taxNumber must be at most 30 characters';
+export const MODE_NOT_OFFERED_ERROR = 'This restaurant is not taking orders this way right now'; // storefront compares
+export const TABLE_INVALID_ERROR = 'Please scan the QR code on your table again'; // storefront compares
+export const DINE_IN_ERROR = 'dineIn must be true or false';

@@ -5,9 +5,10 @@ export interface OrderSettings {
   autoRejectMinutes: number;
   alertEmail: string | null;
   autoAccept: boolean;
+  dineIn: boolean;
 }
 
-export const DEFAULT_ORDER_SETTINGS: OrderSettings = { autoRejectMinutes: 10, alertEmail: null, autoAccept: true };
+export const DEFAULT_ORDER_SETTINGS: OrderSettings = { autoRejectMinutes: 10, alertEmail: null, autoAccept: true, dineIn: false };
 export const AUTO_REJECT_MIN_MINUTES = 5;
 export const AUTO_REJECT_MAX_MINUTES = 30;
 

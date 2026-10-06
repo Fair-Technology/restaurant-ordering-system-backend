@@ -65,6 +65,11 @@ export function addressRequired(subtotalCents: number): boolean {
   return subtotalCents > ADDRESS_REQUIRED_ABOVE_CENTS;
 }
 
+/** The order's own copy of its table; a later secret code would add `code?: string`. */
+export interface OrderTable {
+  label: string;
+}
+
 export type CorrectionKind = 'cancellation' | 'correction';
 
 /** One ticked order line in an item refund. grossCents = unit price x quantity, at the line's own VAT rate. */
@@ -130,6 +135,7 @@ export interface Order {
   customerPhone: string;
   customerNotes?: string;
   customerAddress?: CustomerAddress; // optional; required above ADDRESS_REQUIRED_ABOVE_CENTS
+  table?: OrderTable; // dine_in orders only
   refunds?: OrderRefund[];
   releaseFailure?: PaymentReleaseFailure; // the reservation could not be released yet
   invoiceNumber?: string; // set once the invoice is issued
