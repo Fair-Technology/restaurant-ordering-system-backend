@@ -93,6 +93,7 @@ function buildEscalationEmail(order: Order, shop: Shop, adminOrdersUrl: string):
         ? `Bestellung ${order.orderRef} (${f.money(order.subtotalCents)}) wartet seit 3 Minuten. Ohne Annahme wird sie um ${until} automatisch abgelehnt.`
         : `Order ${order.orderRef} (${f.money(order.subtotalCents)}) has been waiting 3 minutes. It will be declined automatically at ${until} unless you accept it.`,
     },
+    ...(order.table ? [{ type: 'p' as const, text: `${de ? 'Tisch' : 'Table'}: ${order.table.label}` }] : []),
     { type: 'p', text: `${de ? 'Zu den Bestellungen' : 'Open orders'}: ${adminOrdersUrl}` },
   ]);
 }
@@ -147,14 +148,19 @@ export function buildOrderEmail(input: {
   const ref = order.orderRef;
   const time = order.readyAt ? f.time(order.readyAt) : '';
   const name = shop.name;
+  const dineIn = order.fulfilmentMode === 'dine_in';
 
   const subjects: Record<Exclude<OrderEmailKind, 'order_escalation' | 'payment_release_failed'>, Bilingual> = {
     order_received: { de: `${name}: Bestellung ${ref} eingegangen`, en: `${name}: order ${ref} received` },
     order_accepted: {
-      de: `${name}: Bestellung ${ref} angenommen – abholbereit um ${time}`,
+      de: dineIn
+        ? `${name}: Bestellung ${ref} angenommen – fertig um ${time}`
+        : `${name}: Bestellung ${ref} angenommen – abholbereit um ${time}`,
       en: `${name}: order ${ref} accepted – ready at ${time}`,
     },
-    order_ready: { de: `${name}: Bestellung ${ref} ist abholbereit`, en: `${name}: order ${ref} is ready to collect` },
+    order_ready: dineIn
+      ? { de: `${name}: Bestellung ${ref} ist fertig`, en: `${name}: order ${ref} is ready` }
+      : { de: `${name}: Bestellung ${ref} ist abholbereit`, en: `${name}: order ${ref} is ready to collect` },
     order_rejected: { de: `${name}: Bestellung ${ref} abgelehnt`, en: `${name}: order ${ref} declined` },
     order_cancelled: { de: `${name}: Bestellung ${ref} storniert`, en: `${name}: order ${ref} cancelled` },
     order_refunded: { de: `${name}: Erstattung für Bestellung ${ref}`, en: `${name}: refund for order ${ref}` },
@@ -169,11 +175,17 @@ export function buildOrderEmail(input: {
       break;
     case 'order_accepted':
       kindLine = de
-        ? `Ihre Bestellung wurde angenommen und ist um ${time} abholbereit.`
+        ? `Ihre Bestellung wurde angenommen und ist um ${time} ${dineIn ? 'fertig' : 'abholbereit'}.`
         : `Your order has been accepted and will be ready at ${time}.`;
       break;
     case 'order_ready':
-      kindLine = de ? 'Ihre Bestellung ist abholbereit.' : 'Your order is ready to collect.';
+      kindLine = dineIn
+        ? de
+          ? 'Ihre Bestellung ist fertig.'
+          : 'Your order is ready.'
+        : de
+          ? 'Ihre Bestellung ist abholbereit.'
+          : 'Your order is ready to collect.';
       break;
     case 'order_rejected': {
       const sentence = pick(REJECT_SENTENCES[rejectionReasonOf(order)]);
@@ -234,6 +246,7 @@ export function buildOrderEmail(input: {
     { type: 'p', text: `${de ? 'Hallo' : 'Hello'} ${order.customerName},` },
     { type: 'p', text: kindLine },
   ];
+  if (order.table) blocks.push({ type: 'p', text: `${de ? 'Tisch' : 'Table'}: ${order.table.label}` });
   if (moneyLine) blocks.push({ type: 'p', text: moneyLine });
   if (doc) {
     blocks.push({
@@ -250,10 +263,12 @@ export function buildOrderEmail(input: {
   if (paymentLine) blocks.push({ type: 'p', text: paymentLine });
   blocks.push({ type: 'p', text: linkLine });
   if (impressum) {
-    blocks.push({
-      type: 'p',
-      text: `${de ? 'Abholung' : 'Collect from'}: ${impressum.street}, ${impressum.postcode} ${impressum.city}`,
-    });
+    if (!dineIn) {
+      blocks.push({
+        type: 'p',
+        text: `${de ? 'Abholung' : 'Collect from'}: ${impressum.street}, ${impressum.postcode} ${impressum.city}`,
+      });
+    }
     blocks.push({
       type: 'p',
       text: buildImpressumLines(impressum, lang)

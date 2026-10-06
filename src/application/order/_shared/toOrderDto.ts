@@ -12,6 +12,7 @@ export function toOrderDto(order: Order, now: Date): OrderDto {
     state: order.state,
     displayState: deriveDisplayState(order, now),
     fulfilmentMode: order.fulfilmentMode,
+    table: order.table ? { label: order.table.label } : null,
     paymentStatus: displayPaymentStatus(order),
     readyAt: order.readyAt ?? null,
     items: order.items.map((item) => ({

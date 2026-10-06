@@ -33,6 +33,7 @@ export type OrderDto = {
   state: StoredOrderState;
   displayState: OrderState;
   fulfilmentMode: FulfilmentMode;
+  table: { label: string } | null;
   paymentStatus: DisplayPaymentStatus;
   readyAt: string | null;
   items: OrderItemDto[];

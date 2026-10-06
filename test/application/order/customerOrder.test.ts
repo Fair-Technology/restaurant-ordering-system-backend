@@ -32,7 +32,7 @@ import { findShopById } from '../../../src/infrastructure/cosmos/shop/CosmosShop
 import { sendEmail } from '../../../src/infrastructure/email/emailSender';
 import { CANNOT_CANCEL_ERROR, ORDER_NOT_FOUND_ERROR, PAYMENT_CONFIRMING_ERROR } from '../../../src/domain/order/orderErrors';
 import { releaseAuthorization } from '../../../src/infrastructure/stripe/stripeClient';
-import { CARD_SHOP, orderStore, PLACED_CARD_ORDER } from '../../fixtures/orders';
+import { CARD_SHOP, orderStore, PLACED_CARD_ORDER, PLACED_TABLE_ORDER } from '../../fixtures/orders';
 
 const TOKEN = 'T'.repeat(32);
 const now = new Date('2026-10-05T10:05:00Z');
@@ -126,5 +126,11 @@ describe('customer order page', () => {
     expect(res).toEqual({ ok: false, code: 'CONFLICT', error: CANNOT_CANCEL_ERROR });
     expect(replaceOrderIfMatch).not.toHaveBeenCalled();
     expect(releaseAuthorization).not.toHaveBeenCalled();
+  });
+
+  it('shows the table to the diner', async () => {
+    stored(PLACED_TABLE_ORDER);
+    const res = await executeGetCustomerOrder({ orderId: 'o2', token: TOKEN }, { now });
+    expect(res.ok && res.data.table).toEqual({ label: '7' });
   });
 });
