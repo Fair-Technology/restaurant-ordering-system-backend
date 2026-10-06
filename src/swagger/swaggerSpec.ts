@@ -703,6 +703,115 @@ export const swaggerSpec = {
         },
       },
     },
+    '/shops/{shopId}/cover-image/upload-url': {
+      post: {
+        summary: 'Generate upload URL for shop cover image',
+        operationId: 'generateShopCoverImageUploadUrl',
+        description:
+          'Generates a short-lived SAS URL for uploading the shop cover image directly to Azure Blob Storage',
+        tags: ['Shop Cover Image'],
+        parameters: [
+          {
+            name: 'shopId',
+            in: 'path',
+            required: true,
+            schema: { type: 'string' },
+            description: 'Shop ID',
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/GenerateShopCoverImageUploadUrlRequest' },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Upload URL generated successfully',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/GenerateShopCoverImageUploadUrlResponse' },
+              },
+            },
+          },
+          '400': { $ref: '#/components/responses/BadRequest' },
+          '403': { $ref: '#/components/responses/Forbidden' },
+          '404': { $ref: '#/components/responses/NotFound' },
+          '500': { $ref: '#/components/responses/InternalError' },
+        },
+      },
+    },
+    '/shops/{shopId}/cover-image': {
+      post: {
+        summary: 'Set shop cover image',
+        operationId: 'setShopCoverImage',
+        description:
+          'Registers the uploaded cover image on the shop (stored as branding.heroImageUrl). The URL must be the blob returned for this shop by the cover upload URL. Deletes the previous cover blob.',
+        tags: ['Shop Cover Image'],
+        parameters: [
+          {
+            name: 'shopId',
+            in: 'path',
+            required: true,
+            schema: { type: 'string' },
+            description: 'Shop ID',
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/SetShopCoverImageRequest' },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Shop cover image updated successfully',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/ShopResponse' },
+              },
+            },
+          },
+          '400': { $ref: '#/components/responses/BadRequest' },
+          '403': { $ref: '#/components/responses/Forbidden' },
+          '404': { $ref: '#/components/responses/NotFound' },
+          '500': { $ref: '#/components/responses/InternalError' },
+        },
+      },
+      delete: {
+        summary: 'Remove shop cover image',
+        operationId: 'removeShopCoverImage',
+        description:
+          'Clears the shop cover image (branding.heroImageUrl) and deletes the stored file. Succeeds without changes if no cover is set.',
+        tags: ['Shop Cover Image'],
+        parameters: [
+          {
+            name: 'shopId',
+            in: 'path',
+            required: true,
+            schema: { type: 'string' },
+            description: 'Shop ID',
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Shop cover image removed successfully',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/ShopResponse' },
+              },
+            },
+          },
+          '403': { $ref: '#/components/responses/Forbidden' },
+          '404': { $ref: '#/components/responses/NotFound' },
+          '500': { $ref: '#/components/responses/InternalError' },
+        },
+      },
+    },
     '/shops/{shopId}/catalog': {
       get: {
         summary: 'Get customer-facing catalog for a shop',
@@ -1729,6 +1838,57 @@ export const swaggerSpec = {
           imageId: {
             type: 'string',
             description: 'Image ID returned from the logo upload URL generation',
+            example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+          },
+          url: {
+            type: 'string',
+            description: 'Blob URL of the uploaded logo',
+          },
+        },
+      },
+      GenerateShopCoverImageUploadUrlRequest: {
+        type: 'object',
+        required: ['contentType'],
+        properties: {
+          contentType: {
+            type: 'string',
+            enum: ['image/jpeg', 'image/png', 'image/webp'],
+            description: 'MIME type of the cover image to upload',
+            example: 'image/jpeg',
+          },
+        },
+      },
+      GenerateShopCoverImageUploadUrlResponse: {
+        type: 'object',
+        required: ['imageId', 'uploadUrl', 'blobUrl', 'expiresAt'],
+        properties: {
+          imageId: {
+            type: 'string',
+            description: 'Unique identifier for the cover image',
+            example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+          },
+          uploadUrl: {
+            type: 'string',
+            description: 'Pre-signed URL for uploading the cover image to Azure Blob Storage',
+          },
+          blobUrl: {
+            type: 'string',
+            description: 'Permanent URL of the cover image blob (without SAS token)',
+          },
+          expiresAt: {
+            type: 'string',
+            format: 'date-time',
+            description: 'Expiration time of the upload URL',
+          },
+        },
+      },
+      SetShopCoverImageRequest: {
+        type: 'object',
+        required: ['imageId', 'url'],
+        properties: {
+          imageId: {
+            type: 'string',
+            description: 'Image ID returned from the cover image upload URL generation',
             example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
           },
           url: {
