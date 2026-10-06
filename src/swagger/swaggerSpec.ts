@@ -2194,8 +2194,13 @@ export const swaggerSpec = {
           fulfilmentMode: {
             type: 'string',
             enum: ['collection', 'delivery', 'dine_in'],
-            description: 'How the order is fulfilled (optional, defaults to collection). Only collection is available at the moment.',
+            description: 'How the order is fulfilled (optional, defaults to collection). dine_in only while the restaurant has dine-in switched on; delivery is not available yet.',
             example: 'collection',
+          },
+          table: {
+            type: 'string',
+            description: 'Table number from the table QR code: 1 to 10 letters, digits, spaces or dashes. Required when fulfilmentMode is dine_in; ignored otherwise.',
+            example: '7',
           },
         },
       },
