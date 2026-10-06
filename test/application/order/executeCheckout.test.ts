@@ -38,7 +38,7 @@ import {
 import { findOrderById } from '../../../src/infrastructure/cosmos/order/CosmosOrderRepository';
 import { createPaymentIntent } from '../../../src/infrastructure/stripe/stripeClient';
 import { ACCEPTED_DPA, COMPLETE_LEGAL } from '../../fixtures/legal';
-import { ADDRESS, CARD_SHOP, LUNCH_HOURS, NOW_CLOSED, NOW_OPEN, P_COLA, P_PASTA, PLACED_CARD_ORDER } from '../../fixtures/orders';
+import { ADDRESS, CARD_SHOP, LUNCH_HOURS, NOW_CLOSED, NOW_OPEN, P_COLA, P_PASTA, PLACED_CARD_ORDER, DINE_IN_SHOP, PLACED_TABLE_ORDER } from '../../fixtures/orders';
 import { executeCheckout } from '../../../src/application/order/checkout/executeCheckout';
 import { CheckoutRequestDto } from '../../../src/application/order/checkout/dtos';
 import {
@@ -47,8 +47,10 @@ import {
   BASKET_CHANGED_ERROR,
   IDEMPOTENCY_KEY_ERROR,
   LEGAL_CHANGED_ERROR,
+  MODE_NOT_OFFERED_ERROR,
   NO_PAYMENT_SETUP_ERROR,
   SHOP_CLOSED_ERROR,
+  TABLE_INVALID_ERROR,
 } from '../../../src/domain/order/orderErrors';
 import { orderIdForIdempotencyKey } from '../../../src/domain/order/orderIds';
 
@@ -77,7 +79,7 @@ describe('executeCheckout fulfilmentMode validation', () => {
     expect(res).toEqual({
       ok: false,
       code: 'INVALID_INPUT',
-      error: 'Only collection orders are available at the moment',
+      error: 'Delivery is not available yet',
     });
     expect(findShopById).not.toHaveBeenCalled();
   });
@@ -293,5 +295,45 @@ describe('executeCheckout card placement', () => {
 
     const half = await executeCheckout({ ...cardRequest, customerAddress: { ...ADDRESS, city: '' } }, { now: NOW_OPEN });
     expect(half).toEqual({ ok: false, code: 'INVALID_INPUT', error: ADDRESS_INVALID_ERROR });
+  });
+
+  describe('table orders', () => {
+    const tableRequest: CheckoutRequestDto = { ...cardRequest, fulfilmentMode: 'dine_in', table: ' Terrasse  3 ' };
+
+    it('starts a table order with its table', async () => {
+      (findShopById as any).mockResolvedValue(DINE_IN_SHOP);
+      const res = await executeCheckout(tableRequest, { now: NOW_OPEN });
+      expect(res.ok && res.data.kind).toBe('card');
+      expect(upsertCheckoutSession).toHaveBeenCalledWith(
+        expect.objectContaining({ fulfilmentMode: 'dine_in', table: { label: 'Terrasse 3' } }),
+      );
+    });
+
+    it('a table order needs a valid table', async () => {
+      (findShopById as any).mockResolvedValue(DINE_IN_SHOP);
+      for (const table of [undefined, '', 'Bar 1 Links hinten', 7 as any]) {
+        const res = await executeCheckout({ ...tableRequest, table }, { now: NOW_OPEN });
+        expect(res).toEqual({ ok: false, code: 'INVALID_INPUT', error: TABLE_INVALID_ERROR });
+      }
+      expect(findShopById).not.toHaveBeenCalled();
+    });
+
+    it('refuses a table order while dine-in is off', async () => {
+      const res = await executeCheckout(tableRequest, { now: NOW_OPEN });
+      expect(res).toEqual({ ok: false, code: 'INVALID_INPUT', error: MODE_NOT_OFFERED_ERROR });
+      expect(createPaymentIntent).not.toHaveBeenCalled();
+    });
+
+    it('a collection order ignores a table', async () => {
+      const res = await executeCheckout({ ...cardRequest, table: '7' }, { now: NOW_OPEN });
+      expect(res.ok).toBe(true);
+      expect((upsertCheckoutSession as any).mock.calls[0][0]).not.toHaveProperty('table');
+    });
+
+    it('a repeated table submit returns its order after dine-in was switched off', async () => {
+      (findOrderById as any).mockResolvedValue(PLACED_TABLE_ORDER);
+      const res = await executeCheckout(tableRequest, { now: NOW_OPEN });
+      expect(res.ok && res.data.kind === 'placed' && res.data.orderId === 'o2').toBe(true);
+    });
   });
 });
