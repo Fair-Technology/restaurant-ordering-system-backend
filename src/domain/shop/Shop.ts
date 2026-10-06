@@ -136,3 +136,10 @@ export interface Shop {
 export function stripeReady(shop: Pick<Shop, 'stripe'>): boolean {
   return shop.stripe?.connectOnboardingStatus === 'complete';
 }
+
+// What a restaurant's own Stripe account is created with. The country must be the restaurant's:
+// left out, Stripe uses the platform's (Fair Technology is registered in Australia), and an
+// account's country can never be changed afterwards.
+export function stripeAccountCreateParams(shop: Pick<Shop, 'id' | 'countryCode'>) {
+  return { country: shop.countryCode, metadata: { shopId: shop.id } };
+}

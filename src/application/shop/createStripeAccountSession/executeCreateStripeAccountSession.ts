@@ -4,6 +4,7 @@ import {
   findShopById,
   updateShop,
 } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
+import { stripeAccountCreateParams } from '../../../domain/shop/Shop';
 import { registerStorefrontDomain } from '../_shared/registerStorefrontDomain';
 import { authorizeShopAction } from '../../_shared/shopAccess';
 import { ApplicationResult } from '../../_shared/types';
@@ -38,9 +39,7 @@ export async function executeCreateStripeAccountSession(
 
     // Create a Connect account if one does not exist yet
     if (!shop.stripe?.connectAccountId) {
-      const account = await stripe.accounts.create({
-        metadata: { shopId: shop.id },
-      });
+      const account = await stripe.accounts.create(stripeAccountCreateParams(shop));
       shop = await updateShop({
         ...shop,
         stripe: { ...shop.stripe, connectAccountId: account.id, connectOnboardingStatus: 'pending' },
