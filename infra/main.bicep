@@ -101,13 +101,47 @@ resource storage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
   properties: {
     minimumTlsVersion: 'TLS1_2'
     supportsHttpsTrafficOnly: true
-    allowBlobPublicAccess: false
+    // Shop logos, cover images and dish photos are shown to diners straight from
+    // storage, so public reads must be possible. Only the product-media container
+    // turns them on; every other container stays private.
+    allowBlobPublicAccess: true
+  }
+}
+
+// The admin uploads images straight from the browser to storage with a
+// short-lived upload link, so storage must accept cross-site requests from the
+// front-ends or the browser blocks the upload.
+resource blobService 'Microsoft.Storage/storageAccounts/blobServices@2023-05-01' = {
+  parent: storage
+  name: 'default'
+  properties: {
+    cors: {
+      corsRules: [
+        {
+          allowedOrigins: [for (app, i) in staticApps: 'https://${staticSites[i].properties.defaultHostname}']
+          allowedMethods: [ 'GET', 'HEAD', 'PUT', 'OPTIONS' ]
+          allowedHeaders: [ '*' ]
+          exposedHeaders: [ '*' ]
+          maxAgeInSeconds: 3600
+        }
+      ]
+    }
   }
 }
 
 resource deploymentContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-05-01' = {
   name: '${storageName}/default/app-package'
   dependsOn: [ storage ]
+}
+
+// Shop and dish images. 'Blob' lets anyone read a file by its exact address,
+// but not list the container's contents.
+resource mediaContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-05-01' = {
+  parent: blobService
+  name: 'product-media'
+  properties: {
+    publicAccess: 'Blob'
+  }
 }
 
 // ── Identity and telemetry ────────────────────────────────────────────────────
