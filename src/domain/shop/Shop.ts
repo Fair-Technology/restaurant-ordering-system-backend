@@ -1,6 +1,7 @@
 import { MenuLanguage } from '../reference/ReferenceLists';
 import { ShopLegal } from '../legal/legalTexts';
-import type { OrderSettings } from '../order/orderSettings';
+import type { StoredOrderSettings } from '../order/orderSettings';
+import type { BusyMode } from '../order/kitchenTiming';
 
 export interface ShopBranding {
   logoUrl: string | null;
@@ -122,7 +123,9 @@ export interface Shop {
   dpaAcceptanceHistory?: DpaAcceptance[];
 
   // Order alert settings. Absent = defaults; read via orderSettingsOf().
-  orderSettings?: OrderSettings | null;
+  orderSettings?: StoredOrderSettings | null;
+  // Busy mode: absent/null = not busy. Only counts while its serviceDate is today's service day.
+  busyMode?: BusyMode | null;
 
   // Audit
   createdAt: string; // ISO
