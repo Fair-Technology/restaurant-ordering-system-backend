@@ -1,5 +1,5 @@
 import type { ShopSubscription } from '../../../domain/subscription/ShopSubscription';
-import { FALLBACK_DEFAULT_PLAN_ID, GRACE_WARNING_DAYS, graceEndsAt, limitOf } from '../../../domain/subscription/entitlements';
+import { FALLBACK_DEFAULT_PLAN_ID, GRACE_WARNING_DAYS, graceEndsAt, isOverrideActive, limitOf } from '../../../domain/subscription/entitlements';
 import { findDefaultPlan } from '../../../infrastructure/cosmos/plan/CosmosPlanRepository';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import {
@@ -65,7 +65,14 @@ export async function executeProcessSubscriptionTimers(input: { now: Date }): Pr
       // A downgrade whose paid period has ended.
       if (sub.scheduledChange && now.getTime() >= Date.parse(sub.scheduledChange.effectiveAt)) {
         const { planId, billingInterval } = sub.scheduledChange;
-        sub = await upsertSubscription({ ...sub, planId, billingInterval, scheduledChange: null, updatedAt: now.toISOString() });
+        // While a manual plan from superadmin is active it keeps the plan; the downgrade lands when the manual plan ends.
+        sub = await upsertSubscription({
+          ...sub,
+          ...(isOverrideActive(sub, now) ? { planBeforeOverride: planId } : { planId }),
+          billingInterval,
+          scheduledChange: null,
+          updatedAt: now.toISOString(),
+        });
         result.changesApplied += 1;
       }
 

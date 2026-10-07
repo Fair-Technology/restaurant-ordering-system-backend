@@ -88,6 +88,22 @@ describe('subscription timers', () => {
     expect(res.changesApplied).toBe(1);
   });
 
+  it('a due downgrade does not overwrite an active manual plan', async () => {
+    (findSubscriptionsNeedingTimers as any).mockResolvedValue([
+      {
+        ...defaultSubscription('shop-1', 'plan-max', 'x'),
+        planSource: 'superadmin_override',
+        overrideExpiresAt: null,
+        planBeforeOverride: 'plan-max',
+        scheduledChange: { planId: 'plan-pro', billingInterval: 'monthly', effectiveAt: ago(HOUR) },
+      },
+    ]);
+    await executeProcessSubscriptionTimers({ now });
+    expect(upsertSubscription).toHaveBeenCalledWith(
+      expect.objectContaining({ planId: 'plan-max', planBeforeOverride: 'plan-pro', scheduledChange: null }),
+    );
+  });
+
   it('an expired override is tidied and audited', async () => {
     (findSubscriptionsNeedingTimers as any).mockResolvedValue([
       {
