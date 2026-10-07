@@ -88,6 +88,7 @@ import './functions/subscription/confirmSubscriptionCheckout/index';
 import './functions/subscription/cancelScheduledChange/index';
 import './functions/subscription/createBillingPortalSession/index';
 import './functions/subscription/retrySubscriptionPayment/index';
+import './functions/subscription/subscriptionTimers/index';
 
 // Usage endpoints
 import './functions/usage/getShopUsage/index';
