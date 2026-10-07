@@ -79,6 +79,8 @@ import './functions/plan/setPlanPricing/index';
 // Subscription endpoints
 import './functions/subscription/getShopSubscription/index';
 import './functions/subscription/overrideShopSubscription/index';
+import './functions/subscription/setLimitOverride/index';
+import './functions/subscription/clearLimitOverride/index';
 import './functions/subscription/createSubscriptionCheckout/index';
 import './functions/subscription/cancelShopSubscription/index';
 import './functions/subscription/resumeShopSubscription/index';
@@ -87,6 +89,7 @@ import './functions/subscription/resumeShopSubscription/index';
 import './functions/usage/getShopUsage/index';
 import './functions/usage/getOrderLimit/index';
 import './functions/usage/reconcileShopUsage/index';
+import './functions/usage/getRejectionWatch/index';
 
 // System config endpoints
 import './functions/systemConfig/getSystemConfig/index';

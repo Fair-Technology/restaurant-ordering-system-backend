@@ -17,6 +17,7 @@ vi.mock('../../../src/infrastructure/cosmos/invoice/CosmosInvoiceRepository', ()
 }));
 vi.mock('../../../src/infrastructure/cosmos/usage/CosmosUsageRepository', () => ({ incrementAcceptedOrders: vi.fn() }));
 vi.mock('../../../src/infrastructure/pdf/invoicePdf', () => ({ renderInvoicePdf: vi.fn(async () => new Uint8Array([1])) }));
+vi.mock('../../../src/application/usage/orderLimitWarnings', () => ({ notifyOrderLimitThresholds: vi.fn(async () => undefined) }));
 vi.mock('../../../src/infrastructure/stripe/stripeClient', () => ({
   capturePaymentIntent: vi.fn(async () => undefined),
   releaseAuthorization: vi.fn(async () => 'canceled'),

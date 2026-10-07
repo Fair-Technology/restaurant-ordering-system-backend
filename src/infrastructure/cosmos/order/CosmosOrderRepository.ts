@@ -1,5 +1,6 @@
 import { Order, StoredOrderState } from '../../../domain/order/Order';
 import { orderContainer } from '../cosmosClient';
+import type { OrderForRejectionStats } from '../../../domain/usage/rejectionStats';
 
 export async function createOrder(order: Order): Promise<Order> {
   try {
@@ -187,4 +188,17 @@ export async function findInvoicedOrdersWithRefunds(sinceIso: string): Promise<O
   };
   const { resources } = await orderContainer.items.query<Order>(querySpec).fetchAll();
   return resources;
+}
+
+/** Only what the decline statistics need: no customer fields (history holds actor ids, not names). */
+export async function findOrdersForRejectionStats(shopId: string, sinceIso: string): Promise<OrderForRejectionStats[]> {
+  const querySpec = {
+    query: 'SELECT c.createdAt, c.acceptedAt, c.history FROM c WHERE c.shopId = @shopId AND c.createdAt >= @since',
+    parameters: [
+      { name: '@shopId', value: shopId },
+      { name: '@since', value: sinceIso },
+    ],
+  };
+  const { resources } = await orderContainer.items.query<OrderForRejectionStats>(querySpec).fetchAll();
+  return resources ?? [];
 }

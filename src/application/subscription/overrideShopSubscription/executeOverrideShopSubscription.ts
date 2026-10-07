@@ -51,6 +51,7 @@ export async function executeOverrideShopSubscription(
       planId: request.planId,
       status: plan.isDefault ? 'free' : 'active',
       planSource: 'superadmin_override',
+      planBeforeOverride: current.planSource === 'superadmin_override' ? (current.planBeforeOverride ?? null) : current.planId,
       overriddenBy: userId,
       overrideReason: request.overrideReason.trim(),
       overrideExpiresAt: request.overrideExpiresAt ?? null,

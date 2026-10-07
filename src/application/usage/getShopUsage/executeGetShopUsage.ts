@@ -2,12 +2,15 @@ import { HttpRequest } from '@azure/functions';
 import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
 import { findUserById } from '../../../infrastructure/cosmos/user/CosmosUserRepository';
 import { findUsageByShopId } from '../../../infrastructure/cosmos/usage/CosmosUsageRepository';
+import { findOrdersForRejectionStats } from '../../../infrastructure/cosmos/order/CosmosOrderRepository';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { ApplicationResult } from '../../_shared/types';
 import { PLAN_LIMIT_KEYS } from '../../_shared/planLimitKeys';
-import { getPlanLimitForShop } from '../../_shared/planLimits';
+import { loadEntitlements } from '../../_shared/entitlements';
+import { loadOrderLimitStatus } from '../orderLimitStatus';
 import { GetShopUsageResultDto } from './dtos';
 import { ShopUsage } from '../../../domain/usage/ShopUsage';
+import { REJECTION_WINDOW_DAYS, rejectionStats } from '../../../domain/usage/rejectionStats';
 import { periodKeyFor } from '../../../domain/usage/usagePeriod';
 import { toShopUsageDto } from '../shopUsageDto';
 
@@ -47,9 +50,23 @@ export async function executeGetShopUsage(
             updatedAt: new Date().toISOString(),
           };
 
-    const ordersPerMonthLimit = await getPlanLimitForShop(shopId, PLAN_LIMIT_KEYS.ORDERS_PER_MONTH);
+    const now = new Date();
+    const ordersPerMonthLimit = (await loadEntitlements(shopId, now)).limits[PLAN_LIMIT_KEYS.ORDERS_PER_MONTH] ?? null;
+    const orderLimit = await loadOrderLimitStatus(shop, now);
+    const orders = await findOrdersForRejectionStats(
+      shopId,
+      new Date(now.getTime() - REJECTION_WINDOW_DAYS * 86_400_000).toISOString(),
+    );
 
-    return { ok: true, data: { usage: toShopUsageDto(usage), ordersPerMonthLimit } };
+    return {
+      ok: true,
+      data: {
+        usage: toShopUsageDto(usage),
+        ordersPerMonthLimit,
+        orderLimit,
+        rejections: rejectionStats(orders, now, orderLimit.warningLevel),
+      },
+    };
   } catch (error: any) {
     if (error.message === 'Authentication required') {
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
