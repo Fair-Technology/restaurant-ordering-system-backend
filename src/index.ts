@@ -84,6 +84,11 @@ import './functions/subscription/clearLimitOverride/index';
 import './functions/subscription/createSubscriptionCheckout/index';
 import './functions/subscription/cancelShopSubscription/index';
 import './functions/subscription/resumeShopSubscription/index';
+import './functions/subscription/confirmSubscriptionCheckout/index';
+import './functions/subscription/cancelScheduledChange/index';
+import './functions/subscription/createBillingPortalSession/index';
+import './functions/subscription/retrySubscriptionPayment/index';
+import './functions/subscription/subscriptionTimers/index';
 
 // Usage endpoints
 import './functions/usage/getShopUsage/index';

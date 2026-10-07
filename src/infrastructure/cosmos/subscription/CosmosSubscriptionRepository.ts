@@ -32,3 +32,19 @@ export async function findSubscriptionByBillingSubscriptionId(billingSubscriptio
     throw error;
   }
 }
+
+/** Subscriptions the hourly timer has something to do for: a failing payment, a due downgrade, or an expired plan override. */
+export async function findSubscriptionsNeedingTimers(nowIso: string): Promise<ShopSubscription[]> {
+  try {
+    const querySpec = {
+      query: `SELECT * FROM c WHERE (c.status = 'past_due' AND IS_STRING(c.paymentFailedAt))
+        OR (IS_DEFINED(c.scheduledChange) AND NOT IS_NULL(c.scheduledChange) AND c.scheduledChange.effectiveAt <= @now)
+        OR (c.planSource = 'superadmin_override' AND IS_STRING(c.overrideExpiresAt) AND c.overrideExpiresAt <= @now)`,
+      parameters: [{ name: '@now', value: nowIso }],
+    };
+    const { resources } = await subscriptionContainer.items.query<ShopSubscription>(querySpec).fetchAll();
+    return resources || [];
+  } catch (error) {
+    throw error;
+  }
+}

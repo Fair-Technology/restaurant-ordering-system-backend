@@ -9,6 +9,23 @@ import { GetShopSubscriptionResultDto } from './dtos';
 import { defaultSubscription } from '../../../domain/subscription/ShopSubscription';
 import { FALLBACK_DEFAULT_PLAN_ID } from '../../../domain/subscription/entitlements';
 
+/** The restaurant's subscription (created on first read for restaurants that pre-date billing), its plan and entitlements. */
+export async function loadShopSubscriptionResult(shopId: string): Promise<GetShopSubscriptionResultDto> {
+  let subscription = await findSubscriptionByShopId(shopId);
+
+  // Lazy init for existing shops that pre-date this feature
+  if (!subscription) {
+    const defaultPlan = await findDefaultPlan();
+    const now = new Date().toISOString();
+    const newSub = defaultSubscription(shopId, defaultPlan?.id ?? FALLBACK_DEFAULT_PLAN_ID, now);
+    subscription = await upsertSubscription(newSub);
+  }
+
+  const plan = await findPlanById(subscription.planId);
+  const entitlements = await loadEntitlements(shopId, new Date());
+  return { subscription, plan, entitlements };
+}
+
 export async function executeGetShopSubscription(
   shopId: string,
   httpRequest: HttpRequest,
@@ -26,19 +43,7 @@ export async function executeGetShopSubscription(
     const access = await authorizeShopAction(httpRequest, shop, 'manage_billing', { allowSuperadmin: true });
     if (!access.ok) return access;
 
-    let subscription = await findSubscriptionByShopId(shopId);
-
-    // Lazy init for existing shops that pre-date this feature
-    if (!subscription) {
-      const defaultPlan = await findDefaultPlan();
-      const now = new Date().toISOString();
-      const newSub = defaultSubscription(shopId, defaultPlan?.id ?? FALLBACK_DEFAULT_PLAN_ID, now);
-      subscription = await upsertSubscription(newSub);
-    }
-
-    const plan = await findPlanById(subscription.planId);
-    const entitlements = await loadEntitlements(shopId, new Date());
-    return { ok: true, data: { subscription, plan, entitlements } };
+    return { ok: true, data: await loadShopSubscriptionResult(shopId) };
   } catch (error: any) {
     if (error.message === 'Authentication required') {
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };

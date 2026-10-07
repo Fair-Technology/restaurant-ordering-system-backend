@@ -3,12 +3,17 @@ import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepo
 import { OrderLimitStatus } from '../../../domain/usage/orderLimit';
 import { authorizeShopAction } from '../../_shared/shopAccess';
 import { ApplicationResult } from '../../_shared/types';
+import { loadEntitlements } from '../../_shared/entitlements';
 import { loadOrderLimitStatus } from '../orderLimitStatus';
+
+export interface OrderLimitWithPaymentDto extends OrderLimitStatus {
+  payment: { inGrace: boolean; graceEndsAt: string | null; droppedForNonPayment: boolean };
+}
 
 export async function executeGetOrderLimit(
   shopId: string,
   httpRequest: HttpRequest,
-): Promise<ApplicationResult<OrderLimitStatus>> {
+): Promise<ApplicationResult<OrderLimitWithPaymentDto>> {
   if (!shopId) {
     return { ok: false, code: 'INVALID_INPUT', error: 'shopId is required' };
   }
@@ -22,7 +27,14 @@ export async function executeGetOrderLimit(
     const access = await authorizeShopAction(httpRequest, shop, null, { allowSuperadmin: true });
     if (!access.ok) return access;
 
-    return { ok: true, data: await loadOrderLimitStatus(shop, new Date()) };
+    const now = new Date();
+    const [status, ent] = await Promise.all([loadOrderLimitStatus(shop, now), loadEntitlements(shop.id, now)]);
+    const payment = {
+      inGrace: !!ent.graceEndsAt && !ent.droppedForNonPayment,
+      graceEndsAt: ent.graceEndsAt,
+      droppedForNonPayment: ent.droppedForNonPayment,
+    };
+    return { ok: true, data: { ...status, payment } };
   } catch (error: any) {
     if (error.message === 'Authentication required') {
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };

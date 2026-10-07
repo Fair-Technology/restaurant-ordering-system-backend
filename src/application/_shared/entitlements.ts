@@ -6,6 +6,9 @@ import {
   effectiveLimits,
   effectivePlanId,
   isLimitOverrideActive,
+  graceEndsAt,
+  isGraceOver,
+  isOverrideActive,
   isOverrideExpired,
 } from '../../domain/subscription/entitlements';
 
@@ -20,5 +23,7 @@ export async function loadEntitlements(shopId: string, now: Date): Promise<Entit
     limits: effectiveLimits(plan, sub?.limitOverride, now),
     limitOverrideActive: isLimitOverrideActive(sub?.limitOverride, now),
     planOverrideExpired: !!sub && isOverrideExpired(sub, now),
+    graceEndsAt: sub ? graceEndsAt(sub) : null,
+    droppedForNonPayment: !!sub && !isOverrideActive(sub, now) && isGraceOver(sub, now),
   };
 }

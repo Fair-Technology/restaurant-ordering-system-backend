@@ -1,77 +1,55 @@
 import { findSubscriptionByBillingSubscriptionId, upsertSubscription } from '../../../infrastructure/cosmos/subscription/CosmosSubscriptionRepository';
 import { findDefaultPlan } from '../../../infrastructure/cosmos/plan/CosmosPlanRepository';
+import { findPricingByBillingPriceId } from '../../../infrastructure/cosmos/plan/CosmosPlanPricingRepository';
+import { applyBillingEvent, type BillingEvent } from '../../../domain/subscription/billingEvents';
 import { FALLBACK_DEFAULT_PLAN_ID } from '../../../domain/subscription/entitlements';
 
-export type BillingSubscriptionEventType =
-  | 'subscription.updated'
-  | 'subscription.deleted'
-  | 'invoice.payment_failed'
-  | 'invoice.payment_succeeded';
+export type BillingSubscriptionEventType = BillingEvent['kind'];
 
 export interface BillingSubscriptionEventData {
   billingSubscriptionId: string;
-  status?: string;
+  stripeStatus?: string | null;
   periodStart?: string | null;
   periodEnd?: string | null;
   cancelAtPeriodEnd?: boolean;
-  planId?: string | null; // billing provider plan/price ID
+  priceId?: string | null; // the Stripe price on the subscription; mapped back to a plan here
 }
 
 export async function executeHandleBillingSubscriptionEvent(
-  eventType: BillingSubscriptionEventType,
+  kind: BillingSubscriptionEventType,
   data: BillingSubscriptionEventData,
 ): Promise<void> {
-  const subscription = await findSubscriptionByBillingSubscriptionId(data.billingSubscriptionId);
-  if (!subscription) return;
-
-  const now = new Date().toISOString();
-
-  switch (eventType) {
-    case 'subscription.updated': {
-      const updated = {
-        ...subscription,
-        currentPeriodStart: data.periodStart ?? subscription.currentPeriodStart,
-        currentPeriodEnd: data.periodEnd ?? subscription.currentPeriodEnd,
-        cancelAtPeriodEnd: data.cancelAtPeriodEnd ?? subscription.cancelAtPeriodEnd,
-        status: (data.cancelAtPeriodEnd ? 'canceled' : 'active') as any,
-        planSource: 'billing' as const,
-        updatedAt: now,
-      };
-      await upsertSubscription(updated);
-      break;
-    }
-    case 'subscription.deleted': {
-      const defaultPlan = await findDefaultPlan();
-      const updated = {
-        ...subscription,
-        planId: defaultPlan?.id ?? FALLBACK_DEFAULT_PLAN_ID,
-        status: 'expired' as const,
-        billingSubscriptionId: null,
-        cancelAtPeriodEnd: false,
-        currentPeriodStart: null,
-        currentPeriodEnd: null,
-        planSource: 'billing' as const,
-        updatedAt: now,
-      };
-      await upsertSubscription(updated);
-      break;
-    }
-    case 'invoice.payment_failed': {
-      const updated = { ...subscription, status: 'past_due' as const, updatedAt: now };
-      await upsertSubscription(updated);
-      break;
-    }
-    case 'invoice.payment_succeeded': {
-      const updated = {
-        ...subscription,
-        status: 'active' as const,
-        currentPeriodStart: data.periodStart ?? subscription.currentPeriodStart,
-        currentPeriodEnd: data.periodEnd ?? subscription.currentPeriodEnd,
-        planSource: 'billing' as const,
-        updatedAt: now,
-      };
-      await upsertSubscription(updated);
-      break;
-    }
+  const local = await findSubscriptionByBillingSubscriptionId(data.billingSubscriptionId);
+  if (!local) {
+    console.warn('[billing:warn] no local subscription', kind);
+    return;
   }
+
+  let event: BillingEvent;
+  if (kind === 'subscription.updated') {
+    let mapped: { planId: string; billingInterval: 'monthly' | 'yearly' } | null = null;
+    if (data.priceId) {
+      const pricing = await findPricingByBillingPriceId(data.priceId);
+      if (pricing) {
+        mapped = { planId: pricing.planId, billingInterval: pricing.billingPriceIdYearly === data.priceId ? 'yearly' : 'monthly' };
+      } else if (data.stripeStatus === 'active') {
+        console.warn('[billing:warn] price maps to no plan');
+      }
+    }
+    event = {
+      kind,
+      stripeStatus: data.stripeStatus ?? null,
+      periodStart: data.periodStart ?? null,
+      periodEnd: data.periodEnd ?? null,
+      cancelAtPeriodEnd: data.cancelAtPeriodEnd ?? false,
+      mapped,
+    };
+  } else {
+    event = { kind };
+  }
+
+  const defaultPlan = await findDefaultPlan();
+  await upsertSubscription(
+    applyBillingEvent(local, event, { defaultPlanId: defaultPlan?.id ?? FALLBACK_DEFAULT_PLAN_ID, now: new Date() }),
+  );
 }

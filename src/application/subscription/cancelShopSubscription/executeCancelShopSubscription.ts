@@ -1,6 +1,8 @@
 import { HttpRequest } from '@azure/functions';
 import Stripe from 'stripe';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
+import { findDefaultPlan } from '../../../infrastructure/cosmos/plan/CosmosPlanRepository';
+import { downgradeBlockedStaffError } from '../../../domain/order/orderErrors';
 import {
   findSubscriptionByShopId,
   upsertSubscription,
@@ -8,6 +10,7 @@ import {
 import { authorizeShopAction, toAuditActor } from '../../_shared/shopAccess';
 import { ApplicationResult } from '../../_shared/types';
 import { logAudit } from '../../_shared/auditHelpers';
+import { staffCapIfBlocked } from '../_shared/billingAccess';
 import { CancelShopSubscriptionResultDto } from './dtos';
 
 export async function executeCancelShopSubscription(
@@ -35,6 +38,13 @@ export async function executeCancelShopSubscription(
       return { ok: false, code: 'INVALID_INPUT', error: 'Subscription is not active' };
     }
 
+    // Cancelling drops the restaurant to the free plan, so its staff logins must already fit that plan.
+    const defaultPlan = await findDefaultPlan();
+    const blockedAt = defaultPlan ? await staffCapIfBlocked(shopId, defaultPlan, subscription, new Date()) : null;
+    if (blockedAt !== null) {
+      return { ok: false, code: 'CONFLICT', error: downgradeBlockedStaffError(blockedAt) };
+    }
+
     const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
     if (!stripeSecretKey) {
       return { ok: false, code: 'INTERNAL_ERROR', error: 'Stripe is not configured' };
@@ -49,6 +59,7 @@ export async function executeCancelShopSubscription(
     const updated = {
       ...subscription,
       cancelAtPeriodEnd: true,
+      scheduledChange: null,
       updatedAt: now,
     };
     await upsertSubscription(updated);

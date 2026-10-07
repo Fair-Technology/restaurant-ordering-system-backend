@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { defaultSubscription } from '../../src/domain/subscription/ShopSubscription';
-import { effectiveLimits, effectivePlanId, limitOf } from '../../src/domain/subscription/entitlements';
+import { effectiveLimits, effectivePlanId, graceEndsAt, limitOf } from '../../src/domain/subscription/entitlements';
 
 const now = new Date('2026-10-07T12:00:00Z');
 const BASE = defaultSubscription('s1', 'plan-basic', '2026-10-01T00:00:00.000Z');
@@ -52,5 +52,48 @@ describe('entitlements', () => {
     expect(limitOf({ limits: { A: -1, Z: 0 } }, 'A')).toBeNull();
     expect(limitOf({ limits: { A: -1, Z: 0 } }, 'B')).toBeNull();
     expect(limitOf({ limits: { A: -1, Z: 0 } }, 'Z')).toBe(0);
+  });
+
+  describe('billing rules', () => {
+    const PRO = { ...BASE, planId: 'plan-pro', status: 'active' as const, planSource: 'billing' as const };
+
+    it('seven days after a failed payment the default plan applies', () => {
+      const sub = { ...PRO, status: 'past_due' as const, paymentFailedAt: '2026-09-30T11:00:00Z' };
+      expect(effectivePlanId(sub, 'plan-basic', now)).toBe('plan-basic');
+    });
+
+    it('within the grace period the paid plan stays', () => {
+      const sub = { ...PRO, status: 'past_due' as const, paymentFailedAt: '2026-10-01T12:00:00Z' };
+      expect(effectivePlanId(sub, 'plan-basic', now)).toBe('plan-pro');
+    });
+
+    it('a scheduled downgrade applies from its date', () => {
+      const max = { ...PRO, planId: 'plan-max' };
+      const change = { planId: 'plan-pro', billingInterval: 'monthly' as const };
+      expect(effectivePlanId({ ...max, scheduledChange: { ...change, effectiveAt: '2026-10-07T00:00:00Z' } }, 'plan-basic', now)).toBe('plan-pro');
+      expect(effectivePlanId({ ...max, scheduledChange: { ...change, effectiveAt: '2026-10-08T00:00:00Z' } }, 'plan-basic', now)).toBe('plan-max');
+    });
+
+    it('a cancelled plan ends at the period end', () => {
+      const sub = { ...PRO, cancelAtPeriodEnd: true, currentPeriodEnd: '2026-10-06T00:00:00Z' };
+      expect(effectivePlanId(sub, 'plan-basic', now)).toBe('plan-basic');
+    });
+
+    it('an active superadmin override beats a failed payment', () => {
+      const sub = {
+        ...PRO,
+        planId: 'plan-max',
+        planSource: 'superadmin_override' as const,
+        overrideExpiresAt: null,
+        status: 'past_due' as const,
+        paymentFailedAt: '2026-09-01T00:00:00Z',
+      };
+      expect(effectivePlanId(sub, 'plan-basic', now)).toBe('plan-max');
+    });
+
+    it('graceEndsAt is seven days after the failure and only while past due', () => {
+      expect(graceEndsAt({ status: 'past_due', paymentFailedAt: '2026-10-01T12:00:00.000Z' })).toBe('2026-10-08T12:00:00.000Z');
+      expect(graceEndsAt({ status: 'active', paymentFailedAt: '2026-10-01T12:00:00.000Z' })).toBeNull();
+    });
   });
 });
