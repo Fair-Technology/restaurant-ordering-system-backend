@@ -13,6 +13,7 @@ vi.mock('../../../src/infrastructure/cosmos/invoice/CosmosInvoiceRepository', ()
   commitInvoice: vi.fn(async () => 'ok'),
 }));
 vi.mock('../../../src/infrastructure/cosmos/usage/CosmosUsageRepository', () => ({ incrementAcceptedOrders: vi.fn() }));
+vi.mock('../../../src/application/usage/orderLimitWarnings', () => ({ notifyOrderLimitThresholds: vi.fn(async () => undefined) }));
 vi.mock('../../../src/infrastructure/stripe/stripeClient', () => ({
   capturePaymentIntent: vi.fn(async () => undefined),
   releaseAuthorization: vi.fn(async () => 'canceled'),
@@ -38,6 +39,7 @@ import {
 } from '../../../src/infrastructure/cosmos/order/CosmosOrderRepository';
 import { findShopById } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
 import { incrementAcceptedOrders } from '../../../src/infrastructure/cosmos/usage/CosmosUsageRepository';
+import { notifyOrderLimitThresholds } from '../../../src/application/usage/orderLimitWarnings';
 import { sendEmail } from '../../../src/infrastructure/email/emailSender';
 import {
   ORDER_CHANGED_ERROR,
@@ -128,6 +130,14 @@ describe('kitchen intake', () => {
     );
     expect(res.ok && res.data.state).toBe('ACCEPTED');
     expect(res.ok && res.data.documents).toEqual([{ id: 'o1', kind: 'invoice', number: 'R-2026-00001' }]);
+  });
+
+  it('accepting counts the order and checks the warning thresholds', async () => {
+    const usage = { id: 'shop-1', shopId: 'shop-1', periodKey: '2026-10', acceptedOrderCount: 24, lastReconciled: null, createdAt: 'x', updatedAt: 'x' };
+    (incrementAcceptedOrders as any).mockResolvedValueOnce(usage);
+    await executeAcceptOrder(ids, http, { now });
+    expect(notifyOrderLimitThresholds).toHaveBeenCalledTimes(1);
+    expect(notifyOrderLimitThresholds).toHaveBeenCalledWith(CARD_SHOP, usage, now);
   });
 
   it('a refused capture declines the order and tells everyone', async () => {

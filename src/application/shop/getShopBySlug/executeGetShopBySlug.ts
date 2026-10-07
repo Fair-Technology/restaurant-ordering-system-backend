@@ -3,6 +3,7 @@ import { DEFAULT_PREP_MINUTES } from '../../../domain/order/Order';
 import { findShopBySlug } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { GetShopBySlugRequestDto, GetShopBySlugResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
+import { loadOrderLimitStatus } from '../../usage/orderLimitStatus';
 
 export async function executeGetShopBySlug(
   request: GetShopBySlugRequestDto,
@@ -31,6 +32,13 @@ export async function executeGetShopBySlug(
       };
     }
 
+    let orderLimitReached = false;
+    try {
+      orderLimitReached = (await loadOrderLimitStatus(shop, new Date())).limitReached;
+    } catch {
+      console.error('[order-limit:error] shop page', shop.id);
+    }
+
     const shopDto: GetShopBySlugResultDto = {
       id: shop.id,
       slug: shop.slug,
@@ -47,6 +55,7 @@ export async function executeGetShopBySlug(
       closures: shop.closures,
       branding: shop.branding ?? null,
       fulfilment: { modes: orderableModesFor(shop), prepMinutes: { ...DEFAULT_PREP_MINUTES } },
+      orderLimitReached,
       createdAt: shop.createdAt,
       updatedAt: shop.updatedAt,
     };

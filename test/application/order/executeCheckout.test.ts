@@ -23,6 +23,9 @@ vi.mock('../../../src/infrastructure/email/emailSender', () => ({
   sendEmail: vi.fn(async () => undefined),
   emailTransportName: () => 'log',
 }));
+vi.mock('../../../src/application/usage/orderLimitStatus', () => ({
+  loadOrderLimitStatus: vi.fn(async () => ({ periodKey: '2026-10', acceptedOrderCount: 0, limit: 30, warningLevel: 0, limitReached: false })),
+}));
 vi.mock('../../../src/domain/order/orderRef', () => ({ generateOrderRef: () => 'AB3-K7P' }));
 vi.mock('../../../src/infrastructure/stripe/stripeClient', () => ({
   createPaymentIntent: vi.fn(async () => ({ id: 'pi_1', clientSecret: 'cs_1' })),
@@ -36,6 +39,7 @@ import {
   upsertCheckoutSession,
 } from '../../../src/infrastructure/cosmos/order/CosmosCheckoutSessionRepository';
 import { findOrderById } from '../../../src/infrastructure/cosmos/order/CosmosOrderRepository';
+import { loadOrderLimitStatus } from '../../../src/application/usage/orderLimitStatus';
 import { createPaymentIntent } from '../../../src/infrastructure/stripe/stripeClient';
 import { ACCEPTED_DPA, COMPLETE_LEGAL } from '../../fixtures/legal';
 import { ADDRESS, CARD_SHOP, LUNCH_HOURS, NOW_CLOSED, NOW_OPEN, P_COLA, P_PASTA, PLACED_CARD_ORDER, DINE_IN_SHOP, PLACED_TABLE_ORDER } from '../../fixtures/orders';
@@ -49,6 +53,7 @@ import {
   LEGAL_CHANGED_ERROR,
   MODE_NOT_OFFERED_ERROR,
   NO_PAYMENT_SETUP_ERROR,
+  ORDER_LIMIT_REACHED_ERROR,
   SHOP_CLOSED_ERROR,
   TABLE_INVALID_ERROR,
 } from '../../../src/domain/order/orderErrors';
@@ -234,6 +239,21 @@ describe('executeCheckout card placement', () => {
       },
     });
     expect(createPaymentIntent).not.toHaveBeenCalled();
+  });
+
+  it('refuses a new order once the monthly limit is reached', async () => {
+    (loadOrderLimitStatus as any).mockResolvedValueOnce({ periodKey: '2026-10', acceptedOrderCount: 30, limit: 30, warningLevel: 100, limitReached: true });
+    const res = await executeCheckout(cardRequest, { now: NOW_OPEN });
+    expect(res).toEqual({ ok: false, code: 'INVALID_INPUT', error: ORDER_LIMIT_REACHED_ERROR });
+    expect(createPaymentIntent).not.toHaveBeenCalled();
+  });
+
+  it('a repeated submit still finds its order at the limit', async () => {
+    (loadOrderLimitStatus as any).mockResolvedValue({ periodKey: '2026-10', acceptedOrderCount: 30, limit: 30, warningLevel: 100, limitReached: true });
+    (findOrderById as any).mockResolvedValue(PLACED_CARD_ORDER);
+    const res = await executeCheckout(cardRequest, { now: NOW_OPEN });
+    (loadOrderLimitStatus as any).mockReset();
+    expect(res.ok && res.data.kind).toBe('placed');
   });
 
   it('requires an email', async () => {

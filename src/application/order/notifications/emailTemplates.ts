@@ -65,7 +65,7 @@ function rejectionReasonOf(order: Order): RejectReason {
 
 type Block = { type: 'p'; text: string } | { type: 'items'; rows: string[] };
 
-function render(subject: string, blocks: Block[]): OrderEmailContent {
+export function render(subject: string, blocks: Block[]): OrderEmailContent {
   const text = blocks.map((b) => (b.type === 'p' ? b.text : b.rows.join('\n'))).join('\n\n');
   const html = blocks
     .map((b) =>

@@ -1,11 +1,13 @@
 import { HttpRequest } from '@azure/functions';
 import { findSubscriptionByShopId, upsertSubscription } from '../../../infrastructure/cosmos/subscription/CosmosSubscriptionRepository';
-import { findPlanByInternalKey, findPlanById } from '../../../infrastructure/cosmos/plan/CosmosPlanRepository';
+import { findDefaultPlan, findPlanById } from '../../../infrastructure/cosmos/plan/CosmosPlanRepository';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { authorizeShopAction } from '../../_shared/shopAccess';
+import { loadEntitlements } from '../../_shared/entitlements';
 import { ApplicationResult } from '../../_shared/types';
 import { GetShopSubscriptionResultDto } from './dtos';
-import { ShopSubscription } from '../../../domain/subscription/ShopSubscription';
+import { defaultSubscription } from '../../../domain/subscription/ShopSubscription';
+import { FALLBACK_DEFAULT_PLAN_ID } from '../../../domain/subscription/entitlements';
 
 export async function executeGetShopSubscription(
   shopId: string,
@@ -28,31 +30,15 @@ export async function executeGetShopSubscription(
 
     // Lazy init for existing shops that pre-date this feature
     if (!subscription) {
-      const freePlan = await findPlanByInternalKey('free');
+      const defaultPlan = await findDefaultPlan();
       const now = new Date().toISOString();
-      const newSub: ShopSubscription = {
-        id: shopId,
-        shopId,
-        planId: freePlan?.id ?? 'default-free',
-        status: 'free',
-        billingInterval: null,
-        currentPeriodStart: null,
-        currentPeriodEnd: null,
-        billingCustomerId: null,
-        billingSubscriptionId: null,
-        cancelAtPeriodEnd: false,
-        planSource: 'default',
-        overriddenBy: null,
-        overrideReason: null,
-        overrideExpiresAt: null,
-        createdAt: now,
-        updatedAt: now,
-      };
+      const newSub = defaultSubscription(shopId, defaultPlan?.id ?? FALLBACK_DEFAULT_PLAN_ID, now);
       subscription = await upsertSubscription(newSub);
     }
 
     const plan = await findPlanById(subscription.planId);
-    return { ok: true, data: { subscription, plan } };
+    const entitlements = await loadEntitlements(shopId, new Date());
+    return { ok: true, data: { subscription, plan, entitlements } };
   } catch (error: any) {
     if (error.message === 'Authentication required') {
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };

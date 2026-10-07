@@ -21,6 +21,7 @@ import type { EmailAttachment } from '../../../infrastructure/email/emailSender'
 import { renderInvoicePdf } from '../../../infrastructure/pdf/invoicePdf';
 import { capturePaymentIntent, isRetryableStripeError } from '../../../infrastructure/stripe/stripeClient';
 import type { ApplicationResult } from '../../_shared/types';
+import { notifyOrderLimitThresholds } from '../../usage/orderLimitWarnings';
 import { issueInvoiceForOrder, needsInvoice } from '../invoices/issueInvoice';
 import { notifyCustomer } from '../notifications/notifyOrder';
 import type { AttachedDocument } from '../notifications/emailTemplates';
@@ -192,7 +193,8 @@ export async function acceptPlacedOrder(input: {
   }
 
   try {
-    await incrementAcceptedOrders(shop.id, usagePeriodKey);
+    const usage = await incrementAcceptedOrders(shop.id, usagePeriodKey);
+    await notifyOrderLimitThresholds(shop, usage, now);
   } catch {
     // The order is accepted; a usage counter miss is repaired by reconcileShopUsage.
     console.error('[usage:error] could not count accepted order');

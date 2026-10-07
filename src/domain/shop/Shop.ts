@@ -114,8 +114,6 @@ export interface Shop {
     connectOnboardingStatus?: 'not_started' | 'pending' | 'complete' | null;
   } | null;
 
-  // Subscription enforcement
-  isDeactivatedDueToLimits?: boolean; // set by webhook when active products exceed free plan limit on cancellation
 
   // Legal pack: Impressum, terms, withdrawal, privacy addition. Absent on older shops; read via legalOf().
   legal?: ShopLegal;

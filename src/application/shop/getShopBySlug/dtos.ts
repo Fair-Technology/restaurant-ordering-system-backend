@@ -38,6 +38,7 @@ export interface GetShopBySlugResultDto {
   }>;
   branding: ShopBranding | null;
   fulfilment: { modes: FulfilmentMode[]; prepMinutes: Record<FulfilmentMode, number> };
+  orderLimitReached: boolean; // true = online ordering is paused for this month
   createdAt: string;
   updatedAt: string;
 }

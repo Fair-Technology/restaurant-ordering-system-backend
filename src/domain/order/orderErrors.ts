@@ -39,3 +39,4 @@ export const TAX_NUMBER_ERROR = 'taxNumber must be at most 30 characters';
 export const MODE_NOT_OFFERED_ERROR = 'This restaurant is not taking orders this way right now'; // storefront compares
 export const TABLE_INVALID_ERROR = 'Please scan the QR code on your table again'; // storefront compares
 export const DINE_IN_ERROR = 'dineIn must be true or false';
+export const ORDER_LIMIT_REACHED_ERROR = 'This restaurant has paused online ordering for now';

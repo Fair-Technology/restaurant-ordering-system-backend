@@ -1,11 +1,16 @@
 import { findShopBySlug } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import {
   findStaffAccountByUsername,
+  listStaffAccounts,
   replaceStaffAccount,
 } from '../../../infrastructure/cosmos/staff/CosmosStaffAccountRepository';
 import { verifyPassword, dummyPasswordHash } from '../../../infrastructure/auth/passwordHashing';
 import { signStaffToken } from '../../../infrastructure/auth/staffTokens';
 import { MAX_FAILED_LOGINS, LOCKOUT_MINUTES } from '../../../domain/staff/StaffAccount';
+import { SEAT_SUSPENDED_ERROR, seatHolderIds } from '../../../domain/staff/staffSeats';
+import { limitOf } from '../../../domain/subscription/entitlements';
+import { loadEntitlements } from '../../_shared/entitlements';
+import { PLAN_LIMIT_KEYS } from '../../_shared/planLimitKeys';
 import { StaffLoginRequestDto, StaffLoginResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 
@@ -57,6 +62,12 @@ export async function executeStaffLogin(
       updatedAt: at,
     });
     return INVALID_CREDENTIALS;
+  }
+
+  // Over the plan's login cap: only the oldest logins keep a seat. Nothing is deleted; raising the cap restores the rest.
+  const seatLimit = limitOf(await loadEntitlements(shop!.id, now), PLAN_LIMIT_KEYS.STAFF_ACCOUNTS);
+  if (seatLimit !== null && !seatHolderIds(await listStaffAccounts(shop!.id), seatLimit).has(acc!.id)) {
+    return { ok: false, code: 'FORBIDDEN', error: SEAT_SUSPENDED_ERROR };
   }
 
   await replaceStaffAccount({

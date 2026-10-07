@@ -13,7 +13,6 @@ export interface GetShopResultDto {
   isDeleted: boolean;
   isPaused: boolean;
   pausedMessage?: string;
-  isDeactivatedDueToLimits: boolean;
   orderAcceptanceMode: string;
   currency: string;
   timezone: string;

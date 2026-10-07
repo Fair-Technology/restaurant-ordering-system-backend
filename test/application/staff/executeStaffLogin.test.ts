@@ -6,13 +6,19 @@ vi.mock('../../../src/infrastructure/cosmos/shop/CosmosShopRepository', () => ({
 vi.mock('../../../src/infrastructure/cosmos/staff/CosmosStaffAccountRepository', () => ({
   findStaffAccountByUsername: vi.fn(),
   replaceStaffAccount: vi.fn(),
+  listStaffAccounts: vi.fn(),
+}));
+vi.mock('../../../src/application/_shared/entitlements', () => ({
+  loadEntitlements: vi.fn(async () => ({ planId: 'plan-basic', limits: { STAFF_ACCOUNTS: 5 }, limitOverrideActive: false, planOverrideExpired: false })),
 }));
 
 import { findShopBySlug } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
 import {
   findStaffAccountByUsername,
+  listStaffAccounts,
   replaceStaffAccount,
 } from '../../../src/infrastructure/cosmos/staff/CosmosStaffAccountRepository';
+import { loadEntitlements } from '../../../src/application/_shared/entitlements';
 import { hashPassword } from '../../../src/infrastructure/auth/passwordHashing';
 import { executeStaffLogin } from '../../../src/application/staff/staffLogin/executeStaffLogin';
 import { StaffAccount } from '../../../src/domain/staff/StaffAccount';
@@ -53,6 +59,7 @@ describe('executeStaffLogin', () => {
     vi.clearAllMocks();
     (findShopBySlug as any).mockResolvedValue(shop);
     (replaceStaffAccount as any).mockImplementation(async (a: StaffAccount) => a);
+    (listStaffAccounts as any).mockResolvedValue([{ ...baseAccount }]);
   });
 
   afterEach(() => {
@@ -177,5 +184,33 @@ describe('executeStaffLogin', () => {
     (findStaffAccountByUsername as any).mockResolvedValue({ ...baseAccount, passwordHash: hash });
     await executeStaffLogin({ shopSlug: 'pizzeria-kreuzberg', username: 'Kitchen', password: 'kitchen-pass-1' }, now);
     expect(findStaffAccountByUsername).toHaveBeenCalledWith('shop-1', 'kitchen');
+  });
+
+  describe('staff seats', () => {
+    const st2 = { ...baseAccount, id: 'st-2', username: 'bar', createdAt: '2026-09-02T00:00:00.000Z' };
+    const st3 = { ...baseAccount, id: 'st-3', username: 'foo', createdAt: '2026-09-03T00:00:00.000Z' };
+
+    beforeEach(() => {
+      (listStaffAccounts as any).mockResolvedValue([baseAccount, st2, st3]);
+      (loadEntitlements as any).mockResolvedValueOnce({
+        planId: 'plan-basic',
+        limits: { STAFF_ACCOUNTS: 2 },
+        limitOverrideActive: false,
+        planOverrideExpired: false,
+      });
+    });
+
+    it('a login beyond the seat count is suspended', async () => {
+      (findStaffAccountByUsername as any).mockResolvedValue({ ...st3, passwordHash: hash });
+      const result = await executeStaffLogin({ shopSlug: 'pizzeria-kreuzberg', username: 'foo', password: 'kitchen-pass-1' }, now);
+      expect(result).toEqual({ ok: false, code: 'FORBIDDEN', error: 'SEAT_SUSPENDED' });
+      expect(replaceStaffAccount).not.toHaveBeenCalled();
+    });
+
+    it('the oldest logins still sign in', async () => {
+      (findStaffAccountByUsername as any).mockResolvedValue({ ...baseAccount, passwordHash: hash });
+      const result = await executeStaffLogin({ shopSlug: 'pizzeria-kreuzberg', username: 'kitchen', password: 'kitchen-pass-1' }, now);
+      expect(result.ok).toBe(true);
+    });
   });
 });

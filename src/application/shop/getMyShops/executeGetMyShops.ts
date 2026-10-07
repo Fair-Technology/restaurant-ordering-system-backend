@@ -20,7 +20,6 @@ export async function executeGetMyShops(
       isDeleted: shop.isDeleted,
       isPaused: shop.isPaused,
       pausedMessage: shop.pausedMessage,
-      isDeactivatedDueToLimits: shop.isDeactivatedDueToLimits ?? false,
       orderAcceptanceMode: shop.orderAcceptanceMode,
       currency: shop.currency,
       timezone: shop.timezone,

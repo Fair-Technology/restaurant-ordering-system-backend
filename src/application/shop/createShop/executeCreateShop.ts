@@ -15,8 +15,9 @@ import { validateUniqueSlug } from './slugHelpers';
 import { defaultMenuLanguageForCountry } from '../../../domain/menu/menuLanguage';
 import { upsertSubscription } from '../../../infrastructure/cosmos/subscription/CosmosSubscriptionRepository';
 import { upsertUsage } from '../../../infrastructure/cosmos/usage/CosmosUsageRepository';
-import { findPlanByInternalKey } from '../../../infrastructure/cosmos/plan/CosmosPlanRepository';
-import { ShopSubscription } from '../../../domain/subscription/ShopSubscription';
+import { findDefaultPlan } from '../../../infrastructure/cosmos/plan/CosmosPlanRepository';
+import { defaultSubscription } from '../../../domain/subscription/ShopSubscription';
+import { FALLBACK_DEFAULT_PLAN_ID } from '../../../domain/subscription/entitlements';
 import { ShopUsage } from '../../../domain/usage/ShopUsage';
 import { periodKeyFor } from '../../../domain/usage/usagePeriod';
 import { validateAccentColor } from '../../_shared/contrast';
@@ -247,25 +248,8 @@ export async function executeCreateShop(
     const createdShop = await createShopInRepo(shop);
 
     // Initialize subscription on free plan
-    const freePlan = await findPlanByInternalKey('free');
-    const subscription: ShopSubscription = {
-      id: shopId,
-      shopId,
-      planId: freePlan?.id ?? 'default-free',
-      status: 'free',
-      billingInterval: null,
-      currentPeriodStart: null,
-      currentPeriodEnd: null,
-      billingCustomerId: null,
-      billingSubscriptionId: null,
-      cancelAtPeriodEnd: false,
-      planSource: 'default',
-      overriddenBy: null,
-      overrideReason: null,
-      overrideExpiresAt: null,
-      createdAt: now,
-      updatedAt: now,
-    };
+    const defaultPlan = await findDefaultPlan();
+    const subscription = defaultSubscription(shopId, defaultPlan?.id ?? FALLBACK_DEFAULT_PLAN_ID, now);
     await upsertSubscription(subscription);
 
     // Initialize usage counters

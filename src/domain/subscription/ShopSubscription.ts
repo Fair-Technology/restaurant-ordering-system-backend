@@ -1,3 +1,5 @@
+import type { PlanLimit } from '../plan/Plan';
+
 export type SubscriptionStatus =
   | 'free'
   | 'active'
@@ -6,6 +8,14 @@ export type SubscriptionStatus =
   | 'expired';
 
 export type PlanSource = 'default' | 'billing' | 'superadmin_override';
+
+export interface LimitOverride {
+  limits: PlanLimit[]; // only the keys being changed; value -1 = unlimited
+  reason: string;
+  expiresAt: string | null; // ISO; null = until removed
+  setBy: string; // superadmin user id
+  setAt: string; // ISO
+}
 
 export interface ShopSubscription {
   id: string; // === shopId
@@ -22,6 +32,31 @@ export interface ShopSubscription {
   overriddenBy: string | null;
   overrideReason: string | null;
   overrideExpiresAt: string | null;
+  limitOverride?: LimitOverride | null;
+  planBeforeOverride?: string | null; // plan in force when a plan override was first applied
   createdAt: string;
   updatedAt: string;
+}
+
+export function defaultSubscription(shopId: string, defaultPlanId: string, nowIso: string): ShopSubscription {
+  return {
+    id: shopId,
+    shopId,
+    planId: defaultPlanId,
+    status: 'free',
+    billingInterval: null,
+    currentPeriodStart: null,
+    currentPeriodEnd: null,
+    billingCustomerId: null,
+    billingSubscriptionId: null,
+    cancelAtPeriodEnd: false,
+    planSource: 'default',
+    overriddenBy: null,
+    overrideReason: null,
+    overrideExpiresAt: null,
+    limitOverride: null,
+    planBeforeOverride: null,
+    createdAt: nowIso,
+    updatedAt: nowIso,
+  };
 }

@@ -9,6 +9,11 @@ vi.mock('../../../src/infrastructure/cosmos/reference/CosmosReferenceListsReposi
   getReferenceLists: vi.fn(async () => (await import('../../../src/domain/reference/ReferenceLists')).DE_REFERENCE_LISTS),
 }));
 
+vi.mock('../../../src/application/usage/orderLimitStatus', () => ({
+  loadOrderLimitStatus: vi.fn(async () => ({ periodKey: '2026-10', acceptedOrderCount: 0, limit: 30, warningLevel: 0, limitReached: false })),
+}));
+
+import { loadOrderLimitStatus } from '../../../src/application/usage/orderLimitStatus';
 import { executeQuoteBasket } from '../../../src/application/order/quoteBasket/executeQuoteBasket';
 import { findProductById } from '../../../src/infrastructure/cosmos/product/CosmosProductRepository';
 import { findShopById } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
@@ -44,6 +49,14 @@ describe('executeQuoteBasket', () => {
       belowMinimum: false,
     });
     expect(res.data.lines.map((l) => l.status)).toEqual(['ok', 'ok']);
+  });
+
+  it('the quote says when the order limit is reached', async () => {
+    const open = await executeQuoteBasket(request, { now: NOW_OPEN });
+    expect(open.ok && open.data.orderLimitReached).toBe(false);
+    (loadOrderLimitStatus as any).mockResolvedValueOnce({ periodKey: '2026-10', acceptedOrderCount: 30, limit: 30, warningLevel: 100, limitReached: true });
+    const stopped = await executeQuoteBasket(request, { now: NOW_OPEN });
+    expect(stopped.ok && stopped.data.orderLimitReached).toBe(true);
   });
 
   it('offers nothing before Stripe is ready', async () => {

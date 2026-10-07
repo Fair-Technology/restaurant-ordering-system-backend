@@ -6,6 +6,7 @@ import { addressRequired, DEFAULT_PREP_MINUTES, FULFILMENT_MODES } from '../../.
 import { offeredPaymentMethods } from '../../../domain/order/paymentMethods';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { ApplicationResult } from '../../_shared/types';
+import { loadOrderLimitStatus } from '../../usage/orderLimitStatus';
 import { loadPricingContext } from '../_shared/loadPricingContext';
 import { priceBasket, validateBasketItems } from '../_shared/priceBasket';
 import { BasketQuoteDto, QuoteBasketRequestDto } from './dtos';
@@ -43,6 +44,7 @@ export async function executeQuoteBasket(
     if (!orderableModesFor(shop).includes(mode)) {
       return { ok: false, code: 'INVALID_INPUT', error: MODE_NOT_OFFERED_ERROR };
     }
+    const limit = await loadOrderLimitStatus(shop, now);
 
     const context = await loadPricingContext(shop, request.items.map((i) => i.productId));
     const language = resolveMenuLanguage(request.language, menuLanguagesOf(shop));
@@ -72,6 +74,7 @@ export async function executeQuoteBasket(
         paymentMethods: offeredPaymentMethods(shop),
         addressRequired: addressRequired(priced.subtotalCents),
         prepMinutes,
+        orderLimitReached: limit.limitReached,
       },
     };
   } catch {

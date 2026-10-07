@@ -13,6 +13,7 @@ import {
   LEGAL_CHANGED_ERROR,
   MODE_NOT_OFFERED_ERROR,
   NO_PAYMENT_SETUP_ERROR,
+  ORDER_LIMIT_REACHED_ERROR,
   PAYMENT_METHOD_ERROR,
   SHOP_CLOSED_ERROR,
   TABLE_INVALID_ERROR,
@@ -38,6 +39,7 @@ import { findOrderById } from '../../../infrastructure/cosmos/order/CosmosOrderR
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { createPaymentIntent, isStripeIdempotencyError } from '../../../infrastructure/stripe/stripeClient';
 import { ApplicationResult } from '../../_shared/types';
+import { loadOrderLimitStatus } from '../../usage/orderLimitStatus';
 import { loadPricingContext } from '../_shared/loadPricingContext';
 import { priceBasket, validateBasketItems } from '../_shared/priceBasket';
 import { CheckoutRequestDto, CheckoutResultDto } from './dtos';
@@ -186,6 +188,11 @@ export async function executeCheckout(
     // --- After the repeat-submit short-cut, so a retry still finds its order even if dine-in was switched off since ---
     if (!orderableModesFor(shop).includes(mode)) {
       return { ok: false, code: 'INVALID_INPUT', error: MODE_NOT_OFFERED_ERROR };
+    }
+
+    // --- Also after the short-cut: orders already placed stay reachable, only new ones are refused ---
+    if ((await loadOrderLimitStatus(shop, now)).limitReached) {
+      return { ok: false, code: 'INVALID_INPUT', error: ORDER_LIMIT_REACHED_ERROR };
     }
 
     // --- The diner must have seen the terms that are in force now ---
