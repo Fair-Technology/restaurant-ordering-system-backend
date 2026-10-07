@@ -1,5 +1,5 @@
 import type { Order, OrderActor } from '../../../domain/order/Order';
-import { DEFAULT_PREP_MINUTES } from '../../../domain/order/Order';
+import { effectivePrepMinutes } from '../../../domain/order/kitchenTiming';
 import {
   ORDER_CHANGED_ERROR,
   ORDER_NOT_FOUND_ERROR,
@@ -100,7 +100,7 @@ export async function acceptPlacedOrder(input: {
   const usagePeriodKey = periodKeyFor(now, shop.timezone);
 
   const accept = (current: Order): TransitionResult => {
-    const prepMinutes = input.prepMinutes ?? DEFAULT_PREP_MINUTES[current.fulfilmentMode];
+    const prepMinutes = input.prepMinutes ?? effectivePrepMinutes(shop, current.fulfilmentMode, now);
     return applyTransition(current, 'ACCEPTED', {
       now,
       actor,

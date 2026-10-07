@@ -61,6 +61,10 @@ const STAFF_ACCESS = {
   actor: { actorType: 'staff', actorId: 's1', role: 'staff' },
   permissions: ['view_orders'],
 };
+const BUSY_SHOP = {
+  ...CARD_SHOP,
+  busyMode: { extraMinutes: 20, serviceDate: '2026-10-05', startedAt: '2026-10-05T09:00:00.000Z' },
+};
 const ACCEPTED_ORDER = {
   ...PLACED_CARD_ORDER,
   state: 'ACCEPTED' as const,
@@ -300,6 +304,22 @@ describe('kitchen intake', () => {
       autoAccepted: false,
     });
     expect('paymentMethod' in res.data.orders[0]).toBe(false);
+  });
+
+  it('staff accepts with the busy estimate', async () => {
+    (findShopById as any).mockResolvedValue(BUSY_SHOP);
+    const store = storedOrder();
+    await executeAcceptOrder(ids, http, { now });
+    expect(store.current.readyAt).toBe('2026-10-05T10:45:00.000Z');
+    expect(store.current.prepMinutes).toBe(40);
+  });
+
+  it('the board shows busy mode and the longer ready times', async () => {
+    (findShopById as any).mockResolvedValue(BUSY_SHOP);
+    (findOrdersByShopIdAndStates as any).mockResolvedValue([]);
+    const res = await executeGetOrderQueue({ shopId: 'shop-1' }, http, { now });
+    expect(res.ok && res.data.busy).toEqual({ active: true, extraMinutes: 20 });
+    expect(res.ok && res.data.defaultPrepMinutes).toEqual({ collection: 40, delivery: 65, dine_in: 40 });
   });
 
   it('the board shows the table', async () => {

@@ -21,12 +21,12 @@ import {
 import {
   addressRequired,
   CustomerAddress,
-  DEFAULT_PREP_MINUTES,
   FULFILMENT_MODES,
   LegalRevisions,
   OrderTable,
   PaymentMethod,
 } from '../../../domain/order/Order';
+import { lastOrdersLeadMinutes } from '../../../domain/order/kitchenTiming';
 import { normaliseTableLabel } from '../../../domain/order/table';
 import { generateAccessToken, IDEMPOTENCY_KEY_PATTERN, orderIdForIdempotencyKey } from '../../../domain/order/orderIds';
 import { generateOrderRef } from '../../../domain/order/orderRef';
@@ -208,7 +208,7 @@ export async function executeCheckout(
       return { ok: false, code: 'CONFLICT', error: LEGAL_CHANGED_ERROR };
     }
 
-    if (!isOpenForAsapOrder(shop.openingHours, shop.closures, shop.timezone, now, DEFAULT_PREP_MINUTES[mode])) {
+    if (!isOpenForAsapOrder(shop.openingHours, shop.closures, shop.timezone, now, lastOrdersLeadMinutes(shop, mode))) {
       return { ok: false, code: 'INVALID_INPUT', error: SHOP_CLOSED_ERROR };
     }
 

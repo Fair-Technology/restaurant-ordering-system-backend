@@ -1,5 +1,5 @@
 import { orderableModesFor } from '../../../domain/order/fulfilment';
-import { DEFAULT_PREP_MINUTES } from '../../../domain/order/Order';
+import { effectivePrepByMode } from '../../../domain/order/kitchenTiming';
 import { findShopBySlug } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { GetShopBySlugRequestDto, GetShopBySlugResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
@@ -7,6 +7,7 @@ import { loadOrderLimitStatus } from '../../usage/orderLimitStatus';
 
 export async function executeGetShopBySlug(
   request: GetShopBySlugRequestDto,
+  options: { now?: Date } = {},
 ): Promise<ApplicationResult<GetShopBySlugResultDto>> {
   // Validate input
   if (
@@ -22,6 +23,7 @@ export async function executeGetShopBySlug(
   }
 
   try {
+    const now = options.now ?? new Date();
     const shop = await findShopBySlug(request.slug.trim());
 
     if (!shop) {
@@ -34,7 +36,7 @@ export async function executeGetShopBySlug(
 
     let orderLimitReached = false;
     try {
-      orderLimitReached = (await loadOrderLimitStatus(shop, new Date())).limitReached;
+      orderLimitReached = (await loadOrderLimitStatus(shop, now)).limitReached;
     } catch {
       console.error('[order-limit:error] shop page', shop.id);
     }
@@ -54,7 +56,7 @@ export async function executeGetShopBySlug(
       openingHours: shop.openingHours,
       closures: shop.closures,
       branding: shop.branding ?? null,
-      fulfilment: { modes: orderableModesFor(shop), prepMinutes: { ...DEFAULT_PREP_MINUTES } },
+      fulfilment: { modes: orderableModesFor(shop), prepMinutes: effectivePrepByMode(shop, now) },
       orderLimitReached,
       createdAt: shop.createdAt,
       updatedAt: shop.updatedAt,

@@ -1,8 +1,9 @@
 import { menuLanguagesOf, resolveMenuLanguage } from '../../../domain/menu/menuLanguage';
 import { ORDER_MODE_UNAVAILABLE_ERROR, ORDERABLE_MODES, orderableModesFor } from '../../../domain/order/fulfilment';
 import { MODE_NOT_OFFERED_ERROR } from '../../../domain/order/orderErrors';
+import { effectivePrepMinutes, lastOrdersLeadMinutes } from '../../../domain/order/kitchenTiming';
 import { isOpenForAsapOrder } from '../../../domain/order/openingHours';
-import { addressRequired, DEFAULT_PREP_MINUTES, FULFILMENT_MODES } from '../../../domain/order/Order';
+import { addressRequired, FULFILMENT_MODES } from '../../../domain/order/Order';
 import { offeredPaymentMethods } from '../../../domain/order/paymentMethods';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { ApplicationResult } from '../../_shared/types';
@@ -49,7 +50,7 @@ export async function executeQuoteBasket(
     const context = await loadPricingContext(shop, request.items.map((i) => i.productId));
     const language = resolveMenuLanguage(request.language, menuLanguagesOf(shop));
     const priced = priceBasket({ items: request.items, ...context, shop, mode, now, language });
-    const prepMinutes = DEFAULT_PREP_MINUTES[mode];
+    const prepMinutes = effectivePrepMinutes(shop, mode, now);
 
     return {
       ok: true,
@@ -70,7 +71,7 @@ export async function executeQuoteBasket(
         taxCents: priced.taxBreakdown.reduce((sum, t) => sum + t.taxCents, 0),
         minOrderAmountCents: shop.minOrderAmountCents,
         belowMinimum: priced.subtotalCents < shop.minOrderAmountCents,
-        openNow: isOpenForAsapOrder(shop.openingHours, shop.closures, shop.timezone, now, prepMinutes),
+        openNow: isOpenForAsapOrder(shop.openingHours, shop.closures, shop.timezone, now, lastOrdersLeadMinutes(shop, mode)),
         paymentMethods: offeredPaymentMethods(shop),
         addressRequired: addressRequired(priced.subtotalCents),
         prepMinutes,

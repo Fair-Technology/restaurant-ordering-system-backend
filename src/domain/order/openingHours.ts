@@ -41,10 +41,13 @@ export function isOpenForAsapOrder(
   const { dayIndex, minutes } = localParts(now, timeZone);
   if (dayIndex < 0) return false;
 
+  const next = DAY_KEYS[(dayIndex + 1) % 7];
   for (const w of hours[DAY_KEYS[dayIndex]] ?? []) {
     const open = toMin(w.open);
     const close = toMin(w.close) + (toMin(w.close) <= open ? 1440 : 0);
-    if (open <= minutes && minutes <= close - leadMinutes) return true;
+    // A window ending at 00:00 that the next day continues from 00:00 has no last-orders gap at midnight.
+    const continues = toMin(w.close) === 0 && (hours[next] ?? []).some((n) => toMin(n.open) === 0);
+    if (open <= minutes && minutes <= close - (continues ? 0 : leadMinutes)) return true;
   }
   const previous = DAY_KEYS[(dayIndex + 6) % 7];
   for (const w of hours[previous] ?? []) {
