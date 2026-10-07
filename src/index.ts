@@ -85,6 +85,7 @@ import './functions/subscription/resumeShopSubscription/index';
 
 // Usage endpoints
 import './functions/usage/getShopUsage/index';
+import './functions/usage/getOrderLimit/index';
 import './functions/usage/reconcileShopUsage/index';
 
 // System config endpoints

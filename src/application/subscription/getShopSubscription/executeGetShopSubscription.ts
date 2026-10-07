@@ -3,6 +3,7 @@ import { findSubscriptionByShopId, upsertSubscription } from '../../../infrastru
 import { findDefaultPlan, findPlanById } from '../../../infrastructure/cosmos/plan/CosmosPlanRepository';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { authorizeShopAction } from '../../_shared/shopAccess';
+import { loadEntitlements } from '../../_shared/entitlements';
 import { ApplicationResult } from '../../_shared/types';
 import { GetShopSubscriptionResultDto } from './dtos';
 import { defaultSubscription } from '../../../domain/subscription/ShopSubscription';
@@ -36,7 +37,8 @@ export async function executeGetShopSubscription(
     }
 
     const plan = await findPlanById(subscription.planId);
-    return { ok: true, data: { subscription, plan } };
+    const entitlements = await loadEntitlements(shopId, new Date());
+    return { ok: true, data: { subscription, plan, entitlements } };
   } catch (error: any) {
     if (error.message === 'Authentication required') {
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
