@@ -49,6 +49,7 @@ const session: CheckoutSession = {
   ttl: 3600,
 };
 const manualShop = { ...CARD_SHOP, orderSettings: { autoRejectMinutes: 10, alertEmail: null, autoAccept: false } };
+const hours = (mon: { open: string; close: string }[]) => ({ mon, tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] });
 const input = { sessionId: 'sess-1', paymentIntentId: 'pi_1', connectAccountId: 'acct_1', now: NOW_OPEN };
 
 describe('executeHandlePaymentAuthorized', () => {
@@ -86,6 +87,26 @@ describe('executeHandlePaymentAuthorized', () => {
       now: NOW_OPEN,
     });
     expect(sendEmail).not.toHaveBeenCalled(); // the acceptance email is the only one
+  });
+
+  it('inside the automatic hours the order is accepted at once', async () => {
+    (findShopById as any).mockResolvedValue({
+      ...CARD_SHOP,
+      orderSettings: { autoAcceptHours: hours([{ open: '09:00', close: '18:00' }]) },
+    });
+    await executeHandlePaymentAuthorized(input);
+    expect(acceptPlacedOrder).toHaveBeenCalledTimes(1);
+    expect(sendEmail).not.toHaveBeenCalled();
+  });
+
+  it('outside the automatic hours the order waits for staff', async () => {
+    (findShopById as any).mockResolvedValue({
+      ...CARD_SHOP,
+      orderSettings: { autoAcceptHours: hours([{ open: '13:00', close: '18:00' }]) },
+    });
+    await executeHandlePaymentAuthorized(input);
+    expect(acceptPlacedOrder).not.toHaveBeenCalled();
+    expect(sendEmail).toHaveBeenCalledWith(expect.objectContaining({ tag: 'order_received' }));
   });
 
   it('leaves the order for the timer when the payment service is down', async () => {

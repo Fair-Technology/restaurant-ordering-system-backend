@@ -49,6 +49,22 @@ import { ACCEPTED_CARD_ORDER, CARD_SHOP as DEFAULT_SHOP, orderStore, PLACED_CARD
 // A restaurant that accepts by hand; without orderSettings a shop auto-accepts.
 const CARD_SHOP = { ...DEFAULT_SHOP, orderSettings: { autoRejectMinutes: 10, alertEmail: null, autoAccept: false } };
 
+const WINDOW_SHOP = {
+  ...DEFAULT_SHOP,
+  orderSettings: {
+    autoAcceptHours: {
+      mon: [{ open: '09:00', close: '18:00' }],
+      tue: [], wed: [], thu: [], fri: [], sat: [], sun: [],
+    },
+  },
+};
+const placedAt = (iso: string, rejectIso: string) => ({
+  ...PLACED_CARD_ORDER,
+  createdAt: iso,
+  autoRejectAt: rejectIso,
+  history: [{ from: null, to: 'PLACED', at: iso, actor: { type: 'customer' } }],
+});
+
 const NO_EXTRAS = { autoAccepted: 0, released: 0, invoicesIssued: 0, correctionsIssued: 0 };
 
 function storedOrder(order = PLACED_CARD_ORDER) {
@@ -93,6 +109,27 @@ describe('executeProcessOrderTimers', () => {
     const late = await executeProcessOrderTimers({ now: new Date('2026-10-05T10:10:00Z') });
     expect(late.autoRejected).toBe(1);
     expect(store.current.state).toBe('REJECTED');
+  });
+
+  it('an order placed inside the automatic hours is still accepted after they end', async () => {
+    const order = placedAt('2026-10-05T15:59:00.000Z', '2026-10-05T16:09:00.000Z');
+    (findShopById as any).mockResolvedValue(WINDOW_SHOP);
+    (findPlacedOrdersCreatedBefore as any).mockResolvedValue([order]);
+    const store = storedOrder(order as any);
+    const res = await executeProcessOrderTimers({ now: new Date('2026-10-05T16:01:00Z') });
+    expect(capturePaymentIntent).toHaveBeenCalledTimes(1);
+    expect(store.current.state).toBe('ACCEPTED');
+    expect(res.autoAccepted).toBe(1);
+  });
+
+  it('an order placed in the manual hours waits for staff', async () => {
+    const order = placedAt('2026-10-05T16:01:00.000Z', '2026-10-05T16:11:00.000Z');
+    (findShopById as any).mockResolvedValue(WINDOW_SHOP);
+    (findPlacedOrdersCreatedBefore as any).mockResolvedValue([order]);
+    storedOrder(order as any);
+    const res = await executeProcessOrderTimers({ now: new Date('2026-10-05T16:02:00Z') });
+    expect(capturePaymentIntent).not.toHaveBeenCalled();
+    expect(res).toEqual({ escalated: 0, autoRejected: 0, autoCompleted: 0, ...NO_EXTRAS });
   });
 
   it('issues the invoice an accepted order is missing', async () => {
