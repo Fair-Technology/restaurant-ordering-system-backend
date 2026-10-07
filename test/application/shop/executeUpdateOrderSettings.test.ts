@@ -197,4 +197,33 @@ describe('executeUpdateOrderSettings', () => {
     }
     expect(updateShop).not.toHaveBeenCalled();
   });
+
+  it('logs only the fields that changed, never the address', async () => {
+    (findShopById as any).mockResolvedValue({
+      ...CARD_SHOP,
+      orderSettings: { autoRejectMinutes: 15, alertEmail: 'boss@mapasta.example' },
+    });
+    await executeUpdateOrderSettings(
+      { shopId: 'shop-1', body: { autoRejectMinutes: 15, alertEmail: 'boss@mapasta.example', busyExtraMinutes: 30 } },
+      http,
+    );
+    expect((logAudit as any).mock.calls[0][0].changes).toEqual([{ field: 'busyExtraMinutes', from: 20, to: 30 }]);
+  });
+
+  it('refuses a prep time list that is not an object, and an out-of-range dine-in time, saving nothing', async () => {
+    for (const body of [{ prepMinutes: [20] }, { prepMinutes: null }, { prepMinutes: { collection: 20, dine_in: 121 } }, { prepMinutes: { collection: 20.5 } }]) {
+      expect(await executeUpdateOrderSettings({ shopId: 'shop-1', body: body as any }, http)).toEqual({
+        ok: false,
+        code: 'INVALID_INPUT',
+        error: PREP_SETTING_ERROR,
+      });
+    }
+    expect(updateShop).not.toHaveBeenCalled();
+  });
+
+  it('a later invalid field stops the save even when an earlier one is fine', async () => {
+    const res = await executeUpdateOrderSettings({ shopId: 'shop-1', body: { dineIn: true, busyExtraMinutes: 121 } }, http);
+    expect(res).toEqual({ ok: false, code: 'INVALID_INPUT', error: BUSY_MINUTES_ERROR });
+    expect(updateShop).not.toHaveBeenCalled();
+  });
 });
