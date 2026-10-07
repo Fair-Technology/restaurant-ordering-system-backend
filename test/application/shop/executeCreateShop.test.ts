@@ -21,7 +21,7 @@ vi.mock('../../../src/infrastructure/cosmos/usage/CosmosUsageRepository', () => 
   upsertUsage: vi.fn(async () => undefined),
 }));
 vi.mock('../../../src/infrastructure/cosmos/plan/CosmosPlanRepository', () => ({
-  findPlanByInternalKey: vi.fn(async () => ({ id: 'plan-free' })),
+  findDefaultPlan: vi.fn(async () => ({ id: 'plan-free' })),
 }));
 
 import { createShop as createShopInRepo } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';

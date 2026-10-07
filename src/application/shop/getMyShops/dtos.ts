@@ -9,7 +9,6 @@ export interface ShopSummaryDto {
   isDeleted: boolean;
   isPaused: boolean;
   pausedMessage?: string;
-  isDeactivatedDueToLimits: boolean;
   orderAcceptanceMode: string;
   currency: string;
   timezone: string;

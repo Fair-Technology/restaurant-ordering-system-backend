@@ -2,11 +2,12 @@ import { HttpRequest } from '@azure/functions';
 import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
 import { findUserById } from '../../../infrastructure/cosmos/user/CosmosUserRepository';
 import { findSubscriptionByShopId, upsertSubscription } from '../../../infrastructure/cosmos/subscription/CosmosSubscriptionRepository';
-import { findPlanById, findPlanByInternalKey } from '../../../infrastructure/cosmos/plan/CosmosPlanRepository';
+import { findPlanById, findDefaultPlan } from '../../../infrastructure/cosmos/plan/CosmosPlanRepository';
 import { logAudit } from '../../_shared/auditHelpers';
 import { ApplicationResult } from '../../_shared/types';
 import { OverrideShopSubscriptionRequestDto, OverrideShopSubscriptionResultDto } from './dtos';
-import { ShopSubscription } from '../../../domain/subscription/ShopSubscription';
+import { ShopSubscription, defaultSubscription } from '../../../domain/subscription/ShopSubscription';
+import { FALLBACK_DEFAULT_PLAN_ID } from '../../../domain/subscription/entitlements';
 
 export async function executeOverrideShopSubscription(
   shopId: string,
@@ -41,25 +42,8 @@ export async function executeOverrideShopSubscription(
     let current = await findSubscriptionByShopId(shopId);
 
     if (!current) {
-      const freePlan = await findPlanByInternalKey('free');
-      current = {
-        id: shopId,
-        shopId,
-        planId: freePlan?.id ?? 'default-free',
-        status: 'free',
-        billingInterval: null,
-        currentPeriodStart: null,
-        currentPeriodEnd: null,
-        billingCustomerId: null,
-        billingSubscriptionId: null,
-        cancelAtPeriodEnd: false,
-        planSource: 'default',
-        overriddenBy: null,
-        overrideReason: null,
-        overrideExpiresAt: null,
-        createdAt: now,
-        updatedAt: now,
-      };
+      const defaultPlan = await findDefaultPlan();
+      current = defaultSubscription(shopId, defaultPlan?.id ?? FALLBACK_DEFAULT_PLAN_ID, now);
     }
 
     const updated: ShopSubscription = {

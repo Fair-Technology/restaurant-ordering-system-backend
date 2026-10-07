@@ -1,6 +1,7 @@
 import { findSubscriptionByShopId, upsertSubscription } from '../../../infrastructure/cosmos/subscription/CosmosSubscriptionRepository';
-import { findPlanByInternalKey } from '../../../infrastructure/cosmos/plan/CosmosPlanRepository';
-import { findShopById, updateShop } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
+import { findDefaultPlan } from '../../../infrastructure/cosmos/plan/CosmosPlanRepository';
+import { defaultSubscription } from '../../../domain/subscription/ShopSubscription';
+import { FALLBACK_DEFAULT_PLAN_ID } from '../../../domain/subscription/entitlements';
 
 export interface HandleCheckoutSessionCompletedInput {
   shopId: string;
@@ -20,25 +21,8 @@ export async function executeHandleCheckoutSessionCompleted(
   const now = new Date().toISOString();
 
   if (!subscription) {
-    const freePlan = await findPlanByInternalKey('free');
-    subscription = {
-      id: shopId,
-      shopId,
-      planId: freePlan?.id ?? 'default-free',
-      status: 'free',
-      billingInterval: null,
-      currentPeriodStart: null,
-      currentPeriodEnd: null,
-      billingCustomerId: null,
-      billingSubscriptionId: null,
-      cancelAtPeriodEnd: false,
-      planSource: 'default',
-      overriddenBy: null,
-      overrideReason: null,
-      overrideExpiresAt: null,
-      createdAt: now,
-      updatedAt: now,
-    };
+    const defaultPlan = await findDefaultPlan();
+    subscription = defaultSubscription(shopId, defaultPlan?.id ?? FALLBACK_DEFAULT_PLAN_ID, now);
   }
 
   await upsertSubscription({
@@ -51,10 +35,4 @@ export async function executeHandleCheckoutSessionCompleted(
     planSource: 'billing',
     updatedAt: now,
   });
-
-  // Clear isDeactivatedDueToLimits if the shop was deactivated due to plan limits
-  const shop = await findShopById(shopId);
-  if (shop?.isDeactivatedDueToLimits) {
-    await updateShop({ ...shop, isDeactivatedDueToLimits: false, updatedAt: now });
-  }
 }

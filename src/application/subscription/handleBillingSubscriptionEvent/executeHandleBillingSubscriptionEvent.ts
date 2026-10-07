@@ -1,6 +1,6 @@
 import { findSubscriptionByBillingSubscriptionId, upsertSubscription } from '../../../infrastructure/cosmos/subscription/CosmosSubscriptionRepository';
-import { findPlanByInternalKey } from '../../../infrastructure/cosmos/plan/CosmosPlanRepository';
-import { findShopById, updateShop } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
+import { findDefaultPlan } from '../../../infrastructure/cosmos/plan/CosmosPlanRepository';
+import { FALLBACK_DEFAULT_PLAN_ID } from '../../../domain/subscription/entitlements';
 
 export type BillingSubscriptionEventType =
   | 'subscription.updated'
@@ -38,21 +38,13 @@ export async function executeHandleBillingSubscriptionEvent(
         updatedAt: now,
       };
       await upsertSubscription(updated);
-
-      // Clear isDeactivatedDueToLimits when subscription becomes active again
-      if (!data.cancelAtPeriodEnd) {
-        const shop = await findShopById(subscription.shopId);
-        if (shop?.isDeactivatedDueToLimits) {
-          await updateShop({ ...shop, isDeactivatedDueToLimits: false, updatedAt: now });
-        }
-      }
       break;
     }
     case 'subscription.deleted': {
-      const freePlan = await findPlanByInternalKey('free');
+      const defaultPlan = await findDefaultPlan();
       const updated = {
         ...subscription,
-        planId: freePlan?.id ?? subscription.planId,
+        planId: defaultPlan?.id ?? FALLBACK_DEFAULT_PLAN_ID,
         status: 'expired' as const,
         billingSubscriptionId: null,
         cancelAtPeriodEnd: false,

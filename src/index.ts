@@ -17,7 +17,6 @@ import './functions/shop/removeShopCoverImage/index';
 import './functions/shop/requestShopNameChange/index';
 import './functions/shop/approveShopNameChange/index';
 import './functions/shop/rejectShopNameChange/index';
-import './functions/shop/reactivateShop/index';
 import './functions/shop/getGoLiveStatus/index';
 import './functions/shop/createStripeAccountSession/index';
 import './functions/shop/disconnectStripeAccount/index';
