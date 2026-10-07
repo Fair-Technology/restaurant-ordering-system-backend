@@ -32,4 +32,5 @@ export interface BasketQuoteDto {
   paymentMethods: PaymentMethod[];
   addressRequired: boolean; // the diner must give an address for this total
   prepMinutes: number;
+  orderLimitReached: boolean; // the monthly order limit is used up, so checkout would refuse
 }

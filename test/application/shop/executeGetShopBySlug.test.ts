@@ -1,7 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../../src/infrastructure/cosmos/shop/CosmosShopRepository', () => ({ findShopBySlug: vi.fn() }));
+vi.mock('../../../src/application/usage/orderLimitStatus', () => ({
+  loadOrderLimitStatus: vi.fn(async () => ({ periodKey: '2026-10', acceptedOrderCount: 0, limit: 30, warningLevel: 0, limitReached: false })),
+}));
 
+import { loadOrderLimitStatus } from '../../../src/application/usage/orderLimitStatus';
 import { executeGetShopBySlug } from '../../../src/application/shop/getShopBySlug/executeGetShopBySlug';
 import { findShopBySlug } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
 import { CARD_SHOP, DINE_IN_SHOP } from '../../fixtures/orders';
@@ -9,6 +13,20 @@ import { CARD_SHOP, DINE_IN_SHOP } from '../../fixtures/orders';
 describe('executeGetShopBySlug', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it('the public shop says when the order limit pauses ordering', async () => {
+    (findShopBySlug as any).mockResolvedValue(CARD_SHOP);
+    (loadOrderLimitStatus as any).mockResolvedValueOnce({ periodKey: '2026-10', acceptedOrderCount: 30, limit: 30, warningLevel: 100, limitReached: true });
+    const res = await executeGetShopBySlug({ slug: 'mapasta' });
+    expect(res.ok && res.data.orderLimitReached).toBe(true);
+  });
+
+  it('a failing limit lookup keeps the shop open', async () => {
+    (findShopBySlug as any).mockResolvedValue(CARD_SHOP);
+    (loadOrderLimitStatus as any).mockRejectedValueOnce(new Error('x'));
+    const res = await executeGetShopBySlug({ slug: 'mapasta' });
+    expect(res.ok && res.data.orderLimitReached).toBe(false);
   });
 
   it('offers dine-in only when switched on', async () => {
