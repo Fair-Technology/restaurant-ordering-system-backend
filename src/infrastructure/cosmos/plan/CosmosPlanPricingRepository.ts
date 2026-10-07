@@ -38,3 +38,17 @@ export async function upsertPricing(pricing: PlanPricing): Promise<PlanPricing> 
     throw error;
   }
 }
+
+/** The pricing row that holds this Stripe price id, so a subscription's price can be mapped back to a plan. */
+export async function findPricingByBillingPriceId(priceId: string): Promise<PlanPricing | null> {
+  try {
+    const querySpec = {
+      query: 'SELECT * FROM c WHERE c.billingPriceIdMonthly = @p OR c.billingPriceIdYearly = @p',
+      parameters: [{ name: '@p', value: priceId }],
+    };
+    const { resources } = await planPricingContainer.items.query<PlanPricing>(querySpec).fetchAll();
+    return resources && resources.length > 0 ? resources[0] : null;
+  } catch (error) {
+    throw error;
+  }
+}

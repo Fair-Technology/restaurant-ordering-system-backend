@@ -1,6 +1,7 @@
 import { app, HttpRequest, HttpResponseInit } from '@azure/functions';
 import Stripe from 'stripe';
 import { executeHandleBillingSubscriptionEvent } from '../../../application/subscription/handleBillingSubscriptionEvent/executeHandleBillingSubscriptionEvent';
+import { invoiceSubscriptionId, subscriptionPeriod, subscriptionPriceId } from '../../../infrastructure/stripe/billingEventParsing';
 import { executeHandleCheckoutSessionCompleted } from '../../../application/subscription/handleCheckoutSessionCompleted/executeHandleCheckoutSessionCompleted';
 
 app.http('stripeWebhook', {
@@ -50,18 +51,18 @@ app.http('stripeWebhook', {
           });
           break;
         }
+        case 'customer.subscription.created':
         case 'customer.subscription.updated': {
           const sub = event.data.object as any;
           if (sub.id) {
+            const period = subscriptionPeriod(sub);
             await executeHandleBillingSubscriptionEvent('subscription.updated', {
               billingSubscriptionId: sub.id,
-              periodStart: sub.current_period_start
-                ? new Date(sub.current_period_start * 1000).toISOString()
-                : null,
-              periodEnd: sub.current_period_end
-                ? new Date(sub.current_period_end * 1000).toISOString()
-                : null,
+              stripeStatus: sub.status,
+              periodStart: period.start,
+              periodEnd: period.end,
               cancelAtPeriodEnd: sub.cancel_at_period_end ?? false,
+              priceId: subscriptionPriceId(sub),
             });
           }
           break;
@@ -76,30 +77,23 @@ app.http('stripeWebhook', {
           break;
         }
         case 'invoice.payment_failed': {
-          const invoice = event.data.object as any;
-          if (invoice.subscription) {
-            await executeHandleBillingSubscriptionEvent('invoice.payment_failed', {
-              billingSubscriptionId: invoice.subscription,
-            });
+          const billingSubscriptionId = invoiceSubscriptionId(event.data.object);
+          if (billingSubscriptionId) {
+            await executeHandleBillingSubscriptionEvent('invoice.payment_failed', { billingSubscriptionId });
           }
           break;
         }
+        case 'invoice.paid':
         case 'invoice.payment_succeeded': {
-          const invoice = event.data.object as any;
-          if (invoice.subscription) {
-            await executeHandleBillingSubscriptionEvent('invoice.payment_succeeded', {
-              billingSubscriptionId: invoice.subscription,
-              periodStart: invoice.period_start
-                ? new Date(invoice.period_start * 1000).toISOString()
-                : null,
-              periodEnd: invoice.period_end
-                ? new Date(invoice.period_end * 1000).toISOString()
-                : null,
-            });
+          // The invoice's own period is the previous one on a renewal, so period dates come only from subscription events.
+          const billingSubscriptionId = invoiceSubscriptionId(event.data.object);
+          if (billingSubscriptionId) {
+            await executeHandleBillingSubscriptionEvent('invoice.paid', { billingSubscriptionId });
           }
           break;
         }
         default:
+          if (event.type.startsWith('customer.subscription.')) console.warn('[billing:warn] unhandled', event.type);
           // Acknowledge all other events without action
           break;
       }
