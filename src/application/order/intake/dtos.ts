@@ -1,15 +1,17 @@
 import type { FulfilmentMode, StaffRejectReason } from '../../../domain/order/Order';
+import type { BusyState } from '../../../domain/order/kitchenTiming';
 import type { OrderDto } from '../getOrdersByShop/dtos';
 
 export interface OrderQueueDto {
   serverTime: string;
   timezone: string; // the restaurant's, so a tablet elsewhere shows its times correctly
-  defaultPrepMinutes: Record<FulfilmentMode, number>;
+  defaultPrepMinutes: Record<FulfilmentMode, number>; // own prep time + busy minutes, max 240
+  busy: BusyState;
   orders: OrderDto[];
 }
 
 export interface AcceptOrderBody {
-  prepMinutes?: number; // absent → DEFAULT_PREP_MINUTES[order.fulfilmentMode]
+  prepMinutes?: number; // absent → effectivePrepMinutes(shop, order.fulfilmentMode, now)
 }
 
 export interface RejectOrderBody {

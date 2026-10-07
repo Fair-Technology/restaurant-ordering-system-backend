@@ -8,7 +8,7 @@ import {
   isDueForAutoReject,
   isDueForEscalation,
 } from '../../../domain/order/orderTimers';
-import { orderSettingsOf } from '../../../domain/order/orderSettings';
+import { autoAcceptsAt } from '../../../domain/order/kitchenTiming';
 import type { Shop } from '../../../domain/shop/Shop';
 import {
   findInvoicedOrdersWithRefunds,
@@ -96,7 +96,7 @@ export async function executeProcessOrderTimers(input: { now: Date }): Promise<O
     try {
       const shop = await shopOf(o.shopId);
       if (!shop) continue;
-      if (orderSettingsOf(shop).autoAccept) {
+      if (autoAcceptsAt(shop, new Date(o.createdAt))) {
         const accepted = await acceptPlacedOrder({ orderId: o.id, shop, actor: { type: 'system' }, now });
         if (accepted.ok) {
           result.autoAccepted++;

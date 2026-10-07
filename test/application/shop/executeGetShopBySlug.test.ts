@@ -39,4 +39,15 @@ describe('executeGetShopBySlug', () => {
     expect(on.ok && on.data.fulfilment.modes).toEqual(['collection', 'dine_in']);
     expect(on.ok && on.data.fulfilment.prepMinutes.dine_in).toBe(20);
   });
+
+  it('the shop page estimate includes busy mode', async () => {
+    (findShopBySlug as any).mockResolvedValue({
+      ...CARD_SHOP,
+      busyMode: { extraMinutes: 15, serviceDate: '2026-10-05', startedAt: '2026-10-05T09:00:00.000Z' },
+    });
+    const busy = await executeGetShopBySlug({ slug: 'mapasta' }, { now: new Date('2026-10-05T10:00:00Z') });
+    expect(busy.ok && busy.data.fulfilment.prepMinutes).toEqual({ collection: 35, delivery: 60, dine_in: 35 });
+    const next = await executeGetShopBySlug({ slug: 'mapasta' }, { now: new Date('2026-10-06T10:00:00Z') });
+    expect(next.ok && next.data.fulfilment.prepMinutes.collection).toBe(20);
+  });
 });

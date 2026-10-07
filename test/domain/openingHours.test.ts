@@ -45,4 +45,16 @@ describe('isOpenForAsapOrder', () => {
   it('a day with no windows is closed', () => {
     expect(open('2026-10-06T10:00:00Z')).toBe(false);
   });
+
+  it('a 24-hour restaurant takes orders at 23:50 with a 60-minute lead', () => {
+    const day = [{ open: '00:00', close: '00:00' }];
+    const ALL = { mon: day, tue: day, wed: day, thu: day, fri: day, sat: day, sun: day };
+    expect(isOpenForAsapOrder(ALL, [], TZ, new Date('2026-10-05T21:50:00Z'), 60)).toBe(true);
+  });
+
+  it('a window ending at midnight with nothing after it keeps its last orders', () => {
+    const hours = { mon: [{ open: '18:00', close: '00:00' }], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] };
+    expect(isOpenForAsapOrder(hours, [], TZ, new Date('2026-10-05T21:50:00Z'), 20)).toBe(false);
+    expect(isOpenForAsapOrder(hours, [], TZ, new Date('2026-10-05T21:30:00Z'), 20)).toBe(true);
+  });
 });

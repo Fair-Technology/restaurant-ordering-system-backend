@@ -91,4 +91,25 @@ describe('executeQuoteBasket', () => {
     const res = await executeQuoteBasket({ ...request, fulfilmentMode: 'dine_in' as const }, { now: NOW_OPEN });
     expect(res).toEqual({ ok: false, code: 'INVALID_INPUT', error: MODE_NOT_OFFERED_ERROR });
   });
+
+  it("last orders follow the restaurant's own setting", async () => {
+    const now = new Date('2026-10-05T19:50:00Z');
+    const openNow = async (shop: object) => {
+      (findShopById as any).mockResolvedValue(shop);
+      const res = await executeQuoteBasket(request, { now });
+      return res.ok && res.data.openNow;
+    };
+    expect(await openNow(CARD_SHOP)).toBe(false);
+    expect(await openNow({ ...CARD_SHOP, orderSettings: { lastOrdersMinutes: 5 } })).toBe(true);
+    expect(await openNow({ ...CARD_SHOP, orderSettings: { prepMinutes: { collection: 5 } } })).toBe(true);
+  });
+
+  it('busy mode lengthens the estimate but not the last-orders time', async () => {
+    (findShopById as any).mockResolvedValue({
+      ...CARD_SHOP,
+      busyMode: { extraMinutes: 30, serviceDate: '2026-10-05', startedAt: '2026-10-05T19:00:00.000Z' },
+    });
+    const res = await executeQuoteBasket(request, { now: new Date('2026-10-05T19:35:00Z') });
+    expect(res.ok && res.data).toMatchObject({ prepMinutes: 50, openNow: true });
+  });
 });

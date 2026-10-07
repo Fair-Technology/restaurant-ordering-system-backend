@@ -14,7 +14,7 @@ export function isDueForAutoReject(o: Pick<Order, 'state' | 'autoRejectAt'>, now
   return o.state === 'PLACED' && !!o.autoRejectAt && now.getTime() >= Date.parse(o.autoRejectAt);
 }
 
-function localDate(iso: string | Date, timeZone: string): string {
+export function localDate(iso: string | Date, timeZone: string): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(
     typeof iso === 'string' ? new Date(iso) : iso,
   );

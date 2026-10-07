@@ -277,6 +277,12 @@ describe('executeCheckout card placement', () => {
     expect(res).toEqual({ ok: false, code: 'INVALID_INPUT', error: SHOP_CLOSED_ERROR });
   });
 
+  it('refuses when the restaurant stops orders earlier', async () => {
+    (findShopById as any).mockResolvedValue({ ...CARD_SHOP, orderSettings: { lastOrdersMinutes: 60 } });
+    const res = await executeCheckout(cardRequest, { now: new Date('2026-10-05T19:05:00Z') });
+    expect(res).toEqual({ ok: false, code: 'INVALID_INPUT', error: SHOP_CLOSED_ERROR });
+  });
+
   it('refuses a changed price', async () => {
     const res = await executeCheckout(
       { ...cardRequest, items: [{ productId: 'p1', quantity: 1, expectedUnitPriceCents: 1000 }] },

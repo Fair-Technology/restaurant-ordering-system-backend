@@ -46,3 +46,8 @@ export const PAYMENT_DECLINED_AGAIN_ERROR = 'The card was declined again';
 export function downgradeBlockedStaffError(allowed: number): string {
   return `Remove staff logins first: the target plan allows ${allowed}`;
 }
+export const AUTO_ACCEPT_HOURS_ERROR = 'autoAcceptHours must be null or a weekly list of HH:mm times';
+export const PREP_SETTING_ERROR = 'prepMinutes must give whole minutes between 5 and 120 for collection, delivery or dine_in';
+export const LAST_ORDERS_ERROR = 'lastOrdersMinutes must be null or a whole number between 0 and 120';
+export const BUSY_MINUTES_ERROR = 'busyExtraMinutes must be a whole number between 5 and 120';
+export const BUSY_MODE_BODY_ERROR = 'on must be true or false';

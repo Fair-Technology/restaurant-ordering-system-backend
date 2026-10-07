@@ -1,3 +1,4 @@
+import { autoAcceptsAt } from '../../../domain/order/kitchenTiming';
 import { orderSettingsOf } from '../../../domain/order/orderSettings';
 import { PAYMENT_SERVICE_UNAVAILABLE_ERROR } from '../../../domain/order/orderErrors';
 import { generateOrderRef } from '../../../domain/order/orderRef';
@@ -61,8 +62,9 @@ export async function executeHandlePaymentAuthorized(input: {
   await deleteCheckoutSession(session.id);
 
   // Auto-accepted orders get one email (the acceptance); a received email would arrive a second before it.
-  let sendReceived = !settings.autoAccept;
-  if (settings.autoAccept) {
+  const autoAccepts = autoAcceptsAt(shop, now);
+  let sendReceived = !autoAccepts;
+  if (autoAccepts) {
     try {
       const accepted = await acceptPlacedOrder({ orderId: order.id, shop, actor: { type: 'system' }, now });
       // Still waiting (Stripe outage): the diner is told it was received, and the timer retries.

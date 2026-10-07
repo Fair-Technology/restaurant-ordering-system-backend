@@ -20,11 +20,28 @@ describe('order rules', () => {
   });
 
   it('auto-accept is on unless switched off', () => {
-    expect(orderSettingsOf({})).toEqual({ autoRejectMinutes: 10, alertEmail: null, autoAccept: true, dineIn: false });
+    expect(orderSettingsOf({})).toEqual({
+      autoRejectMinutes: 10,
+      alertEmail: null,
+      autoAccept: true,
+      dineIn: false,
+      autoAcceptHours: null,
+      prepMinutes: { collection: 20, delivery: 45, dine_in: 20 },
+      lastOrdersMinutes: null,
+      busyExtraMinutes: 20,
+    });
     expect(
       orderSettingsOf({ orderSettings: { autoRejectMinutes: 15, alertEmail: null, autoAccept: false } }).autoAccept,
     ).toBe(false);
     expect(orderSettingsOf({ orderSettings: { autoRejectMinutes: 15, alertEmail: null } }).autoAccept).toBe(true);
+  });
+
+  it("a stored prep time keeps the other modes' defaults", () => {
+    expect(orderSettingsOf({ orderSettings: { prepMinutes: { dine_in: 30 } } }).prepMinutes).toEqual({
+      collection: 20,
+      delivery: 45,
+      dine_in: 30,
+    });
   });
 
   it('dine-in is off until switched on', () => {

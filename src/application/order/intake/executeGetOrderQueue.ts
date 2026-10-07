@@ -1,5 +1,5 @@
 import type { HttpRequest } from '@azure/functions';
-import { DEFAULT_PREP_MINUTES } from '../../../domain/order/Order';
+import { busyStateOf, effectivePrepByMode } from '../../../domain/order/kitchenTiming';
 import { findOrdersByShopIdAndStates } from '../../../infrastructure/cosmos/order/CosmosOrderRepository';
 import type { ApplicationResult } from '../../_shared/types';
 import { toOrderDto } from '../_shared/toOrderDto';
@@ -22,7 +22,8 @@ export async function executeGetOrderQueue(
       data: {
         serverTime: now.toISOString(),
         timezone: loaded.shop.timezone,
-        defaultPrepMinutes: { ...DEFAULT_PREP_MINUTES },
+        defaultPrepMinutes: effectivePrepByMode(loaded.shop, now),
+        busy: busyStateOf(loaded.shop, now),
         orders: orders.map((o) => toOrderDto(o, now)),
       },
     };
