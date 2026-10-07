@@ -1,3 +1,4 @@
+import type { PatchOperation } from '@azure/cosmos';
 import { Shop } from '../../../domain/shop/Shop';
 import { shopContainer } from '../cosmosClient';
 
@@ -121,4 +122,17 @@ export async function findOwnedShopIds(userId: string): Promise<string[]> {
   } catch (error) {
     throw error;
   }
+}
+
+/** Sets top-level fields without rewriting the rest of the shop, so two people saving different things don't undo each other. */
+export async function patchShopFields(
+  shopId: string,
+  fields: Partial<Pick<Shop, 'busyMode' | 'updatedAt'>>,
+): Promise<void> {
+  const ops: PatchOperation[] = Object.entries(fields).map(([key, value]) => ({
+    op: 'set',
+    path: `/${key}`,
+    value,
+  }));
+  await shopContainer.item(shopId, shopId).patch(ops);
 }
