@@ -40,3 +40,9 @@ export const MODE_NOT_OFFERED_ERROR = 'This restaurant is not taking orders this
 export const TABLE_INVALID_ERROR = 'Please scan the QR code on your table again'; // storefront compares
 export const DINE_IN_ERROR = 'dineIn must be true or false';
 export const ORDER_LIMIT_REACHED_ERROR = 'This restaurant has paused online ordering for now';
+// Plan changes. The admin shows these as they are.
+export const UPGRADE_DECLINED_ERROR = 'The card was declined, so the plan was not changed';
+export const PAYMENT_DECLINED_AGAIN_ERROR = 'The card was declined again';
+export function downgradeBlockedStaffError(allowed: number): string {
+  return `Remove staff logins first: the target plan allows ${allowed}`;
+}
