@@ -17,6 +17,12 @@ export interface LimitOverride {
   setAt: string; // ISO
 }
 
+export interface ScheduledPlanChange {
+  planId: string;
+  billingInterval: 'monthly' | 'yearly';
+  effectiveAt: string; // ISO; the end of the paid period
+}
+
 export interface ShopSubscription {
   id: string; // === shopId
   shopId: string;
@@ -34,6 +40,9 @@ export interface ShopSubscription {
   overrideExpiresAt: string | null;
   limitOverride?: LimitOverride | null;
   planBeforeOverride?: string | null; // plan in force when a plan override was first applied
+  scheduledChange?: ScheduledPlanChange | null; // a downgrade that waits for the end of the paid period
+  paymentFailedAt?: string | null; // first failed payment of the current failure; starts the grace period
+  graceWarningsSent?: number; // how many of the grace emails have gone out
   createdAt: string;
   updatedAt: string;
 }
@@ -56,6 +65,9 @@ export function defaultSubscription(shopId: string, defaultPlanId: string, nowIs
     overrideExpiresAt: null,
     limitOverride: null,
     planBeforeOverride: null,
+    scheduledChange: null,
+    paymentFailedAt: null,
+    graceWarningsSent: 0,
     createdAt: nowIso,
     updatedAt: nowIso,
   };
