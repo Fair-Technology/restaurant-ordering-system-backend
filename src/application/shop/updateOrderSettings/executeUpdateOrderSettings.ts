@@ -1,10 +1,25 @@
 import type { HttpRequest } from '@azure/functions';
-import { AUTO_ACCEPT_ERROR, DINE_IN_ERROR } from '../../../domain/order/orderErrors';
+import { FULFILMENT_MODES, type FulfilmentMode } from '../../../domain/order/Order';
+import { describePrepMinutes, describeWeeklyHours, parseWeeklyHours } from '../../../domain/order/kitchenTiming';
+import {
+  AUTO_ACCEPT_ERROR,
+  AUTO_ACCEPT_HOURS_ERROR,
+  BUSY_MINUTES_ERROR,
+  DINE_IN_ERROR,
+  LAST_ORDERS_ERROR,
+  PREP_SETTING_ERROR,
+} from '../../../domain/order/orderErrors';
 import { EMAIL_PATTERN } from '../../../domain/legal/impressum';
 import {
   AUTO_REJECT_MAX_MINUTES,
   AUTO_REJECT_MIN_MINUTES,
+  BUSY_MINUTES_MAX,
+  BUSY_MINUTES_MIN,
+  LAST_ORDERS_MAX,
+  PREP_SETTING_MAX,
+  PREP_SETTING_MIN,
   orderSettingsOf,
+  type OrderSettings,
 } from '../../../domain/order/orderSettings';
 import { findShopById, updateShop } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { logAudit } from '../../_shared/auditHelpers';
@@ -12,9 +27,9 @@ import { authorizeShopAction, toAuditActor } from '../../_shared/shopAccess';
 import type { ApplicationResult } from '../../_shared/types';
 import type { OrderSettingsResultDto, UpdateOrderSettingsBody } from './dtos';
 
-/** Owner-editable order settings: how long an order may wait before auto-decline, an extra alert address, and whether paid orders are accepted automatically and whether table (dine-in) orders are taken. */
+/** Owner-editable order settings. Changes only the fields sent; everything absent is kept. Returns the full record. */
 export async function executeUpdateOrderSettings(
-  input: { shopId: string; body: Partial<UpdateOrderSettingsBody>; now?: Date },
+  input: { shopId: string; body: UpdateOrderSettingsBody; now?: Date },
   httpRequest: HttpRequest,
 ): Promise<ApplicationResult<OrderSettingsResultDto>> {
   if (!input.shopId || typeof input.shopId !== 'string') {
@@ -27,40 +42,107 @@ export async function executeUpdateOrderSettings(
     const access = await authorizeShopAction(httpRequest, shop, 'manage_shop');
     if (!access.ok) return access;
 
-    const { autoRejectMinutes, alertEmail, autoAccept: requestedAutoAccept, dineIn: requestedDineIn } = input.body;
-    if (
-      typeof autoRejectMinutes !== 'number' ||
-      !Number.isInteger(autoRejectMinutes) ||
-      autoRejectMinutes < AUTO_REJECT_MIN_MINUTES ||
-      autoRejectMinutes > AUTO_REJECT_MAX_MINUTES
-    ) {
-      return {
-        ok: false,
-        code: 'INVALID_INPUT',
-        error: `autoRejectMinutes must be a whole number between ${AUTO_REJECT_MIN_MINUTES} and ${AUTO_REJECT_MAX_MINUTES}`,
-      };
-    }
-    let alert: string | null = null;
-    if (alertEmail !== undefined && alertEmail !== null) {
-      const trimmed = typeof alertEmail === 'string' ? alertEmail.trim() : null;
-      if (trimmed === null || (trimmed !== '' && !EMAIL_PATTERN.test(trimmed))) {
-        return { ok: false, code: 'INVALID_INPUT', error: 'alertEmail must be a valid email address or null' };
-      }
-      alert = trimmed === '' ? null : trimmed;
-    }
-
-    if (requestedAutoAccept !== undefined && typeof requestedAutoAccept !== 'boolean') {
-      return { ok: false, code: 'INVALID_INPUT', error: AUTO_ACCEPT_ERROR };
-    }
-    if (requestedDineIn !== undefined && typeof requestedDineIn !== 'boolean') {
-      return { ok: false, code: 'INVALID_INPUT', error: DINE_IN_ERROR };
-    }
-
+    const body = input.body as Record<string, unknown>;
     const before = orderSettingsOf(shop);
-    const autoAccept = requestedAutoAccept ?? before.autoAccept;
-    const dineIn = requestedDineIn ?? before.dineIn;
-    const orderSettings = { autoRejectMinutes, alertEmail: alert, autoAccept, dineIn };
-    await updateShop({ ...shop, orderSettings, updatedAt: (input.now ?? new Date()).toISOString() });
+    const next: OrderSettings = { ...before, prepMinutes: { ...before.prepMinutes } };
+    const invalid = (error: string): ApplicationResult<OrderSettingsResultDto> => ({
+      ok: false,
+      code: 'INVALID_INPUT',
+      error,
+    });
+
+    if (body.autoRejectMinutes !== undefined) {
+      const v = body.autoRejectMinutes;
+      if (
+        typeof v !== 'number' ||
+        !Number.isInteger(v) ||
+        v < AUTO_REJECT_MIN_MINUTES ||
+        v > AUTO_REJECT_MAX_MINUTES
+      ) {
+        return invalid(
+          `autoRejectMinutes must be a whole number between ${AUTO_REJECT_MIN_MINUTES} and ${AUTO_REJECT_MAX_MINUTES}`,
+        );
+      }
+      next.autoRejectMinutes = v;
+    }
+    if (body.alertEmail !== undefined) {
+      if (body.alertEmail === null) {
+        next.alertEmail = null;
+      } else {
+        const trimmed = typeof body.alertEmail === 'string' ? body.alertEmail.trim() : null;
+        if (trimmed === null || (trimmed !== '' && !EMAIL_PATTERN.test(trimmed))) {
+          return invalid('alertEmail must be a valid email address or null');
+        }
+        next.alertEmail = trimmed === '' ? null : trimmed;
+      }
+    }
+    if (body.autoAccept !== undefined) {
+      if (typeof body.autoAccept !== 'boolean') return invalid(AUTO_ACCEPT_ERROR);
+      next.autoAccept = body.autoAccept;
+    }
+    if (body.dineIn !== undefined) {
+      if (typeof body.dineIn !== 'boolean') return invalid(DINE_IN_ERROR);
+      next.dineIn = body.dineIn;
+    }
+    if (body.autoAcceptHours !== undefined) {
+      const hours = parseWeeklyHours(body.autoAcceptHours);
+      if (hours === 'invalid') return invalid(AUTO_ACCEPT_HOURS_ERROR);
+      next.autoAcceptHours = hours;
+    }
+    if (body.prepMinutes !== undefined) {
+      const p = body.prepMinutes;
+      if (!p || typeof p !== 'object' || Array.isArray(p)) return invalid(PREP_SETTING_ERROR);
+      for (const [mode, minutes] of Object.entries(p)) {
+        if (
+          !(FULFILMENT_MODES as readonly string[]).includes(mode) ||
+          typeof minutes !== 'number' ||
+          !Number.isInteger(minutes) ||
+          minutes < PREP_SETTING_MIN ||
+          minutes > PREP_SETTING_MAX
+        ) {
+          return invalid(PREP_SETTING_ERROR);
+        }
+        next.prepMinutes[mode as FulfilmentMode] = minutes;
+      }
+    }
+    if (body.lastOrdersMinutes !== undefined) {
+      const v = body.lastOrdersMinutes;
+      if (v !== null && (typeof v !== 'number' || !Number.isInteger(v) || v < 0 || v > LAST_ORDERS_MAX)) {
+        return invalid(LAST_ORDERS_ERROR);
+      }
+      next.lastOrdersMinutes = v;
+    }
+    if (body.busyExtraMinutes !== undefined) {
+      const v = body.busyExtraMinutes;
+      if (typeof v !== 'number' || !Number.isInteger(v) || v < BUSY_MINUTES_MIN || v > BUSY_MINUTES_MAX) {
+        return invalid(BUSY_MINUTES_ERROR);
+      }
+      next.busyExtraMinutes = v;
+    }
+
+    await updateShop({ ...shop, orderSettings: next, updatedAt: (input.now ?? new Date()).toISOString() });
+
+    const changed = (f: keyof OrderSettings): boolean => JSON.stringify(before[f]) !== JSON.stringify(next[f]);
+    const changes: { field: string; from: unknown; to: unknown }[] = [];
+    for (const f of ['autoRejectMinutes', 'autoAccept', 'dineIn', 'lastOrdersMinutes', 'busyExtraMinutes'] as const) {
+      if (changed(f)) changes.push({ field: f, from: before[f], to: next[f] });
+    }
+    // The address itself is never written to the audit log (spec §11).
+    if (changed('alertEmail')) changes.push({ field: 'alertEmail', from: null, to: null });
+    if (changed('autoAcceptHours')) {
+      changes.push({
+        field: 'autoAcceptHours',
+        from: describeWeeklyHours(before.autoAcceptHours),
+        to: describeWeeklyHours(next.autoAcceptHours),
+      });
+    }
+    if (changed('prepMinutes')) {
+      changes.push({
+        field: 'prepMinutes',
+        from: describePrepMinutes(before.prepMinutes),
+        to: describePrepMinutes(next.prepMinutes),
+      });
+    }
     await logAudit({
       shopId: shop.id,
       ...toAuditActor(access.actor),
@@ -68,15 +150,9 @@ export async function executeUpdateOrderSettings(
       entityType: 'shop',
       entityId: shop.id,
       entityName: shop.name,
-      // The address itself is never written to the audit log (spec §11).
-      changes: [
-        { field: 'autoRejectMinutes', from: before.autoRejectMinutes, to: autoRejectMinutes },
-        { field: 'alertEmail', from: null, to: null },
-        { field: 'autoAccept', from: before.autoAccept, to: autoAccept },
-        { field: 'dineIn', from: before.dineIn, to: dineIn },
-      ],
+      changes,
     });
-    return { ok: true, data: orderSettings };
+    return { ok: true, data: next };
   } catch (error: any) {
     if (error.message === 'Authentication required') {
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
