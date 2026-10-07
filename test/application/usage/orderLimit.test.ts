@@ -19,7 +19,7 @@ vi.mock('../../../src/application/_shared/shopAccess', () => ({
 }));
 
 import { findSubscriptionByShopId } from '../../../src/infrastructure/cosmos/subscription/CosmosSubscriptionRepository';
-import { findDefaultPlan } from '../../../src/infrastructure/cosmos/plan/CosmosPlanRepository';
+import { findDefaultPlan, findPlanById } from '../../../src/infrastructure/cosmos/plan/CosmosPlanRepository';
 import { findUsageByShopId } from '../../../src/infrastructure/cosmos/usage/CosmosUsageRepository';
 import { findShopById } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
 import { authorizeShopAction } from '../../../src/application/_shared/shopAccess';
@@ -71,5 +71,31 @@ describe('order limit', () => {
     (authorizeShopAction as any).mockResolvedValue(denied);
     expect(await executeGetOrderLimit('shop-1', http)).toEqual(denied);
     expect(authorizeShopAction).toHaveBeenCalledWith(http, CARD_SHOP, null, { allowSuperadmin: true });
+  });
+
+  it('reports grace to every member', async () => {
+    (authorizeShopAction as any).mockResolvedValue({ ok: true });
+    (findSubscriptionByShopId as any).mockResolvedValue({
+      ...defaultSubscription('shop-1', 'plan-pro', 'x'),
+      status: 'past_due',
+      paymentFailedAt: '2026-10-05T12:00:00.000Z',
+    });
+    (findPlanById as any).mockResolvedValue({ ...BASIC, id: 'plan-pro', isDefault: false });
+    const res = await executeGetOrderLimit('shop-1', http);
+    expect(res).toMatchObject({
+      ok: true,
+      data: { payment: { inGrace: true, graceEndsAt: '2026-10-12T12:00:00.000Z', droppedForNonPayment: false } },
+    });
+  });
+
+  it('reports the drop once grace has run out', async () => {
+    (authorizeShopAction as any).mockResolvedValue({ ok: true });
+    (findSubscriptionByShopId as any).mockResolvedValue({
+      ...defaultSubscription('shop-1', 'plan-pro', 'x'),
+      status: 'past_due',
+      paymentFailedAt: '2026-09-29T12:00:00.000Z',
+    });
+    const res = await executeGetOrderLimit('shop-1', http);
+    expect(res).toMatchObject({ ok: true, data: { payment: { inGrace: false, droppedForNonPayment: true } } });
   });
 });
