@@ -1,6 +1,7 @@
 import { findOrderByStripePaymentIntentId } from '../../../infrastructure/cosmos/order/CosmosOrderRepository';
 import { deriveDisplayState } from '../../../domain/order/orderLifecycle';
 import {
+  chargedCents,
   FulfilmentMode,
   OrderState,
   PaymentStatus,
@@ -28,6 +29,7 @@ export interface GetOrderByPaymentIntentResultDto {
     lineTotalCents: number;
   }>;
   subtotalCents: number;
+  totalCents: number; // items plus delivery fee
   currency: string;
   customerName: string;
   createdAt: string;
@@ -67,6 +69,7 @@ export async function getOrderByPaymentIntent(
           lineTotalCents: item.lineTotalCents,
         })),
         subtotalCents: order.subtotalCents,
+        totalCents: chargedCents(order),
         currency: order.currency,
         customerName: order.customerName,
         createdAt: order.createdAt,

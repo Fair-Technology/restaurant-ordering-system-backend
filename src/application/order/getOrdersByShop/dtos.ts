@@ -1,5 +1,6 @@
 import {
   CustomerAddress,
+  DeliveryAddress,
   DisplayPaymentStatus,
   FulfilmentMode,
   OrderHistoryEntry,
@@ -38,6 +39,9 @@ export type OrderDto = {
   readyAt: string | null;
   items: OrderItemDto[];
   subtotalCents: number;
+  totalCents: number; // items plus delivery fee
+  deliveryFeeCents: number | null; // null = not a delivery order; 0 = free delivery
+  deliveryAddress: DeliveryAddress | null;
   currency: string;
   customerName: string;
   customerEmail: string;

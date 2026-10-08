@@ -10,7 +10,7 @@ import {
   REFUND_REASON_ERROR,
   REFUND_STATE_ERROR,
 } from '../../../src/domain/order/orderErrors';
-import { ACCEPTED_CARD_ORDER, ACCEPTED_TWO_LINE_ORDER, CARD_SHOP, orderStore } from '../../fixtures/orders';
+import { ACCEPTED_CARD_ORDER, ACCEPTED_DELIVERY_ORDER, ACCEPTED_TWO_LINE_ORDER, CARD_SHOP, orderStore } from '../../fixtures/orders';
 
 const m = vi.hoisted(() => ({
   authorizeShopAction: vi.fn(),
@@ -254,5 +254,48 @@ describe('executeRefundOrder', () => {
     const res = await executeRefundOrder({ ...ids, items: [{ lineIndex: 1, quantity: 1 }], reason: 'x' }, http, { now });
     expect(res).toEqual({ ok: false, code: 'INVALID_INPUT', error: REFUND_RATE_EXCEEDED_ERROR });
     expect(m.createRefund).not.toHaveBeenCalled();
+  });
+
+  describe('delivery orders', () => {
+    const delivered: Order = { ...ACCEPTED_DELIVERY_ORDER, state: 'COMPLETED', invoiceNumber: 'R-2026-00001' };
+    const dIds = { shopId: 'shop-1', orderId: 'o3' };
+
+    it('a full refund of a delivery order gives the fee back too', async () => {
+      setup(delivered);
+      const res = await executeRefundOrder({ ...dIds, amountCents: 1300, reason: 'Alles falsch' }, http, { now });
+      expect(res.ok).toBe(true);
+      expect(m.createRefund).toHaveBeenCalledWith(expect.objectContaining({ amountCents: 1300 }));
+      expect((m.store.current as Order).payment.status).toBe('refunded');
+      expect(m.commitInvoice).toHaveBeenCalledWith(
+        expect.anything(),
+        'c-1',
+        expect.objectContaining({ documentType: 'cancellation' }),
+      );
+    });
+
+    it('refuses more than the order total', async () => {
+      setup(delivered);
+      const res = await executeRefundOrder({ ...dIds, amountCents: 1301, reason: 'Zu viel' }, http, { now });
+      expect(res).toEqual({ ok: false, code: 'INVALID_INPUT', error: REFUND_AMOUNT_ERROR });
+    });
+
+    it('refunding every item of a delivery order leaves the fee', async () => {
+      setup(delivered);
+      const res = await executeRefundOrder({ ...dIds, items: [{ lineIndex: 0, quantity: 1 }], reason: 'Kalt' }, http, { now });
+      expect(res.ok).toBe(true);
+      expect(m.createRefund).toHaveBeenCalledWith(expect.objectContaining({ amountCents: 1050 }));
+      expect((m.store.current as Order).payment.status).toBe('partially_refunded');
+      expect(m.commitInvoice).toHaveBeenCalledWith(
+        expect.anything(),
+        'c-1',
+        expect.objectContaining({ documentType: 'correction' }),
+      );
+    });
+
+    it('an order out for delivery can be refunded', async () => {
+      setup({ ...delivered, state: 'OUT_FOR_DELIVERY' });
+      const res = await executeRefundOrder({ ...dIds, amountCents: 250, reason: 'Gebühr' }, http, { now });
+      expect(res.ok).toBe(true);
+    });
   });
 });

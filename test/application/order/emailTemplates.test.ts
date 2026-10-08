@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildOrderEmail } from '../../../src/application/order/notifications/emailTemplates';
-import { ACCEPTED_CARD_ORDER, CARD_SHOP, LEGACY_CASH_ORDER, PLACED_CARD_ORDER, PLACED_TABLE_ORDER } from '../../fixtures/orders';
+import { ACCEPTED_CARD_ORDER, ACCEPTED_DELIVERY_ORDER, CARD_SHOP, LEGACY_CASH_ORDER, PLACED_CARD_ORDER, PLACED_DELIVERY_ORDER, PLACED_TABLE_ORDER } from '../../fixtures/orders';
 
 const customerOrderUrl = 'https://shop.example/shops/mapasta/orders/o1?t=TT';
 const adminOrdersUrl = 'https://admin.example/shops/shop-1/orders';
@@ -133,5 +133,25 @@ describe('order emails', () => {
 
   it('the waiting-order email names the table', () => {
     expect(build('order_escalation', PLACED_TABLE_ORDER).text).toContain('Tisch: 7');
+  });
+
+  it('delivery accepted email gives the delivery time, fee and address', () => {
+    const mail = build('order_accepted', ACCEPTED_DELIVERY_ORDER);
+    expect(mail.subject).toBe('Ma Pasta: Bestellung AB3-K7P angenommen – Lieferung gegen 12:50');
+    expect(mail.text).toContain('Liefergebühr — 2,50\u00a0€');
+    expect(mail.text).toContain('Summe: 13,00\u00a0€');
+    expect(mail.text).toContain('Lieferung an: Teststraße 1, 10115 Berlin');
+    expect(mail.text).not.toContain('Abholung:');
+  });
+
+  it('out-for-delivery email', () => {
+    const mail = build('order_out_for_delivery', { ...ACCEPTED_DELIVERY_ORDER, state: 'OUT_FOR_DELIVERY' });
+    expect(mail.subject).toBe('Ma Pasta: Bestellung AB3-K7P ist unterwegs');
+    expect(mail.text).toContain('Ihre Bestellung ist unterwegs zu Ihnen.');
+    expect(mail.text).toContain('Bezahlt (online): 13,00\u00a0€');
+  });
+
+  it('escalation shows what the diner pays', () => {
+    expect(build('order_escalation', PLACED_DELIVERY_ORDER).text).toContain('(13,00\u00a0€)');
   });
 });

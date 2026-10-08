@@ -1,4 +1,4 @@
-import type { Order } from '../../../domain/order/Order';
+import { chargedCents, deliveryFeeCentsOf, type Order } from '../../../domain/order/Order';
 import { deriveDisplayState } from '../../../domain/order/orderLifecycle';
 import { displayPaymentStatus, refundedCents, wasAutoAccepted } from '../../../domain/order/payment';
 import { documentsOf } from '../invoices/issueInvoice';
@@ -27,6 +27,9 @@ export function toOrderDto(order: Order, now: Date): OrderDto {
       lineTotalCents: item.lineTotalCents,
     })),
     subtotalCents: order.subtotalCents,
+    totalCents: chargedCents(order),
+    deliveryFeeCents: deliveryFeeCentsOf(order),
+    deliveryAddress: order.deliveryAddress ?? null,
     currency: order.currency,
     customerName: order.customerName,
     customerEmail: order.customerEmail,

@@ -1,6 +1,6 @@
 import { legalOf } from '../../../domain/legal/legalTexts';
 import { menuLanguagesOf } from '../../../domain/menu/menuLanguage';
-import { Order, REJECT_REASON_CODES, RejectReason } from '../../../domain/order/Order';
+import { chargedCents, deliveryFeeCentsOf, Order, REJECT_REASON_CODES, RejectReason } from '../../../domain/order/Order';
 import { deriveDisplayState } from '../../../domain/order/orderLifecycle';
 import { displayPaymentStatus, refundedCents } from '../../../domain/order/payment';
 import type { Shop } from '../../../domain/shop/Shop';
@@ -42,6 +42,9 @@ export function toCustomerOrderDto(order: Order, shop: Shop, now: Date): Custome
       selectedAddonOptionNames: i.selectedAddonOptionNames ?? [],
     })),
     subtotalCents: order.subtotalCents,
+    totalCents: chargedCents(order),
+    deliveryFeeCents: deliveryFeeCentsOf(order),
+    deliveryAddress: order.deliveryAddress ?? null,
     currency: order.currency,
     createdAt: order.createdAt,
     canCancel: order.state === 'PLACED',

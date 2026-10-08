@@ -1,4 +1,5 @@
 import type {
+  DeliveryAddress,
   FulfilmentMode,
   OrderState,
   DisplayPaymentStatus,
@@ -37,6 +38,9 @@ export interface CustomerOrderDto {
     selectedAddonOptionNames: string[];
   }>;
   subtotalCents: number;
+  totalCents: number; // items plus delivery fee
+  deliveryFeeCents: number | null; // null = not a delivery order; 0 = free delivery
+  deliveryAddress: DeliveryAddress | null;
   currency: string;
   createdAt: string;
   canCancel: boolean; // state === 'PLACED'

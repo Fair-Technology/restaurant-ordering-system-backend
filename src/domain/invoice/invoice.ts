@@ -1,6 +1,7 @@
 import type { MenuLanguage } from '../reference/ReferenceLists';
 import type { Shop } from '../shop/Shop';
 import { hasInvoiceTaxId, invoiceTaxIdsOf, legalOf } from '../legal/legalTexts';
+import { chargedCents } from '../order/Order';
 import type {
   CustomerAddress,
   FulfilmentMode,
@@ -109,7 +110,7 @@ function itemName(item: OrderItem): string {
   return `${item.productName}${variant}${addons}`;
 }
 
-/** Invoice line i is order item i, in the same order with no grouping: item refunds rely on it. */
+/** Invoice line i is order item i, in the same order with no grouping: item refunds rely on it. Charges follow the items. */
 export function buildInvoice(input: {
   order: Order;
   shop: Shop;
@@ -156,9 +157,18 @@ export function buildInvoice(input: {
       lineTotalCents: item.lineTotalCents,
       taxRateBasisPoints: item.taxRateBasisPoints ?? 0,
       taxCents: item.taxCents ?? 0,
-    })),
+    })).concat(
+      (order.charges ?? []).map((c) => ({
+        name: (order.language ?? 'de') === 'de' ? 'Liefergebühr' : 'Delivery fee',
+        quantity: 1,
+        unitPriceCents: c.grossCents,
+        lineTotalCents: c.grossCents,
+        taxRateBasisPoints: c.taxRateBasisPoints,
+        taxCents: c.taxCents,
+      })),
+    ),
     taxBreakdown: order.taxBreakdown ?? buildTaxBreakdown(order.items),
-    totalCents: order.subtotalCents,
+    totalCents: chargedCents(order),
     currency: order.currency,
     payment: {
       method: 'card',
