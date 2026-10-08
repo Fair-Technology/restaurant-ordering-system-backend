@@ -51,3 +51,13 @@ export const PREP_SETTING_ERROR = 'prepMinutes must give whole minutes between 5
 export const LAST_ORDERS_ERROR = 'lastOrdersMinutes must be null or a whole number between 0 and 120';
 export const BUSY_MINUTES_ERROR = 'busyExtraMinutes must be a whole number between 5 and 120';
 export const BUSY_MODE_BODY_ERROR = 'on must be true or false';
+export const DELIVERY_ADDRESS_INVALID_ERROR = 'deliveryAddress must have street, postcode and city of at most 200 characters each';
+export const DELIVERY_POSTCODE_NOT_SERVED_ERROR = 'This restaurant does not deliver to this postcode'; // storefront compares
+export const DELIVERY_FEE_CHANGED_ERROR = 'The delivery fee has changed. Please check your order and try again.'; // storefront compares
+export const EXPECTED_FEE_ERROR = 'expectedDeliveryFeeCents must be a whole number of cents';
+export const DELIVERY_ERROR = 'delivery must be true or false';
+export const DELIVERY_ZONES_ERROR =
+  'deliveryZones must list up to 200 different postcodes, each with a fee of 0 to 100 € and a minimum order of 0 to 1000 € in whole cents';
+export const DELIVERY_HOURS_ERROR = 'deliveryHours must be null or a weekly list of HH:mm times';
+export const DELIVERY_FEE_TAX_CLASS_ERROR = "deliveryFeeTaxClassId must be null or one of this country's tax classes";
+export const UNAVAILABLE_MODES_ERROR = 'unavailableModes must list collection, delivery or dine_in';

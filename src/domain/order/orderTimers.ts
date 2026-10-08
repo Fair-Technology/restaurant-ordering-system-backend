@@ -20,11 +20,11 @@ export function localDate(iso: string | Date, timeZone: string): string {
   );
 }
 
-/** A ready order nobody collected completes once the restaurant's local day has ended. */
+/** A ready or delivered order nobody marked as handed over completes once the restaurant's local day has ended. */
 export function isDueForAutoComplete(
   o: Pick<Order, 'state' | 'readyAt' | 'updatedAt'>,
   now: Date,
   timeZone: string,
 ): boolean {
-  return o.state === 'READY' && localDate(o.readyAt ?? o.updatedAt, timeZone) < localDate(now, timeZone);
+  return (o.state === 'READY' || o.state === 'OUT_FOR_DELIVERY') && localDate(o.readyAt ?? o.updatedAt, timeZone) < localDate(now, timeZone);
 }

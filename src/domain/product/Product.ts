@@ -1,4 +1,5 @@
 import { TranslationMap } from '../menu/menuLanguage';
+import type { FulfilmentMode } from '../order/Order';
 import { SpiceLevel } from './dietary';
 
 export interface ProductSchedule {
@@ -78,6 +79,7 @@ export interface Product {
   dietaryTagIds: string[];
   spiceLevel: SpiceLevel | null;
   prepMinutes: number | null; // 1..240
+  unavailableModes?: FulfilmentMode[]; // absent = offered for every mode
 
   // Tax
   taxClassId: string | null; // per-dish override; null = inherit from category

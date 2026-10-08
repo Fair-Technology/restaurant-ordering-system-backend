@@ -4,6 +4,12 @@ import { DEFAULT_PREP_MINUTES, type FulfilmentMode } from './Order';
 
 export type WeeklyHours = Shop['openingHours'];
 
+export interface DeliveryZone {
+  postcode: string;
+  feeCents: number;
+  minOrderCents: number;
+}
+
 export interface OrderSettings {
   autoRejectMinutes: number;
   alertEmail: string | null;
@@ -13,6 +19,10 @@ export interface OrderSettings {
   prepMinutes: Record<FulfilmentMode, number>; // 5..120 each
   lastOrdersMinutes: number | null; // null = each mode's prep time; 0..120
   busyExtraMinutes: number; // 5..120, what one busy tap adds
+  delivery: boolean;
+  deliveryHours: WeeklyHours | null; // null = the restaurant's opening hours
+  deliveryZones: DeliveryZone[];
+  deliveryFeeTaxClassId: string | null; // null = the country's default tax class
 }
 
 /** What is stored: anything may be missing on restaurants saved before a field existed. */
@@ -29,6 +39,10 @@ export const DEFAULT_ORDER_SETTINGS: OrderSettings = {
   prepMinutes: { ...DEFAULT_PREP_MINUTES },
   lastOrdersMinutes: null,
   busyExtraMinutes: 20,
+  delivery: false,
+  deliveryHours: null,
+  deliveryZones: [],
+  deliveryFeeTaxClassId: null,
 };
 export const AUTO_REJECT_MIN_MINUTES = 5;
 export const AUTO_REJECT_MAX_MINUTES = 30;

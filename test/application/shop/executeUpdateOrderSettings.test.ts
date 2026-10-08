@@ -28,6 +28,10 @@ const REST = {
   prepMinutes: { collection: 20, delivery: 45, dine_in: 20 },
   lastOrdersMinutes: null,
   busyExtraMinutes: 20,
+  delivery: false,
+  deliveryHours: null,
+  deliveryZones: [],
+  deliveryFeeTaxClassId: null,
 };
 
 describe('executeUpdateOrderSettings', () => {
@@ -145,6 +149,10 @@ describe('executeUpdateOrderSettings', () => {
       prepMinutes: { collection: 25, delivery: 45, dine_in: 20 },
       lastOrdersMinutes: null,
       busyExtraMinutes: 30,
+      delivery: false,
+      deliveryHours: null,
+      deliveryZones: [],
+      deliveryFeeTaxClassId: null,
     });
   });
 

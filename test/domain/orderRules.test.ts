@@ -10,7 +10,7 @@ import { isDueForAutoComplete, isDueForAutoReject, isDueForEscalation } from '..
 import { addressRequired } from '../../src/domain/order/Order';
 import { escalationRecipients, orderSettingsOf } from '../../src/domain/order/orderSettings';
 import { orderableModesFor } from '../../src/domain/order/fulfilment';
-import { CARD_SHOP, PLACED_CARD_ORDER } from '../fixtures/orders';
+import { CARD_SHOP, DELIVERY_ZONE, PLACED_CARD_ORDER } from '../fixtures/orders';
 
 describe('order rules', () => {
   it('offers card only once Stripe is ready', () => {
@@ -29,6 +29,10 @@ describe('order rules', () => {
       prepMinutes: { collection: 20, delivery: 45, dine_in: 20 },
       lastOrdersMinutes: null,
       busyExtraMinutes: 20,
+      delivery: false,
+      deliveryHours: null,
+      deliveryZones: [],
+      deliveryFeeTaxClassId: null,
     });
     expect(
       orderSettingsOf({ orderSettings: { autoRejectMinutes: 15, alertEmail: null, autoAccept: false } }).autoAccept,
@@ -49,6 +53,23 @@ describe('order rules', () => {
     expect(
       orderableModesFor({ orderSettings: { autoRejectMinutes: 10, alertEmail: null, autoAccept: true, dineIn: true } }),
     ).toEqual(['collection', 'dine_in']);
+  });
+
+  it('delivery is offered only when switched on with at least one postcode', () => {
+    expect(orderableModesFor({ orderSettings: { delivery: true, deliveryZones: [DELIVERY_ZONE] } })).toEqual(['collection', 'delivery']);
+    expect(orderableModesFor({ orderSettings: { delivery: true, deliveryZones: [] } })).toEqual(['collection']);
+    expect(orderableModesFor({ orderSettings: { delivery: false, deliveryZones: [DELIVERY_ZONE] } })).toEqual(['collection']);
+    expect(orderableModesFor({ orderSettings: { delivery: true, deliveryZones: [DELIVERY_ZONE], dineIn: true } })).toEqual([
+      'collection',
+      'delivery',
+      'dine_in',
+    ]);
+  });
+
+  it('delivered orders complete after local midnight', () => {
+    const o = { state: 'OUT_FOR_DELIVERY' as const, readyAt: '2026-10-05T19:00:00.000Z', updatedAt: 'x' };
+    expect(isDueForAutoComplete(o, new Date('2026-10-05T21:59:00Z'), 'Europe/Berlin')).toBe(false);
+    expect(isDueForAutoComplete(o, new Date('2026-10-05T22:00:00Z'), 'Europe/Berlin')).toBe(true);
   });
 
   it('an address is needed only above 250 euros', () => {

@@ -1,5 +1,5 @@
 import type { Category } from '../../src/domain/category/Category';
-import type { Order, CustomerAddress } from '../../src/domain/order/Order';
+import type { Order, CustomerAddress, DeliveryAddress, OrderCharge } from '../../src/domain/order/Order';
 import type { Product } from '../../src/domain/product/Product';
 import type { Shop } from '../../src/domain/shop/Shop';
 import { ACCEPTED_DPA, COMPLETE_LEGAL } from './legal';
@@ -249,3 +249,23 @@ export function orderStore(initial: Order) {
 
 export const DINE_IN_SHOP: Shop = { ...CARD_SHOP, orderSettings: { autoRejectMinutes: 10, alertEmail: null, autoAccept: true, dineIn: true } };
 export const PLACED_TABLE_ORDER: Order = { ...PLACED_CARD_ORDER, id: 'o2', fulfilmentMode: 'dine_in', table: { label: '7' } };
+
+export const DELIVERY_ZONE = { postcode: '10115', feeCents: 250, minOrderCents: 1500 };
+export const DELIVERY_SHOP: Shop = { ...CARD_SHOP, orderSettings: { delivery: true, deliveryZones: [DELIVERY_ZONE] } };
+export const DELIVERY_ADDRESS: DeliveryAddress = { street: 'Teststraße 1', postcode: '10115', city: 'Berlin' };
+export const FEE_CHARGE: OrderCharge = { kind: 'delivery_fee', grossCents: 250, taxClassId: 'food', taxRateBasisPoints: 700, taxCents: 16 };
+const DELIVERY_FIELDS = {
+  fulfilmentMode: 'delivery' as const,
+  deliveryAddress: DELIVERY_ADDRESS,
+  charges: [FEE_CHARGE],
+  totalCents: 1300,
+  taxBreakdown: [{ rateBasisPoints: 700, grossCents: 1300, taxCents: 85 }],
+};
+export const PLACED_DELIVERY_ORDER: Order = { ...PLACED_CARD_ORDER, id: 'o3', ...DELIVERY_FIELDS };
+export const ACCEPTED_DELIVERY_ORDER: Order = {
+  ...ACCEPTED_CARD_ORDER,
+  id: 'o3',
+  ...DELIVERY_FIELDS,
+  readyAt: '2026-10-05T10:50:00.000Z',
+  prepMinutes: 45,
+};

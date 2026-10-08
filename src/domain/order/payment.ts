@@ -1,8 +1,8 @@
-import type { DisplayPaymentStatus, Order, PaymentStatus, StoredOrderState } from './Order';
+import { chargedCents, type DisplayPaymentStatus, type Order, type PaymentStatus, type StoredOrderState } from './Order';
 import { REFUND_AMOUNT_ERROR } from './orderErrors';
 
 /** States in which staff may refund money that was already taken. */
-export const MANUAL_REFUND_STATES: readonly StoredOrderState[] = ['ACCEPTED', 'READY', 'COMPLETED'];
+export const MANUAL_REFUND_STATES: readonly StoredOrderState[] = ['ACCEPTED', 'READY', 'OUT_FOR_DELIVERY', 'COMPLETED'];
 export const RELEASE_RETRY_MINUTES = 15;
 export const CAPTURE_CLAIM_MINUTES = 2;
 
@@ -24,21 +24,21 @@ export function refundedCents(o: Pick<Order, 'refunds'>): number {
   return (o.refunds ?? []).reduce((sum, r) => sum + r.amountCents, 0);
 }
 
-export function refundableCents(o: Pick<Order, 'subtotalCents' | 'refunds'>): number {
-  return Math.max(0, o.subtotalCents - refundedCents(o));
+export function refundableCents(o: Pick<Order, 'subtotalCents' | 'totalCents' | 'refunds'>): number {
+  return Math.max(0, chargedCents(o) - refundedCents(o));
 }
 
 /** `amountCents` is the refund about to be added; `o.refunds` are the earlier ones. */
 export function paymentStatusAfterRefund(
-  o: Pick<Order, 'subtotalCents' | 'refunds'>,
+  o: Pick<Order, 'subtotalCents' | 'totalCents' | 'refunds'>,
   amountCents: number,
 ): 'partially_refunded' | 'refunded' {
-  return refundedCents(o) + amountCents >= o.subtotalCents ? 'refunded' : 'partially_refunded';
+  return refundedCents(o) + amountCents >= chargedCents(o) ? 'refunded' : 'partially_refunded';
 }
 
 /** null when the amount is a whole number of cents from 1 up to what is still refundable. */
 export function validateRefundAmount(
-  o: Pick<Order, 'subtotalCents' | 'refunds'>,
+  o: Pick<Order, 'subtotalCents' | 'totalCents' | 'refunds'>,
   amountCents: unknown,
 ): string | null {
   if (typeof amountCents !== 'number' || !Number.isInteger(amountCents)) return REFUND_AMOUNT_ERROR;
