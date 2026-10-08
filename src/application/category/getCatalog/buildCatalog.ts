@@ -3,6 +3,7 @@ import { menuLanguagesOf, localize, resolveMenuLanguage, TranslationMap } from '
 import { isOnMenu, Product, ProductOption, ProductSchedule } from '../../../domain/product/Product';
 import { DIETARY_TAGS, SPICE_LEVELS, SpiceLevel } from '../../../domain/product/dietary';
 import { MenuLanguage, ReferenceListsDoc } from '../../../domain/reference/ReferenceLists';
+import { activeBasePriceCents } from '../../order/_shared/priceBasket';
 import { Shop } from '../../../domain/shop/Shop';
 import {
   CatalogAdditiveDto,
@@ -101,7 +102,7 @@ export function buildCatalog(input: {
           name: L(p.name, p.nameTranslations),
           description: L(p.description, p.descriptionTranslations),
           price: p.price,
-          offerPrice: p.schedule?.offerPrice ?? null,
+          offerPrice: activeBasePriceCents(p) < p.price ? activeBasePriceCents(p) : null,
           offerLabel: p.schedule?.offerLabel ?? null,
           images: (p.images ?? []).map((img) => ({
             id: img.id,
