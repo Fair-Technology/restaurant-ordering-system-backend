@@ -34,7 +34,7 @@ export function needsInvoice(
   return (
     o.payment.method === 'card' &&
     ['paid', 'partially_refunded', 'refunded'].includes(o.payment.status) &&
-    ['ACCEPTED', 'READY', 'COMPLETED'].includes(o.state) &&
+    ['ACCEPTED', 'READY', 'OUT_FOR_DELIVERY', 'COMPLETED'].includes(o.state) &&
     !!o.acceptedAt &&
     !o.invoiceNumber
   );

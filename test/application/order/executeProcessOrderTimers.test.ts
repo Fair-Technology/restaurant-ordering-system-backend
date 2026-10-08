@@ -44,7 +44,7 @@ import { findInvoicedOrdersWithRefunds } from '../../../src/infrastructure/cosmo
 import { findShopById } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
 import { sendEmail } from '../../../src/infrastructure/email/emailSender';
 import { capturePaymentIntent, releaseAuthorization } from '../../../src/infrastructure/stripe/stripeClient';
-import { ACCEPTED_CARD_ORDER, CARD_SHOP as DEFAULT_SHOP, orderStore, PLACED_CARD_ORDER } from '../../fixtures/orders';
+import { ACCEPTED_CARD_ORDER, ACCEPTED_DELIVERY_ORDER, CARD_SHOP as DEFAULT_SHOP, orderStore, PLACED_CARD_ORDER } from '../../fixtures/orders';
 
 // A restaurant that accepts by hand; without orderSettings a shop auto-accepts.
 const CARD_SHOP = { ...DEFAULT_SHOP, orderSettings: { autoRejectMinutes: 10, alertEmail: null, autoAccept: false } };
@@ -240,12 +240,22 @@ describe('executeProcessOrderTimers', () => {
       readyAt: '2026-10-05T19:00:00.000Z',
     };
     (findPlacedOrdersCreatedBefore as any).mockResolvedValue([]);
-    (findOrdersInState as any).mockResolvedValue([ready]);
+    (findOrdersInState as any).mockImplementation(async (s: string) => (s === 'READY' ? [ready] : []));
     storedOrder(ready);
     const res = await executeProcessOrderTimers({ now: new Date('2026-10-05T22:00:00Z') });
     const written = (replaceOrderIfMatch as any).mock.calls[0][0];
     expect(written.state).toBe('COMPLETED');
     expect(written.payment.status).toBe('paid');
+    expect(res.autoCompleted).toBe(1);
+  });
+
+  it('completes an order out for delivery after midnight', async () => {
+    const out = { ...ACCEPTED_DELIVERY_ORDER, state: 'OUT_FOR_DELIVERY' as const, readyAt: '2026-10-05T19:00:00.000Z' };
+    (findPlacedOrdersCreatedBefore as any).mockResolvedValue([]);
+    (findOrdersInState as any).mockImplementation(async (s: string) => (s === 'OUT_FOR_DELIVERY' ? [out] : []));
+    storedOrder(out);
+    const res = await executeProcessOrderTimers({ now: new Date('2026-10-05T22:00:00Z') });
+    expect((replaceOrderIfMatch as any).mock.calls[0][0].state).toBe('COMPLETED');
     expect(res.autoCompleted).toBe(1);
   });
 

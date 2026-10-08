@@ -54,6 +54,7 @@ import './functions/order/getOrderDocument/index';
 import './functions/order/viewCustomerDocument/index';
 import './functions/order/markOrderReady/index';
 import './functions/order/completeOrder/index';
+import './functions/order/dispatchOrder/index';
 import './functions/order/setBusyMode/index';
 import './functions/order/viewCustomerOrder/index';
 import './functions/order/cancelCustomerOrder/index';

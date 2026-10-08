@@ -69,7 +69,7 @@ export interface OrderTimersResult {
 /**
  * Runs every minute. Accepts waiting orders for restaurants with auto-accept on (the retry for an order
  * the webhook could not accept because the payment service was down). For orders nobody has answered: emails the restaurant after 3 minutes, declines at
- * the restaurant's timeout (and gives the money back). Declined orders whose payment could not be released are retried every 15 minutes. For ready orders nobody collected: completes them once the local day is over.
+ * the restaurant's timeout (and gives the money back). Declined orders whose payment could not be released are retried every 15 minutes. For ready or delivered orders nobody marked as handed over: completes them once the local day is over.
  * One bad order never stops the rest; a lost race with staff is skipped silently.
  */
 export async function executeProcessOrderTimers(input: { now: Date }): Promise<OrderTimersResult> {
@@ -138,19 +138,20 @@ export async function executeProcessOrderTimers(input: { now: Date }): Promise<O
     }
   }
 
-  const ready = await findOrdersInState('READY');
-  for (const o of ready) {
-    try {
-      const shop = await shopOf(o.shopId);
-      if (!shop || !isDueForAutoComplete(o, now, shop.timezone)) continue;
-      const moved = await transitionOrder({
-        orderId: o.id,
-        shopId: o.shopId,
-        change: (x) => applyTransition(x, 'COMPLETED', { now, actor: { type: 'system' } }),
-      });
-      if (moved.ok) result.autoCompleted++;
-    } catch {
-      console.error('[timers:error] ready order', o.id);
+  for (const state of ['READY', 'OUT_FOR_DELIVERY'] as const) {
+    for (const o of await findOrdersInState(state)) {
+      try {
+        const shop = await shopOf(o.shopId);
+        if (!shop || !isDueForAutoComplete(o, now, shop.timezone)) continue;
+        const moved = await transitionOrder({
+          orderId: o.id,
+          shopId: o.shopId,
+          change: (x) => applyTransition(x, 'COMPLETED', { now, actor: { type: 'system' } }),
+        });
+        if (moved.ok) result.autoCompleted++;
+      } catch {
+        console.error('[timers:error] ready order', o.id);
+      }
     }
   }
 
