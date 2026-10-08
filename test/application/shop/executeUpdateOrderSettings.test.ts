@@ -325,6 +325,13 @@ describe('executeUpdateOrderSettings', () => {
       expect((logAudit as any).mock.calls[0][0].changes.map((c: any) => c.field)).toEqual(['autoAccept']);
     });
 
+    it('a forbidden caller never reaches the write', async () => {
+      (authorizeShopAction as any).mockResolvedValueOnce({ ok: false, code: 'FORBIDDEN', error: 'no' });
+      const res = await executeUpdateOrderSettings({ shopId: 'shop-1', body: { autoAccept: false } }, http);
+      expect(res).toMatchObject({ ok: false, code: 'FORBIDDEN' });
+      expect(replaceShopIfMatch).not.toHaveBeenCalled();
+    });
+
     it('gives up with CONFLICT after 3 attempts', async () => {
       (replaceShopIfMatch as any).mockResolvedValue('conflict');
       const res = await executeUpdateOrderSettings({ shopId: 'shop-1', body: { autoAccept: false } }, http);
