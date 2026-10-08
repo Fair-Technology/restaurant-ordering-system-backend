@@ -8,6 +8,9 @@ vi.mock('../../../src/infrastructure/cosmos/shop/CosmosShopRepository', () => ({
   findShopById: vi.fn(),
   updateShop: vi.fn(async (s: any) => s),
 }));
+vi.mock('../../../src/infrastructure/cosmos/reference/CosmosReferenceListsRepository', async () => ({
+  getReferenceLists: vi.fn(async () => (await import('../../../src/domain/reference/ReferenceLists')).DE_REFERENCE_LISTS),
+}));
 vi.mock('../../../src/application/_shared/auditHelpers', () => ({ logAudit: vi.fn() }));
 
 import { authorizeShopAction } from '../../../src/application/_shared/shopAccess';
@@ -17,6 +20,10 @@ import { findShopById, updateShop } from '../../../src/infrastructure/cosmos/sho
 import {
   AUTO_ACCEPT_HOURS_ERROR,
   BUSY_MINUTES_ERROR,
+  DELIVERY_ERROR,
+  DELIVERY_FEE_TAX_CLASS_ERROR,
+  DELIVERY_HOURS_ERROR,
+  DELIVERY_ZONES_ERROR,
   LAST_ORDERS_ERROR,
   PREP_SETTING_ERROR,
 } from '../../../src/domain/order/orderErrors';
@@ -233,5 +240,60 @@ describe('executeUpdateOrderSettings', () => {
     const res = await executeUpdateOrderSettings({ shopId: 'shop-1', body: { dineIn: true, busyExtraMinutes: 121 } }, http);
     expect(res).toEqual({ ok: false, code: 'INVALID_INPUT', error: BUSY_MINUTES_ERROR });
     expect(updateShop).not.toHaveBeenCalled();
+  });
+
+  it('saves delivery settings', async () => {
+    await executeUpdateOrderSettings(
+      {
+        shopId: 'shop-1',
+        body: {
+          delivery: true,
+          deliveryZones: [{ postcode: ' 10115 ', feeCents: 250, minOrderCents: 1500 }],
+          deliveryFeeTaxClassId: 'food',
+          deliveryHours: { mon: [{ open: '17:00', close: '22:00' }] },
+        } as any,
+      },
+      http,
+    );
+    expect((updateShop as any).mock.calls[0][0].orderSettings).toMatchObject({
+      delivery: true,
+      deliveryZones: [{ postcode: '10115', feeCents: 250, minOrderCents: 1500 }],
+      deliveryFeeTaxClassId: 'food',
+      deliveryHours: { mon: [{ open: '17:00', close: '22:00' }], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] },
+    });
+    expect(logAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        changes: expect.arrayContaining([
+          { field: 'delivery', from: false, to: true },
+          { field: 'deliveryFeeTaxClassId', from: null, to: 'food' },
+          { field: 'deliveryZones', from: 'none', to: '10115' },
+          { field: 'deliveryHours', from: 'opening hours', to: 'mon 17:00\u201322:00' },
+        ]),
+      }),
+    );
+  });
+
+  it('refuses bad delivery settings', async () => {
+    const cases: [any, string][] = [
+      [{ delivery: 'yes' }, DELIVERY_ERROR],
+      [{ deliveryZones: [{ postcode: '1011', feeCents: 0, minOrderCents: 0 }] }, DELIVERY_ZONES_ERROR],
+      [{ deliveryHours: { mon: [{ open: '9:00', close: '18:00' }] } }, DELIVERY_HOURS_ERROR],
+      [{ deliveryFeeTaxClassId: 'luxury' }, DELIVERY_FEE_TAX_CLASS_ERROR],
+    ];
+    for (const [body, error] of cases) {
+      expect(await executeUpdateOrderSettings({ shopId: 'shop-1', body }, http)).toEqual({ ok: false, code: 'INVALID_INPUT', error });
+    }
+    expect(updateShop).not.toHaveBeenCalled();
+  });
+
+  it('a delivery save keeps every other setting', async () => {
+    (findShopById as any).mockResolvedValue({ ...CARD_SHOP, orderSettings: { dineIn: true, busyExtraMinutes: 30 } });
+    await executeUpdateOrderSettings({ shopId: 'shop-1', body: { delivery: true } }, http);
+    expect((updateShop as any).mock.calls[0][0].orderSettings).toMatchObject({
+      dineIn: true,
+      busyExtraMinutes: 30,
+      delivery: true,
+      deliveryZones: [],
+    });
   });
 });
