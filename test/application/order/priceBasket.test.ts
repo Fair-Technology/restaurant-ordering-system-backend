@@ -154,4 +154,10 @@ describe('priceBasket', () => {
       expect(r.lines[0].item?.unitPriceCents).toBe(800);
     });
   });
+
+  it('a dish switched off for this mode is unavailable', () => {
+    const products = [P_PASTA, { ...P_COLA, unavailableModes: ['delivery' as const] }];
+    expect(price([{ productId: 'p2', quantity: 1 }], { mode: 'delivery' }, products).lines[0].status).toBe('unavailable');
+    expect(price([{ productId: 'p2', quantity: 1 }], { mode: 'collection' }, products).lines[0].status).toBe('ok');
+  });
 });

@@ -122,4 +122,12 @@ describe('buildCatalog', () => {
     expect(offerOf(withOffer(null))).toBeNull();
     expect(offerOf(withOffer(350))).toBeNull();
   });
+
+  it('tells the storefront which modes a dish is not offered for', () => {
+    const p3: Product = { ...p1, id: 'p3', name: 'Fassbier', unavailableModes: ['delivery'] };
+    const products = buildCatalog({ shop, categories: [category], products: [p1, p3], refs: DE_REFERENCE_LISTS, lang: 'de', now })
+      .categories[0].products;
+    expect(products.find((p) => p.id === 'p3')?.unavailableModes).toEqual(['delivery']);
+    expect(products.find((p) => p.id === 'p1')?.unavailableModes).toEqual([]);
+  });
 });

@@ -1,3 +1,4 @@
+import { FulfilmentMode } from '../../domain/order/Order';
 import { TranslationMap } from '../../domain/menu/menuLanguage';
 import { isDeclared, Product } from '../../domain/product/Product';
 import { SpiceLevel } from '../../domain/product/dietary';
@@ -10,6 +11,7 @@ export interface ProductMenuFieldsDto {
   dietaryTagIds: string[];
   spiceLevel: SpiceLevel | null;
   prepMinutes: number | null;
+  unavailableModes: FulfilmentMode[];
   taxClassId: string | null;
   isDeclared: boolean;
 }
@@ -23,6 +25,7 @@ export function toMenuFieldsDto(p: Product): ProductMenuFieldsDto {
     dietaryTagIds: p.dietaryTagIds ?? [],
     spiceLevel: p.spiceLevel ?? null,
     prepMinutes: p.prepMinutes ?? null,
+    unavailableModes: p.unavailableModes ?? [],
     taxClassId: p.taxClassId ?? null,
     isDeclared: isDeclared(p),
   };

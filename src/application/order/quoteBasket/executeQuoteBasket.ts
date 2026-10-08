@@ -1,5 +1,7 @@
 import { menuLanguagesOf, resolveMenuLanguage } from '../../../domain/menu/menuLanguage';
-import { ORDER_MODE_UNAVAILABLE_ERROR, ORDERABLE_MODES, orderableModesFor } from '../../../domain/order/fulfilment';
+import { orderableModesFor } from '../../../domain/order/fulfilment';
+import { chargesTotalCents, deliveryFeeCharge, findDeliveryZone, hoursForMode } from '../../../domain/order/delivery';
+import { buildTaxBreakdownWithCharges } from '../../../domain/order/tax';
 import { MODE_NOT_OFFERED_ERROR } from '../../../domain/order/orderErrors';
 import { effectivePrepMinutes, lastOrdersLeadMinutes } from '../../../domain/order/kitchenTiming';
 import { isOpenForAsapOrder } from '../../../domain/order/openingHours';
@@ -27,9 +29,6 @@ export async function executeQuoteBasket(
   if (!FULFILMENT_MODES.includes(mode)) {
     return { ok: false, code: 'INVALID_INPUT', error: 'fulfilmentMode must be one of collection, delivery, dine_in' };
   }
-  if (!ORDERABLE_MODES.includes(mode)) {
-    return { ok: false, code: 'INVALID_INPUT', error: ORDER_MODE_UNAVAILABLE_ERROR };
-  }
 
   try {
     const now = options.now ?? new Date();
@@ -51,6 +50,11 @@ export async function executeQuoteBasket(
     const language = resolveMenuLanguage(request.language, menuLanguagesOf(shop));
     const priced = priceBasket({ items: request.items, ...context, shop, mode, now, language });
     const prepMinutes = effectivePrepMinutes(shop, mode, now);
+    const zone = mode === 'delivery' ? findDeliveryZone(shop, request.postcode) : null;
+    const fee = zone ? deliveryFeeCharge(shop, zone, context.refs, now) : null;
+    const charges = fee ? [fee] : [];
+    const totalCents = priced.subtotalCents + chargesTotalCents(charges);
+    const minimum = zone ? zone.minOrderCents : shop.minOrderAmountCents;
 
     return {
       ok: true,
@@ -68,12 +72,15 @@ export async function executeQuoteBasket(
           lineTotalCents: l.item?.lineTotalCents ?? null,
         })),
         subtotalCents: priced.subtotalCents,
-        taxCents: priced.taxBreakdown.reduce((sum, t) => sum + t.taxCents, 0),
-        minOrderAmountCents: shop.minOrderAmountCents,
-        belowMinimum: priced.subtotalCents < shop.minOrderAmountCents,
-        openNow: isOpenForAsapOrder(shop.openingHours, shop.closures, shop.timezone, now, lastOrdersLeadMinutes(shop, mode)),
+        taxCents: buildTaxBreakdownWithCharges(priced.items, charges).reduce((sum, t) => sum + t.taxCents, 0),
+        minOrderAmountCents: minimum,
+        belowMinimum: priced.subtotalCents < minimum,
+        openNow: isOpenForAsapOrder(hoursForMode(shop, mode), shop.closures, shop.timezone, now, lastOrdersLeadMinutes(shop, mode)),
         paymentMethods: offeredPaymentMethods(shop),
-        addressRequired: addressRequired(priced.subtotalCents),
+        addressRequired: addressRequired(totalCents),
+        deliveryFeeCents: zone ? zone.feeCents : null,
+        totalCents,
+        postcodeServed: mode === 'delivery' ? zone !== null : null,
         prepMinutes,
         orderLimitReached: limit.limitReached,
       },

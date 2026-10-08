@@ -87,6 +87,7 @@ export function priceBasket(input: {
       p.isDeleted ||
       !p.isAvailable ||
       !isDeclared(p) ||
+      (p.unavailableModes ?? []).includes(mode) ||
       (p.schedule && !isProductScheduleActive(p.schedule, shop.timezone, now))
     ) {
       return reject('unavailable');

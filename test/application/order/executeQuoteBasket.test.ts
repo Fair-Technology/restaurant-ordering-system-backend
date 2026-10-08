@@ -18,7 +18,7 @@ import { executeQuoteBasket } from '../../../src/application/order/quoteBasket/e
 import { findProductById } from '../../../src/infrastructure/cosmos/product/CosmosProductRepository';
 import { findShopById } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
 import { MODE_NOT_OFFERED_ERROR } from '../../../src/domain/order/orderErrors';
-import { CARD_SHOP, DINE_IN_SHOP, NOW_CLOSED, NOW_OPEN, P_COLA, P_PASTA } from '../../fixtures/orders';
+import { CARD_SHOP, DELIVERY_SHOP, DINE_IN_SHOP, NOW_CLOSED, NOW_OPEN, P_COLA, P_PASTA } from '../../fixtures/orders';
 
 const request = {
   shopId: 'shop-1',
@@ -111,5 +111,42 @@ describe('executeQuoteBasket', () => {
     });
     const res = await executeQuoteBasket(request, { now: new Date('2026-10-05T19:35:00Z') });
     expect(res.ok && res.data).toMatchObject({ prepMinutes: 50, openNow: true });
+  });
+
+  it("quotes delivery with the fee and the postcode's minimum", async () => {
+    (findShopById as any).mockResolvedValue(DELIVERY_SHOP);
+    const res = await executeQuoteBasket({ ...request, fulfilmentMode: 'delivery' as const, postcode: '10115' }, { now: NOW_OPEN });
+    expect(res.ok && res.data).toMatchObject({
+      subtotalCents: 1400,
+      deliveryFeeCents: 250,
+      totalCents: 1650,
+      postcodeServed: true,
+      minOrderAmountCents: 1500,
+      belowMinimum: true,
+      taxCents: 141,
+      prepMinutes: 45,
+    });
+  });
+
+  it('says when a postcode is not served', async () => {
+    (findShopById as any).mockResolvedValue(DELIVERY_SHOP);
+    const res = await executeQuoteBasket({ ...request, fulfilmentMode: 'delivery' as const, postcode: '10999' }, { now: NOW_OPEN });
+    expect(res.ok && res.data).toMatchObject({ postcodeServed: false, deliveryFeeCents: null, totalCents: 1400, minOrderAmountCents: 0 });
+  });
+
+  it('collection quotes carry no fee', async () => {
+    const res = await executeQuoteBasket(request, { now: NOW_OPEN });
+    expect(res.ok && res.data).toMatchObject({ deliveryFeeCents: null, postcodeServed: null, totalCents: 1400 });
+  });
+
+  it('a dish not offered for delivery is unavailable', async () => {
+    (findShopById as any).mockResolvedValue(DELIVERY_SHOP);
+    (findProductById as any).mockImplementation(async (id: string) =>
+      id === 'p1' ? P_PASTA : id === 'p2' ? { ...P_COLA, unavailableModes: ['delivery'] } : null,
+    );
+    const delivery = await executeQuoteBasket({ ...request, fulfilmentMode: 'delivery' as const, postcode: '10115' }, { now: NOW_OPEN });
+    expect(delivery.ok && delivery.data.lines.map((l) => l.status)).toEqual(['ok', 'unavailable']);
+    const collection = await executeQuoteBasket(request, { now: NOW_OPEN });
+    expect(collection.ok && collection.data.lines.map((l) => l.status)).toEqual(['ok', 'ok']);
   });
 });

@@ -8,7 +8,7 @@ vi.mock('../../../src/application/usage/orderLimitStatus', () => ({
 import { loadOrderLimitStatus } from '../../../src/application/usage/orderLimitStatus';
 import { executeGetShopBySlug } from '../../../src/application/shop/getShopBySlug/executeGetShopBySlug';
 import { findShopBySlug } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
-import { CARD_SHOP, DINE_IN_SHOP } from '../../fixtures/orders';
+import { CARD_SHOP, DELIVERY_SHOP, DINE_IN_SHOP } from '../../fixtures/orders';
 
 describe('executeGetShopBySlug', () => {
   beforeEach(() => {
@@ -49,5 +49,16 @@ describe('executeGetShopBySlug', () => {
     expect(busy.ok && busy.data.fulfilment.prepMinutes).toEqual({ collection: 35, delivery: 60, dine_in: 35 });
     const next = await executeGetShopBySlug({ slug: 'mapasta' }, { now: new Date('2026-10-06T10:00:00Z') });
     expect(next.ok && next.data.fulfilment.prepMinutes.collection).toBe(20);
+  });
+
+  it('the shop page lists delivery postcodes while delivery is on', async () => {
+    (findShopBySlug as any).mockResolvedValue(DELIVERY_SHOP);
+    const res = await executeGetShopBySlug({ slug: 'mapasta' });
+    expect(res.ok && res.data.fulfilment.modes).toEqual(['collection', 'delivery']);
+    expect(res.ok && res.data.fulfilment.delivery).toEqual({ zones: [{ postcode: '10115', feeCents: 250, minOrderCents: 1500 }] });
+    expect(res.ok && res.data.countryCode).toBe('DE');
+    (findShopBySlug as any).mockResolvedValue(CARD_SHOP);
+    const off = await executeGetShopBySlug({ slug: 'mapasta' });
+    expect(off.ok && off.data.fulfilment.delivery).toBeNull();
   });
 });

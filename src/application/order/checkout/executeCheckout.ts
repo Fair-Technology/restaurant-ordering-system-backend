@@ -3,12 +3,24 @@ import { LEGAL_PACK_INCOMPLETE_ERROR, isLegalPackComplete } from '../../../domai
 import { legalOf } from '../../../domain/legal/legalTexts';
 import { menuLanguagesOf, resolveMenuLanguage } from '../../../domain/menu/menuLanguage';
 import { CheckoutSession } from '../../../domain/order/CheckoutSession';
-import { ORDER_MODE_UNAVAILABLE_ERROR, ORDERABLE_MODES, orderableModesFor } from '../../../domain/order/fulfilment';
+import { orderableModesFor } from '../../../domain/order/fulfilment';
+import {
+  chargesTotalCents,
+  cleanDeliveryAddress,
+  deliveryFeeCharge,
+  findDeliveryZone,
+  hoursForMode,
+} from '../../../domain/order/delivery';
+import { buildTaxBreakdownWithCharges } from '../../../domain/order/tax';
 import { isOpenForAsapOrder } from '../../../domain/order/openingHours';
 import {
   ADDRESS_INVALID_ERROR,
   ADDRESS_REQUIRED_ERROR,
   BASKET_CHANGED_ERROR,
+  DELIVERY_ADDRESS_INVALID_ERROR,
+  DELIVERY_FEE_CHANGED_ERROR,
+  DELIVERY_POSTCODE_NOT_SERVED_ERROR,
+  EXPECTED_FEE_ERROR,
   IDEMPOTENCY_KEY_ERROR,
   LEGAL_CHANGED_ERROR,
   MODE_NOT_OFFERED_ERROR,
@@ -20,7 +32,9 @@ import {
 } from '../../../domain/order/orderErrors';
 import {
   addressRequired,
+  chargedCents,
   CustomerAddress,
+  DeliveryAddress,
   FULFILMENT_MODES,
   LegalRevisions,
   OrderTable,
@@ -128,14 +142,21 @@ export async function executeCheckout(
   if (!FULFILMENT_MODES.includes(mode)) {
     return { ok: false, code: 'INVALID_INPUT', error: 'fulfilmentMode must be one of collection, delivery, dine_in' };
   }
-  if (!ORDERABLE_MODES.includes(mode)) {
-    return { ok: false, code: 'INVALID_INPUT', error: ORDER_MODE_UNAVAILABLE_ERROR };
-  }
   let table: OrderTable | undefined;
   if (mode === 'dine_in') {
     const label = normaliseTableLabel(request.table);
     if (!label) return { ok: false, code: 'INVALID_INPUT', error: TABLE_INVALID_ERROR };
     table = { label };
+  }
+  let deliveryAddress: DeliveryAddress | undefined;
+  if (mode === 'delivery') {
+    const cleaned = cleanDeliveryAddress(request.deliveryAddress);
+    if (!cleaned) return { ok: false, code: 'INVALID_INPUT', error: DELIVERY_ADDRESS_INVALID_ERROR };
+    deliveryAddress = cleaned;
+  }
+  const expectedFee = request.expectedDeliveryFeeCents;
+  if (expectedFee !== undefined && (typeof expectedFee !== 'number' || !Number.isInteger(expectedFee) || expectedFee < 0)) {
+    return { ok: false, code: 'INVALID_INPUT', error: EXPECTED_FEE_ERROR };
   }
 
   try {
@@ -180,6 +201,7 @@ export async function executeCheckout(
           orderRef: existing.orderRef,
           accessToken: existing.customerAccessToken ?? '',
           subtotalCents: existing.subtotalCents,
+          totalCents: chargedCents(existing),
           currency: existing.currency,
         },
       };
@@ -208,8 +230,14 @@ export async function executeCheckout(
       return { ok: false, code: 'CONFLICT', error: LEGAL_CHANGED_ERROR };
     }
 
-    if (!isOpenForAsapOrder(shop.openingHours, shop.closures, shop.timezone, now, lastOrdersLeadMinutes(shop, mode))) {
+    if (!isOpenForAsapOrder(hoursForMode(shop, mode), shop.closures, shop.timezone, now, lastOrdersLeadMinutes(shop, mode))) {
       return { ok: false, code: 'INVALID_INPUT', error: SHOP_CLOSED_ERROR };
+    }
+
+    const zone = deliveryAddress ? findDeliveryZone(shop, deliveryAddress.postcode) : null;
+    if (deliveryAddress && !zone) return { ok: false, code: 'INVALID_INPUT', error: DELIVERY_POSTCODE_NOT_SERVED_ERROR };
+    if (zone && expectedFee !== undefined && expectedFee !== zone.feeCents) {
+      return { ok: false, code: 'CONFLICT', error: DELIVERY_FEE_CHANGED_ERROR };
     }
 
     // --- Resolve prices server-side (never trust client amounts) ---
@@ -219,11 +247,16 @@ export async function executeCheckout(
     if (!priced.allOk) {
       return { ok: false, code: 'CONFLICT', error: BASKET_CHANGED_ERROR };
     }
-    const { items: orderItems, subtotalCents, taxBreakdown } = priced;
+    const { items: orderItems, subtotalCents } = priced;
+    const fee = zone ? deliveryFeeCharge(shop, zone, context.refs, now) : null;
+    const charges = fee ? [fee] : [];
+    const totalCents = subtotalCents + chargesTotalCents(charges);
+    const taxBreakdown = buildTaxBreakdownWithCharges(orderItems, charges);
+    const minimum = zone ? zone.minOrderCents : shop.minOrderAmountCents;
 
-    // --- Enforce minimum order amount ---
-    if (subtotalCents < shop.minOrderAmountCents) {
-      const minDollars = (shop.minOrderAmountCents / 100).toFixed(2);
+    // --- Enforce minimum order amount (items only, the fee does not count towards it) ---
+    if (subtotalCents < minimum) {
+      const minDollars = (minimum / 100).toFixed(2);
       return {
         ok: false,
         code: 'INVALID_INPUT',
@@ -231,7 +264,7 @@ export async function executeCheckout(
       };
     }
 
-    if (addressRequired(subtotalCents) && !customerAddress) {
+    if (addressRequired(totalCents) && !customerAddress) {
       return { ok: false, code: 'INVALID_INPUT', error: ADDRESS_REQUIRED_ERROR };
     }
 
@@ -246,7 +279,7 @@ export async function executeCheckout(
     try {
       paymentIntent = await createPaymentIntent({
         connectAccountId,
-        amountCents: subtotalCents,
+        amountCents: totalCents,
         currency: shop.currency,
         description: `${shop.name} ${orderRef}`,
         orderRef,
@@ -266,6 +299,8 @@ export async function executeCheckout(
       stripePaymentIntentId: paymentIntent.id,
       items: orderItems,
       subtotalCents,
+      totalCents,
+      ...(charges.length > 0 ? { charges } : {}),
       currency: shop.currency,
       customerName: request.customerName,
       customerEmail: request.customerEmail.trim(),
@@ -273,6 +308,7 @@ export async function executeCheckout(
       customerNotes: request.customerNotes,
       ...(customerAddress ? { customerAddress } : {}),
       ...(table ? { table } : {}),
+      ...(deliveryAddress ? { deliveryAddress } : {}),
       fulfilmentMode: mode,
       taxBreakdown,
       language,
@@ -294,6 +330,7 @@ export async function executeCheckout(
         accessToken,
         clientSecret: paymentIntent.clientSecret!,
         subtotalCents,
+        totalCents,
         currency: shop.currency,
         stripeConnectAccountId: connectAccountId,
       },
