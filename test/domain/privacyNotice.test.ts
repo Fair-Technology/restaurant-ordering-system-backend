@@ -62,4 +62,11 @@ describe('DPA draft', () => {
       expect(CURRENT_DPA.sections[lang][0].paragraphs[0]).toMatch(/^\[(Platzhalter|Placeholder)/);
     }
   });
+
+  it('mentions the delivery address', () => {
+    const de = buildPrivacyNotice(base).sections.flatMap((x) => x.paragraphs).join(' ');
+    expect(de).toContain('Lieferadresse');
+    const en = buildPrivacyNotice({ ...base, lang: 'en' }).sections.flatMap((x) => x.paragraphs).join(' ');
+    expect(en).toContain('delivery address');
+  });
 });
