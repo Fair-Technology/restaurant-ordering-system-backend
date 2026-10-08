@@ -50,6 +50,29 @@ export async function updateShop(shop: Shop): Promise<Shop> {
   }
 }
 
+export async function findShopWithEtag(shopId: string): Promise<{ shop: Shop; etag: string } | null> {
+  try {
+    const { resource, etag } = await shopContainer.item(shopId, shopId).read<Shop>();
+    return resource && etag ? { shop: resource, etag } : null;
+  } catch (error: any) {
+    if (error.code === 404) return null;
+    throw error;
+  }
+}
+
+/** Replaces the shop only if nobody changed it since it was read; 'conflict' means someone did. */
+export async function replaceShopIfMatch(shop: Shop, etag: string): Promise<'ok' | 'conflict'> {
+  try {
+    await shopContainer.item(shop.id, shop.id).replace<Shop>(shop, {
+      accessCondition: { type: 'IfMatch', condition: etag },
+    });
+    return 'ok';
+  } catch (error: any) {
+    if (error.code === 412) return 'conflict';
+    throw error;
+  }
+}
+
 export async function deleteShop(shopId: string): Promise<void> {
   try {
     await shopContainer.item(shopId, shopId).delete();
@@ -135,4 +158,12 @@ export async function patchShopFields(
     value,
   }));
   await shopContainer.item(shopId, shopId).patch(ops);
+}
+
+/** Sets one nested value (e.g. '/stripe/connectOnboardingStatus') without rewriting the rest of the shop. */
+export async function patchShopPath(shopId: string, path: string, value: unknown): Promise<void> {
+  await shopContainer.item(shopId, shopId).patch([
+    { op: 'set', path, value },
+    { op: 'set', path: '/updatedAt', value: new Date().toISOString() },
+  ]);
 }

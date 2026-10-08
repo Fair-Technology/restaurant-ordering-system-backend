@@ -2,7 +2,7 @@ import { HttpRequest } from '@azure/functions';
 import Stripe from 'stripe';
 import {
   findShopById,
-  updateShop,
+  patchShopPath,
 } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { findProductsByShopId } from '../../../infrastructure/cosmos/product/CosmosProductRepository';
 import { findCategoriesByShopId } from '../../../infrastructure/cosmos/category/CosmosCategoryRepository';
@@ -120,11 +120,9 @@ export async function executeGetGoLiveStatus(
         const currentRank = statusRank[shop.stripe.connectOnboardingStatus ?? 'not_started'] ?? 0;
         const liveRank = statusRank[liveStatus] ?? 0;
         if (liveStatus !== shop.stripe.connectOnboardingStatus && liveRank >= currentRank) {
-          shop = await updateShop({
-            ...shop,
-            stripe: { ...shop.stripe, connectOnboardingStatus: liveStatus },
-            updatedAt: new Date().toISOString(),
-          });
+          // Patch only this field: rewriting the whole shop from a GET could undo a settings save made meanwhile.
+          await patchShopPath(shop.id, '/stripe/connectOnboardingStatus', liveStatus);
+          shop = { ...shop, stripe: { ...shop.stripe, connectOnboardingStatus: liveStatus } };
         }
       }
     }

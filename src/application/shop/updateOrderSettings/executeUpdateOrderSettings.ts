@@ -27,11 +27,15 @@ import {
   type OrderSettings,
 } from '../../../domain/order/orderSettings';
 import { getReferenceLists } from '../../../infrastructure/cosmos/reference/CosmosReferenceListsRepository';
-import { findShopById, updateShop } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
+import { findShopWithEtag, replaceShopIfMatch } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
+import type { Shop } from '../../../domain/shop/Shop';
 import { logAudit } from '../../_shared/auditHelpers';
 import { authorizeShopAction, toAuditActor } from '../../_shared/shopAccess';
 import type { ApplicationResult } from '../../_shared/types';
 import type { OrderSettingsResultDto, UpdateOrderSettingsBody } from './dtos';
+
+const MAX_WRITE_ATTEMPTS = 3;
+const SETTINGS_CONFLICT_ERROR = 'The settings were changed at the same time. Please try again.';
 
 /** Owner-editable order settings. Changes only the fields sent; everything absent is kept. Returns the full record. */
 export async function executeUpdateOrderSettings(
@@ -42,114 +46,140 @@ export async function executeUpdateOrderSettings(
     return { ok: false, code: 'INVALID_INPUT', error: 'shopId is required' };
   }
   try {
-    const shop = await findShopById(input.shopId);
-    if (!shop || shop.isDeleted) return { ok: false, code: 'NOT_FOUND', error: 'Shop not found' };
-
-    const access = await authorizeShopAction(httpRequest, shop, 'manage_shop');
+    const initial = await findShopWithEtag(input.shopId);
+    if (!initial || initial.shop.isDeleted) return { ok: false, code: 'NOT_FOUND', error: 'Shop not found' };
+    const access = await authorizeShopAction(httpRequest, initial.shop, 'manage_shop');
     if (!access.ok) return access;
 
     const body = input.body as Record<string, unknown>;
-    const before = orderSettingsOf(shop);
-    const next: OrderSettings = { ...before, prepMinutes: { ...before.prepMinutes } };
-    const invalid = (error: string): ApplicationResult<OrderSettingsResultDto> => ({
-      ok: false,
-      code: 'INVALID_INPUT',
-      error,
-    });
 
-    if (body.autoRejectMinutes !== undefined) {
-      const v = body.autoRejectMinutes;
-      if (
-        typeof v !== 'number' ||
-        !Number.isInteger(v) ||
-        v < AUTO_REJECT_MIN_MINUTES ||
-        v > AUTO_REJECT_MAX_MINUTES
-      ) {
-        return invalid(
-          `autoRejectMinutes must be a whole number between ${AUTO_REJECT_MIN_MINUTES} and ${AUTO_REJECT_MAX_MINUTES}`,
-        );
-      }
-      next.autoRejectMinutes = v;
-    }
-    if (body.alertEmail !== undefined) {
-      if (body.alertEmail === null) {
-        next.alertEmail = null;
-      } else {
-        const trimmed = typeof body.alertEmail === 'string' ? body.alertEmail.trim() : null;
-        if (trimmed === null || (trimmed !== '' && !EMAIL_PATTERN.test(trimmed))) {
-          return invalid('alertEmail must be a valid email address or null');
-        }
-        next.alertEmail = trimmed === '' ? null : trimmed;
-      }
-    }
-    if (body.autoAccept !== undefined) {
-      if (typeof body.autoAccept !== 'boolean') return invalid(AUTO_ACCEPT_ERROR);
-      next.autoAccept = body.autoAccept;
-    }
-    if (body.dineIn !== undefined) {
-      if (typeof body.dineIn !== 'boolean') return invalid(DINE_IN_ERROR);
-      next.dineIn = body.dineIn;
-    }
-    if (body.autoAcceptHours !== undefined) {
-      const hours = parseWeeklyHours(body.autoAcceptHours);
-      if (hours === 'invalid') return invalid(AUTO_ACCEPT_HOURS_ERROR);
-      next.autoAcceptHours = hours;
-    }
-    if (body.prepMinutes !== undefined) {
-      const p = body.prepMinutes;
-      if (!p || typeof p !== 'object' || Array.isArray(p)) return invalid(PREP_SETTING_ERROR);
-      for (const [mode, minutes] of Object.entries(p)) {
+    // Merges the sent fields into one read copy of the shop; the caller writes it only if that copy is still current.
+    const applyBody = async (
+      shop: Shop,
+    ): Promise<ApplicationResult<OrderSettingsResultDto> | { ok: 'merged'; before: OrderSettings; next: OrderSettings }> => {
+      const before = orderSettingsOf(shop);
+      const next: OrderSettings = { ...before, prepMinutes: { ...before.prepMinutes } };
+      const invalid = (error: string): ApplicationResult<OrderSettingsResultDto> => ({
+        ok: false,
+        code: 'INVALID_INPUT',
+        error,
+      });
+
+      if (body.autoRejectMinutes !== undefined) {
+        const v = body.autoRejectMinutes;
         if (
-          !(FULFILMENT_MODES as readonly string[]).includes(mode) ||
-          typeof minutes !== 'number' ||
-          !Number.isInteger(minutes) ||
-          minutes < PREP_SETTING_MIN ||
-          minutes > PREP_SETTING_MAX
+          typeof v !== 'number' ||
+          !Number.isInteger(v) ||
+          v < AUTO_REJECT_MIN_MINUTES ||
+          v > AUTO_REJECT_MAX_MINUTES
         ) {
-          return invalid(PREP_SETTING_ERROR);
+          return invalid(
+            `autoRejectMinutes must be a whole number between ${AUTO_REJECT_MIN_MINUTES} and ${AUTO_REJECT_MAX_MINUTES}`,
+          );
         }
-        next.prepMinutes[mode as FulfilmentMode] = minutes;
+        next.autoRejectMinutes = v;
       }
-    }
-    if (body.lastOrdersMinutes !== undefined) {
-      const v = body.lastOrdersMinutes;
-      if (v !== null && (typeof v !== 'number' || !Number.isInteger(v) || v < 0 || v > LAST_ORDERS_MAX)) {
-        return invalid(LAST_ORDERS_ERROR);
+      if (body.alertEmail !== undefined) {
+        if (body.alertEmail === null) {
+          next.alertEmail = null;
+        } else {
+          const trimmed = typeof body.alertEmail === 'string' ? body.alertEmail.trim() : null;
+          if (trimmed === null || (trimmed !== '' && !EMAIL_PATTERN.test(trimmed))) {
+            return invalid('alertEmail must be a valid email address or null');
+          }
+          next.alertEmail = trimmed === '' ? null : trimmed;
+        }
       }
-      next.lastOrdersMinutes = v;
-    }
-    if (body.busyExtraMinutes !== undefined) {
-      const v = body.busyExtraMinutes;
-      if (typeof v !== 'number' || !Number.isInteger(v) || v < BUSY_MINUTES_MIN || v > BUSY_MINUTES_MAX) {
-        return invalid(BUSY_MINUTES_ERROR);
+      if (body.autoAccept !== undefined) {
+        if (typeof body.autoAccept !== 'boolean') return invalid(AUTO_ACCEPT_ERROR);
+        next.autoAccept = body.autoAccept;
       }
-      next.busyExtraMinutes = v;
-    }
-    if (body.delivery !== undefined) {
-      if (typeof body.delivery !== 'boolean') return invalid(DELIVERY_ERROR);
-      next.delivery = body.delivery;
-    }
-    if (body.deliveryHours !== undefined) {
-      const hours = parseWeeklyHours(body.deliveryHours);
-      if (hours === 'invalid') return invalid(DELIVERY_HOURS_ERROR);
-      next.deliveryHours = hours;
-    }
-    if (body.deliveryZones !== undefined) {
-      const zones = parseDeliveryZones(body.deliveryZones, shop.countryCode ?? '');
-      if (zones === 'invalid') return invalid(DELIVERY_ZONES_ERROR);
-      next.deliveryZones = zones;
-    }
-    if (body.deliveryFeeTaxClassId !== undefined) {
-      const v = body.deliveryFeeTaxClassId;
-      if (v !== null) {
-        if (typeof v !== 'string') return invalid(DELIVERY_FEE_TAX_CLASS_ERROR);
-        const refs = await getReferenceLists(shop.countryCode ?? '');
-        if (!refs.taxClasses.some((c) => c.id === v && c.isActive)) return invalid(DELIVERY_FEE_TAX_CLASS_ERROR);
+      if (body.dineIn !== undefined) {
+        if (typeof body.dineIn !== 'boolean') return invalid(DINE_IN_ERROR);
+        next.dineIn = body.dineIn;
       }
-      next.deliveryFeeTaxClassId = v as string | null;
-    }
+      if (body.autoAcceptHours !== undefined) {
+        const hours = parseWeeklyHours(body.autoAcceptHours);
+        if (hours === 'invalid') return invalid(AUTO_ACCEPT_HOURS_ERROR);
+        next.autoAcceptHours = hours;
+      }
+      if (body.prepMinutes !== undefined) {
+        const p = body.prepMinutes;
+        if (!p || typeof p !== 'object' || Array.isArray(p)) return invalid(PREP_SETTING_ERROR);
+        for (const [mode, minutes] of Object.entries(p)) {
+          if (
+            !(FULFILMENT_MODES as readonly string[]).includes(mode) ||
+            typeof minutes !== 'number' ||
+            !Number.isInteger(minutes) ||
+            minutes < PREP_SETTING_MIN ||
+            minutes > PREP_SETTING_MAX
+          ) {
+            return invalid(PREP_SETTING_ERROR);
+          }
+          next.prepMinutes[mode as FulfilmentMode] = minutes;
+        }
+      }
+      if (body.lastOrdersMinutes !== undefined) {
+        const v = body.lastOrdersMinutes;
+        if (v !== null && (typeof v !== 'number' || !Number.isInteger(v) || v < 0 || v > LAST_ORDERS_MAX)) {
+          return invalid(LAST_ORDERS_ERROR);
+        }
+        next.lastOrdersMinutes = v;
+      }
+      if (body.busyExtraMinutes !== undefined) {
+        const v = body.busyExtraMinutes;
+        if (typeof v !== 'number' || !Number.isInteger(v) || v < BUSY_MINUTES_MIN || v > BUSY_MINUTES_MAX) {
+          return invalid(BUSY_MINUTES_ERROR);
+        }
+        next.busyExtraMinutes = v;
+      }
+      if (body.delivery !== undefined) {
+        if (typeof body.delivery !== 'boolean') return invalid(DELIVERY_ERROR);
+        next.delivery = body.delivery;
+      }
+      if (body.deliveryHours !== undefined) {
+        const hours = parseWeeklyHours(body.deliveryHours);
+        if (hours === 'invalid') return invalid(DELIVERY_HOURS_ERROR);
+        next.deliveryHours = hours;
+      }
+      if (body.deliveryZones !== undefined) {
+        const zones = parseDeliveryZones(body.deliveryZones, shop.countryCode ?? '');
+        if (zones === 'invalid') return invalid(DELIVERY_ZONES_ERROR);
+        next.deliveryZones = zones;
+      }
+      if (body.deliveryFeeTaxClassId !== undefined) {
+        const v = body.deliveryFeeTaxClassId;
+        if (v !== null) {
+          if (typeof v !== 'string') return invalid(DELIVERY_FEE_TAX_CLASS_ERROR);
+          const refs = await getReferenceLists(shop.countryCode ?? '');
+          if (!refs.taxClasses.some((c) => c.id === v && c.isActive)) return invalid(DELIVERY_FEE_TAX_CLASS_ERROR);
+        }
+        next.deliveryFeeTaxClassId = v as string | null;
+      }
 
-    await updateShop({ ...shop, orderSettings: next, updatedAt: (input.now ?? new Date()).toISOString() });
+      return { ok: 'merged', before, next };
+    };
+
+    // Another save (or a busy-mode tap) can land between our read and write; on a clash re-read and re-apply the same body.
+    let found = initial;
+    let merged: { before: OrderSettings; next: OrderSettings } | null = null;
+    for (let attempt = 0; attempt < MAX_WRITE_ATTEMPTS && !merged; attempt++) {
+      if (attempt > 0) {
+        const reread = await findShopWithEtag(input.shopId);
+        if (!reread || reread.shop.isDeleted) return { ok: false, code: 'NOT_FOUND', error: 'Shop not found' };
+        found = reread;
+      }
+      const result = await applyBody(found.shop);
+      if (result.ok !== 'merged') return result as ApplicationResult<OrderSettingsResultDto>;
+      const written = await replaceShopIfMatch(
+        { ...found.shop, orderSettings: result.next, updatedAt: (input.now ?? new Date()).toISOString() },
+        found.etag,
+      );
+      if (written === 'ok') merged = result;
+    }
+    if (!merged) return { ok: false, code: 'CONFLICT', error: SETTINGS_CONFLICT_ERROR };
+    const { before, next } = merged;
+    const shop = found.shop;
 
     const changed = (f: keyof OrderSettings): boolean => JSON.stringify(before[f]) !== JSON.stringify(next[f]);
     const changes: { field: string; from: unknown; to: unknown }[] = [];

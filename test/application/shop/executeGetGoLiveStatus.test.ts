@@ -5,7 +5,7 @@ vi.mock('../../../src/application/_shared/shopAccess', () => ({
 }));
 vi.mock('../../../src/infrastructure/cosmos/shop/CosmosShopRepository', () => ({
   findShopById: vi.fn(),
-  updateShop: vi.fn(async (s: any) => s),
+  patchShopPath: vi.fn(async () => undefined),
 }));
 vi.mock('../../../src/infrastructure/cosmos/product/CosmosProductRepository', () => ({
   findProductsByShopId: vi.fn(async () => []),

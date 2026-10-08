@@ -4,9 +4,17 @@ vi.mock('../../../src/application/_shared/shopAccess', () => ({
   authorizeShopAction: vi.fn(),
   toAuditActor: (a: any) => ({ actorType: a.actorType, actorId: a.actorId }),
 }));
+// Tests stage the stored shop through findShopById; the repository mock wraps it with an ETag like the real read does.
+const repo = vi.hoisted(() => ({ findShopById: vi.fn(), updateShop: vi.fn(async (s: any) => s) }));
 vi.mock('../../../src/infrastructure/cosmos/shop/CosmosShopRepository', () => ({
-  findShopById: vi.fn(),
-  updateShop: vi.fn(async (s: any) => s),
+  findShopWithEtag: vi.fn(async (id: string) => {
+    const shop = await repo.findShopById(id);
+    return shop ? { shop, etag: 'etag-1' } : null;
+  }),
+  replaceShopIfMatch: vi.fn(async (s: any) => {
+    await repo.updateShop(s);
+    return 'ok';
+  }),
 }));
 vi.mock('../../../src/infrastructure/cosmos/reference/CosmosReferenceListsRepository', async () => ({
   getReferenceLists: vi.fn(async () => (await import('../../../src/domain/reference/ReferenceLists')).DE_REFERENCE_LISTS),
@@ -16,7 +24,9 @@ vi.mock('../../../src/application/_shared/auditHelpers', () => ({ logAudit: vi.f
 import { authorizeShopAction } from '../../../src/application/_shared/shopAccess';
 import { logAudit } from '../../../src/application/_shared/auditHelpers';
 import { executeUpdateOrderSettings } from '../../../src/application/shop/updateOrderSettings/executeUpdateOrderSettings';
-import { findShopById, updateShop } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
+import { findShopWithEtag, replaceShopIfMatch } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
+
+const { findShopById, updateShop } = repo;
 import {
   AUTO_ACCEPT_HOURS_ERROR,
   BUSY_MINUTES_ERROR,
@@ -294,6 +304,40 @@ describe('executeUpdateOrderSettings', () => {
       busyExtraMinutes: 30,
       delivery: true,
       deliveryZones: [],
+    });
+  });
+
+  describe('overlapping saves', () => {
+    const deliveryOn = { ...CARD_SHOP, orderSettings: { delivery: true } };
+
+    it('on a clash re-reads, keeps the other save and applies its own field', async () => {
+      (replaceShopIfMatch as any).mockResolvedValueOnce('conflict');
+      (findShopWithEtag as any)
+        .mockResolvedValueOnce({ shop: CARD_SHOP, etag: 'etag-1' })
+        .mockResolvedValueOnce({ shop: deliveryOn, etag: 'etag-2' });
+      const res = await executeUpdateOrderSettings({ shopId: 'shop-1', body: { autoAccept: false } }, http);
+      expect(res.ok).toBe(true);
+      expect(replaceShopIfMatch).toHaveBeenCalledTimes(2);
+      const [written, etag] = (replaceShopIfMatch as any).mock.calls[1];
+      expect(etag).toBe('etag-2');
+      expect(written.orderSettings).toMatchObject({ delivery: true, autoAccept: false });
+      // Audit reflects the successful attempt: delivery was already on, so only autoAccept changed.
+      expect((logAudit as any).mock.calls[0][0].changes.map((c: any) => c.field)).toEqual(['autoAccept']);
+    });
+
+    it('a forbidden caller never reaches the write', async () => {
+      (authorizeShopAction as any).mockResolvedValueOnce({ ok: false, code: 'FORBIDDEN', error: 'no' });
+      const res = await executeUpdateOrderSettings({ shopId: 'shop-1', body: { autoAccept: false } }, http);
+      expect(res).toMatchObject({ ok: false, code: 'FORBIDDEN' });
+      expect(replaceShopIfMatch).not.toHaveBeenCalled();
+    });
+
+    it('gives up with CONFLICT after 3 attempts', async () => {
+      (replaceShopIfMatch as any).mockResolvedValue('conflict');
+      const res = await executeUpdateOrderSettings({ shopId: 'shop-1', body: { autoAccept: false } }, http);
+      expect(res).toMatchObject({ ok: false, code: 'CONFLICT' });
+      expect(replaceShopIfMatch).toHaveBeenCalledTimes(3);
+      expect(logAudit).not.toHaveBeenCalled();
     });
   });
 });
