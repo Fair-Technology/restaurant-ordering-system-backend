@@ -61,8 +61,26 @@ export interface CustomerAddress {
 
 /** Bills of more than 250,00 EUR (strictly) need the diner's address (section 33 UStDV). */
 export const ADDRESS_REQUIRED_ABOVE_CENTS = 25000;
-export function addressRequired(subtotalCents: number): boolean {
-  return subtotalCents > ADDRESS_REQUIRED_ABOVE_CENTS;
+export function addressRequired(chargedCents: number): boolean {
+  return chargedCents > ADDRESS_REQUIRED_ABOVE_CENTS;
+}
+
+/** Where a delivery order goes. Never printed on the invoice; removed by erasure. */
+export interface DeliveryAddress {
+  street: string;
+  postcode: string; // normalised form (no spaces, upper case)
+  city: string;
+}
+
+export type OrderChargeKind = 'delivery_fee';
+
+/** A line the diner pays besides the dishes, with its own VAT, snapshotted at checkout. */
+export interface OrderCharge {
+  kind: OrderChargeKind;
+  grossCents: number; // > 0 (a zero fee is not stored)
+  taxClassId: string | null;
+  taxRateBasisPoints: number;
+  taxCents: number; // VAT contained in grossCents
 }
 
 /** The order's own copy of its table; a later secret code would add `code?: string`. */
@@ -135,6 +153,9 @@ export interface Order {
   customerPhone: string;
   customerNotes?: string;
   customerAddress?: CustomerAddress; // optional; required above ADDRESS_REQUIRED_ABOVE_CENTS
+  deliveryAddress?: DeliveryAddress; // delivery orders only; never on the invoice; removed by erasure
+  charges?: OrderCharge[]; // absent = none (all orders before slice 8b)
+  totalCents?: number; // subtotalCents + sum of charges; absent before 8b, read via chargedCents
   table?: OrderTable; // dine_in orders only
   refunds?: OrderRefund[];
   releaseFailure?: PaymentReleaseFailure; // the reservation could not be released yet
@@ -165,3 +186,14 @@ export const DEFAULT_PREP_MINUTES: Record<FulfilmentMode, number> = {
   dine_in: 20,
   delivery: 45,
 };
+
+/** What the diner pays for this order. Orders from before slice 8b have no totalCents. */
+export function chargedCents(o: Pick<Order, 'subtotalCents' | 'totalCents'>): number {
+  return o.totalCents ?? o.subtotalCents;
+}
+
+/** The delivery fee of a delivery order (0 when free); null for collection and table orders. */
+export function deliveryFeeCentsOf(o: Pick<Order, 'fulfilmentMode' | 'charges'>): number | null {
+  if (o.fulfilmentMode !== 'delivery') return null;
+  return (o.charges ?? []).filter((c) => c.kind === 'delivery_fee').reduce((s, c) => s + c.grossCents, 0);
+}

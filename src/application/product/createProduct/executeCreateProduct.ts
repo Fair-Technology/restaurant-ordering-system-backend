@@ -142,6 +142,7 @@ export async function executeCreateProduct(
       dietaryTagIds: menu.dietaryTagIds ?? [],
       spiceLevel: menu.spiceLevel ?? null,
       prepMinutes: menu.prepMinutes ?? null,
+      unavailableModes: menu.unavailableModes ?? [],
       taxClassId: menu.taxClassId ?? null,
       isAvailable: (request.categoryIds?.length ?? 0) > 0
         ? (request.isAvailable ?? true)

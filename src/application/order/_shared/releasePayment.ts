@@ -1,4 +1,4 @@
-import type { Order } from '../../../domain/order/Order';
+import { chargedCents, type Order } from '../../../domain/order/Order';
 import { needsPaymentRelease } from '../../../domain/order/payment';
 import type { Shop } from '../../../domain/shop/Shop';
 import {
@@ -78,7 +78,7 @@ export async function releaseClosedOrderPayment(
         (await createRefund({
           connectAccountId,
           paymentIntentId,
-          amountCents: order.subtotalCents,
+          amountCents: chargedCents(order),
           idempotencyKey: `auto-refund-${order.id}${keySuffix}`,
         }));
       recorded = await writeOrder(order.id, (current) => {
@@ -90,7 +90,7 @@ export async function releaseClosedOrderPayment(
             ...(current.refunds ?? []),
             {
               id: `auto-refund-${current.id}`,
-              amountCents: current.subtotalCents,
+              amountCents: chargedCents(current),
               reason: current.state === 'CANCELLED' ? 'order_cancelled' : 'order_declined',
               at: now.toISOString(),
               actor: { type: 'system' },

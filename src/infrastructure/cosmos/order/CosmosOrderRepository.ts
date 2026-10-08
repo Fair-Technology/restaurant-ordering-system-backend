@@ -172,7 +172,7 @@ export async function findOrdersAwaitingRelease(): Promise<Order[]> {
 export async function findOrdersMissingInvoice(sinceIso: string): Promise<Order[]> {
   const querySpec = {
     query:
-      "SELECT * FROM c WHERE c.payment.method = 'card' AND ARRAY_CONTAINS(['ACCEPTED', 'READY', 'COMPLETED'], c.state) AND c.acceptedAt >= @since AND NOT IS_DEFINED(c.invoiceNumber)",
+      "SELECT * FROM c WHERE c.payment.method = 'card' AND ARRAY_CONTAINS(['ACCEPTED', 'READY', 'OUT_FOR_DELIVERY', 'COMPLETED'], c.state) AND c.acceptedAt >= @since AND NOT IS_DEFINED(c.invoiceNumber)",
     parameters: [{ name: '@since', value: sinceIso }],
   };
   const { resources } = await orderContainer.items.query<Order>(querySpec).fetchAll();

@@ -1,5 +1,6 @@
 import { orderableModesFor } from '../../../domain/order/fulfilment';
 import { effectivePrepByMode } from '../../../domain/order/kitchenTiming';
+import { orderSettingsOf } from '../../../domain/order/orderSettings';
 import { findShopBySlug } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { GetShopBySlugRequestDto, GetShopBySlugResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
@@ -41,6 +42,7 @@ export async function executeGetShopBySlug(
       console.error('[order-limit:error] shop page', shop.id);
     }
 
+    const modes = orderableModesFor(shop);
     const shopDto: GetShopBySlugResultDto = {
       id: shop.id,
       slug: shop.slug,
@@ -56,7 +58,12 @@ export async function executeGetShopBySlug(
       openingHours: shop.openingHours,
       closures: shop.closures,
       branding: shop.branding ?? null,
-      fulfilment: { modes: orderableModesFor(shop), prepMinutes: effectivePrepByMode(shop, now) },
+      countryCode: shop.countryCode,
+      fulfilment: {
+        modes,
+        prepMinutes: effectivePrepByMode(shop, now),
+        delivery: modes.includes('delivery') ? { zones: orderSettingsOf(shop).deliveryZones } : null,
+      },
       orderLimitReached,
       createdAt: shop.createdAt,
       updatedAt: shop.updatedAt,

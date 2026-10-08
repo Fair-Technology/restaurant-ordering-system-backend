@@ -23,6 +23,7 @@ vi.mock('../../../src/infrastructure/cosmos/order/CosmosOrderRepository', () => 
 import {
   issueCorrectionForRefund,
   issueInvoiceForOrder,
+  needsInvoice,
 } from '../../../src/application/order/invoices/issueInvoice';
 
 const now = new Date('2026-10-05T10:05:00Z');
@@ -148,4 +149,16 @@ describe('issueCorrectionForRefund', () => {
     expect(await issueCorrectionForRefund(order, 0, CARD_SHOP, now)).toBeNull();
     expect(m.commitInvoice).not.toHaveBeenCalled();
   });
+
+describe('needsInvoice', () => {
+  it('an order on its way still needs its invoice', () => {
+    expect(
+      needsInvoice({
+        state: 'OUT_FOR_DELIVERY',
+        payment: { method: 'card', status: 'paid', stripePaymentIntentId: 'pi_1' },
+        acceptedAt: '2026-10-05T10:05:00.000Z',
+      }),
+    ).toBe(true);
+  });
+});
 });

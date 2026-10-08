@@ -1,10 +1,15 @@
 import type { HttpRequest } from '@azure/functions';
 import { FULFILMENT_MODES, type FulfilmentMode } from '../../../domain/order/Order';
+import { describeDeliveryZones, parseDeliveryZones } from '../../../domain/order/delivery';
 import { describePrepMinutes, describeWeeklyHours, parseWeeklyHours } from '../../../domain/order/kitchenTiming';
 import {
   AUTO_ACCEPT_ERROR,
   AUTO_ACCEPT_HOURS_ERROR,
   BUSY_MINUTES_ERROR,
+  DELIVERY_ERROR,
+  DELIVERY_FEE_TAX_CLASS_ERROR,
+  DELIVERY_HOURS_ERROR,
+  DELIVERY_ZONES_ERROR,
   DINE_IN_ERROR,
   LAST_ORDERS_ERROR,
   PREP_SETTING_ERROR,
@@ -21,6 +26,7 @@ import {
   orderSettingsOf,
   type OrderSettings,
 } from '../../../domain/order/orderSettings';
+import { getReferenceLists } from '../../../infrastructure/cosmos/reference/CosmosReferenceListsRepository';
 import { findShopById, updateShop } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { logAudit } from '../../_shared/auditHelpers';
 import { authorizeShopAction, toAuditActor } from '../../_shared/shopAccess';
@@ -119,12 +125,35 @@ export async function executeUpdateOrderSettings(
       }
       next.busyExtraMinutes = v;
     }
+    if (body.delivery !== undefined) {
+      if (typeof body.delivery !== 'boolean') return invalid(DELIVERY_ERROR);
+      next.delivery = body.delivery;
+    }
+    if (body.deliveryHours !== undefined) {
+      const hours = parseWeeklyHours(body.deliveryHours);
+      if (hours === 'invalid') return invalid(DELIVERY_HOURS_ERROR);
+      next.deliveryHours = hours;
+    }
+    if (body.deliveryZones !== undefined) {
+      const zones = parseDeliveryZones(body.deliveryZones, shop.countryCode ?? '');
+      if (zones === 'invalid') return invalid(DELIVERY_ZONES_ERROR);
+      next.deliveryZones = zones;
+    }
+    if (body.deliveryFeeTaxClassId !== undefined) {
+      const v = body.deliveryFeeTaxClassId;
+      if (v !== null) {
+        if (typeof v !== 'string') return invalid(DELIVERY_FEE_TAX_CLASS_ERROR);
+        const refs = await getReferenceLists(shop.countryCode ?? '');
+        if (!refs.taxClasses.some((c) => c.id === v && c.isActive)) return invalid(DELIVERY_FEE_TAX_CLASS_ERROR);
+      }
+      next.deliveryFeeTaxClassId = v as string | null;
+    }
 
     await updateShop({ ...shop, orderSettings: next, updatedAt: (input.now ?? new Date()).toISOString() });
 
     const changed = (f: keyof OrderSettings): boolean => JSON.stringify(before[f]) !== JSON.stringify(next[f]);
     const changes: { field: string; from: unknown; to: unknown }[] = [];
-    for (const f of ['autoRejectMinutes', 'autoAccept', 'dineIn', 'lastOrdersMinutes', 'busyExtraMinutes'] as const) {
+    for (const f of ['autoRejectMinutes', 'autoAccept', 'dineIn', 'lastOrdersMinutes', 'busyExtraMinutes', 'delivery', 'deliveryFeeTaxClassId'] as const) {
       if (changed(f)) changes.push({ field: f, from: before[f], to: next[f] });
     }
     // The address itself is never written to the audit log (spec §11).
@@ -141,6 +170,20 @@ export async function executeUpdateOrderSettings(
         field: 'prepMinutes',
         from: describePrepMinutes(before.prepMinutes),
         to: describePrepMinutes(next.prepMinutes),
+      });
+    }
+    if (changed('deliveryZones')) {
+      changes.push({
+        field: 'deliveryZones',
+        from: describeDeliveryZones(before.deliveryZones),
+        to: describeDeliveryZones(next.deliveryZones),
+      });
+    }
+    if (changed('deliveryHours')) {
+      changes.push({
+        field: 'deliveryHours',
+        from: before.deliveryHours === null ? 'opening hours' : describeWeeklyHours(before.deliveryHours),
+        to: next.deliveryHours === null ? 'opening hours' : describeWeeklyHours(next.deliveryHours),
       });
     }
     await logAudit({

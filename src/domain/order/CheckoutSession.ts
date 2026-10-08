@@ -1,5 +1,5 @@
 import type { MenuLanguage } from '../reference/ReferenceLists';
-import { CustomerAddress, FulfilmentMode, LegalRevisions, OrderItem, OrderTable, TaxBreakdownEntry } from './Order';
+import { CustomerAddress, DeliveryAddress, FulfilmentMode, LegalRevisions, OrderCharge, OrderItem, OrderTable, TaxBreakdownEntry } from './Order';
 
 export interface CheckoutSession {
   id: string;                    // UUID — also the partition key
@@ -7,6 +7,9 @@ export interface CheckoutSession {
   stripePaymentIntentId: string;
   items: OrderItem[];            // server-computed, copied directly into Order on success
   subtotalCents: number;
+  totalCents?: number;           // subtotal + charges
+  charges?: OrderCharge[];
+  deliveryAddress?: DeliveryAddress;
   currency: string;
   customerName: string;
   customerEmail: string;

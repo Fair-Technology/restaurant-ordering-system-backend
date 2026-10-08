@@ -1,3 +1,5 @@
+import { FULFILMENT_MODES, FulfilmentMode } from '../../domain/order/Order';
+import { UNAVAILABLE_MODES_ERROR } from '../../domain/order/orderErrors';
 import { dietaryConflict, DIETARY_TAGS, SpiceLevel } from '../../domain/product/dietary';
 import { normaliseTranslations, TranslationMap } from '../../domain/menu/menuLanguage';
 import { ProductAddonGroup, ProductOption, ProductVariantGroup } from '../../domain/product/Product';
@@ -11,6 +13,7 @@ export interface MenuFieldsInput {
   dietaryTagIds?: unknown;
   spiceLevel?: unknown;
   prepMinutes?: unknown;
+  unavailableModes?: unknown;
   taxClassId?: unknown;
   variantGroups?: ProductVariantGroup[];
   addonGroups?: ProductAddonGroup[];
@@ -24,6 +27,7 @@ export interface ValidMenuFields {
   dietaryTagIds?: string[];
   spiceLevel?: SpiceLevel | null;
   prepMinutes?: number | null;
+  unavailableModes?: FulfilmentMode[];
   taxClassId?: string | null;
   variantGroups?: ProductVariantGroup[];
   addonGroups?: ProductAddonGroup[];
@@ -118,6 +122,14 @@ export function validateMenuFields(
       return { error: 'prepMinutes must be a whole number of minutes between 1 and 240, or null' };
     }
     out.prepMinutes = v as number | null;
+  }
+
+  if ('unavailableModes' in input && input.unavailableModes !== undefined) {
+    const v = input.unavailableModes;
+    if (!Array.isArray(v) || v.some((m) => !(FULFILMENT_MODES as readonly unknown[]).includes(m))) {
+      return { error: UNAVAILABLE_MODES_ERROR };
+    }
+    out.unavailableModes = FULFILMENT_MODES.filter((m) => (v as unknown[]).includes(m));
   }
 
   if ('taxClassId' in input && input.taxClassId !== undefined) {

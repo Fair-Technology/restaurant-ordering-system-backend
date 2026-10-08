@@ -9,6 +9,7 @@ export function anonymiseOrder(o: Order, now: string): Order {
     customerNotes: _removedNotes,
     customerAccessToken: _removedToken,
     customerAddress: _removedAddress,
+    deliveryAddress: _removedDelivery,
     ...rest
   } = o;
   return {

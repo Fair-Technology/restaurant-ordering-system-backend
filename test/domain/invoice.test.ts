@@ -15,7 +15,7 @@ import { extractVatCents } from '../../src/domain/order/tax';
 import type { Shop } from '../../src/domain/shop/Shop';
 import { priceBasket } from '../../src/application/order/_shared/priceBasket';
 import { DE_REFERENCE_LISTS } from '../../src/domain/reference/ReferenceLists';
-import { ACCEPTED_CARD_ORDER, ADDRESS, CARD_SHOP, CATEGORIES, P_PASTA } from '../fixtures/orders';
+import { ACCEPTED_CARD_ORDER, ACCEPTED_DELIVERY_ORDER, ADDRESS, CARD_SHOP, CATEGORIES, P_PASTA } from '../fixtures/orders';
 
 const now = new Date('2026-10-05T10:05:00Z');
 const NUMBER = 'R-2026-00001';
@@ -394,4 +394,41 @@ describe('invoice rules', () => {
     expect(inv.totalCents).toBe(1600);
     expect(inv.taxBreakdown).toEqual([{ rateBasisPoints: 700, grossCents: 1600, taxCents: 105 }]);
   });
+
+describe('delivery invoices', () => {
+  it('a delivery invoice lists the fee after the dishes and adds it to the total', () => {
+    const inv = buildInvoice({ order: ACCEPTED_DELIVERY_ORDER, shop: CARD_SHOP, number: NUMBER, now });
+    expect(inv.lines[1]).toEqual({
+      name: 'Liefergebühr',
+      quantity: 1,
+      unitPriceCents: 250,
+      lineTotalCents: 250,
+      taxRateBasisPoints: 700,
+      taxCents: 16,
+    });
+    expect(inv.totalCents).toBe(1300);
+    expect(inv.taxBreakdown).toEqual([{ rateBasisPoints: 700, grossCents: 1300, taxCents: 85 }]);
+    expect(inv.buyer.address).toBeNull();
+    const t = text(inv);
+    expect(t).toContain('1 × Liefergebühr');
+    expect(t).toContain('Gesamtbetrag (brutto): 13,00 €');
+    expect(t).not.toContain('Teststraße');
+    const en = buildInvoice({ order: { ...ACCEPTED_DELIVERY_ORDER, language: 'en' }, shop: CARD_SHOP, number: NUMBER, now });
+    expect(en.lines[1].name).toBe('Delivery fee');
+  });
+
+  it('a delivery Stornorechnung negates the fee too', () => {
+    const c = buildCorrection({
+      original: buildInvoice({ order: ACCEPTED_DELIVERY_ORDER, shop: CARD_SHOP, number: NUMBER, now }),
+      refunds: [{ amountCents: 1300 }],
+      index: 0,
+      refundId: 'r1',
+      number: 'R-2026-00002',
+      now,
+    });
+    expect(c.documentType).toBe('cancellation');
+    expect(c.lines[1].lineTotalCents).toBe(-250);
+    expect(c.totalCents).toBe(-1300);
+  });
+});
 });

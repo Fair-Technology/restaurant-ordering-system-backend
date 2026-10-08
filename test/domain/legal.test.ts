@@ -13,7 +13,7 @@ import {
   validatePlatformIdentityInput,
 } from '../../src/domain/legal/PlatformLegalIdentity';
 import { anonymiseOrder } from '../../src/domain/legal/erasure';
-import { ADDRESS } from '../fixtures/orders';
+import { ADDRESS, DELIVERY_ADDRESS } from '../fixtures/orders';
 import { ACCEPTED_DPA, COMPLETE_GMBH, COMPLETE_IDENTITY, COMPLETE_LEGAL } from '../fixtures/legal';
 
 const L1 = COMPLETE_LEGAL.terms!;
@@ -179,5 +179,13 @@ describe('erasure', () => {
       '2026-10-05T00:00:00.000Z',
     );
     expect('customerAddress' in r).toBe(false);
+  });
+
+  it('removes the delivery address', () => {
+    const r = anonymiseOrder(
+      { id: 'o1', customerName: 'A', customerEmail: 'a@x', customerPhone: '1', deliveryAddress: DELIVERY_ADDRESS, updatedAt: 'old' } as any,
+      '2026-10-05T00:00:00.000Z',
+    );
+    expect('deliveryAddress' in r).toBe(false);
   });
 });

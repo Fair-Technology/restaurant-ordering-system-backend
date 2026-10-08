@@ -1,4 +1,5 @@
 import { ProductAddonGroup, ProductImage, ProductSchedule, ProductVariantGroup } from '../../../domain/product/Product';
+import { FulfilmentMode } from '../../../domain/order/Order';
 import { TranslationMap } from '../../../domain/menu/menuLanguage';
 import { SpiceLevel } from '../../../domain/product/dietary';
 import { ProductMenuFieldsDto } from '../menuFieldsDto';
@@ -18,6 +19,7 @@ export interface UpdateProductRequestDto {
   dietaryTagIds?: string[];
   spiceLevel?: SpiceLevel | null;
   prepMinutes?: number | null;
+  unavailableModes?: FulfilmentMode[];
   taxClassId?: string | null;
   variantGroups?: ProductVariantGroup[];
   addonGroups?: ProductAddonGroup[];

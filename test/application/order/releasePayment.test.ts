@@ -24,7 +24,7 @@ import {
 import { sendEmail } from '../../../src/infrastructure/email/emailSender';
 import { createRefund, findLiveRefund, releaseAuthorization } from '../../../src/infrastructure/stripe/stripeClient';
 import type { Order } from '../../../src/domain/order/Order';
-import { CARD_SHOP, LEGACY_CASH_ORDER, orderStore, PLACED_CARD_ORDER } from '../../fixtures/orders';
+import { CARD_SHOP, FEE_CHARGE, LEGACY_CASH_ORDER, orderStore, PLACED_CARD_ORDER } from '../../fixtures/orders';
 
 const now = new Date('2026-10-05T10:05:00Z');
 const REJECTED_ORDER: Order = { ...PLACED_CARD_ORDER, state: 'REJECTED' };
@@ -160,5 +160,13 @@ describe('releaseClosedOrderPayment', () => {
     const res = await releaseClosedOrderPayment('o1', CARD_SHOP, now);
     expect(res.outcome).toBe('not_needed');
     expect(releaseAuthorization).not.toHaveBeenCalled();
+  });
+
+  it('a captured delivery order is refunded in full, fee included', async () => {
+    (releaseAuthorization as any).mockResolvedValue('already_captured');
+    const store = storeOf({ ...REJECTED_ORDER, fulfilmentMode: 'delivery', charges: [FEE_CHARGE], totalCents: 1300 });
+    await releaseClosedOrderPayment('o1', CARD_SHOP, now);
+    expect(createRefund).toHaveBeenCalledWith(expect.objectContaining({ amountCents: 1300 }));
+    expect(store.current.refunds![0].amountCents).toBe(1300);
   });
 });

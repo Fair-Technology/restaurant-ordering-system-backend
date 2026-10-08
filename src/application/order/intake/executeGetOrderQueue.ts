@@ -16,7 +16,7 @@ export async function executeGetOrderQueue(
     const loaded = await loadShopForOrderAction(request.shopId, httpRequest);
     if (!loaded.ok) return loaded;
     const now = options.now ?? new Date();
-    const orders = await findOrdersByShopIdAndStates(loaded.shop.id, ['PLACED', 'ACCEPTED', 'READY']);
+    const orders = await findOrdersByShopIdAndStates(loaded.shop.id, ['PLACED', 'ACCEPTED', 'READY', 'OUT_FOR_DELIVERY']);
     return {
       ok: true,
       data: {

@@ -7,6 +7,7 @@ export interface QuoteBasketRequestDto {
   items: CheckoutItemDto[];
   fulfilmentMode?: FulfilmentMode;
   language?: string;
+  postcode?: string; // read for delivery only
 }
 
 export interface QuoteLineDto {
@@ -25,6 +26,9 @@ export interface BasketQuoteDto {
   fulfilmentMode: FulfilmentMode;
   lines: QuoteLineDto[];
   subtotalCents: number;
+  deliveryFeeCents: number | null; // null unless delivery to a served postcode
+  totalCents: number; // subtotal + fee
+  postcodeServed: boolean | null; // null unless the mode is delivery
   taxCents: number;
   minOrderAmountCents: number;
   belowMinimum: boolean;

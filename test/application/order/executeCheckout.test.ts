@@ -42,13 +42,16 @@ import { findOrderById } from '../../../src/infrastructure/cosmos/order/CosmosOr
 import { loadOrderLimitStatus } from '../../../src/application/usage/orderLimitStatus';
 import { createPaymentIntent } from '../../../src/infrastructure/stripe/stripeClient';
 import { ACCEPTED_DPA, COMPLETE_LEGAL } from '../../fixtures/legal';
-import { ADDRESS, CARD_SHOP, LUNCH_HOURS, NOW_CLOSED, NOW_OPEN, P_COLA, P_PASTA, PLACED_CARD_ORDER, DINE_IN_SHOP, PLACED_TABLE_ORDER } from '../../fixtures/orders';
+import { ADDRESS, CARD_SHOP, LUNCH_HOURS, NOW_CLOSED, NOW_OPEN, P_COLA, P_PASTA, PLACED_CARD_ORDER, DINE_IN_SHOP, PLACED_TABLE_ORDER, DELIVERY_SHOP, DELIVERY_ZONE } from '../../fixtures/orders';
 import { executeCheckout } from '../../../src/application/order/checkout/executeCheckout';
 import { CheckoutRequestDto } from '../../../src/application/order/checkout/dtos';
 import {
   ADDRESS_INVALID_ERROR,
   ADDRESS_REQUIRED_ERROR,
   BASKET_CHANGED_ERROR,
+  DELIVERY_ADDRESS_INVALID_ERROR,
+  DELIVERY_FEE_CHANGED_ERROR,
+  DELIVERY_POSTCODE_NOT_SERVED_ERROR,
   IDEMPOTENCY_KEY_ERROR,
   LEGAL_CHANGED_ERROR,
   MODE_NOT_OFFERED_ERROR,
@@ -75,16 +78,6 @@ describe('executeCheckout fulfilmentMode validation', () => {
       ok: false,
       code: 'INVALID_INPUT',
       error: 'fulfilmentMode must be one of collection, delivery, dine_in',
-    });
-    expect(findShopById).not.toHaveBeenCalled();
-  });
-
-  it('rejects delivery for now', async () => {
-    const res = await executeCheckout({ ...baseRequest, fulfilmentMode: 'delivery' });
-    expect(res).toEqual({
-      ok: false,
-      code: 'INVALID_INPUT',
-      error: 'Delivery is not available yet',
     });
     expect(findShopById).not.toHaveBeenCalled();
   });
@@ -235,6 +228,7 @@ describe('executeCheckout card placement', () => {
         orderRef: 'AB3-K7P',
         accessToken: 'T'.repeat(32),
         subtotalCents: 1050,
+        totalCents: 1050,
         currency: 'EUR',
       },
     });
@@ -360,6 +354,110 @@ describe('executeCheckout card placement', () => {
       (findOrderById as any).mockResolvedValue(PLACED_TABLE_ORDER);
       const res = await executeCheckout(tableRequest, { now: NOW_OPEN });
       expect(res.ok && res.data.kind === 'placed' && res.data.orderId === 'o2').toBe(true);
+    });
+  });
+
+  describe('delivery orders', () => {
+    beforeEach(() => (findShopById as any).mockResolvedValue(DELIVERY_SHOP));
+    const deliveryRequest: CheckoutRequestDto = {
+      ...cardRequest,
+      items: [
+        { productId: 'p1', quantity: 1, expectedUnitPriceCents: 1050 },
+        { productId: 'p2', quantity: 2, expectedUnitPriceCents: 350 },
+      ],
+      fulfilmentMode: 'delivery',
+      deliveryAddress: { street: 'Teststraße 1', postcode: '10 115', city: 'Berlin' },
+      expectedDeliveryFeeCents: 250,
+    };
+
+    it('starts a delivery order with the fee on top', async () => {
+      const res = await executeCheckout(deliveryRequest, { now: NOW_OPEN });
+      expect(res.ok && res.data).toMatchObject({ kind: 'card', subtotalCents: 1750, totalCents: 2000 });
+      expect(createPaymentIntent).toHaveBeenCalledWith(expect.objectContaining({ amountCents: 2000 }));
+      expect(upsertCheckoutSession).toHaveBeenCalledWith(
+        expect.objectContaining({
+          fulfilmentMode: 'delivery',
+          deliveryAddress: { street: 'Teststraße 1', postcode: '10115', city: 'Berlin' },
+          charges: [{ kind: 'delivery_fee', grossCents: 250, taxClassId: 'food', taxRateBasisPoints: 700, taxCents: 16 }],
+          subtotalCents: 1750,
+          totalCents: 2000,
+          taxBreakdown: [
+            { rateBasisPoints: 700, grossCents: 1300, taxCents: 85 },
+            { rateBasisPoints: 1900, grossCents: 700, taxCents: 112 },
+          ],
+        }),
+      );
+    });
+
+    it('refuses a postcode the restaurant does not deliver to', async () => {
+      const res = await executeCheckout(
+        { ...deliveryRequest, deliveryAddress: { street: 'Teststraße 1', postcode: '10999', city: 'Berlin' } },
+        { now: NOW_OPEN },
+      );
+      expect(res).toEqual({ ok: false, code: 'INVALID_INPUT', error: DELIVERY_POSTCODE_NOT_SERVED_ERROR });
+      expect(createPaymentIntent).not.toHaveBeenCalled();
+    });
+
+    it('a delivery order needs a full address', async () => {
+      const res = await executeCheckout(
+        { ...deliveryRequest, deliveryAddress: { street: 'Teststraße 1', postcode: '10115' } as any },
+        { now: NOW_OPEN },
+      );
+      expect(res).toEqual({ ok: false, code: 'INVALID_INPUT', error: DELIVERY_ADDRESS_INVALID_ERROR });
+      expect(findShopById).not.toHaveBeenCalled();
+    });
+
+    it("uses the postcode's minimum, not counting the fee", async () => {
+      const small = { ...deliveryRequest, items: [{ productId: 'p1', quantity: 1, expectedUnitPriceCents: 1050 }] };
+      expect(await executeCheckout(small, { now: NOW_OPEN })).toEqual({
+        ok: false,
+        code: 'INVALID_INPUT',
+        error: 'Order total is below the minimum of EUR 15.00',
+      });
+      (findShopById as any).mockResolvedValue({
+        ...DELIVERY_SHOP,
+        minOrderAmountCents: 5000,
+        orderSettings: { delivery: true, deliveryZones: [{ postcode: '10115', feeCents: 250, minOrderCents: 1000 }] },
+      });
+      const res = await executeCheckout(small, { now: NOW_OPEN });
+      expect(res.ok).toBe(true);
+    });
+
+    it('a changed delivery fee needs a new look', async () => {
+      const res = await executeCheckout({ ...deliveryRequest, expectedDeliveryFeeCents: 200 }, { now: NOW_OPEN });
+      expect(res).toEqual({ ok: false, code: 'CONFLICT', error: DELIVERY_FEE_CHANGED_ERROR });
+    });
+
+    it('refuses delivery while the restaurant has it switched off', async () => {
+      (findShopById as any).mockResolvedValue(CARD_SHOP);
+      const res = await executeCheckout(deliveryRequest, { now: NOW_OPEN });
+      expect(res).toEqual({ ok: false, code: 'INVALID_INPUT', error: MODE_NOT_OFFERED_ERROR });
+    });
+
+    it('delivery follows its own hours', async () => {
+      (findShopById as any).mockResolvedValue({
+        ...DELIVERY_SHOP,
+        orderSettings: {
+          delivery: true,
+          deliveryZones: [DELIVERY_ZONE],
+          deliveryHours: { mon: [{ open: '17:00', close: '22:00' }], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] },
+        },
+      });
+      expect(await executeCheckout(deliveryRequest, { now: NOW_OPEN })).toEqual({ ok: false, code: 'INVALID_INPUT', error: SHOP_CLOSED_ERROR });
+      const collection = await executeCheckout(cardRequest, { now: NOW_OPEN });
+      expect(collection.ok).toBe(true);
+    });
+
+    it('the fee counts towards the 250 euro address rule', async () => {
+      (findShopById as any).mockResolvedValue({
+        ...DELIVERY_SHOP,
+        orderSettings: { delivery: true, deliveryZones: [{ postcode: '10115', feeCents: 1000, minOrderCents: 0 }] },
+      });
+      const items = [{ productId: 'p1', quantity: 23, expectedUnitPriceCents: 1050 }];
+      const res = await executeCheckout({ ...deliveryRequest, items, expectedDeliveryFeeCents: 1000 }, { now: NOW_OPEN });
+      expect(res).toEqual({ ok: false, code: 'INVALID_INPUT', error: ADDRESS_REQUIRED_ERROR });
+      const collection = await executeCheckout({ ...cardRequest, items }, { now: NOW_OPEN });
+      expect(collection.ok).toBe(true);
     });
   });
 });

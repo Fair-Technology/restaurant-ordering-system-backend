@@ -2194,8 +2194,22 @@ export const swaggerSpec = {
           fulfilmentMode: {
             type: 'string',
             enum: ['collection', 'delivery', 'dine_in'],
-            description: 'How the order is fulfilled (optional, defaults to collection). dine_in only while the restaurant has dine-in switched on; delivery is not available yet.',
+            description: 'How the order is fulfilled (optional, defaults to collection). dine_in only while the restaurant has dine-in switched on; delivery only while it delivers to the postcode.',
             example: 'collection',
+          },
+          deliveryAddress: {
+            type: 'object',
+            description: 'Required for delivery: where to deliver. Never printed on the invoice.',
+            required: ['street', 'postcode', 'city'],
+            properties: {
+              street: { type: 'string' },
+              postcode: { type: 'string', example: '10115' },
+              city: { type: 'string' },
+            },
+          },
+          expectedDeliveryFeeCents: {
+            type: 'integer',
+            description: 'The fee the diner was shown; a different server fee answers 409.',
           },
           table: {
             type: 'string',
@@ -2223,8 +2237,13 @@ export const swaggerSpec = {
           },
           subtotalCents: {
             type: 'integer',
-            description: 'Server-computed order total in cents',
+            description: 'Server-computed total of the dishes in cents (without any delivery fee)',
             example: 3600,
+          },
+          totalCents: {
+            type: 'integer',
+            description: 'What is reserved on the card: dishes plus delivery fee',
+            example: 3850,
           },
           currency: {
             type: 'string',

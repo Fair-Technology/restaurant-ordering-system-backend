@@ -127,6 +127,7 @@ export function buildCatalog(input: {
           additives: additiveLabel(p.additiveIds),
           dietaryTags: tagLabel(p.dietaryTagIds),
           spice: spice(p.spiceLevel),
+          unavailableModes: p.unavailableModes ?? [],
           createdAt: p.createdAt,
           updatedAt: p.updatedAt,
         })),

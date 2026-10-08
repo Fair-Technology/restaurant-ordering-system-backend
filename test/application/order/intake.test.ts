@@ -28,6 +28,7 @@ vi.mock('../../../src/infrastructure/email/emailSender', () => ({
 
 import { authorizeShopAction } from '../../../src/application/_shared/shopAccess';
 import { executeAcceptOrder } from '../../../src/application/order/intake/executeAcceptOrder';
+import { executeDispatchOrder } from '../../../src/application/order/intake/executeDispatchOrder';
 import { executeCompleteOrder } from '../../../src/application/order/intake/executeCompleteOrder';
 import { executeGetOrderQueue } from '../../../src/application/order/intake/executeGetOrderQueue';
 import { executeMarkOrderReady } from '../../../src/application/order/intake/executeMarkOrderReady';
@@ -51,7 +52,15 @@ import {
 } from '../../../src/domain/order/orderErrors';
 import { commitInvoice } from '../../../src/infrastructure/cosmos/invoice/CosmosInvoiceRepository';
 import { capturePaymentIntent, releaseAuthorization } from '../../../src/infrastructure/stripe/stripeClient';
-import { CARD_SHOP, orderStore, PLACED_CARD_ORDER, PLACED_TABLE_ORDER } from '../../fixtures/orders';
+import {
+  ACCEPTED_DELIVERY_ORDER,
+  CARD_SHOP,
+  DELIVERY_ADDRESS,
+  orderStore,
+  PLACED_CARD_ORDER,
+  PLACED_DELIVERY_ORDER,
+  PLACED_TABLE_ORDER,
+} from '../../fixtures/orders';
 
 const http = {} as any;
 const now = new Date('2026-10-05T10:05:00Z');
@@ -287,7 +296,7 @@ describe('kitchen intake', () => {
   it('queue lists active orders', async () => {
     (findOrdersByShopIdAndStates as any).mockResolvedValue([PLACED_CARD_ORDER]);
     const res = await executeGetOrderQueue({ shopId: 'shop-1' }, http, { now });
-    expect(findOrdersByShopIdAndStates).toHaveBeenCalledWith('shop-1', ['PLACED', 'ACCEPTED', 'READY']);
+    expect(findOrdersByShopIdAndStates).toHaveBeenCalledWith('shop-1', ['PLACED', 'ACCEPTED', 'READY', 'OUT_FOR_DELIVERY']);
     expect(res.ok).toBe(true);
     if (!res.ok) return;
     expect(res.data.orders[0].autoRejectAt).toBe('2026-10-05T10:10:00.000Z');
@@ -329,5 +338,65 @@ describe('kitchen intake', () => {
     if (!res.ok) return;
     expect(res.data.orders[0].table).toEqual({ label: '7' });
     expect(res.data.orders[1].table).toBeNull();
+  });
+
+  describe('delivery', () => {
+    const dIds = { shopId: 'shop-1', orderId: 'o3' };
+
+    it('staff send a delivery order out', async () => {
+      const store = storedOrder(ACCEPTED_DELIVERY_ORDER);
+      const res = await executeDispatchOrder(dIds, http, { now });
+      expect(res.ok && res.data).toMatchObject({
+        state: 'OUT_FOR_DELIVERY',
+        deliveryAddress: DELIVERY_ADDRESS,
+        totalCents: 1300,
+        deliveryFeeCents: 250,
+      });
+      expect(sendEmail).toHaveBeenCalledWith(expect.objectContaining({ tag: 'order_out_for_delivery' }));
+      expect(store.current.history.at(-1)?.actor).toEqual({ type: 'staff', id: 's1' });
+    });
+
+    it('a collection order cannot be sent out', async () => {
+      storedOrder(ACCEPTED_ORDER);
+      const res = await executeDispatchOrder(ids, http, { now });
+      expect(res).toEqual({ ok: false, code: 'CONFLICT', error: 'OUT_FOR_DELIVERY is only for delivery orders' });
+    });
+
+    it('a delivery order cannot be marked ready', async () => {
+      storedOrder(ACCEPTED_DELIVERY_ORDER);
+      const res = await executeMarkOrderReady(dIds, http, { now });
+      expect(res).toEqual({ ok: false, code: 'CONFLICT', error: 'READY is only for collection and dine-in orders' });
+    });
+
+    it('delivered completes the order', async () => {
+      storedOrder({ ...ACCEPTED_DELIVERY_ORDER, state: 'OUT_FOR_DELIVERY' });
+      const res = await executeCompleteOrder(dIds, http, { now });
+      expect(res.ok && res.data.state).toBe('COMPLETED');
+    });
+
+    it('staff see the delivery address and phone on the board', async () => {
+      (findOrdersByShopIdAndStates as any).mockResolvedValue([PLACED_DELIVERY_ORDER]);
+      const res = await executeGetOrderQueue({ shopId: 'shop-1' }, http, { now });
+      expect(res.ok && res.data.orders[0]).toMatchObject({
+        deliveryAddress: DELIVERY_ADDRESS,
+        customerPhone: '+49 30 1234',
+        deliveryFeeCents: 250,
+        totalCents: 1300,
+      });
+    });
+
+    it('staff accept a delivery order with the delivery estimate', async () => {
+      const store = storedOrder(PLACED_DELIVERY_ORDER);
+      await executeAcceptOrder(dIds, http, { now });
+      expect(store.current.readyAt).toBe('2026-10-05T10:50:00.000Z');
+      expect(store.current.prepMinutes).toBe(45);
+    });
+
+    it('superadmins cannot dispatch', async () => {
+      const refusal = { ok: false, code: 'FORBIDDEN', error: 'Insufficient permissions' };
+      (authorizeShopAction as any).mockResolvedValue(refusal);
+      expect(await executeDispatchOrder(dIds, http, { now })).toEqual(refusal);
+      expect(findOrderWithEtag).not.toHaveBeenCalled();
+    });
   });
 });

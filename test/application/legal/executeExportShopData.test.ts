@@ -89,4 +89,11 @@ describe('executeExportShopData', () => {
       },
     ]);
   });
+
+  it('the export keeps the delivery address', async () => {
+    const address = { street: 'Teststraße 1', postcode: '10115', city: 'Berlin' };
+    (findOrdersByShopId as any).mockResolvedValue([{ ...o2, deliveryAddress: address }]);
+    const r: any = await executeExportShopData({ shopId: 'shop-1' }, {} as any);
+    expect(r.data.orders[0].deliveryAddress).toEqual(address);
+  });
 });

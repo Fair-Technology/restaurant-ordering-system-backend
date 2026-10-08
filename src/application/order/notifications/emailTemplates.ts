@@ -1,7 +1,7 @@
 import { buildImpressumLines } from '../../../domain/legal/impressum';
 import { legalOf } from '../../../domain/legal/legalTexts';
 import { menuLanguagesOf } from '../../../domain/menu/menuLanguage';
-import type { Order, RejectReason } from '../../../domain/order/Order';
+import { chargedCents, type Order, type RejectReason } from '../../../domain/order/Order';
 import { displayPaymentStatus, isCaptured } from '../../../domain/order/payment';
 import type { MenuLanguage } from '../../../domain/reference/ReferenceLists';
 import type { Shop } from '../../../domain/shop/Shop';
@@ -10,6 +10,7 @@ export type OrderEmailKind =
   | 'order_received'
   | 'order_accepted'
   | 'order_ready'
+  | 'order_out_for_delivery'
   | 'order_rejected'
   | 'order_cancelled'
   | 'order_escalation'
@@ -90,8 +91,8 @@ function buildEscalationEmail(order: Order, shop: Shop, adminOrdersUrl: string):
     {
       type: 'p',
       text: de
-        ? `Bestellung ${order.orderRef} (${f.money(order.subtotalCents)}) wartet seit 3 Minuten. Ohne Annahme wird sie um ${until} automatisch abgelehnt.`
-        : `Order ${order.orderRef} (${f.money(order.subtotalCents)}) has been waiting 3 minutes. It will be declined automatically at ${until} unless you accept it.`,
+        ? `Bestellung ${order.orderRef} (${f.money(chargedCents(order))}) wartet seit 3 Minuten. Ohne Annahme wird sie um ${until} automatisch abgelehnt.`
+        : `Order ${order.orderRef} (${f.money(chargedCents(order))}) has been waiting 3 minutes. It will be declined automatically at ${until} unless you accept it.`,
     },
     ...(order.table ? [{ type: 'p' as const, text: `${de ? 'Tisch' : 'Table'}: ${order.table.label}` }] : []),
     { type: 'p', text: `${de ? 'Zu den Bestellungen' : 'Open orders'}: ${adminOrdersUrl}` },
@@ -102,7 +103,7 @@ function buildEscalationEmail(order: Order, shop: Shop, adminOrdersUrl: string):
 function buildReleaseFailedEmail(order: Order, shop: Shop, adminOrdersUrl: string): OrderEmailContent {
   const lang = menuLanguagesOf(shop)[0];
   const de = lang === 'de';
-  const money = formatters(lang, order.currency, shop.timezone).money(order.subtotalCents);
+  const money = formatters(lang, order.currency, shop.timezone).money(chargedCents(order));
   const ref = order.orderRef;
   const message = order.releaseFailure?.message ?? '';
   return render(
@@ -149,15 +150,22 @@ export function buildOrderEmail(input: {
   const time = order.readyAt ? f.time(order.readyAt) : '';
   const name = shop.name;
   const dineIn = order.fulfilmentMode === 'dine_in';
+  const delivery = order.fulfilmentMode === 'delivery';
 
   const subjects: Record<Exclude<OrderEmailKind, 'order_escalation' | 'payment_release_failed'>, Bilingual> = {
     order_received: { de: `${name}: Bestellung ${ref} eingegangen`, en: `${name}: order ${ref} received` },
-    order_accepted: {
-      de: dineIn
-        ? `${name}: Bestellung ${ref} angenommen – fertig um ${time}`
-        : `${name}: Bestellung ${ref} angenommen – abholbereit um ${time}`,
-      en: `${name}: order ${ref} accepted – ready at ${time}`,
-    },
+    order_accepted: delivery
+      ? {
+          de: `${name}: Bestellung ${ref} angenommen – Lieferung gegen ${time}`,
+          en: `${name}: order ${ref} accepted – delivery around ${time}`,
+        }
+      : {
+          de: dineIn
+            ? `${name}: Bestellung ${ref} angenommen – fertig um ${time}`
+            : `${name}: Bestellung ${ref} angenommen – abholbereit um ${time}`,
+          en: `${name}: order ${ref} accepted – ready at ${time}`,
+        },
+    order_out_for_delivery: { de: `${name}: Bestellung ${ref} ist unterwegs`, en: `${name}: order ${ref} is on its way` },
     order_ready: dineIn
       ? { de: `${name}: Bestellung ${ref} ist fertig`, en: `${name}: order ${ref} is ready` }
       : { de: `${name}: Bestellung ${ref} ist abholbereit`, en: `${name}: order ${ref} is ready to collect` },
@@ -174,9 +182,16 @@ export function buildOrderEmail(input: {
         : `Your order has been received. ${name} will confirm it shortly.`;
       break;
     case 'order_accepted':
-      kindLine = de
-        ? `Ihre Bestellung wurde angenommen und ist um ${time} ${dineIn ? 'fertig' : 'abholbereit'}.`
-        : `Your order has been accepted and will be ready at ${time}.`;
+      kindLine = delivery
+        ? de
+          ? `Ihre Bestellung wurde angenommen und wird gegen ${time} geliefert.`
+          : `Your order has been accepted and will be delivered around ${time}.`
+        : de
+          ? `Ihre Bestellung wurde angenommen und ist um ${time} ${dineIn ? 'fertig' : 'abholbereit'}.`
+          : `Your order has been accepted and will be ready at ${time}.`;
+      break;
+    case 'order_out_for_delivery':
+      kindLine = de ? 'Ihre Bestellung ist unterwegs zu Ihnen.' : 'Your order is on its way.';
       break;
     case 'order_ready':
       kindLine = dineIn
@@ -209,6 +224,9 @@ export function buildOrderEmail(input: {
     const addons = i.selectedAddonOptionNames?.length ? ` + ${i.selectedAddonOptionNames.join(', ')}` : '';
     return `${i.quantity} × ${i.productName}${variant}${addons} — ${f.money(i.lineTotalCents)}`;
   });
+  for (const c of order.charges ?? []) {
+    itemRows.push(`${de ? 'Liefergebühr' : 'Delivery fee'} — ${f.money(c.grossCents)}`);
+  }
 
   const linkLine =
     kind === 'order_received'
@@ -216,10 +234,10 @@ export function buildOrderEmail(input: {
       : `${de ? 'Bestellung ansehen' : 'View your order'}: ${input.customerOrderUrl}`;
 
   const impressum = legalOf(shop).impressum;
-  const total = f.money(order.subtotalCents);
+  const total = f.money(chargedCents(order));
   const status = displayPaymentStatus(order);
   let paymentLine: string | null = null;
-  if (kind === 'order_received' || kind === 'order_accepted' || kind === 'order_ready') {
+  if (kind === 'order_received' || kind === 'order_accepted' || kind === 'order_ready' || kind === 'order_out_for_delivery') {
     if (status === 'authorized') {
       paymentLine = de
         ? `Betrag reserviert: ${total} – abgebucht wird erst, wenn ${name} annimmt.`
@@ -263,7 +281,10 @@ export function buildOrderEmail(input: {
   if (paymentLine) blocks.push({ type: 'p', text: paymentLine });
   blocks.push({ type: 'p', text: linkLine });
   if (impressum) {
-    if (!dineIn) {
+    if (delivery && order.deliveryAddress) {
+      const a = order.deliveryAddress;
+      blocks.push({ type: 'p', text: `${de ? 'Lieferung an' : 'Deliver to'}: ${a.street}, ${a.postcode} ${a.city}` });
+    } else if (!dineIn) {
       blocks.push({
         type: 'p',
         text: `${de ? 'Abholung' : 'Collect from'}: ${impressum.street}, ${impressum.postcode} ${impressum.city}`,

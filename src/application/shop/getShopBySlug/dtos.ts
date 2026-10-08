@@ -1,4 +1,5 @@
 import { FulfilmentMode } from '../../../domain/order/Order';
+import { DeliveryZone } from '../../../domain/order/orderSettings';
 import { ShopBranding } from '../../../domain/shop/Shop';
 
 export interface GetShopBySlugRequestDto {
@@ -37,7 +38,12 @@ export interface GetShopBySlugResultDto {
     reason?: string;
   }>;
   branding: ShopBranding | null;
-  fulfilment: { modes: FulfilmentMode[]; prepMinutes: Record<FulfilmentMode, number> };
+  countryCode: string;
+  fulfilment: {
+    modes: FulfilmentMode[];
+    prepMinutes: Record<FulfilmentMode, number>;
+    delivery: { zones: DeliveryZone[] } | null; // present while delivery is offered
+  };
   orderLimitReached: boolean; // true = online ordering is paused for this month
   createdAt: string;
   updatedAt: string;

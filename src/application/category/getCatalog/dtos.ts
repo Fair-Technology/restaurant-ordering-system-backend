@@ -1,3 +1,4 @@
+import { FulfilmentMode } from '../../../domain/order/Order';
 import { MenuLanguage } from '../../../domain/reference/ReferenceLists';
 
 export interface CatalogOptionDto {
@@ -47,6 +48,7 @@ export interface CatalogProductDto {
   additives: CatalogAdditiveDto[];
   dietaryTags: CatalogLabelDto[];
   spice: CatalogLabelDto | null;
+  unavailableModes: FulfilmentMode[]; // modes this dish is not offered for
   createdAt: string;
   updatedAt: string;
 }

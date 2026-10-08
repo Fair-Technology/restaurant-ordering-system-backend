@@ -204,6 +204,7 @@ export async function executeUpdateProduct(
         'allergenIds',
         'additiveIds',
         'dietaryTagIds',
+        'unavailableModes',
         'nameTranslations',
         'descriptionTranslations',
       ],

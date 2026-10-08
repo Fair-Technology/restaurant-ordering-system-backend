@@ -77,4 +77,14 @@ describe('order payment rules', () => {
     expect(hasFreshCaptureClaim(o, new Date('2026-10-05T10:02:00Z'))).toBe(false);
     expect(hasFreshCaptureClaim({}, new Date('2026-10-05T10:00:00Z'))).toBe(false);
   });
+
+  it('the delivery fee is refundable too', () => {
+    const o = { subtotalCents: 1050, totalCents: 1300, refunds: [] };
+    expect(refundableCents(o)).toBe(1300);
+    expect(paymentStatusAfterRefund(o, 1050)).toBe('partially_refunded');
+    expect(paymentStatusAfterRefund(o, 1300)).toBe('refunded');
+    expect(validateRefundAmount(o, 1300)).toBeNull();
+    expect(validateRefundAmount(o, 1301)).toBe(REFUND_AMOUNT_ERROR);
+    expect(refundableCents({ subtotalCents: 1050, refunds: [] })).toBe(1050);
+  });
 });

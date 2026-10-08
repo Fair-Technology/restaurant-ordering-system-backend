@@ -1,4 +1,4 @@
-import { CustomerAddress, FulfilmentMode, LegalRevisions, PaymentMethod } from '../../../domain/order/Order';
+import { CustomerAddress, DeliveryAddress, FulfilmentMode, LegalRevisions, PaymentMethod } from '../../../domain/order/Order';
 
 export interface CheckoutItemDto {
   productId: string;
@@ -18,6 +18,8 @@ export interface CheckoutRequestDto {
   fulfilmentMode?: FulfilmentMode; // absent → 'collection'
   paymentMethod?: PaymentMethod; // absent → 'card' (what the deployed storefront means)
   customerAddress?: CustomerAddress; // optional; required above ADDRESS_REQUIRED_ABOVE_CENTS
+  deliveryAddress?: DeliveryAddress; // required for delivery
+  expectedDeliveryFeeCents?: number; // what the diner was shown; a different server fee answers 409
   table?: string; // required (valid) for dine_in; ignored otherwise
   idempotencyKey?: string;
   language?: string;
@@ -31,6 +33,7 @@ export interface CardCheckoutResultDto {
   accessToken: string; // secret order-page link token, created now so the page works while the payment is confirmed
   clientSecret: string;
   subtotalCents: number;
+  totalCents: number; // what is reserved on the card: dishes plus delivery fee
   currency: string;
   stripeConnectAccountId: string;
 }
@@ -42,6 +45,7 @@ export interface PlacedCheckoutResultDto {
   orderRef: string;
   accessToken: string;
   subtotalCents: number;
+  totalCents: number;
   currency: string;
 }
 

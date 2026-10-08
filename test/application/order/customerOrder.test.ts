@@ -32,7 +32,7 @@ import { findShopById } from '../../../src/infrastructure/cosmos/shop/CosmosShop
 import { sendEmail } from '../../../src/infrastructure/email/emailSender';
 import { CANNOT_CANCEL_ERROR, ORDER_NOT_FOUND_ERROR, PAYMENT_CONFIRMING_ERROR } from '../../../src/domain/order/orderErrors';
 import { releaseAuthorization } from '../../../src/infrastructure/stripe/stripeClient';
-import { CARD_SHOP, orderStore, PLACED_CARD_ORDER, PLACED_TABLE_ORDER } from '../../fixtures/orders';
+import { CARD_SHOP, DELIVERY_ADDRESS, orderStore, PLACED_CARD_ORDER, PLACED_DELIVERY_ORDER, PLACED_TABLE_ORDER } from '../../fixtures/orders';
 
 const TOKEN = 'T'.repeat(32);
 const now = new Date('2026-10-05T10:05:00Z');
@@ -132,5 +132,16 @@ describe('customer order page', () => {
     stored(PLACED_TABLE_ORDER);
     const res = await executeGetCustomerOrder({ orderId: 'o2', token: TOKEN }, { now });
     expect(res.ok && res.data.table).toEqual({ label: '7' });
+  });
+
+  it('the diner sees the delivery address, fee and total', async () => {
+    stored(PLACED_DELIVERY_ORDER);
+    const res = await executeGetCustomerOrder({ orderId: 'o3', token: TOKEN }, { now });
+    expect(res.ok && res.data).toMatchObject({
+      fulfilmentMode: 'delivery',
+      deliveryAddress: DELIVERY_ADDRESS,
+      deliveryFeeCents: 250,
+      totalCents: 1300,
+    });
   });
 });

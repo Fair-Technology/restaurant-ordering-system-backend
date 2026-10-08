@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { validateMenuFields } from '../../../src/application/product/menuFields';
 import { DE_REFERENCE_LISTS } from '../../../src/domain/reference/ReferenceLists';
 
+import { UNAVAILABLE_MODES_ERROR } from '../../../src/domain/order/orderErrors';
+
 const refs = DE_REFERENCE_LISTS;
 
 describe('validateMenuFields', () => {
@@ -90,5 +92,13 @@ describe('validateMenuFields', () => {
         options: [{ id: 'o1', name: 'Klein', nameTranslations: {}, priceDelta: 0, isAvailable: true }],
       },
     ]);
+  });
+
+  it('reads the modes a dish is not offered for', () => {
+    expect(validateMenuFields({ unavailableModes: ['delivery', 'collection', 'delivery'] }, refs, null)).toEqual({
+      unavailableModes: ['collection', 'delivery'],
+    });
+    expect(validateMenuFields({ unavailableModes: ['takeaway'] }, refs, null)).toEqual({ error: UNAVAILABLE_MODES_ERROR });
+    expect(validateMenuFields({ unavailableModes: 'delivery' }, refs, null)).toEqual({ error: UNAVAILABLE_MODES_ERROR });
   });
 });

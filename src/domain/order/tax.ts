@@ -1,6 +1,6 @@
 import type { Category } from '../category/Category';
 import type { Product } from '../product/Product';
-import type { OrderItem, TaxBreakdownEntry } from './Order';
+import type { OrderCharge, OrderItem, TaxBreakdownEntry } from './Order';
 
 /** Integer division rounding half up; both inputs non-negative integers. */
 export function roundHalfUp(numerator: number, denominator: number): number {
@@ -40,4 +40,15 @@ export function buildTaxBreakdown(
     byRate.set(rate, entry);
   }
   return [...byRate.values()].sort((a, b) => a.rateBasisPoints - b.rateBasisPoints);
+}
+
+/** Per-rate totals of the dishes and the charges together, rate ascending. */
+export function buildTaxBreakdownWithCharges(
+  items: ReadonlyArray<Pick<OrderItem, 'lineTotalCents' | 'taxRateBasisPoints' | 'taxCents'>>,
+  charges: ReadonlyArray<OrderCharge>,
+): TaxBreakdownEntry[] {
+  return buildTaxBreakdown([
+    ...items,
+    ...charges.map((c) => ({ lineTotalCents: c.grossCents, taxRateBasisPoints: c.taxRateBasisPoints, taxCents: c.taxCents })),
+  ]);
 }

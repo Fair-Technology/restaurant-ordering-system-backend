@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { buildPlacedOrderFromSession } from '../../../src/application/order/handlePaymentAuthorized/buildPlacedOrderFromSession';
 import { CheckoutSession } from '../../../src/domain/order/CheckoutSession';
-import { ADDRESS } from '../../fixtures/orders';
+import { ADDRESS, DELIVERY_ADDRESS, FEE_CHARGE } from '../../fixtures/orders';
 
 const session: CheckoutSession = {
   id: 'sess-1',
@@ -77,5 +77,23 @@ describe('buildPlacedOrderFromSession', () => {
     });
     expect(withTable.table).toEqual({ label: '7' });
     expect(buildPlacedOrderFromSession({ ...args, session })).not.toHaveProperty('table');
+  });
+
+  it('copies the delivery address, fee and total', () => {
+    const args = { paymentIntentId: 'pi_1', orderRef: 'AB3-K7P', autoRejectMinutes: 10, now };
+    const order = buildPlacedOrderFromSession({
+      ...args,
+      session: { ...session, fulfilmentMode: 'delivery', deliveryAddress: DELIVERY_ADDRESS, charges: [FEE_CHARGE], totalCents: 2050 },
+    });
+    expect(order).toMatchObject({
+      fulfilmentMode: 'delivery',
+      deliveryAddress: DELIVERY_ADDRESS,
+      charges: [FEE_CHARGE],
+      totalCents: 2050,
+      subtotalCents: 1800,
+    });
+    const plain = buildPlacedOrderFromSession({ ...args, session });
+    expect('totalCents' in plain).toBe(false);
+    expect('charges' in plain).toBe(false);
   });
 });
