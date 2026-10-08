@@ -54,6 +54,12 @@ export function validateBasketItems(items: unknown): string | null {
   return null;
 }
 
+/** The dish's own price: its offer price when it has a valid one (whole cents, below the normal price). */
+export function activeBasePriceCents(p: Pick<Product, 'price' | 'schedule'>): number {
+  const offer = p.schedule?.offerPrice;
+  return typeof offer === 'number' && Number.isInteger(offer) && offer > 0 && offer < p.price ? offer : p.price;
+}
+
 /**
  * Re-prices a basket from the live menu. Never trusts client amounts: `expectedUnitPriceCents` is only
  * compared against the server price so the diner can be shown what changed.
@@ -81,12 +87,14 @@ export function priceBasket(input: {
       p.isDeleted ||
       !p.isAvailable ||
       !isDeclared(p) ||
-      (p.schedule && !isProductScheduleActive(p.schedule, shop.timezone))
+      (p.schedule && !isProductScheduleActive(p.schedule, shop.timezone, now))
     ) {
       return reject('unavailable');
     }
 
-    let unitPriceCents = p.price;
+    // The schedule window is also the offer window, and a dish outside it was rejected above, so reaching
+    // here with an offer price means the offer is on. Size and extra surcharges are added on top unchanged.
+    let unitPriceCents = activeBasePriceCents(p);
     let variantName: string | undefined;
     if (entry.selectedVariantOptionId) {
       const option = (p.variantGroups ?? []).flatMap((g) => g.options).find((o) => o.id === entry.selectedVariantOptionId);

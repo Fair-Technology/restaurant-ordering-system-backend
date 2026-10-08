@@ -109,4 +109,17 @@ describe('buildCatalog', () => {
     const ids = result.categories[0].products.map((p) => p.id);
     expect(ids).not.toContain('p2');
   });
+
+  it('shows the offer price only for an offer below the normal price', () => {
+    const withOffer = (offerPrice: number | null): Product => ({
+      ...p1,
+      schedule: { startDate: '2026-09-01', startTime: '08:00', endTime: '18:00', offerPrice, offerLabel: 'Lunch' },
+    });
+    const offerOf = (p: Product) =>
+      buildCatalog({ shop, categories: [category], products: [p], refs: DE_REFERENCE_LISTS, lang: 'de', now })
+        .categories[0].products[0].offerPrice;
+    expect(offerOf(withOffer(250))).toBe(250);
+    expect(offerOf(withOffer(null))).toBeNull();
+    expect(offerOf(withOffer(350))).toBeNull();
+  });
 });

@@ -1,6 +1,6 @@
 import { ProductSchedule } from '../../domain/product/Product';
 
-export function isProductScheduleActive(schedule: ProductSchedule, timezone: string): boolean {
+export function isProductScheduleActive(schedule: ProductSchedule, timezone: string, now: Date = new Date()): boolean {
   const formatter = new Intl.DateTimeFormat('en-CA', {
     timeZone: timezone,
     year: 'numeric',
@@ -19,8 +19,6 @@ export function isProductScheduleActive(schedule: ProductSchedule, timezone: str
     timeZone: timezone,
     weekday: 'short',
   });
-
-  const now = new Date();
 
   // Current date as "YYYY-MM-DD" in shop timezone
   const currentDate = formatter.format(now); // en-CA gives YYYY-MM-DD

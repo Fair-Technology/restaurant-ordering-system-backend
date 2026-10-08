@@ -13,7 +13,9 @@ import {
 import type { Order } from '../../src/domain/order/Order';
 import { extractVatCents } from '../../src/domain/order/tax';
 import type { Shop } from '../../src/domain/shop/Shop';
-import { ACCEPTED_CARD_ORDER, ADDRESS, CARD_SHOP } from '../fixtures/orders';
+import { priceBasket } from '../../src/application/order/_shared/priceBasket';
+import { DE_REFERENCE_LISTS } from '../../src/domain/reference/ReferenceLists';
+import { ACCEPTED_CARD_ORDER, ADDRESS, CARD_SHOP, CATEGORIES, P_PASTA } from '../fixtures/orders';
 
 const now = new Date('2026-10-05T10:05:00Z');
 const NUMBER = 'R-2026-00001';
@@ -368,5 +370,28 @@ describe('invoice rules', () => {
       'Cancellation-invoice-R-2026-00001.pdf',
     );
     expect(f('correction', 'en')).toBe('Correction-invoice-R-2026-00001.pdf');
+  });
+
+  it('invoice lines carry the offer price that was charged', () => {
+    const priced = priceBasket({
+      items: [{ productId: 'p1', quantity: 2 }],
+      products: new Map([['p1', { ...P_PASTA, schedule: { startDate: '2026-10-01', offerPrice: 800 } }]]),
+      categories: CATEGORIES,
+      refs: DE_REFERENCE_LISTS,
+      shop: { timezone: 'Europe/Berlin', menuLanguages: ['de'], countryCode: 'DE' },
+      mode: 'collection',
+      now,
+      language: 'de',
+    });
+    const order: Order = {
+      ...ACCEPTED_CARD_ORDER,
+      items: priced.items,
+      subtotalCents: priced.subtotalCents,
+      taxBreakdown: priced.taxBreakdown,
+    };
+    const inv = buildInvoice({ order, shop: CARD_SHOP, number: NUMBER, now });
+    expect(inv.lines[0]).toMatchObject({ quantity: 2, unitPriceCents: 800, lineTotalCents: 1600, taxCents: 105 });
+    expect(inv.totalCents).toBe(1600);
+    expect(inv.taxBreakdown).toEqual([{ rateBasisPoints: 700, grossCents: 1600, taxCents: 105 }]);
   });
 });
