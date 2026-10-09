@@ -1,6 +1,7 @@
 import { Order, StoredOrderState } from '../../../domain/order/Order';
 import { orderContainer } from '../cosmosClient';
 import type { OrderForRejectionStats } from '../../../domain/usage/rejectionStats';
+import type { ReportOrderRow } from '../../../domain/report/salesReport';
 
 export async function createOrder(order: Order): Promise<Order> {
   try {
@@ -246,6 +247,48 @@ export async function countLoyaltyOrders(shopId: string, emailLower: string, sin
       { name: '@email', value: emailLower },
       { name: '@since', value: sinceIso },
     ],
+  };
+  const { resources } = await orderContainer.items.query<number>(querySpec).fetchAll();
+  return resources[0] ?? 0;
+}
+
+/** What a report reads of an order. Deliberately no customer fields, notes, addresses, tokens or history. */
+export const REPORT_ROW_SELECT =
+  'SELECT c.id, c.createdAt, c.acceptedAt, c.scheduledFor, c.fulfilmentMode, c.payment, c.subtotalCents, c.totalCents, ' +
+  'c.charges, c.discount.cents AS discountCents, c.taxBreakdown, ' +
+  'ARRAY(SELECT i.productId, i.productName, i.quantity, i.unitPriceCents, i.lineTotalCents, i.taxRateBasisPoints, i.taxCents, i.discountCents FROM i IN c.items) AS items, ' +
+  'ARRAY(SELECT r.amountCents, r.at, r.lines FROM r IN c.refunds) AS refunds ' +
+  'FROM c';
+
+/** Orders of this shop accepted in the window, plus orders refunded in the window (they may repeat). */
+export async function findReportRows(
+  shopId: string,
+  fromIso: string,
+  toIso: string,
+): Promise<{ rows: ReportOrderRow[]; requestCharge: number }> {
+  const parameters = [
+    { name: '@shopId', value: shopId },
+    { name: '@from', value: fromIso },
+    { name: '@to', value: toIso },
+  ];
+  const run = (where: string) =>
+    orderContainer.items.query<ReportOrderRow>({ query: `${REPORT_ROW_SELECT} WHERE ${where}`, parameters }).fetchAll();
+  const [accepted, refunded] = await Promise.all([
+    run('c.shopId = @shopId AND c.acceptedAt >= @from AND c.acceptedAt < @to'),
+    run('c.shopId = @shopId AND EXISTS(SELECT VALUE r FROM r IN c.refunds WHERE r.at >= @from AND r.at < @to)'),
+  ]);
+  return {
+    rows: [...accepted.resources, ...refunded.resources],
+    requestCharge: accepted.requestCharge + refunded.requestCharge,
+  };
+}
+
+/** Orders waiting for staff now (booked orders still under Upcoming excluded). */
+export async function countWaitingOrders(shopId: string): Promise<number> {
+  const querySpec = {
+    query:
+      "SELECT VALUE COUNT(1) FROM c WHERE c.shopId = @shopId AND c.state = 'PLACED' AND (NOT IS_DEFINED(c.scheduledFor) OR IS_DEFINED(c.queuedAt))",
+    parameters: [{ name: '@shopId', value: shopId }],
   };
   const { resources } = await orderContainer.items.query<number>(querySpec).fetchAll();
   return resources[0] ?? 0;
