@@ -240,6 +240,9 @@ export function buildOrderEmail(input: {
     const addons = i.selectedAddonOptionNames?.length ? ` + ${i.selectedAddonOptionNames.join(', ')}` : '';
     return `${i.quantity} × ${i.productName}${variant}${addons} — ${f.money(i.lineTotalCents)}`;
   });
+  if (order.discount) {
+    itemRows.push(`${order.discount.kind === 'voucher' ? (de ? 'Gutschein' : 'Voucher') : de ? 'Rabatt' : 'Discount'} ${order.discount.code} — ${f.money(-order.discount.cents)}`);
+  }
   for (const c of order.charges ?? []) {
     itemRows.push(`${de ? 'Liefergebühr' : 'Delivery fee'} — ${f.money(c.grossCents)}`);
   }

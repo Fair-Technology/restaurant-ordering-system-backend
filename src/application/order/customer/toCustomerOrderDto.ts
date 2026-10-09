@@ -46,6 +46,7 @@ export function toCustomerOrderDto(order: Order, shop: Shop, now: Date): Custome
     totalCents: chargedCents(order),
     deliveryFeeCents: deliveryFeeCentsOf(order),
     deliveryAddress: order.deliveryAddress ?? null,
+    discount: order.discount ? { kind: order.discount.kind, code: order.discount.code, cents: order.discount.cents } : null,
     currency: order.currency,
     createdAt: order.createdAt,
     canCancel: order.state === 'PLACED',

@@ -57,6 +57,7 @@ import {
   ACCEPTED_DELIVERY_ORDER,
   CARD_SHOP,
   DELIVERY_ADDRESS,
+  DISCOUNTED_ORDER,
   orderStore,
   PLACED_CARD_ORDER,
   PLACED_DELIVERY_ORDER,
@@ -332,6 +333,18 @@ describe('kitchen intake', () => {
     const res = await executeGetOrderQueue({ shopId: 'shop-1' }, http, { now });
     expect(res.ok && res.data.busy).toEqual({ active: true, extraMinutes: 20 });
     expect(res.ok && res.data.defaultPrepMinutes).toEqual({ collection: 40, delivery: 65, dine_in: 40 });
+  });
+
+  it('the board shows the discount but never a voucher code', async () => {
+    (findOrdersByShopIdAndStates as any).mockResolvedValue([
+      { ...DISCOUNTED_ORDER, state: 'ACCEPTED', loyaltyVoucher: { code: 'L-ABCD2345', issuedAt: 'x' } },
+    ]);
+    const res = await executeGetOrderQueue({ shopId: 'shop-1' }, http, { now });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.data.orders[0]).toMatchObject({ discount: { code: 'WELCOME10', cents: 140 }, loyaltyVoucherSent: true });
+    expect(res.data.orders[0].items[0].discountCents).toBe(105);
+    expect(JSON.stringify(res)).not.toContain('L-ABCD2345');
   });
 
   it('the board shows the table', async () => {
