@@ -97,6 +97,15 @@ describe('scheduling', () => {
     expect(delivery[0]).toBe('2026-10-06T09:45:00.000Z');
   });
 
+  it('closing time follows the shop clock across the October clock change', () => {
+    // 22:00 local is 20:00Z before the change (CEST) and 21:00Z after it (CET).
+    expect(slotWithinHours(SCHEDULED_SHOP, 'collection', d('2026-10-24T20:00:00.000Z'))).toBe(true);
+    expect(slotWithinHours(SCHEDULED_SHOP, 'collection', d('2026-10-24T20:15:00.000Z'))).toBe(false);
+    expect(slotWithinHours(SCHEDULED_SHOP, 'collection', d('2026-10-25T21:00:00.000Z'))).toBe(true);
+    expect(slotWithinHours(SCHEDULED_SHOP, 'collection', d('2026-10-25T21:15:00.000Z'))).toBe(false);
+    expect(slotWithinHours(SCHEDULED_SHOP, 'collection', d('2026-10-25T20:15:00.000Z'))).toBe(true);
+  });
+
   it('the clock change gives two different slots with the same local time', () => {
     const ALL = [{ open: '00:00', close: '00:00' }];
     const S = { ...SCHEDULED_SHOP, openingHours: { mon: ALL, tue: ALL, wed: ALL, thu: ALL, fri: ALL, sat: ALL, sun: ALL } };
