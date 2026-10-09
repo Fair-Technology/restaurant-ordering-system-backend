@@ -17,8 +17,8 @@ import { loadOrderLimitStatus } from '../../../src/application/usage/orderLimitS
 import { executeQuoteBasket } from '../../../src/application/order/quoteBasket/executeQuoteBasket';
 import { findProductById } from '../../../src/infrastructure/cosmos/product/CosmosProductRepository';
 import { findShopById } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
-import { MODE_NOT_OFFERED_ERROR } from '../../../src/domain/order/orderErrors';
-import { CARD_SHOP, DELIVERY_SHOP, DINE_IN_SHOP, NOW_CLOSED, NOW_OPEN, P_COLA, P_PASTA } from '../../fixtures/orders';
+import { MODE_NOT_OFFERED_ERROR, SCHEDULED_FOR_ERROR } from '../../../src/domain/order/orderErrors';
+import { CARD_SHOP, DELIVERY_SHOP, DINE_IN_SHOP, NOW_CLOSED, NOW_OPEN, P_COLA, P_PASTA, SCHEDULED_SHOP } from '../../fixtures/orders';
 
 const request = {
   shopId: 'shop-1',
@@ -148,5 +148,47 @@ describe('executeQuoteBasket', () => {
     expect(delivery.ok && delivery.data.lines.map((l) => l.status)).toEqual(['ok', 'unavailable']);
     const collection = await executeQuoteBasket(request, { now: NOW_OPEN });
     expect(collection.ok && collection.data.lines.map((l) => l.status)).toEqual(['ok', 'ok']);
+  });
+
+  it('lists the free slots when the restaurant takes orders for later', async () => {
+    (findShopById as any).mockResolvedValue(SCHEDULED_SHOP);
+    const res = await executeQuoteBasket(request, { now: NOW_CLOSED });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.data.openNow).toBe(false);
+    expect(res.data.slots).toHaveLength(172);
+    expect(res.data.slots[0]).toBe('2026-10-06T09:30:00.000Z');
+    expect(res.data.slotAvailable).toBeNull();
+    expect(res.data.scheduledFor).toBeNull();
+  });
+
+  it('no slots while scheduling is off or for table orders', async () => {
+    const off = await executeQuoteBasket(request, { now: NOW_OPEN });
+    expect(off.ok && off.data.slots).toEqual([]);
+    (findShopById as any).mockResolvedValue({ ...DINE_IN_SHOP, orderSettings: { ...DINE_IN_SHOP.orderSettings, scheduledOrders: true } });
+    const table = await executeQuoteBasket({ ...request, fulfilmentMode: 'dine_in' as const }, { now: NOW_OPEN });
+    expect(table.ok && table.data.slots).toEqual([]);
+  });
+
+  it('says whether the chosen slot is still free', async () => {
+    (findShopById as any).mockResolvedValue(SCHEDULED_SHOP);
+    const free = await executeQuoteBasket({ ...request, scheduledFor: '2026-10-06T16:00:00.000Z' }, { now: NOW_OPEN });
+    expect(free.ok && free.data).toMatchObject({ slotAvailable: true, scheduledFor: '2026-10-06T16:00:00.000Z' });
+    const gone = await executeQuoteBasket({ ...request, scheduledFor: '2026-10-05T10:15:00.000Z' }, { now: NOW_OPEN });
+    expect(gone.ok && gone.data.slotAvailable).toBe(false);
+    const bad = await executeQuoteBasket({ ...request, scheduledFor: '2026-10-06T16:10:00.000Z' }, { now: NOW_OPEN });
+    expect(bad).toEqual({ ok: false, code: 'INVALID_INPUT', error: SCHEDULED_FOR_ERROR });
+  });
+
+  it('a scheduled basket is priced for the time it is made', async () => {
+    const P_LUNCH = { ...P_PASTA, schedule: { startDate: '2026-10-01', startTime: '11:00', endTime: '15:00', offerPrice: 800 } };
+    (findShopById as any).mockResolvedValue(SCHEDULED_SHOP);
+    (findProductById as any).mockImplementation(async (id: string) => (id === 'p1' ? P_LUNCH : id === 'p2' ? P_COLA : null));
+    const now = await executeQuoteBasket(request, { now: NOW_OPEN });
+    expect(now.ok && now.data.lines[0]).toMatchObject({ status: 'ok', unitPriceCents: 800 });
+    const evening = await executeQuoteBasket({ ...request, scheduledFor: '2026-10-06T16:00:00.000Z' }, { now: NOW_OPEN });
+    expect(evening.ok && evening.data.lines[0].status).toBe('unavailable');
+    const noon = await executeQuoteBasket({ ...request, scheduledFor: '2026-10-06T10:30:00.000Z' }, { now: NOW_OPEN });
+    expect(noon.ok && noon.data.lines[0]).toMatchObject({ status: 'ok', unitPriceCents: 800 });
   });
 });

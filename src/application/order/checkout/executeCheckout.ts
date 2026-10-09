@@ -27,7 +27,10 @@ import {
   NO_PAYMENT_SETUP_ERROR,
   ORDER_LIMIT_REACHED_ERROR,
   PAYMENT_METHOD_ERROR,
+  SCHEDULE_NOT_FOR_TABLES_ERROR,
+  SCHEDULED_FOR_ERROR,
   SHOP_CLOSED_ERROR,
+  SLOT_UNAVAILABLE_ERROR,
   TABLE_INVALID_ERROR,
 } from '../../../domain/order/orderErrors';
 import {
@@ -41,6 +44,8 @@ import {
   PaymentMethod,
 } from '../../../domain/order/Order';
 import { lastOrdersLeadMinutes } from '../../../domain/order/kitchenTiming';
+import { isBookableSlot, parseSlotStart } from '../../../domain/order/scheduling';
+import { periodKeyFor } from '../../../domain/usage/usagePeriod';
 import { normaliseTableLabel } from '../../../domain/order/table';
 import { generateAccessToken, IDEMPOTENCY_KEY_PATTERN, orderIdForIdempotencyKey } from '../../../domain/order/orderIds';
 import { generateOrderRef } from '../../../domain/order/orderRef';
@@ -158,6 +163,12 @@ export async function executeCheckout(
   if (expectedFee !== undefined && (typeof expectedFee !== 'number' || !Number.isInteger(expectedFee) || expectedFee < 0)) {
     return { ok: false, code: 'INVALID_INPUT', error: EXPECTED_FEE_ERROR };
   }
+  let scheduledFor: Date | null = null;
+  if (request.scheduledFor !== undefined && request.scheduledFor !== null) {
+    scheduledFor = parseSlotStart(request.scheduledFor);
+    if (!scheduledFor) return { ok: false, code: 'INVALID_INPUT', error: SCHEDULED_FOR_ERROR };
+    if (mode === 'dine_in') return { ok: false, code: 'INVALID_INPUT', error: SCHEDULE_NOT_FOR_TABLES_ERROR };
+  }
 
   try {
     const now = options.now ?? new Date();
@@ -230,9 +241,19 @@ export async function executeCheckout(
       return { ok: false, code: 'CONFLICT', error: LEGAL_CHANGED_ERROR };
     }
 
-    if (!isOpenForAsapOrder(hoursForMode(shop, mode), shop.closures, shop.timezone, now, lastOrdersLeadMinutes(shop, mode))) {
+    if (scheduledFor) {
+      if (!isBookableSlot(shop, mode, scheduledFor, now)) return { ok: false, code: 'CONFLICT', error: SLOT_UNAVAILABLE_ERROR };
+      // A slot in a later month may not pre-book past that month's limit.
+      if (
+        periodKeyFor(scheduledFor, shop.timezone) !== periodKeyFor(now, shop.timezone) &&
+        (await loadOrderLimitStatus(shop, scheduledFor)).limitReached
+      ) {
+        return { ok: false, code: 'INVALID_INPUT', error: ORDER_LIMIT_REACHED_ERROR };
+      }
+    } else if (!isOpenForAsapOrder(hoursForMode(shop, mode), shop.closures, shop.timezone, now, lastOrdersLeadMinutes(shop, mode))) {
       return { ok: false, code: 'INVALID_INPUT', error: SHOP_CLOSED_ERROR };
     }
+    const pricedAt = scheduledFor ?? now;
 
     const zone = deliveryAddress ? findDeliveryZone(shop, deliveryAddress.postcode) : null;
     if (deliveryAddress && !zone) return { ok: false, code: 'INVALID_INPUT', error: DELIVERY_POSTCODE_NOT_SERVED_ERROR };
@@ -243,12 +264,12 @@ export async function executeCheckout(
     // --- Resolve prices server-side (never trust client amounts) ---
     const context = await loadPricingContext(shop, request.items.map((i) => i.productId));
     const language = resolveMenuLanguage(request.language, menuLanguagesOf(shop));
-    const priced = priceBasket({ items: request.items, ...context, shop, mode, now, language });
+    const priced = priceBasket({ items: request.items, ...context, shop, mode, now: pricedAt, language });
     if (!priced.allOk) {
       return { ok: false, code: 'CONFLICT', error: BASKET_CHANGED_ERROR };
     }
     const { items: orderItems, subtotalCents } = priced;
-    const fee = zone ? deliveryFeeCharge(shop, zone, context.refs, now) : null;
+    const fee = zone ? deliveryFeeCharge(shop, zone, context.refs, pricedAt) : null;
     const charges = fee ? [fee] : [];
     const totalCents = subtotalCents + chargesTotalCents(charges);
     const taxBreakdown = buildTaxBreakdownWithCharges(orderItems, charges);
@@ -308,6 +329,7 @@ export async function executeCheckout(
       customerNotes: request.customerNotes,
       ...(customerAddress ? { customerAddress } : {}),
       ...(table ? { table } : {}),
+      ...(scheduledFor ? { scheduledFor: scheduledFor.toISOString() } : {}),
       ...(deliveryAddress ? { deliveryAddress } : {}),
       fulfilmentMode: mode,
       taxBreakdown,
