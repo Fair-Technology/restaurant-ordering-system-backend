@@ -70,6 +70,11 @@ import './functions/promotion/updateLoyalty/index';
 import './functions/report/getSalesReport/index';
 import './functions/report/getOwnerOverview/index';
 
+// Combo endpoints
+import './functions/combo/getCombos/index';
+import './functions/combo/createCombo/index';
+import './functions/combo/updateCombo/index';
+
 // Audit endpoints
 import './functions/audit/getAuditEntries/index';
 

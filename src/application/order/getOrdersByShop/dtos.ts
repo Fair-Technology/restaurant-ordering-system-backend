@@ -28,6 +28,7 @@ export type OrderItemDto = {
   selectedAddonOptionNames?: string[] | null;
   lineTotalCents: number;
   discountCents: number; // this line's share of the order discount; 0 when none
+  combo: { line: number; productId: string; name: string } | null; // lines sharing `line` are one combo; null = a dish
 };
 
 export type OrderDto = {

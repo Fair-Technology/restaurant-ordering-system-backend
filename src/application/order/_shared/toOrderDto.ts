@@ -37,6 +37,7 @@ export function toOrderDto(order: Order, now: Date): OrderDto {
       selectedAddonOptionNames: item.selectedAddonOptionNames,
       lineTotalCents: item.lineTotalCents,
       discountCents: item.discountCents ?? 0,
+      combo: item.combo ?? null,
     })),
     subtotalCents: order.subtotalCents,
     totalCents: chargedCents(order),

@@ -78,4 +78,13 @@ describe('executeGetProductsByShop', () => {
 
     expect((result as any).data.map((p: any) => p.id)).toEqual(['p1', 'p2']);
   });
+
+  it('combos are left out of the dish list', async () => {
+    vi.mocked(findProductsByShopId).mockResolvedValue([
+      product('p1', ['c-pasta']),
+      { ...product('m1', ['c-pasta']), combo: { groups: [], bmfDrinkShare: false } },
+    ] as any);
+    const result = await executeGetProductsByShop({ shopId: 'shop-1' });
+    expect((result as any).data.map((p: any) => p.id)).toEqual(['p1']);
+  });
 });

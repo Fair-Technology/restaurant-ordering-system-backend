@@ -9,8 +9,9 @@ import {
   REFUND_RATE_EXCEEDED_ERROR,
   REFUND_REASON_ERROR,
   REFUND_STATE_ERROR,
+  refundComboError,
 } from '../../../src/domain/order/orderErrors';
-import { ACCEPTED_CARD_ORDER, ACCEPTED_DELIVERY_ORDER, ACCEPTED_TWO_LINE_ORDER, CARD_SHOP, DISCOUNTED_ORDER, orderStore } from '../../fixtures/orders';
+import { ACCEPTED_CARD_ORDER, ACCEPTED_DELIVERY_ORDER, ACCEPTED_TWO_LINE_ORDER, CARD_SHOP, COMBO_ORDER, DISCOUNTED_ORDER, orderStore } from '../../fixtures/orders';
 
 const m = vi.hoisted(() => ({
   authorizeShopAction: vi.fn(),
@@ -324,5 +325,35 @@ describe('executeRefundOrder with a discount', () => {
         ],
       }),
     );
+  });
+});
+
+describe('executeRefundOrder with a combo', () => {
+  const completed = { ...COMBO_ORDER, state: 'COMPLETED' as const, invoiceNumber: 'R-2026-00001' };
+
+  it('ticking every dish of a combo refunds the whole combo', async () => {
+    setup(completed);
+    const res = await executeRefundOrder(
+      { shopId: 'shop-1', orderId: 'o6', items: [{ lineIndex: 0, quantity: 1 }, { lineIndex: 1, quantity: 1 }], reason: 'Menü falsch' },
+      http,
+      { now },
+    );
+    expect(res.ok).toBe(true);
+    expect(m.createRefund).toHaveBeenCalledWith(expect.objectContaining({ amountCents: 1200 }));
+    expect((m.store.current as Order).refunds![0].lines).toEqual([
+      { lineIndex: 0, quantity: 1, grossCents: 900, taxRateBasisPoints: 700 },
+      { lineIndex: 1, quantity: 1, grossCents: 300, taxRateBasisPoints: 1900 },
+    ]);
+  });
+
+  it('ticking only the drink of a combo is refused', async () => {
+    setup(completed);
+    const res = await executeRefundOrder(
+      { shopId: 'shop-1', orderId: 'o6', items: [{ lineIndex: 1, quantity: 1 }], reason: 'Cola fehlte' },
+      http,
+      { now },
+    );
+    expect(res).toEqual({ ok: false, code: 'INVALID_INPUT', error: refundComboError('Pasta-Menü') });
+    expect(m.createRefund).not.toHaveBeenCalled();
   });
 });

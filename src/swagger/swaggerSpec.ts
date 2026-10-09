@@ -2139,6 +2139,21 @@ export const swaggerSpec = {
             description: 'IDs of selected addon options',
             example: ['addon-cheese', 'addon-bacon'],
           },
+          comboChoices: {
+            type: 'array',
+            maxItems: 10,
+            description: 'Only for a combo: exactly one chosen dish per combo group, each with its own size and extras',
+            items: {
+              type: 'object',
+              required: ['groupId', 'productId'],
+              properties: {
+                groupId: { type: 'string' },
+                productId: { type: 'string' },
+                selectedVariantOptionId: { type: 'string' },
+                selectedAddonOptionIds: { type: 'array', items: { type: 'string' } },
+              },
+            },
+          },
         },
       },
       CheckoutRequest: {

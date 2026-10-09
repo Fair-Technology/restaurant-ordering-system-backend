@@ -15,7 +15,7 @@ import { extractVatCents } from '../../src/domain/order/tax';
 import type { Shop } from '../../src/domain/shop/Shop';
 import { priceBasket } from '../../src/application/order/_shared/priceBasket';
 import { DE_REFERENCE_LISTS } from '../../src/domain/reference/ReferenceLists';
-import { ACCEPTED_CARD_ORDER, ACCEPTED_DELIVERY_ORDER, ADDRESS, CARD_SHOP, CATEGORIES, DELIVERY_ADDRESS, DISCOUNTED_ORDER, FEE_CHARGE, P_PASTA } from '../fixtures/orders';
+import { ACCEPTED_CARD_ORDER, ACCEPTED_DELIVERY_ORDER, ADDRESS, CARD_SHOP, CATEGORIES, DELIVERY_ADDRESS, COMBO_CHOICES, COMBO_ORDER, DISCOUNTED_ORDER, FEE_CHARGE, P_COLA, P_COMBO, P_PASTA } from '../fixtures/orders';
 
 const now = new Date('2026-10-05T10:05:00Z');
 const NUMBER = 'R-2026-00001';
@@ -509,5 +509,49 @@ describe('discounted invoices', () => {
     expect(c.documentType).toBe('cancellation');
     expect(c.lines[2].lineTotalCents).toBe(105);
     expect(c.totalCents).toBe(-1260);
+  });
+});
+
+describe('combos', () => {
+  it('a combo prints each dish at its share and its own rate', () => {
+    const priced = priceBasket({
+      items: [{ productId: 'p9', quantity: 1, comboChoices: COMBO_CHOICES }],
+      products: new Map([P_PASTA, P_COLA, P_COMBO].map((p) => [p.id, p])),
+      categories: CATEGORIES,
+      refs: DE_REFERENCE_LISTS,
+      shop: { timezone: 'Europe/Berlin', menuLanguages: ['de'], countryCode: 'DE' },
+      mode: 'collection',
+      now,
+      language: 'de',
+    });
+    const inv = buildInvoice({
+      order: { ...ACCEPTED_CARD_ORDER, items: priced.items, subtotalCents: 1200, totalCents: 1200, taxBreakdown: priced.taxBreakdown },
+      shop: CARD_SHOP,
+      number: NUMBER,
+      now,
+    });
+    expect(inv.lines).toEqual([
+      expect.objectContaining({ name: 'Pasta-Menü: Carbonara', quantity: 1, unitPriceCents: 900, lineTotalCents: 900, taxRateBasisPoints: 700, taxCents: 59 }),
+      expect.objectContaining({ name: 'Pasta-Menü: Cola', quantity: 1, unitPriceCents: 300, lineTotalCents: 300, taxRateBasisPoints: 1900, taxCents: 48 }),
+    ]);
+    expect(inv.totalCents).toBe(1200);
+    const t = text(inv);
+    for (const s of ['Nettobetrag 7 %: 8,41 €', 'USt. 7 %: 0,59 €', 'Nettobetrag 19 %: 2,52 €', 'USt. 19 %: 0,48 €', 'Gesamtbetrag (brutto): 12,00 €']) {
+      expect(t).toContain(s);
+    }
+  });
+
+  it('a full refund of a combo negates every dish', () => {
+    const c = buildCorrection({
+      original: buildInvoice({ order: COMBO_ORDER, shop: CARD_SHOP, number: NUMBER, now }),
+      refunds: [{ amountCents: 1200 }],
+      index: 0,
+      refundId: 'r1',
+      number: 'R-2026-00002',
+      now,
+    } as Parameters<typeof buildCorrection>[0]);
+    expect(c.documentType).toBe('cancellation');
+    expect(c.lines.map((l) => l.lineTotalCents)).toEqual([-900, -300]);
+    expect(c.totalCents).toBe(-1200);
   });
 });

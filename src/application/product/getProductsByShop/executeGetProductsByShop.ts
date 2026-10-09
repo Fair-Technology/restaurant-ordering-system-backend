@@ -39,6 +39,8 @@ export async function executeGetProductsByShop(
     const productDtos: ProductDto[] = [];
 
     for (const product of products) {
+      // Combos are managed on their own page (application/combo), never in the dish list.
+      if (product.combo) continue;
       const categories: Array<{
         id: string;
         name: string;

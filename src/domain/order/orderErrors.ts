@@ -24,6 +24,10 @@ export const REFUND_ITEMS_ERROR = 'items must list order lines with whole quanti
 export function refundQuantityError(lineIndex: number, left: number): string {
   return `Only ${left} of line ${lineIndex + 1} can still be refunded`;
 }
+/** A combo's dishes are sold as one price, so a refund takes all of them or none. */
+export function refundComboError(name: string): string {
+  return `${name} is a combo and can only be refunded as a whole: tick every dish of it, with the same quantity`;
+}
 export const REFUND_RATE_EXCEEDED_ERROR =
   'Part of these items was already refunded as a free amount — refund a free amount instead';
 export const REFUND_AMOUNT_ERROR = 'Refund amount must be between 1 cent and the amount not yet refunded';
@@ -72,3 +76,4 @@ export const DISCOUNT_ALREADY_USED_ERROR = 'You have already used this code.'; /
 export const DISCOUNT_CODE_FORMAT_ERROR = 'discountCode must be 3 to 20 letters, digits or dashes';
 export const EXPECTED_DISCOUNT_ERROR = 'expectedDiscountCents must be a whole number of cents';
 export const LOYALTY_OPT_IN_ERROR = 'loyaltyOptIn must be true or false';
+export const COMBO_CHOICES_ERROR = 'comboChoices must list one choice (groupId and productId) per combo group';

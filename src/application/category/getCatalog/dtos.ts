@@ -33,6 +33,10 @@ export interface CatalogAdditiveDto {
   label: string;
 }
 
+export interface CatalogComboDto {
+  groups: { id: string; name: string; productIds: string[] }[]; // only dishes that are on this menu right now
+}
+
 export interface CatalogProductDto {
   id: string;
   name: string;
@@ -49,6 +53,7 @@ export interface CatalogProductDto {
   dietaryTags: CatalogLabelDto[];
   spice: CatalogLabelDto | null;
   unavailableModes: FulfilmentMode[]; // modes this dish is not offered for
+  combo: CatalogComboDto | null; // null for a dish
   createdAt: string;
   updatedAt: string;
 }

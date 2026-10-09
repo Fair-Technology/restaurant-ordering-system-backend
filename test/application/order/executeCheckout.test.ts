@@ -55,7 +55,7 @@ import { createPaymentIntent } from '../../../src/infrastructure/stripe/stripeCl
 import { findSlotPlacesWithEtag } from '../../../src/infrastructure/cosmos/usage/CosmosSlotPlacesRepository';
 import { capped, dayDoc, installSlotStore } from '../../fixtures/slotPlaces';
 import { ACCEPTED_DPA, COMPLETE_LEGAL } from '../../fixtures/legal';
-import { ADDRESS, CARD_SHOP, LUNCH_HOURS, NOW_CLOSED, NOW_OPEN, P_COLA, P_PASTA, PLACED_CARD_ORDER, DINE_IN_SHOP, PLACED_TABLE_ORDER, DELIVERY_SHOP, DELIVERY_ZONE, SCHEDULED_SHOP, PROMO_CODE, PROMOTIONS } from '../../fixtures/orders';
+import { ADDRESS, CARD_SHOP, COMBO_CHOICES, P_COMBO, LUNCH_HOURS, NOW_CLOSED, NOW_OPEN, P_COLA, P_PASTA, PLACED_CARD_ORDER, DINE_IN_SHOP, PLACED_TABLE_ORDER, DELIVERY_SHOP, DELIVERY_ZONE, SCHEDULED_SHOP, PROMO_CODE, PROMOTIONS } from '../../fixtures/orders';
 import { executeCheckout } from '../../../src/application/order/checkout/executeCheckout';
 import { CheckoutRequestDto } from '../../../src/application/order/checkout/dtos';
 import {
@@ -519,6 +519,37 @@ describe('executeCheckout card placement', () => {
       const saved = (upsertCheckoutSession as any).mock.calls[0][0];
       expect(saved.items.map((i: { discountCents?: number }) => i.discountCents)).toEqual([105, 35]);
       expect(res.ok && res.data).toMatchObject({ subtotalCents: 1400, totalCents: 1260 });
+    });
+
+    it('a discount spreads over the dishes of a combo', async () => {
+      (findProductById as any).mockImplementation(
+        async (id: string) => ({ p1: P_PASTA, p2: P_COLA, p9: P_COMBO } as Record<string, unknown>)[id] ?? null,
+      );
+      const res = await executeCheckout(
+        {
+          ...cardRequest,
+          items: [{ productId: 'p9', quantity: 1, expectedUnitPriceCents: 1200, comboChoices: COMBO_CHOICES }],
+          discountCode: 'WELCOME10',
+          expectedDiscountCents: 120,
+        },
+        { now: NOW_OPEN },
+      );
+      expect(res.ok).toBe(true);
+      expect(createPaymentIntent).toHaveBeenCalledWith(expect.objectContaining({ amountCents: 1080 }));
+      expect(upsertCheckoutSession).toHaveBeenCalledWith(
+        expect.objectContaining({
+          subtotalCents: 1200,
+          totalCents: 1080,
+          taxBreakdown: [
+            { rateBasisPoints: 700, grossCents: 810, taxCents: 53 },
+            { rateBasisPoints: 1900, grossCents: 270, taxCents: 43 },
+          ],
+        }),
+      );
+      expect((upsertCheckoutSession as any).mock.calls[0][0].items).toMatchObject([
+        { productName: 'Pasta-Menü: Carbonara', unitPriceCents: 900, discountCents: 90, combo: { line: 0, productId: 'p9', name: 'Pasta-Menü' } },
+        { productName: 'Pasta-Menü: Cola', unitPriceCents: 300, discountCents: 30 },
+      ]);
     });
 
     it('a changed discount needs a new look', async () => {
