@@ -63,6 +63,23 @@ export function buildCatalog(input: {
 
   const visible = products.filter((p) => isOnMenu(p) && isWithinSchedule(p.schedule ?? null, shop.timezone, now));
 
+  // A combo only offers dishes that are on the menu and listed under a live category; with a choice
+  // left empty it is not on the menu at all.
+  const liveCategoryIds = new Set(categories.filter((c) => !c.isDeleted).map((c) => c.id));
+  const listed = new Map(
+    visible.filter((p) => !p.combo && p.categoryIds.some((id) => liveCategoryIds.has(id))).map((p) => [p.id, p]),
+  );
+  const comboGroups = (p: Product) =>
+    (p.combo?.groups ?? []).map((g) => ({
+      id: g.id,
+      name: L(g.name, undefined),
+      productIds: g.productIds.filter((id) => listed.has(id)),
+    }));
+  const offered = visible.filter((p) => !p.combo || comboGroups(p).every((g) => g.productIds.length > 0));
+  const unionOf = (p: Product, key: 'allergenIds' | 'additiveIds'): string[] => [
+    ...new Set(comboGroups(p).flatMap((g) => g.productIds).flatMap((id) => listed.get(id)?.[key] ?? [])),
+  ];
+
   const allergenLabel = (ids: string[] | null): CatalogLabelDto[] =>
     refs.allergens
       .filter((a) => (ids ?? []).includes(a.id))
@@ -95,7 +112,7 @@ export function buildCatalog(input: {
       name: L(c.name, c.nameTranslations),
       sortOrder: c.sortOrder,
       icon: c.icon ?? undefined,
-      products: visible
+      products: offered
         .filter((p) => p.categoryIds.includes(c.id))
         .map((p): CatalogProductDto => ({
           id: p.id,
@@ -123,11 +140,12 @@ export function buildCatalog(input: {
             options: g.options.map(opt),
           })),
           isAvailable: p.isAvailable,
-          allergens: allergenLabel(p.allergenIds),
-          additives: additiveLabel(p.additiveIds),
+          allergens: allergenLabel(p.combo ? unionOf(p, 'allergenIds') : p.allergenIds),
+          additives: additiveLabel(p.combo ? unionOf(p, 'additiveIds') : p.additiveIds),
           dietaryTags: tagLabel(p.dietaryTagIds),
           spice: spice(p.spiceLevel),
           unavailableModes: p.unavailableModes ?? [],
+          combo: p.combo ? { groups: comboGroups(p) } : null,
           createdAt: p.createdAt,
           updatedAt: p.updatedAt,
         })),

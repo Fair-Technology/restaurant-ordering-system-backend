@@ -131,3 +131,46 @@ describe('buildCatalog', () => {
     expect(products.find((p) => p.id === 'p1')?.unavailableModes).toEqual([]);
   });
 });
+
+describe('buildCatalog combos', () => {
+  const dishA: Product = { ...p1, id: 'pa', name: 'Pasta', allergenIds: ['gluten'], additiveIds: [], variantGroups: [] };
+  const dishB: Product = { ...p1, id: 'pb', name: 'Cola', allergenIds: ['milk'], additiveIds: ['caffeine'], variantGroups: [] };
+  const menu: Product = {
+    ...p1,
+    id: 'm1',
+    name: 'Menü',
+    price: 1200,
+    allergenIds: [],
+    additiveIds: [],
+    variantGroups: [],
+    combo: {
+      groups: [
+        { id: 'g1', name: 'Hauptgericht', productIds: ['pa'] },
+        { id: 'g2', name: 'Getränk', productIds: ['pb', 'gone'] },
+      ],
+      bmfDrinkShare: false,
+    },
+  };
+  const build = (products: Product[]) =>
+    buildCatalog({ shop, categories: [category], products, refs: DE_REFERENCE_LISTS, lang: 'de', now }).categories[0].products;
+
+  it('a combo lists only dishes on the menu and the union of their allergens', () => {
+    const products = build([dishA, dishB, menu]);
+    const m = products.find((p) => p.id === 'm1')!;
+    expect(m.combo).toEqual({
+      groups: [
+        { id: 'g1', name: 'Hauptgericht', productIds: ['pa'] },
+        { id: 'g2', name: 'Getränk', productIds: ['pb'] },
+      ],
+    });
+    expect(m.allergens.map((a) => a.id)).toEqual(['gluten', 'milk']);
+    expect(m.additives).toEqual([{ id: 'caffeine', code: 11, label: 'koffeinhaltig' }]);
+    expect(m.price).toBe(1200);
+    expect(products.find((p) => p.id === 'pa')!.combo).toBeNull();
+  });
+
+  it('a combo with an empty choice is not on the menu', () => {
+    expect(build([dishA, { ...dishB, isAvailable: false }, menu]).map((p) => p.id)).not.toContain('m1');
+    expect(build([dishA, { ...dishB, categoryIds: ['c-gone'] }, menu]).map((p) => p.id)).not.toContain('m1');
+  });
+});
