@@ -1,5 +1,5 @@
 import type { MenuLanguage } from '../reference/ReferenceLists';
-import { CustomerAddress, DeliveryAddress, FulfilmentMode, LegalRevisions, OrderCharge, OrderItem, OrderTable, TaxBreakdownEntry } from './Order';
+import { CustomerAddress, DeliveryAddress, FulfilmentMode, LegalRevisions, OrderCharge, OrderDiscount, OrderItem, OrderTable, TaxBreakdownEntry } from './Order';
 
 export interface CheckoutSession {
   id: string;                    // UUID — also the partition key
@@ -9,6 +9,8 @@ export interface CheckoutSession {
   subtotalCents: number;
   totalCents?: number;           // subtotal + charges
   charges?: OrderCharge[];
+  discount?: OrderDiscount;
+  loyaltyOptIn?: true;
   deliveryAddress?: DeliveryAddress;
   currency: string;
   customerName: string;

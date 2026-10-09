@@ -1,5 +1,6 @@
 import { REFUND_ITEMS_ERROR, refundQuantityError } from './orderErrors';
 import type { OrderItem, RefundLine, TaxBreakdownEntry } from './Order';
+import { paidCentsForUnits } from './discount';
 
 export interface RateAmount {
   rateBasisPoints: number;
@@ -103,7 +104,9 @@ export function refundedQuantities(lineCount: number, refunds: ReadonlyArray<Ref
 
 /** Checks a ticked-items request and prices it: a list of refund lines, or an error message. */
 export function buildItemRefundLines(
-  items: ReadonlyArray<Pick<OrderItem, 'quantity' | 'unitPriceCents' | 'taxRateBasisPoints'>>,
+  items: ReadonlyArray<
+    Pick<OrderItem, 'quantity' | 'unitPriceCents' | 'taxRateBasisPoints'> & Partial<Pick<OrderItem, 'lineTotalCents' | 'discountCents'>>
+  >,
   refunds: ReadonlyArray<RefundShape>,
   request: unknown,
 ): RefundLine[] | string {
@@ -130,7 +133,7 @@ export function buildItemRefundLines(
     lines.push({
       lineIndex,
       quantity,
-      grossCents: items[lineIndex].unitPriceCents * quantity,
+      grossCents: paidCentsForUnits(items[lineIndex], already[lineIndex], quantity),
       taxRateBasisPoints: items[lineIndex].taxRateBasisPoints ?? 0,
     });
   }

@@ -102,4 +102,19 @@ describe('refund allocation', () => {
     }
     expect(refundedQuantities(2, [cola1])).toEqual([0, 1]);
   });
+
+  it('a discounted line refunds what was paid for it', () => {
+    const items = [
+      { quantity: 1, unitPriceCents: 1050, lineTotalCents: 1050, discountCents: 250, taxRateBasisPoints: 700 },
+      { quantity: 2, unitPriceCents: 350, lineTotalCents: 700, discountCents: 133, taxRateBasisPoints: 1900 },
+    ];
+    expect(buildItemRefundLines(items, [], [{ lineIndex: 1, quantity: 1 }])).toEqual([
+      { lineIndex: 1, quantity: 1, grossCents: 283, taxRateBasisPoints: 1900 },
+    ]);
+    const prior = { amountCents: 283, lines: [{ lineIndex: 1, quantity: 1, grossCents: 283, taxRateBasisPoints: 1900 }] };
+    expect(buildItemRefundLines(items, [prior], [{ lineIndex: 1, quantity: 1 }])).toEqual([
+      { lineIndex: 1, quantity: 1, grossCents: 284, taxRateBasisPoints: 1900 },
+    ]);
+    expect((buildItemRefundLines(items, [], [{ lineIndex: 0, quantity: 1 }]) as Array<{ grossCents: number }>)[0].grossCents).toBe(800);
+  });
 });
