@@ -4,7 +4,7 @@ import { DEFAULT_ROLE_PERMISSIONS, permissionsForRole } from '../../src/domain/s
 describe('permissionsForRole', () => {
   it('owner gets every permission', () => {
     const result = permissionsForRole('owner', { manager: [], staff: [] });
-    expect(result).toHaveLength(7);
+    expect(result).toHaveLength(8);
   });
 
   it('manager with defaults', () => {
@@ -30,6 +30,11 @@ describe('permissionsForRole', () => {
 
   it('owner ignores the stored doc', () => {
     const result = permissionsForRole('owner', { manager: [], staff: [] });
-    expect(result).toHaveLength(7);
+    expect(result).toHaveLength(8);
+  });
+
+  it('managers see reports by default, staff never', () => {
+    expect(DEFAULT_ROLE_PERMISSIONS.manager).toContain('view_reports');
+    expect(DEFAULT_ROLE_PERMISSIONS.staff).not.toContain('view_reports');
   });
 });
