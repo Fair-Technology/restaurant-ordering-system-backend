@@ -4,6 +4,16 @@ import { displayPaymentStatus, refundedCents, wasAutoAccepted } from '../../../d
 import { documentsOf } from '../invoices/issueInvoice';
 import type { OrderDto } from '../getOrdersByShop/dtos';
 
+/**
+ * The platform superadmin's view of an order. The platform is a processor, so it
+ * gets only what its screen needs: the diner's name stays, while the delivery and
+ * billing address, email, phone and notes are blanked.
+ */
+export function toSuperadminOrderDto(order: Order, now: Date): OrderDto {
+  const { customerNotes: _notes, ...rest } = toOrderDto(order, now);
+  return { ...rest, deliveryAddress: null, customerAddress: null, customerEmail: '', customerPhone: '' };
+}
+
 /** The restaurant's view of an order. Deliberately omits customerAccessToken and idempotencyKey. */
 export function toOrderDto(order: Order, now: Date): OrderDto {
   return {

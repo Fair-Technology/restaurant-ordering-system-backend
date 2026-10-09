@@ -4,7 +4,7 @@ import {
   findOrdersByShopIdPaginated,
 } from '../../../infrastructure/cosmos/order/CosmosOrderRepository';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
-import { toOrderDto } from '../_shared/toOrderDto';
+import { toOrderDto, toSuperadminOrderDto } from '../_shared/toOrderDto';
 import { authorizeShopAction } from '../../_shared/shopAccess';
 import {
   GetOrdersByShopRequestDto,
@@ -56,7 +56,9 @@ export async function executeGetOrdersByShop(
     ]);
 
     const now = new Date();
-    const orderDtos: OrderDto[] = orders.map((order) => toOrderDto(order, now));
+    const orderDtos: OrderDto[] = orders.map((order) =>
+      access.actor.actorType === 'superadmin' ? toSuperadminOrderDto(order, now) : toOrderDto(order, now),
+    );
 
     return {
       ok: true,
