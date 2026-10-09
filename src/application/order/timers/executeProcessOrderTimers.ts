@@ -8,7 +8,8 @@ import {
   isDueForAutoReject,
   isDueForEscalation,
 } from '../../../domain/order/orderTimers';
-import { autoAcceptsAt } from '../../../domain/order/kitchenTiming';
+import { orderSettingsOf } from '../../../domain/order/orderSettings';
+import { autoAcceptsOrder, isUpcoming } from '../../../domain/order/scheduling';
 import type { Shop } from '../../../domain/shop/Shop';
 import {
   findInvoicedOrdersWithRefunds,
@@ -61,13 +62,15 @@ export interface OrderTimersResult {
   autoRejected: number;
   autoCompleted: number;
   autoAccepted: number;
+  queued: number;
   released: number;
   invoicesIssued: number;
   correctionsIssued: number;
 }
 
 /**
- * Runs every minute. Accepts waiting orders for restaurants with auto-accept on (the retry for an order
+ * Runs every minute. Booked orders are left alone until one ready time before their slot; then they enter the queue,
+ * and the alert, decline and auto-accept start from that moment. Accepts waiting orders for restaurants with auto-accept on (the retry for an order
  * the webhook could not accept because the payment service was down). For orders nobody has answered: emails the restaurant after 3 minutes, declines at
  * the restaurant's timeout (and gives the money back). Declined orders whose payment could not be released are retried every 15 minutes. For ready or delivered orders nobody marked as handed over: completes them once the local day is over.
  * One bad order never stops the rest; a lost race with staff is skipped silently.
@@ -79,6 +82,7 @@ export async function executeProcessOrderTimers(input: { now: Date }): Promise<O
     autoRejected: 0,
     autoCompleted: 0,
     autoAccepted: 0,
+    queued: 0,
     released: 0,
     invoicesIssued: 0,
     correctionsIssued: 0,
@@ -92,11 +96,36 @@ export async function executeProcessOrderTimers(input: { now: Date }): Promise<O
   // Every waiting order, whatever its age: auto-accept retries each minute, while escalation and
   // auto-decline check their own times below.
   const placed = await findPlacedOrdersCreatedBefore(now.toISOString());
-  for (const o of placed) {
+  for (const found of placed) {
+    let o = found;
     try {
       const shop = await shopOf(o.shopId);
       if (!shop) continue;
-      if (autoAcceptsAt(shop, new Date(o.createdAt))) {
+      // A booked order waits silently until one ready time before its slot, then starts like a new order.
+      if (o.scheduledFor && !o.queuedAt) {
+        if (isUpcoming(o, shop, now)) continue;
+        const autoRejectMinutes = orderSettingsOf(shop).autoRejectMinutes;
+        const entered = await transitionOrder({
+          orderId: o.id,
+          shopId: o.shopId,
+          change: (x) =>
+            x.state === 'PLACED' && !x.queuedAt
+              ? {
+                  ok: true,
+                  order: {
+                    ...x,
+                    queuedAt: now.toISOString(),
+                    autoRejectAt: new Date(now.getTime() + autoRejectMinutes * 60_000).toISOString(),
+                    updatedAt: now.toISOString(),
+                  },
+                }
+              : { ok: false, error: 'skip' },
+        });
+        if (!entered.ok) continue;
+        o = entered.order;
+        result.queued++;
+      }
+      if (autoAcceptsOrder(shop, o)) {
         const accepted = await acceptPlacedOrder({ orderId: o.id, shop, actor: { type: 'system' }, now });
         if (accepted.ok) {
           result.autoAccepted++;
@@ -134,7 +163,7 @@ export async function executeProcessOrderTimers(input: { now: Date }): Promise<O
         }
       }
     } catch {
-      console.error('[timers:error] placed order', o.id);
+      console.error('[timers:error] placed order', found.id);
     }
   }
 

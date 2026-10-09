@@ -1,4 +1,4 @@
-import { autoAcceptsAt } from '../../../domain/order/kitchenTiming';
+import { autoAcceptsOrder, isUpcoming } from '../../../domain/order/scheduling';
 import { orderSettingsOf } from '../../../domain/order/orderSettings';
 import { PAYMENT_SERVICE_UNAVAILABLE_ERROR } from '../../../domain/order/orderErrors';
 import { generateOrderRef } from '../../../domain/order/orderRef';
@@ -43,12 +43,17 @@ export async function executeHandlePaymentAuthorized(input: {
   const shop = await findShopById(session.shopId);
   if (!shop) throw new Error(`Shop ${session.shopId} not found for session ${session.id}`);
   const settings = orderSettingsOf(shop);
+  // A booked order that is not due yet waits quietly; one that is due already (the diner idled on the payment step) starts now.
+  const inLiveQueue =
+    !session.scheduledFor ||
+    !isUpcoming({ state: 'PLACED', scheduledFor: session.scheduledFor, fulfilmentMode: session.fulfilmentMode }, shop, now);
   const order = buildPlacedOrderFromSession({
     session,
     paymentIntentId: input.paymentIntentId,
     orderRef: session.orderRef ?? generateOrderRef(),
     autoRejectMinutes: settings.autoRejectMinutes,
     now,
+    inLiveQueue,
   });
   try {
     await createOrder(order);
@@ -62,7 +67,7 @@ export async function executeHandlePaymentAuthorized(input: {
   await deleteCheckoutSession(session.id);
 
   // Auto-accepted orders get one email (the acceptance); a received email would arrive a second before it.
-  const autoAccepts = autoAcceptsAt(shop, now);
+  const autoAccepts = autoAcceptsOrder(shop, order);
   let sendReceived = !autoAccepts;
   if (autoAccepts) {
     try {

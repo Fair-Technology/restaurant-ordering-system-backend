@@ -29,7 +29,7 @@ import { findShopById } from '../../../src/infrastructure/cosmos/shop/CosmosShop
 import { sendEmail } from '../../../src/infrastructure/email/emailSender';
 import { releaseAuthorization } from '../../../src/infrastructure/stripe/stripeClient';
 import { PAYMENT_SERVICE_UNAVAILABLE_ERROR } from '../../../src/domain/order/orderErrors';
-import { CARD_SHOP, NOW_OPEN, PLACED_CARD_ORDER } from '../../fixtures/orders';
+import { CARD_SHOP, NOW_OPEN, PLACED_CARD_ORDER, SLOT_1800 } from '../../fixtures/orders';
 
 const session: CheckoutSession = {
   id: 'sess-1',
@@ -151,5 +151,26 @@ describe('executeHandlePaymentAuthorized', () => {
     (createOrder as any).mockRejectedValueOnce({ code: 500 });
     await expect(executeHandlePaymentAuthorized(input)).rejects.toEqual({ code: 500 });
     expect(deleteCheckoutSession).not.toHaveBeenCalled();
+  });
+
+  it('a scheduled order waits without a decline time', async () => {
+    (findCheckoutSessionById as any).mockResolvedValue({ ...session, scheduledFor: SLOT_1800 });
+    (findShopById as any).mockResolvedValue(CARD_SHOP); // auto-accept on
+    expect(await executeHandlePaymentAuthorized(input)).toBe('created');
+    expect(acceptPlacedOrder).not.toHaveBeenCalled();
+    const created = (createOrder as any).mock.calls[0][0];
+    expect(created).toMatchObject({ scheduledFor: SLOT_1800 });
+    expect(created.autoRejectAt).toBeUndefined();
+    expect(created.queuedAt).toBeUndefined();
+  });
+
+  it('a scheduled order already due is treated like a new order', async () => {
+    (findCheckoutSessionById as any).mockResolvedValue({ ...session, scheduledFor: '2026-10-05T10:15:00.000Z' });
+    (findShopById as any).mockResolvedValue(CARD_SHOP);
+    await executeHandlePaymentAuthorized(input);
+    expect(createOrder).toHaveBeenCalledWith(
+      expect.objectContaining({ queuedAt: '2026-10-05T10:00:00.000Z', autoRejectAt: '2026-10-05T10:10:00.000Z' }),
+    );
+    expect(acceptPlacedOrder).toHaveBeenCalledTimes(1);
   });
 });

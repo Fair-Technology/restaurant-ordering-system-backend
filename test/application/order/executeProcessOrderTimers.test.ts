@@ -44,7 +44,16 @@ import { findInvoicedOrdersWithRefunds } from '../../../src/infrastructure/cosmo
 import { findShopById } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
 import { sendEmail } from '../../../src/infrastructure/email/emailSender';
 import { capturePaymentIntent, releaseAuthorization } from '../../../src/infrastructure/stripe/stripeClient';
-import { ACCEPTED_CARD_ORDER, ACCEPTED_DELIVERY_ORDER, CARD_SHOP as DEFAULT_SHOP, orderStore, PLACED_CARD_ORDER } from '../../fixtures/orders';
+import {
+  ACCEPTED_CARD_ORDER,
+  ACCEPTED_DELIVERY_ORDER,
+  CARD_SHOP as DEFAULT_SHOP,
+  orderStore,
+  PLACED_CARD_ORDER,
+  SCHEDULED_ORDER,
+  SCHEDULED_SHOP,
+  SLOT_1800,
+} from '../../fixtures/orders';
 
 // A restaurant that accepts by hand; without orderSettings a shop auto-accepts.
 const CARD_SHOP = { ...DEFAULT_SHOP, orderSettings: { autoRejectMinutes: 10, alertEmail: null, autoAccept: false } };
@@ -65,7 +74,7 @@ const placedAt = (iso: string, rejectIso: string) => ({
   history: [{ from: null, to: 'PLACED', at: iso, actor: { type: 'customer' } }],
 });
 
-const NO_EXTRAS = { autoAccepted: 0, released: 0, invoicesIssued: 0, correctionsIssued: 0 };
+const NO_EXTRAS = { autoAccepted: 0, queued: 0, released: 0, invoicesIssued: 0, correctionsIssued: 0 };
 
 function storedOrder(order = PLACED_CARD_ORDER) {
   const store = orderStore(order);
@@ -73,6 +82,8 @@ function storedOrder(order = PLACED_CARD_ORDER) {
   (replaceOrderIfMatch as any).mockImplementation(store.replaceOrderIfMatch);
   return store;
 }
+
+const MANUAL_SCHEDULED = { ...SCHEDULED_SHOP, orderSettings: { scheduledOrders: true, autoAccept: false } };
 
 describe('executeProcessOrderTimers', () => {
   beforeEach(() => {
@@ -314,5 +325,91 @@ describe('executeProcessOrderTimers', () => {
     );
     expect(sendEmail).toHaveBeenCalledTimes(1);
     expect((sendEmail as any).mock.calls[0][0].attachments[0].name).toMatch(/^Rechnungskorrektur-R-2026-/);
+  });
+
+  describe('scheduled orders', () => {
+    beforeEach(() => {
+      (findShopById as any).mockResolvedValue(SCHEDULED_SHOP);
+      (findPlacedOrdersCreatedBefore as any).mockResolvedValue([SCHEDULED_ORDER]);
+    });
+
+    it('a scheduled order waits quietly until it is due', async () => {
+      storedOrder(SCHEDULED_ORDER);
+      for (const at of ['2026-10-05T10:03:00Z', '2026-10-05T10:10:00Z', '2026-10-05T15:39:00Z']) {
+        const res = await executeProcessOrderTimers({ now: new Date(at) });
+        expect(res).toEqual({ escalated: 0, autoRejected: 0, autoCompleted: 0, ...NO_EXTRAS });
+      }
+      expect(replaceOrderIfMatch).not.toHaveBeenCalled();
+      expect(capturePaymentIntent).not.toHaveBeenCalled();
+      expect(sendEmail).not.toHaveBeenCalled();
+    });
+
+    it('a scheduled order comes in one ready time before and is accepted then', async () => {
+      const store = storedOrder(SCHEDULED_ORDER);
+      const res = await executeProcessOrderTimers({ now: new Date('2026-10-05T15:40:00Z') });
+      expect(store.current).toMatchObject({
+        state: 'ACCEPTED',
+        queuedAt: '2026-10-05T15:40:00.000Z',
+        readyAt: SLOT_1800,
+        prepMinutes: 20,
+      });
+      expect(res.queued).toBe(1);
+      expect(res.autoAccepted).toBe(1);
+    });
+
+    it('a scheduled order for a restaurant accepting by hand gets fresh alert and decline times', async () => {
+      (findShopById as any).mockResolvedValue(MANUAL_SCHEDULED);
+      const store = storedOrder(SCHEDULED_ORDER);
+      (findPlacedOrdersCreatedBefore as any).mockImplementation(async () => [store.current]);
+      const entered = await executeProcessOrderTimers({ now: new Date('2026-10-05T15:40:00Z') });
+      expect(store.current).toMatchObject({
+        state: 'PLACED',
+        queuedAt: '2026-10-05T15:40:00.000Z',
+        autoRejectAt: '2026-10-05T15:50:00.000Z',
+      });
+      expect(entered.escalated).toBe(0);
+      expect(sendEmail).not.toHaveBeenCalled();
+
+      const alert = await executeProcessOrderTimers({ now: new Date('2026-10-05T15:43:00Z') });
+      expect(alert.escalated).toBe(1);
+      expect(sendEmail).toHaveBeenCalledWith(
+        expect.objectContaining({ subject: 'Bestellung AB3-K7P wartet seit 3 Minuten auf Annahme' }),
+      );
+
+      const declined = await executeProcessOrderTimers({ now: new Date('2026-10-05T15:50:00Z') });
+      expect(declined.autoRejected).toBe(1);
+      expect(store.current.state).toBe('REJECTED');
+      expect(store.current.history.at(-1)).toMatchObject({ actor: { type: 'system' }, reason: 'no_response' });
+    });
+
+    it('automatic hours are judged when a scheduled order comes in, not when it was booked', async () => {
+      const shop = {
+        ...SCHEDULED_SHOP,
+        orderSettings: {
+          scheduledOrders: true,
+          autoAcceptHours: { mon: [{ open: '09:00', close: '18:00' }], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] },
+        },
+      };
+      const order = { ...SCHEDULED_ORDER, createdAt: '2026-10-05T08:00:00.000Z', scheduledFor: '2026-10-05T17:00:00.000Z' };
+      (findShopById as any).mockResolvedValue(shop);
+      (findPlacedOrdersCreatedBefore as any).mockResolvedValue([order]);
+      const store = storedOrder(order);
+      await executeProcessOrderTimers({ now: new Date('2026-10-05T16:40:00Z') });
+      expect(capturePaymentIntent).not.toHaveBeenCalled();
+      expect(store.current.queuedAt).toBe('2026-10-05T16:40:00.000Z');
+      expect(store.current.state).toBe('PLACED');
+    });
+
+    it('a booked time now closed is not accepted automatically', async () => {
+      (findShopById as any).mockResolvedValue({
+        ...SCHEDULED_SHOP,
+        closures: [{ id: 'c', start: '2026-10-05T15:00:00.000Z', end: '2026-10-05T18:00:00.000Z' }],
+      });
+      const store = storedOrder(SCHEDULED_ORDER);
+      const res = await executeProcessOrderTimers({ now: new Date('2026-10-05T15:40:00Z') });
+      expect(capturePaymentIntent).not.toHaveBeenCalled();
+      expect(res.queued).toBe(1);
+      expect(store.current.state).toBe('PLACED');
+    });
   });
 });
