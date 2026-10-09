@@ -2,12 +2,15 @@ import type { FulfilmentMode, StaffRejectReason } from '../../../domain/order/Or
 import type { BusyState } from '../../../domain/order/kitchenTiming';
 import type { OrderDto } from '../getOrdersByShop/dtos';
 
+export type UpcomingOrderDto = OrderDto & { outsideHours: boolean }; // the restaurant is closed at the booked time (as of this read)
+
 export interface OrderQueueDto {
   serverTime: string;
   timezone: string; // the restaurant's, so a tablet elsewhere shows its times correctly
   defaultPrepMinutes: Record<FulfilmentMode, number>; // own prep time + busy minutes, max 240
   busy: BusyState;
-  orders: OrderDto[];
+  orders: OrderDto[]; // live orders only: booked orders not yet due are under `upcoming`
+  upcoming: UpcomingOrderDto[]; // booked orders not yet due, soonest first
 }
 
 export interface AcceptOrderBody {

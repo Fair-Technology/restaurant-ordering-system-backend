@@ -32,7 +32,7 @@ import { findShopById } from '../../../src/infrastructure/cosmos/shop/CosmosShop
 import { sendEmail } from '../../../src/infrastructure/email/emailSender';
 import { CANNOT_CANCEL_ERROR, ORDER_NOT_FOUND_ERROR, PAYMENT_CONFIRMING_ERROR } from '../../../src/domain/order/orderErrors';
 import { releaseAuthorization } from '../../../src/infrastructure/stripe/stripeClient';
-import { CARD_SHOP, DELIVERY_ADDRESS, orderStore, PLACED_CARD_ORDER, PLACED_DELIVERY_ORDER, PLACED_TABLE_ORDER } from '../../fixtures/orders';
+import { CARD_SHOP, DELIVERY_ADDRESS, orderStore, PLACED_CARD_ORDER, PLACED_DELIVERY_ORDER, PLACED_TABLE_ORDER, SCHEDULED_ORDER, SLOT_1800 } from '../../fixtures/orders';
 
 const TOKEN = 'T'.repeat(32);
 const now = new Date('2026-10-05T10:05:00Z');
@@ -143,5 +143,11 @@ describe('customer order page', () => {
       deliveryFeeCents: 250,
       totalCents: 1300,
     });
+  });
+
+  it('the diner sees when a scheduled order is for', async () => {
+    stored(SCHEDULED_ORDER);
+    const res = await executeGetCustomerOrder({ orderId: 'o4', token: TOKEN }, { now });
+    expect(res.ok && res.data).toMatchObject({ scheduledFor: SLOT_1800, canCancel: true });
   });
 });

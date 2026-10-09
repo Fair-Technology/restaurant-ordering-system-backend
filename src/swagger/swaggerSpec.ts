@@ -2216,6 +2216,12 @@ export const swaggerSpec = {
             description: 'Table number from the table QR code: 1 to 10 letters, digits, spaces or dashes. Required when fulfilmentMode is dine_in; ignored otherwise.',
             example: '7',
           },
+          scheduledFor: {
+            type: 'string',
+            format: 'date-time',
+            description: "Optional: order for later. The start of a free 15-minute slot from the quote's slots (collection and delivery only). A slot that is no longer free answers 409.",
+            example: '2026-10-10T16:00:00.000Z',
+          },
         },
       },
       CheckoutResponse: {

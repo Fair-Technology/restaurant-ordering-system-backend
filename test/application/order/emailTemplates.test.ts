@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildOrderEmail } from '../../../src/application/order/notifications/emailTemplates';
-import { ACCEPTED_CARD_ORDER, ACCEPTED_DELIVERY_ORDER, CARD_SHOP, LEGACY_CASH_ORDER, PLACED_CARD_ORDER, PLACED_DELIVERY_ORDER, PLACED_TABLE_ORDER } from '../../fixtures/orders';
+import { ACCEPTED_CARD_ORDER, ACCEPTED_DELIVERY_ORDER, CARD_SHOP, LEGACY_CASH_ORDER, PLACED_CARD_ORDER, PLACED_DELIVERY_ORDER, PLACED_TABLE_ORDER, SCHEDULED_ORDER } from '../../fixtures/orders';
 
 const customerOrderUrl = 'https://shop.example/shops/mapasta/orders/o1?t=TT';
 const adminOrdersUrl = 'https://admin.example/shops/shop-1/orders';
@@ -153,5 +153,23 @@ describe('order emails', () => {
 
   it('escalation shows what the diner pays', () => {
     expect(build('order_escalation', PLACED_DELIVERY_ORDER).text).toContain('(13,00\u00a0€)');
+  });
+
+  it('received email of a scheduled order names the time', () => {
+    const mail = build('order_received', SCHEDULED_ORDER);
+    expect(mail.subject).toBe('Ma Pasta: Bestellung AB3-K7P für Montag, 5. Oktober, 18:00 eingegangen');
+    expect(mail.text).toContain('Ihre Bestellung für Montag, 5. Oktober, 18:00 ist eingegangen. Ma Pasta bestätigt sie kurz vorher.');
+    expect(build('order_received', { ...SCHEDULED_ORDER, language: 'en' }).subject).toBe(
+      'Ma Pasta: order AB3-K7P for Monday, 5 October, 18:00 received',
+    );
+  });
+
+  it('the waiting-order email says when a scheduled order is for', () => {
+    const mail = build('order_escalation', {
+      ...SCHEDULED_ORDER,
+      queuedAt: '2026-10-05T15:40:00.000Z',
+      autoRejectAt: '2026-10-05T15:50:00.000Z',
+    });
+    expect(mail.text).toContain('Vorbestellt für: Montag, 5. Oktober, 18:00');
   });
 });

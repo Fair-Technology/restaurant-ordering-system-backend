@@ -162,6 +162,9 @@ describe('executeHandlePaymentAuthorized', () => {
     expect(created).toMatchObject({ scheduledFor: SLOT_1800 });
     expect(created.autoRejectAt).toBeUndefined();
     expect(created.queuedAt).toBeUndefined();
+    expect(sendEmail).toHaveBeenCalledWith(
+      expect.objectContaining({ subject: 'Ma Pasta: Bestellung ZZZ-111 für Montag, 5. Oktober, 18:00 eingegangen' }),
+    );
   });
 
   it('a scheduled order already due is treated like a new order', async () => {

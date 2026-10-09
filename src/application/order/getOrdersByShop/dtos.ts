@@ -35,6 +35,7 @@ export type OrderDto = {
   displayState: OrderState;
   fulfilmentMode: FulfilmentMode;
   table: { label: string } | null;
+  scheduledFor: string | null; // the booked time; null = as soon as possible
   paymentStatus: DisplayPaymentStatus;
   readyAt: string | null;
   items: OrderItemDto[];

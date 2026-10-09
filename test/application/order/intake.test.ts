@@ -371,6 +371,35 @@ describe('kitchen intake', () => {
     expect(store.current.prepMinutes).toBe(20);
   });
 
+  it('the board keeps scheduled orders in Upcoming until they are due', async () => {
+    (findOrdersByShopIdAndStates as any).mockResolvedValue([SCHEDULED_ORDER, PLACED_CARD_ORDER]);
+    const early = await executeGetOrderQueue({ shopId: 'shop-1' }, http, { now });
+    expect(early.ok).toBe(true);
+    if (!early.ok) return;
+    expect(early.data.orders.map((o) => o.id)).toEqual(['o1']);
+    expect(early.data.upcoming.map((o) => o.id)).toEqual(['o4']);
+    expect(early.data.upcoming[0]).toMatchObject({ scheduledFor: SLOT_1800, outsideHours: false });
+    const due = await executeGetOrderQueue({ shopId: 'shop-1' }, http, { now: new Date('2026-10-05T15:40:00Z') });
+    expect(due.ok && due.data.orders.map((o) => o.id)).toEqual(['o4', 'o1']);
+    expect(due.ok && due.data.upcoming).toEqual([]);
+  });
+
+  it('upcoming orders are sorted by time and flag a closed slot', async () => {
+    (findShopById as any).mockResolvedValue({
+      ...CARD_SHOP,
+      closures: [{ id: 'c', start: '2026-10-05T15:00:00.000Z', end: '2026-10-05T18:00:00.000Z' }],
+    });
+    (findOrdersByShopIdAndStates as any).mockResolvedValue([
+      SCHEDULED_ORDER,
+      { ...SCHEDULED_ORDER, id: 'o5', scheduledFor: '2026-10-05T12:00:00.000Z' },
+    ]);
+    const res = await executeGetOrderQueue({ shopId: 'shop-1' }, http, { now });
+    expect(res.ok && res.data.upcoming.map((o) => [o.id, o.outsideHours])).toEqual([
+      ['o5', false],
+      ['o4', true],
+    ]);
+  });
+
   describe('delivery', () => {
     const dIds = { shopId: 'shop-1', orderId: 'o3' };
 

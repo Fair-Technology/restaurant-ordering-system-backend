@@ -373,7 +373,10 @@ describe('executeProcessOrderTimers', () => {
       const alert = await executeProcessOrderTimers({ now: new Date('2026-10-05T15:43:00Z') });
       expect(alert.escalated).toBe(1);
       expect(sendEmail).toHaveBeenCalledWith(
-        expect.objectContaining({ subject: 'Bestellung AB3-K7P wartet seit 3 Minuten auf Annahme' }),
+        expect.objectContaining({
+          subject: 'Bestellung AB3-K7P wartet seit 3 Minuten auf Annahme',
+          text: expect.stringContaining('Vorbestellt für: Montag, 5. Oktober, 18:00'),
+        }),
       );
 
       const declined = await executeProcessOrderTimers({ now: new Date('2026-10-05T15:50:00Z') });

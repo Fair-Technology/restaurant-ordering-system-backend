@@ -94,6 +94,9 @@ function buildEscalationEmail(order: Order, shop: Shop, adminOrdersUrl: string):
         ? `Bestellung ${order.orderRef} (${f.money(chargedCents(order))}) wartet seit 3 Minuten. Ohne Annahme wird sie um ${until} automatisch abgelehnt.`
         : `Order ${order.orderRef} (${f.money(chargedCents(order))}) has been waiting 3 minutes. It will be declined automatically at ${until} unless you accept it.`,
     },
+    ...(order.scheduledFor
+      ? [{ type: 'p' as const, text: `${de ? 'Vorbestellt für' : 'Scheduled for'}: ${f.when(order.scheduledFor)}` }]
+      : []),
     ...(order.table ? [{ type: 'p' as const, text: `${de ? 'Tisch' : 'Table'}: ${order.table.label}` }] : []),
     { type: 'p', text: `${de ? 'Zu den Bestellungen' : 'Open orders'}: ${adminOrdersUrl}` },
   ]);
@@ -124,9 +127,15 @@ function formatters(lang: MenuLanguage, currency: string, timeZone: string) {
   const locale = lang === 'de' ? 'de-DE' : 'en-GB';
   const money = new Intl.NumberFormat(locale, { style: 'currency', currency });
   const time = new Intl.DateTimeFormat(locale, { timeZone, hour: '2-digit', minute: '2-digit' });
+  const weekday = new Intl.DateTimeFormat(locale, { timeZone, weekday: 'long' });
+  const dayMonth = new Intl.DateTimeFormat(locale, { timeZone, day: 'numeric', month: 'long' });
   return {
     money: (cents: number): string => money.format(cents / 100),
     time: (iso: string): string => time.format(new Date(iso)),
+    when: (iso: string): string => {
+      const d = new Date(iso);
+      return `${weekday.format(d)}, ${dayMonth.format(d)}, ${time.format(d)}`;
+    },
   };
 }
 
@@ -148,12 +157,15 @@ export function buildOrderEmail(input: {
   const f = formatters(lang, order.currency, shop.timezone);
   const ref = order.orderRef;
   const time = order.readyAt ? f.time(order.readyAt) : '';
+  const when = order.scheduledFor ? f.when(order.scheduledFor) : null;
   const name = shop.name;
   const dineIn = order.fulfilmentMode === 'dine_in';
   const delivery = order.fulfilmentMode === 'delivery';
 
   const subjects: Record<Exclude<OrderEmailKind, 'order_escalation' | 'payment_release_failed'>, Bilingual> = {
-    order_received: { de: `${name}: Bestellung ${ref} eingegangen`, en: `${name}: order ${ref} received` },
+    order_received: when
+      ? { de: `${name}: Bestellung ${ref} für ${when} eingegangen`, en: `${name}: order ${ref} for ${when} received` }
+      : { de: `${name}: Bestellung ${ref} eingegangen`, en: `${name}: order ${ref} received` },
     order_accepted: delivery
       ? {
           de: `${name}: Bestellung ${ref} angenommen – Lieferung gegen ${time}`,
@@ -177,9 +189,13 @@ export function buildOrderEmail(input: {
   let kindLine: string;
   switch (kind) {
     case 'order_received':
-      kindLine = de
-        ? `Ihre Bestellung ist eingegangen. ${name} bestätigt sie in Kürze.`
-        : `Your order has been received. ${name} will confirm it shortly.`;
+      kindLine = when
+        ? de
+          ? `Ihre Bestellung für ${when} ist eingegangen. ${name} bestätigt sie kurz vorher.`
+          : `Your order for ${when} has been received. ${name} will confirm it shortly before.`
+        : de
+          ? `Ihre Bestellung ist eingegangen. ${name} bestätigt sie in Kürze.`
+          : `Your order has been received. ${name} will confirm it shortly.`;
       break;
     case 'order_accepted':
       kindLine = delivery
