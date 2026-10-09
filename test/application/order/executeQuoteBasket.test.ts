@@ -15,6 +15,11 @@ vi.mock('../../../src/infrastructure/cosmos/promotion/CosmosPromotionRepository'
 }));
 vi.mock('../../../src/infrastructure/cosmos/order/CosmosOrderRepository', () => ({ findDiscountUseRows: vi.fn(async () => []) }));
 
+vi.mock('../../../src/infrastructure/cosmos/usage/CosmosSlotPlacesRepository', () => ({
+  findSlotPlacesWithEtag: vi.fn(async () => null),
+  createSlotPlaces: vi.fn(async () => 'ok'),
+  replaceSlotPlacesIfMatch: vi.fn(async () => 'ok'),
+}));
 vi.mock('../../../src/application/usage/orderLimitStatus', () => ({
   loadOrderLimitStatus: vi.fn(async () => ({ periodKey: '2026-10', acceptedOrderCount: 0, limit: 30, warningLevel: 0, limitReached: false })),
 }));
@@ -25,6 +30,8 @@ import { findDiscountUseRows } from '../../../src/infrastructure/cosmos/order/Co
 import { findPromotions, findVoucher } from '../../../src/infrastructure/cosmos/promotion/CosmosPromotionRepository';
 import { findProductById } from '../../../src/infrastructure/cosmos/product/CosmosProductRepository';
 import { findShopById } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
+import { findSlotPlacesWithEtag } from '../../../src/infrastructure/cosmos/usage/CosmosSlotPlacesRepository';
+import { capped, dayDoc, installSlotStore } from '../../fixtures/slotPlaces';
 import { MODE_NOT_OFFERED_ERROR, SCHEDULED_FOR_ERROR } from '../../../src/domain/order/orderErrors';
 import { CARD_SHOP, DELIVERY_SHOP, DINE_IN_SHOP, NOW_CLOSED, NOW_OPEN, P_COLA, P_PASTA, PROMO_CODE, PROMOTIONS, SCHEDULED_SHOP, VOUCHER } from '../../fixtures/orders';
 
@@ -189,6 +196,47 @@ describe('executeQuoteBasket', () => {
     expect(gone.ok && gone.data.slotAvailable).toBe(false);
     const bad = await executeQuoteBasket({ ...request, scheduledFor: '2026-10-06T16:10:00.000Z' }, { now: NOW_OPEN });
     expect(bad).toEqual({ ok: false, code: 'INVALID_INPUT', error: SCHEDULED_FOR_ERROR });
+  });
+
+  describe('capacity', () => {
+    const S16 = '2026-10-06T16:00:00.000Z';
+    const S0930 = '2026-10-06T09:30:00.000Z';
+    beforeEach(() => {
+      installSlotStore([
+        dayDoc('2026-10-06', [
+          { orderId: 'a', slot: S16, heldUntil: null },
+          { orderId: 'b', slot: S16, heldUntil: null },
+          { orderId: 'c', slot: S0930, heldUntil: null },
+          { orderId: 'd', slot: S0930, heldUntil: '2026-10-05T20:00:00.000Z' },
+        ]),
+      ]);
+      (findShopById as any).mockResolvedValue(capped(2));
+    });
+
+    it('full times are left out of the list', async () => {
+      const res = await executeQuoteBasket(request, { now: NOW_CLOSED });
+      expect(res.ok).toBe(true);
+      if (!res.ok) return;
+      expect(res.data.slots).toHaveLength(171);
+      expect(res.data.slots[0]).toBe(S0930);
+      expect(res.data.slots).not.toContain(S16);
+      expect(res.data.slots).toContain('2026-10-06T16:15:00.000Z');
+    });
+
+    it('a full chosen time is not available', async () => {
+      const full = await executeQuoteBasket({ ...request, scheduledFor: S16 }, { now: NOW_OPEN });
+      expect(full.ok && full.data.slotAvailable).toBe(false);
+      const free = await executeQuoteBasket({ ...request, scheduledFor: '2026-10-06T16:15:00.000Z' }, { now: NOW_OPEN });
+      expect(free.ok && free.data.slotAvailable).toBe(true);
+    });
+
+    it('without a limit no places are read', async () => {
+      (findShopById as any).mockResolvedValue(SCHEDULED_SHOP);
+      vi.mocked(findSlotPlacesWithEtag).mockClear();
+      const res = await executeQuoteBasket(request, { now: NOW_CLOSED });
+      expect(res.ok && res.data.slots).toHaveLength(172);
+      expect(findSlotPlacesWithEtag).not.toHaveBeenCalled();
+    });
   });
 
   it('a scheduled basket is priced for the time it is made', async () => {

@@ -9,10 +9,11 @@ import { MODE_NOT_OFFERED_ERROR, SCHEDULED_FOR_ERROR } from '../../../domain/ord
 import { effectivePrepMinutes, lastOrdersLeadMinutes } from '../../../domain/order/kitchenTiming';
 import { isOpenForAsapOrder } from '../../../domain/order/openingHours';
 import { addressRequired, FULFILMENT_MODES } from '../../../domain/order/Order';
-import { isBookableSlot, listSlots, parseSlotStart } from '../../../domain/order/scheduling';
+import { parseSlotStart } from '../../../domain/order/scheduling';
 import { offeredPaymentMethods } from '../../../domain/order/paymentMethods';
 import { findPromotions } from '../../../infrastructure/cosmos/promotion/CosmosPromotionRepository';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
+import { loadBookableSlots } from '../_shared/slotPlaces';
 import { ApplicationResult } from '../../_shared/types';
 import { resolveDiscount, type DiscountResolution } from '../../promotion/resolveDiscount';
 import { loadOrderLimitStatus } from '../../usage/orderLimitStatus';
@@ -88,6 +89,7 @@ export async function executeQuoteBasket(
     const totalCents = applied ? applied.totalCents : priced.subtotalCents + chargesTotalCents(charges);
     const taxBreakdown = applied ? applied.taxBreakdown : buildTaxBreakdownWithCharges(priced.items, charges);
     const minimum = zone ? zone.minOrderCents : shop.minOrderAmountCents;
+    const booking = await loadBookableSlots(shop, mode, now, slot);
 
     return {
       ok: true,
@@ -116,9 +118,9 @@ export async function executeQuoteBasket(
         postcodeServed: mode === 'delivery' ? zone !== null : null,
         prepMinutes,
         orderLimitReached: limit.limitReached,
-        slots: listSlots(shop, mode, now),
+        slots: booking.slots,
         scheduledFor: slot ? slot.toISOString() : null,
-        slotAvailable: slot ? isBookableSlot(shop, mode, slot, now) : null,
+        slotAvailable: booking.slotAvailable,
         acceptsCodes: acceptsCodes(promotions, localDate(now, shop.timezone)),
         discount: applied ? { kind: applied.discount.kind, code: applied.discount.code, cents: applied.discount.cents } : null,
         discountProblem: resolution && !resolution.ok ? resolution.problem : null,
