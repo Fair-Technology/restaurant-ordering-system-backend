@@ -37,6 +37,7 @@ import {
   LAST_ORDERS_ERROR,
   PREP_SETTING_ERROR,
   SCHEDULED_ORDERS_ERROR,
+  SLOT_CAPACITY_ERROR,
 } from '../../../src/domain/order/orderErrors';
 import { CARD_SHOP, DINE_IN_SHOP } from '../../fixtures/orders';
 
@@ -324,6 +325,34 @@ describe('executeUpdateOrderSettings', () => {
   it('refuses a non-boolean orders-for-later switch', async () => {
     const res = await executeUpdateOrderSettings({ shopId: 'shop-1', body: { scheduledOrders: 'yes' } as any }, http);
     expect(res).toEqual({ ok: false, code: 'INVALID_INPUT', error: SCHEDULED_ORDERS_ERROR });
+    expect(updateShop).not.toHaveBeenCalled();
+  });
+
+  it('saves the limit per quarter hour', async () => {
+    findShopById.mockResolvedValue({ ...CARD_SHOP, orderSettings: { scheduledOrders: true } });
+    const res = await executeUpdateOrderSettings({ shopId: 'shop-1', body: { slotCapacity: 4 } }, http);
+    expect(res.ok).toBe(true);
+    expect(updateShop.mock.calls[0][0].orderSettings).toMatchObject({ scheduledOrders: true, slotCapacity: 4 });
+    expect(logAudit).toHaveBeenCalledWith(
+      expect.objectContaining({ changes: [{ field: 'slotCapacity', from: null, to: 4 }] }),
+    );
+  });
+
+  it('clears the limit', async () => {
+    findShopById.mockResolvedValue({ ...CARD_SHOP, orderSettings: { scheduledOrders: true, slotCapacity: 4 } });
+    const res = await executeUpdateOrderSettings({ shopId: 'shop-1', body: { slotCapacity: null } }, http);
+    expect(res.ok).toBe(true);
+    expect(updateShop.mock.calls[0][0].orderSettings.slotCapacity).toBeNull();
+    expect(logAudit).toHaveBeenCalledWith(
+      expect.objectContaining({ changes: [{ field: 'slotCapacity', from: 4, to: null }] }),
+    );
+  });
+
+  it('refuses a limit out of range', async () => {
+    for (const bad of [0, 51, 2.5, '4']) {
+      const res = await executeUpdateOrderSettings({ shopId: 'shop-1', body: { slotCapacity: bad } as any }, http);
+      expect(res).toEqual({ ok: false, code: 'INVALID_INPUT', error: SLOT_CAPACITY_ERROR });
+    }
     expect(updateShop).not.toHaveBeenCalled();
   });
 
