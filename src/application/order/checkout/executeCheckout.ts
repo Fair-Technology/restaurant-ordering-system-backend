@@ -69,6 +69,7 @@ import { createPaymentIntent, isStripeIdempotencyError } from '../../../infrastr
 import { ApplicationResult } from '../../_shared/types';
 import { resolveDiscount } from '../../promotion/resolveDiscount';
 import { loadOrderLimitStatus } from '../../usage/orderLimitStatus';
+import { holdSlotPlace, releaseSlotPlace } from '../_shared/slotPlaces';
 import { loadPricingContext } from '../_shared/loadPricingContext';
 import { priceBasket, validateBasketItems } from '../_shared/priceBasket';
 import { CheckoutRequestDto, CheckoutResultDto } from './dtos';
@@ -345,6 +346,11 @@ export async function executeCheckout(
       return { ok: false, code: 'INVALID_INPUT', error: ADDRESS_REQUIRED_ERROR };
     }
 
+    // --- An order for later holds its place last, so no other refusal leaves a hold behind ---
+    if (scheduledFor && (await holdSlotPlace({ shop, orderId: sessionId, slot: scheduledFor, now })) === 'full') {
+      return { ok: false, code: 'CONFLICT', error: SLOT_UNAVAILABLE_ERROR };
+    }
+
     const at = now.toISOString();
     const connectAccountId = shop.stripe!.connectAccountId!;
 
@@ -364,6 +370,8 @@ export async function executeCheckout(
         idempotencyKey: `checkout-${sessionId}`,
       });
     } catch (err: unknown) {
+      // The card was never reserved, so the held place goes back at once.
+      if (scheduledFor) await releaseSlotPlace({ shop, order: { id: sessionId, scheduledFor: scheduledFor.toISOString() }, now });
       // Same key, different payment details: the basket is no longer the one the first submit paid for.
       if (isStripeIdempotencyError(err)) return { ok: false, code: 'CONFLICT', error: BASKET_CHANGED_ERROR };
       throw err;
