@@ -136,6 +136,17 @@ export interface OrderItem {
   taxClassId?: string | null; // null = no class resolvable (rate 0)
   taxRateBasisPoints?: number; // rate valid at placement time
   taxCents?: number; // VAT contained in lineTotalCents
+  discountCents?: number; // this line's share of the order discount; absent = 0. lineTotalCents stays the menu price
+}
+
+export type OrderDiscountKind = 'code' | 'voucher';
+
+/** The discount on the dishes, snapshotted at checkout. byRate sums to cents. */
+export interface OrderDiscount {
+  kind: OrderDiscountKind;
+  code: string;
+  cents: number; // > 0
+  byRate: TaxBreakdownEntry[]; // positive gross and VAT per rate, rate ascending
 }
 
 export interface Order {
@@ -155,7 +166,10 @@ export interface Order {
   customerAddress?: CustomerAddress; // optional; required above ADDRESS_REQUIRED_ABOVE_CENTS
   deliveryAddress?: DeliveryAddress; // delivery orders only; never on the invoice; removed by erasure
   charges?: OrderCharge[]; // absent = none (all orders before slice 8b)
-  totalCents?: number; // subtotalCents + sum of charges; absent before 8b, read via chargedCents
+  totalCents?: number; // subtotalCents + sum of charges - discount; absent before 8b, read via chargedCents
+  discount?: OrderDiscount; // absent = no discount (every order before slice 8d)
+  loyaltyOptIn?: true; // the diner ticked "email me a voucher" on this order
+  loyaltyVoucher?: { code: string; issuedAt: string }; // the voucher this order earned; written once
   table?: OrderTable; // dine_in orders only
   scheduledFor?: string; // ISO start of the booked 15-minute slot = the promised ready / delivery time. Absent = as soon as possible
   queuedAt?: string; // ISO, when a scheduled order entered the live queue; the alert and decline count from here

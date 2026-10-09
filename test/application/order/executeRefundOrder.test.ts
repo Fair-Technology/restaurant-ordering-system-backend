@@ -10,7 +10,7 @@ import {
   REFUND_REASON_ERROR,
   REFUND_STATE_ERROR,
 } from '../../../src/domain/order/orderErrors';
-import { ACCEPTED_CARD_ORDER, ACCEPTED_DELIVERY_ORDER, ACCEPTED_TWO_LINE_ORDER, CARD_SHOP, orderStore } from '../../fixtures/orders';
+import { ACCEPTED_CARD_ORDER, ACCEPTED_DELIVERY_ORDER, ACCEPTED_TWO_LINE_ORDER, CARD_SHOP, DISCOUNTED_ORDER, orderStore } from '../../fixtures/orders';
 
 const m = vi.hoisted(() => ({
   authorizeShopAction: vi.fn(),
@@ -297,5 +297,32 @@ describe('executeRefundOrder', () => {
       const res = await executeRefundOrder({ ...dIds, amountCents: 250, reason: 'Gebühr' }, http, { now });
       expect(res.ok).toBe(true);
     });
+  });
+});
+
+describe('executeRefundOrder with a discount', () => {
+  it('ticking an item on a discounted order refunds what was paid for it', async () => {
+    setup({ ...DISCOUNTED_ORDER, state: 'COMPLETED', invoiceNumber: 'R-2026-00001' });
+    const res = await executeRefundOrder(
+      { shopId: 'shop-1', orderId: 'o5', items: [{ lineIndex: 1, quantity: 1 }], reason: 'Cola fehlte' },
+      http,
+      { now },
+    );
+    expect(res.ok).toBe(true);
+    expect(m.createRefund).toHaveBeenCalledWith(expect.objectContaining({ amountCents: 315 }));
+    expect((m.store.current as Order).refunds![0].lines).toEqual([
+      { lineIndex: 1, quantity: 1, grossCents: 315, taxRateBasisPoints: 1900 },
+    ]);
+    expect(m.commitInvoice).toHaveBeenCalledWith(
+      expect.anything(),
+      'c-1',
+      expect.objectContaining({
+        documentType: 'correction',
+        lines: [
+          expect.objectContaining({ name: 'Cola', lineTotalCents: -350 }),
+          expect.objectContaining({ name: 'Anteiliger Rabatt', lineTotalCents: 35 }),
+        ],
+      }),
+    );
   });
 });

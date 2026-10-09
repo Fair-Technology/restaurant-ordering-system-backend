@@ -22,6 +22,9 @@ export interface CheckoutRequestDto {
   expectedDeliveryFeeCents?: number; // what the diner was shown; a different server fee answers 409
   table?: string; // required (valid) for dine_in; ignored otherwise
   scheduledFor?: string; // a slot start from the quote's slots; absent = as soon as possible
+  discountCode?: string; // a discount or voucher code; read case-insensitively
+  expectedDiscountCents?: number; // what the diner was shown; a different server discount answers 409
+  loyaltyOptIn?: boolean; // the diner asked for loyalty vouchers by email
   idempotencyKey?: string;
   language?: string;
   legalRevisions?: LegalRevisions;
@@ -34,7 +37,7 @@ export interface CardCheckoutResultDto {
   accessToken: string; // secret order-page link token, created now so the page works while the payment is confirmed
   clientSecret: string;
   subtotalCents: number;
-  totalCents: number; // what is reserved on the card: dishes plus delivery fee
+  totalCents: number; // what is reserved on the card: dishes plus delivery fee, minus discount
   currency: string;
   stripeConnectAccountId: string;
 }

@@ -1,6 +1,7 @@
 import type {
   DeliveryAddress,
   FulfilmentMode,
+  OrderDiscountKind,
   OrderState,
   DisplayPaymentStatus,
   RejectReason,
@@ -39,9 +40,10 @@ export interface CustomerOrderDto {
     selectedAddonOptionNames: string[];
   }>;
   subtotalCents: number;
-  totalCents: number; // items plus delivery fee
+  totalCents: number; // items plus delivery fee, minus discount
   deliveryFeeCents: number | null; // null = not a delivery order; 0 = free delivery
   deliveryAddress: DeliveryAddress | null;
+  discount: { kind: OrderDiscountKind; code: string; cents: number } | null;
   currency: string;
   createdAt: string;
   canCancel: boolean; // state === 'PLACED'

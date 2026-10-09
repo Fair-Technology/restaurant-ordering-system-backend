@@ -21,12 +21,14 @@ vi.mock('../../../src/infrastructure/stripe/stripeClient', () => ({
   findLiveRefund: vi.fn(async () => null),
   isRetryableStripeError: (e: any) => ['StripeConnectionError', 'StripeAPIError', 'StripeRateLimitError'].includes(e?.type),
 }));
+vi.mock('../../../src/application/order/loyalty/issueLoyaltyVoucher', () => ({ issueLoyaltyVoucher: vi.fn(async () => undefined) }));
 vi.mock('../../../src/infrastructure/email/emailSender', () => ({
   sendEmail: vi.fn(async () => undefined),
   emailTransportName: () => 'log',
 }));
 
 import { authorizeShopAction } from '../../../src/application/_shared/shopAccess';
+import { issueLoyaltyVoucher } from '../../../src/application/order/loyalty/issueLoyaltyVoucher';
 import { executeAcceptOrder } from '../../../src/application/order/intake/executeAcceptOrder';
 import { executeDispatchOrder } from '../../../src/application/order/intake/executeDispatchOrder';
 import { executeCompleteOrder } from '../../../src/application/order/intake/executeCompleteOrder';
@@ -57,6 +59,7 @@ import {
   ACCEPTED_DELIVERY_ORDER,
   CARD_SHOP,
   DELIVERY_ADDRESS,
+  DISCOUNTED_ORDER,
   orderStore,
   PLACED_CARD_ORDER,
   PLACED_DELIVERY_ORDER,
@@ -332,6 +335,35 @@ describe('kitchen intake', () => {
     const res = await executeGetOrderQueue({ shopId: 'shop-1' }, http, { now });
     expect(res.ok && res.data.busy).toEqual({ active: true, extraMinutes: 20 });
     expect(res.ok && res.data.defaultPrepMinutes).toEqual({ collection: 40, delivery: 65, dine_in: 40 });
+  });
+
+  it('an order that asked for vouchers is checked for one after acceptance', async () => {
+    storedOrder({ ...PLACED_CARD_ORDER, loyaltyOptIn: true });
+    await executeAcceptOrder(ids, http, { now });
+    expect(issueLoyaltyVoucher).toHaveBeenCalledTimes(1);
+    expect(issueLoyaltyVoucher).toHaveBeenCalledWith(
+      expect.objectContaining({ state: 'ACCEPTED', loyaltyOptIn: true }),
+      CARD_SHOP,
+      now,
+    );
+    vi.clearAllMocks();
+    (authorizeShopAction as any).mockResolvedValue(STAFF_ACCESS);
+    (findShopById as any).mockResolvedValue(CARD_SHOP);
+    storedOrder();
+    await executeAcceptOrder(ids, http, { now });
+    expect(issueLoyaltyVoucher).not.toHaveBeenCalled();
+  });
+
+  it('the board shows the discount but never a voucher code', async () => {
+    (findOrdersByShopIdAndStates as any).mockResolvedValue([
+      { ...DISCOUNTED_ORDER, state: 'ACCEPTED', loyaltyVoucher: { code: 'L-ABCD2345', issuedAt: 'x' } },
+    ]);
+    const res = await executeGetOrderQueue({ shopId: 'shop-1' }, http, { now });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.data.orders[0]).toMatchObject({ discount: { code: 'WELCOME10', cents: 140 }, loyaltyVoucherSent: true });
+    expect(res.data.orders[0].items[0].discountCents).toBe(105);
+    expect(JSON.stringify(res)).not.toContain('L-ABCD2345');
   });
 
   it('the board shows the table', async () => {

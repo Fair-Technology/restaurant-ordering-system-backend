@@ -3,6 +3,7 @@ import {
   DeliveryAddress,
   DisplayPaymentStatus,
   FulfilmentMode,
+  OrderDiscountKind,
   OrderHistoryEntry,
   OrderState,
   StoredOrderState,
@@ -26,6 +27,7 @@ export type OrderItemDto = {
   selectedAddonOptionIds?: string[] | null;
   selectedAddonOptionNames?: string[] | null;
   lineTotalCents: number;
+  discountCents: number; // this line's share of the order discount; 0 when none
 };
 
 export type OrderDto = {
@@ -40,9 +42,11 @@ export type OrderDto = {
   readyAt: string | null;
   items: OrderItemDto[];
   subtotalCents: number;
-  totalCents: number; // items plus delivery fee
+  totalCents: number; // items plus delivery fee, minus discount
   deliveryFeeCents: number | null; // null = not a delivery order; 0 = free delivery
   deliveryAddress: DeliveryAddress | null;
+  discount: { kind: OrderDiscountKind; code: string; cents: number } | null;
+  loyaltyVoucherSent: boolean; // the voucher code itself is never sent to the restaurant's screens
   currency: string;
   customerName: string;
   customerEmail: string;

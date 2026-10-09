@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildOrderEmail } from '../../../src/application/order/notifications/emailTemplates';
-import { ACCEPTED_CARD_ORDER, ACCEPTED_DELIVERY_ORDER, CARD_SHOP, LEGACY_CASH_ORDER, PLACED_CARD_ORDER, PLACED_DELIVERY_ORDER, PLACED_TABLE_ORDER, SCHEDULED_ORDER } from '../../fixtures/orders';
+import { ACCEPTED_CARD_ORDER, DISCOUNTED_ORDER, ACCEPTED_DELIVERY_ORDER, CARD_SHOP, LEGACY_CASH_ORDER, PLACED_CARD_ORDER, PLACED_DELIVERY_ORDER, PLACED_TABLE_ORDER, SCHEDULED_ORDER } from '../../fixtures/orders';
 
 const customerOrderUrl = 'https://shop.example/shops/mapasta/orders/o1?t=TT';
 const adminOrdersUrl = 'https://admin.example/shops/shop-1/orders';
@@ -171,5 +171,13 @@ describe('order emails', () => {
       autoRejectAt: '2026-10-05T15:50:00.000Z',
     });
     expect(mail.text).toContain('Vorbestellt für: Montag, 5. Oktober, 18:00');
+  });
+
+  it('order emails list the discount', () => {
+    const de = build('order_accepted', DISCOUNTED_ORDER).text.replace(/\u00a0/g, ' ');
+    expect(de).toContain('Rabatt WELCOME10 — -1,40 €');
+    expect(de).toContain('Bezahlt (online): 12,60 €');
+    const en = build('order_accepted', { ...DISCOUNTED_ORDER, language: 'en' }).text;
+    expect(en).toContain('Discount WELCOME10 — -€1.40');
   });
 });

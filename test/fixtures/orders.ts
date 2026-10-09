@@ -2,6 +2,7 @@ import type { Category } from '../../src/domain/category/Category';
 import type { Order, CustomerAddress, DeliveryAddress, OrderCharge } from '../../src/domain/order/Order';
 import type { Product } from '../../src/domain/product/Product';
 import type { Shop } from '../../src/domain/shop/Shop';
+import type { DiscountCode, LoyaltyVoucherDoc, ShopPromotionsDoc } from '../../src/domain/promotion/promotions';
 import { ACCEPTED_DPA, COMPLETE_LEGAL } from './legal';
 
 const DAY = [{ open: '11:00', close: '22:00' }];
@@ -273,3 +274,37 @@ export const ACCEPTED_DELIVERY_ORDER: Order = {
 export const SCHEDULED_SHOP: Shop = { ...CARD_SHOP, orderSettings: { scheduledOrders: true } };
 export const SLOT_1800 = '2026-10-05T16:00:00.000Z'; // Monday 18:00 in Berlin
 export const SCHEDULED_ORDER: Order = { ...PLACED_CARD_ORDER, id: 'o4', scheduledFor: SLOT_1800, autoRejectAt: undefined };
+
+export const PROMO_CODE: DiscountCode = {
+  id: 'code-1', code: 'WELCOME10', kind: 'percent', percent: 10, amountCents: null, minSubtotalCents: 0,
+  validFrom: null, validUntil: null, totalLimit: null, perEmailLimit: 1, active: true, createdAt: '2026-10-01T00:00:00.000Z',
+};
+export const PROMOTIONS: ShopPromotionsDoc = {
+  id: 'promotions_shop-1', kind: 'shop_promotions', shopId: 'shop-1', codes: [PROMO_CODE],
+  loyalty: { enabled: true, everyOrders: 5, rewardCents: 500, validDays: 90, since: '2026-10-01T00:00:00.000Z' },
+  updatedAt: '2026-10-01T00:00:00.000Z',
+};
+export const VOUCHER: LoyaltyVoucherDoc = {
+  id: 'voucher_shop-1_L-ABCD2345', kind: 'loyalty_voucher', shopId: 'shop-1', code: 'L-ABCD2345', amountCents: 500,
+  expiresOn: '2027-01-07', sourceOrderId: 'o9', createdAt: '2026-10-09T10:00:00.000Z',
+};
+/** Carbonara 10,50 (7 %) + Cola 3,50 (19 %) with WELCOME10: 1,40 off, split 1,05 / 0,35. */
+export const DISCOUNTED_ORDER: Order = {
+  ...ACCEPTED_CARD_ORDER,
+  id: 'o5',
+  items: [
+    { ...ACCEPTED_CARD_ORDER.items[0], discountCents: 105 },
+    { productId: 'p2', productName: 'Cola', quantity: 1, unitPriceCents: 350, lineTotalCents: 350,
+      taxClassId: 'beverage', taxRateBasisPoints: 1900, taxCents: 56, discountCents: 35 },
+  ],
+  subtotalCents: 1400,
+  totalCents: 1260,
+  discount: { kind: 'code', code: 'WELCOME10', cents: 140, byRate: [
+    { rateBasisPoints: 700, grossCents: 105, taxCents: 7 },
+    { rateBasisPoints: 1900, grossCents: 35, taxCents: 6 },
+  ] },
+  taxBreakdown: [
+    { rateBasisPoints: 700, grossCents: 945, taxCents: 62 },
+    { rateBasisPoints: 1900, grossCents: 315, taxCents: 50 },
+  ],
+};

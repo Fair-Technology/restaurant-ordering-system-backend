@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 vi.mock('../../../src/infrastructure/cosmos/shop/CosmosShopRepository', () => ({
   findShopById: vi.fn(),
@@ -18,6 +18,11 @@ vi.mock('../../../src/infrastructure/cosmos/reference/CosmosReferenceListsReposi
 }));
 vi.mock('../../../src/infrastructure/cosmos/order/CosmosOrderRepository', () => ({
   findOrderById: vi.fn(async () => null),
+  findDiscountUseRows: vi.fn(async () => []),
+}));
+vi.mock('../../../src/infrastructure/cosmos/promotion/CosmosPromotionRepository', () => ({
+  findPromotions: vi.fn(async () => null),
+  findVoucher: vi.fn(async () => null),
 }));
 vi.mock('../../../src/infrastructure/email/emailSender', () => ({
   sendEmail: vi.fn(async () => undefined),
@@ -38,11 +43,12 @@ import {
   findCheckoutSessionById,
   upsertCheckoutSession,
 } from '../../../src/infrastructure/cosmos/order/CosmosCheckoutSessionRepository';
-import { findOrderById } from '../../../src/infrastructure/cosmos/order/CosmosOrderRepository';
+import { findPromotions } from '../../../src/infrastructure/cosmos/promotion/CosmosPromotionRepository';
+import { findDiscountUseRows, findOrderById } from '../../../src/infrastructure/cosmos/order/CosmosOrderRepository';
 import { loadOrderLimitStatus } from '../../../src/application/usage/orderLimitStatus';
 import { createPaymentIntent } from '../../../src/infrastructure/stripe/stripeClient';
 import { ACCEPTED_DPA, COMPLETE_LEGAL } from '../../fixtures/legal';
-import { ADDRESS, CARD_SHOP, LUNCH_HOURS, NOW_CLOSED, NOW_OPEN, P_COLA, P_PASTA, PLACED_CARD_ORDER, DINE_IN_SHOP, PLACED_TABLE_ORDER, DELIVERY_SHOP, DELIVERY_ZONE, SCHEDULED_SHOP } from '../../fixtures/orders';
+import { ADDRESS, CARD_SHOP, LUNCH_HOURS, NOW_CLOSED, NOW_OPEN, P_COLA, P_PASTA, PLACED_CARD_ORDER, DINE_IN_SHOP, PLACED_TABLE_ORDER, DELIVERY_SHOP, DELIVERY_ZONE, SCHEDULED_SHOP, PROMO_CODE, PROMOTIONS } from '../../fixtures/orders';
 import { executeCheckout } from '../../../src/application/order/checkout/executeCheckout';
 import { CheckoutRequestDto } from '../../../src/application/order/checkout/dtos';
 import {
@@ -51,6 +57,11 @@ import {
   BASKET_CHANGED_ERROR,
   DELIVERY_ADDRESS_INVALID_ERROR,
   DELIVERY_FEE_CHANGED_ERROR,
+  DISCOUNT_ALREADY_USED_ERROR,
+  DISCOUNT_CHANGED_ERROR,
+  DISCOUNT_CODE_FORMAT_ERROR,
+  EXPECTED_DISCOUNT_ERROR,
+  LOYALTY_OPT_IN_ERROR,
   DELIVERY_POSTCODE_NOT_SERVED_ERROR,
   IDEMPOTENCY_KEY_ERROR,
   LEGAL_CHANGED_ERROR,
@@ -461,6 +472,121 @@ describe('executeCheckout card placement', () => {
       expect(res).toEqual({ ok: false, code: 'INVALID_INPUT', error: ADDRESS_REQUIRED_ERROR });
       const collection = await executeCheckout({ ...cardRequest, items }, { now: NOW_OPEN });
       expect(collection.ok).toBe(true);
+    });
+  });
+
+  describe('discounts', () => {
+    const withCode: CheckoutRequestDto = { ...cardRequest, discountCode: 'WELCOME10', expectedDiscountCents: 140 };
+    beforeEach(() => {
+      (findPromotions as any).mockResolvedValue(PROMOTIONS);
+      (findDiscountUseRows as any).mockResolvedValue([]);
+    });
+    afterEach(() => {
+      (findPromotions as any).mockResolvedValue(null);
+      (findDiscountUseRows as any).mockResolvedValue([]);
+    });
+
+    it('a code lowers the charge and is kept with the checkout', async () => {
+      const res = await executeCheckout(withCode, { now: NOW_OPEN });
+      expect(res.ok).toBe(true);
+      expect(createPaymentIntent).toHaveBeenCalledWith(expect.objectContaining({ amountCents: 1260 }));
+      expect(upsertCheckoutSession).toHaveBeenCalledWith(
+        expect.objectContaining({
+          subtotalCents: 1400,
+          totalCents: 1260,
+          discount: {
+            kind: 'code',
+            code: 'WELCOME10',
+            cents: 140,
+            byRate: [
+              { rateBasisPoints: 700, grossCents: 105, taxCents: 7 },
+              { rateBasisPoints: 1900, grossCents: 35, taxCents: 6 },
+            ],
+          },
+          taxBreakdown: [
+            { rateBasisPoints: 700, grossCents: 945, taxCents: 62 },
+            { rateBasisPoints: 1900, grossCents: 315, taxCents: 50 },
+          ],
+        }),
+      );
+      const saved = (upsertCheckoutSession as any).mock.calls[0][0];
+      expect(saved.items.map((i: { discountCents?: number }) => i.discountCents)).toEqual([105, 35]);
+      expect(res.ok && res.data).toMatchObject({ subtotalCents: 1400, totalCents: 1260 });
+    });
+
+    it('a changed discount needs a new look', async () => {
+      const res = await executeCheckout({ ...withCode, expectedDiscountCents: 100 }, { now: NOW_OPEN });
+      expect(res).toEqual({ ok: false, code: 'CONFLICT', error: DISCOUNT_CHANGED_ERROR });
+      expect(createPaymentIntent).not.toHaveBeenCalled();
+    });
+
+    it('a code that stopped working is reported as a changed discount', async () => {
+      (findPromotions as any).mockResolvedValue({ ...PROMOTIONS, codes: [{ ...PROMO_CODE, active: false }] });
+      const res = await executeCheckout(withCode, { now: NOW_OPEN });
+      expect(res).toEqual({ ok: false, code: 'CONFLICT', error: DISCOUNT_CHANGED_ERROR });
+    });
+
+    it('a diner cannot use a code twice', async () => {
+      (findDiscountUseRows as any).mockResolvedValue([
+        { state: 'COMPLETED', acceptedAt: '2026-10-01T10:00:00.000Z', customerEmail: 'A@Example.com' },
+      ]);
+      const res = await executeCheckout(withCode, { now: NOW_OPEN });
+      expect(res).toEqual({ ok: false, code: 'CONFLICT', error: DISCOUNT_ALREADY_USED_ERROR });
+    });
+
+    it('the shop minimum is checked before the discount', async () => {
+      (findShopById as any).mockResolvedValue({ ...CARD_SHOP, minOrderAmountCents: 1400 });
+      const res = await executeCheckout(withCode, { now: NOW_OPEN });
+      expect(res.ok).toBe(true);
+      expect(createPaymentIntent).toHaveBeenCalledWith(expect.objectContaining({ amountCents: 1260 }));
+    });
+
+    it('the 250 euro rule uses the discounted total', async () => {
+      const items = [{ productId: 'p1', quantity: 25 }];
+      const res = await executeCheckout({ ...withCode, items, expectedDiscountCents: 2625 }, { now: NOW_OPEN });
+      expect(res.ok).toBe(true);
+      expect(createPaymentIntent).toHaveBeenCalledWith(expect.objectContaining({ amountCents: 23625 }));
+      const plain = await executeCheckout({ ...cardRequest, items }, { now: NOW_OPEN });
+      expect(plain).toEqual({ ok: false, code: 'INVALID_INPUT', error: ADDRESS_REQUIRED_ERROR });
+    });
+
+    it('a scheduled order judges the code when it is placed', async () => {
+      (findShopById as any).mockResolvedValue(SCHEDULED_SHOP);
+      (findPromotions as any).mockResolvedValue({ ...PROMOTIONS, codes: [{ ...PROMO_CODE, validUntil: '2026-10-05' }] });
+      const res = await executeCheckout({ ...withCode, scheduledFor: '2026-10-06T16:00:00.000Z' }, { now: NOW_CLOSED });
+      expect(res.ok).toBe(true);
+      expect(createPaymentIntent).toHaveBeenCalledWith(expect.objectContaining({ amountCents: 1260 }));
+    });
+
+    it('the loyalty tick is kept only while the restaurant runs loyalty', async () => {
+      const tick = { ...cardRequest, loyaltyOptIn: true };
+      await executeCheckout(tick, { now: NOW_OPEN });
+      expect((upsertCheckoutSession as any).mock.calls[0][0].loyaltyOptIn).toBe(true);
+      vi.clearAllMocks();
+      (findPromotions as any).mockResolvedValue(null);
+      await executeCheckout(tick, { now: NOW_OPEN });
+      expect((upsertCheckoutSession as any).mock.calls[0][0]).not.toHaveProperty('loyaltyOptIn');
+      vi.clearAllMocks();
+      (findPromotions as any).mockResolvedValue({ ...PROMOTIONS, loyalty: { ...PROMOTIONS.loyalty!, enabled: false } });
+      await executeCheckout(tick, { now: NOW_OPEN });
+      expect((upsertCheckoutSession as any).mock.calls[0][0]).not.toHaveProperty('loyaltyOptIn');
+    });
+
+    it('refuses a malformed code or tick', async () => {
+      expect(await executeCheckout({ ...cardRequest, discountCode: 'a b' }, { now: NOW_OPEN })).toEqual({
+        ok: false, code: 'INVALID_INPUT', error: DISCOUNT_CODE_FORMAT_ERROR,
+      });
+      expect(await executeCheckout({ ...cardRequest, loyaltyOptIn: 'yes' as any }, { now: NOW_OPEN })).toEqual({
+        ok: false, code: 'INVALID_INPUT', error: LOYALTY_OPT_IN_ERROR,
+      });
+      expect(await executeCheckout({ ...cardRequest, expectedDiscountCents: 1.5 }, { now: NOW_OPEN })).toEqual({
+        ok: false, code: 'INVALID_INPUT', error: EXPECTED_DISCOUNT_ERROR,
+      });
+    });
+
+    it('without a code a non-zero expected discount is a change', async () => {
+      const res = await executeCheckout({ ...cardRequest, expectedDiscountCents: 140 }, { now: NOW_OPEN });
+      expect(res).toEqual({ ok: false, code: 'CONFLICT', error: DISCOUNT_CHANGED_ERROR });
     });
   });
 

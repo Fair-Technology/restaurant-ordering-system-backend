@@ -3,7 +3,7 @@ import { Order } from '../../../domain/order/Order';
 
 /**
  * The one place a paid-for checkout becomes an order: placed, with the card money reserved.
- * It copies the session's fulfilment mode, table and booked time as they are.
+ * It copies the session's fulfilment mode, table, booked time, discount and loyalty tick as they are.
  */
 export function buildPlacedOrderFromSession(input: {
   session: CheckoutSession;
@@ -36,6 +36,8 @@ export function buildPlacedOrderFromSession(input: {
     ...(session.scheduledFor && queued ? { queuedAt: at } : {}),
     ...(session.deliveryAddress ? { deliveryAddress: session.deliveryAddress } : {}),
     ...(session.charges ? { charges: session.charges } : {}),
+    ...(session.discount ? { discount: session.discount } : {}),
+    ...(session.loyaltyOptIn ? { loyaltyOptIn: true as const } : {}),
     ...(session.totalCents !== undefined ? { totalCents: session.totalCents } : {}),
     ...(session.taxBreakdown ? { taxBreakdown: session.taxBreakdown } : {}),
     ...(session.language ? { language: session.language } : {}),

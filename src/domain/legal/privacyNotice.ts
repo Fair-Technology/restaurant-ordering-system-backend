@@ -2,7 +2,7 @@ import { ImpressumFields, LegalLanguage } from './impressum';
 import { PlatformLegalIdentity } from './PlatformLegalIdentity';
 import { LegalSection, STRIPE_PRIVACY_URL, SUB_PROCESSORS } from './platformDocuments';
 
-export const PRIVACY_TEMPLATE_VERSION = '2026-10-01-draft';
+export const PRIVACY_TEMPLATE_VERSION = '2026-10-09-draft';
 
 export interface PrivacyNotice {
   templateVersion: string;
@@ -44,11 +44,13 @@ export function buildPrivacyNotice(input: {
             'Wir verarbeiten Name, E-Mail-Adresse, Telefonnummer, den Inhalt der Bestellung, optional Hinweise für die Küche und – wenn angegeben oder bei Bestellungen über 250 € erforderlich – Ihre Rechnungsadresse. Rechnungen mit Name und Adresse bewahrt das Restaurant acht Jahre auf. Bei Lieferbestellungen zusätzlich Ihre Lieferadresse; alle Mitarbeitenden des Restaurants, die Bestellungen bearbeiten, sehen sie und Ihre Telefonnummer, damit geliefert werden kann. Die Lieferadresse steht nicht auf der Rechnung.',
             'Das geschieht, um die Bestellung anzunehmen, zuzubereiten und zu übergeben und um Sie dazu zu kontaktieren (Art. 6 Abs. 1 lit. b DSGVO).',
             'Bitte geben Sie in den Hinweisen keine Gesundheitsdaten ein.',
+            'Wenn Sie einen Rabatt- oder Gutscheincode einlösen, speichern wir ihn mit der Bestellung. Bietet das Restaurant Treuegutscheine an, zählen wir Ihre angenommenen Bestellungen anhand Ihrer E-Mail-Adresse. Einen Gutschein per E-Mail senden wir nur, wenn Sie das bei der Bestellung ankreuzen (Art. 6 Abs. 1 lit. a DSGVO); ohne Häkchen bei der nächsten Bestellung kommt keiner.',
           ]
         : [
             'We process your name, email address, phone number, the contents of your order, optionally kitchen notes and – if you give it, or for orders over €250 – your billing address. The restaurant keeps invoices with your name and address for eight years. For delivery orders we also process your delivery address; everyone at the restaurant who handles orders sees it and your phone number so the order can be delivered. The delivery address is not printed on the invoice.',
             'We do this to take, prepare and hand over your order and to contact you about it (Art. 6(1)(b) GDPR).',
             "Please don't enter health information in the notes.",
+            'If you redeem a discount or voucher code, we store it with the order. If the restaurant offers loyalty vouchers, we count your accepted orders by your email address. We email you a voucher only if you tick the box when ordering (Art. 6(1)(a) GDPR); leave it unticked next time and none is sent.',
           ],
     },
     {
