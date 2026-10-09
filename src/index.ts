@@ -66,6 +66,10 @@ import './functions/promotion/createDiscountCode/index';
 import './functions/promotion/setDiscountCodeActive/index';
 import './functions/promotion/updateLoyalty/index';
 
+// Report endpoints
+import './functions/report/getSalesReport/index';
+import './functions/report/getOwnerOverview/index';
+
 // Audit endpoints
 import './functions/audit/getAuditEntries/index';
 
