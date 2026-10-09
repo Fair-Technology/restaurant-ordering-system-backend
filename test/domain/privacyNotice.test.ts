@@ -39,7 +39,7 @@ describe('buildPrivacyNotice', () => {
   it('is marked draft', () => {
     const n = buildPrivacyNotice(base);
     expect(n.isDraft).toBe(true);
-    expect(n.templateVersion).toBe('2026-10-01-draft');
+    expect(n.templateVersion).toBe('2026-10-09-draft');
   });
 
   it("includes the restaurant's own addition last", () => {
@@ -47,6 +47,16 @@ describe('buildPrivacyNotice', () => {
     const last = n.sections[n.sections.length - 1];
     expect(last.heading).toBe('Ergänzende Hinweise von Ma Pasta GmbH');
     expect(last.paragraphs).toEqual(['Eins', 'Zwei']);
+  });
+
+  it('mentions codes and loyalty vouchers', () => {
+    const de = buildPrivacyNotice(base).sections.flatMap((x) => x.paragraphs).join(' ');
+    expect(de).toContain('Gutschein');
+    expect(de).toContain('ankreuzen');
+    const en = buildPrivacyNotice({ ...base, lang: 'en' }).sections.flatMap((x) => x.paragraphs).join(' ');
+    expect(en).toContain('voucher');
+    expect(en).toContain('tick the box');
+    expect(buildPrivacyNotice(base).sections).toHaveLength(8);
   });
 
   it('has eight sections without an addition', () => {

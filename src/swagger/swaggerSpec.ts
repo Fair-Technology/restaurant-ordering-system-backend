@@ -2222,6 +2222,19 @@ export const swaggerSpec = {
             description: "Optional: order for later. The start of a free 15-minute slot from the quote's slots (collection and delivery only). A slot that is no longer free answers 409.",
             example: '2026-10-10T16:00:00.000Z',
           },
+          discountCode: {
+            type: 'string',
+            description: 'Optional discount or voucher code; read case-insensitively. A code that no longer applies answers 409.',
+            example: 'WELCOME10',
+          },
+          expectedDiscountCents: {
+            type: 'integer',
+            description: 'The discount the diner was shown; a different server amount answers 409.',
+          },
+          loyaltyOptIn: {
+            type: 'boolean',
+            description: 'The diner asked to receive loyalty vouchers by email.',
+          },
         },
       },
       CheckoutResponse: {

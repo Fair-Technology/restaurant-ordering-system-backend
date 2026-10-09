@@ -60,6 +60,12 @@ import './functions/order/viewCustomerOrder/index';
 import './functions/order/cancelCustomerOrder/index';
 import './functions/order/orderTimers/index';
 
+// Promotion endpoints
+import './functions/promotion/getPromotions/index';
+import './functions/promotion/createDiscountCode/index';
+import './functions/promotion/setDiscountCodeActive/index';
+import './functions/promotion/updateLoyalty/index';
+
 // Audit endpoints
 import './functions/audit/getAuditEntries/index';
 
