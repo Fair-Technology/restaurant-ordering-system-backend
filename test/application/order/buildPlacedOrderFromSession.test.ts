@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { buildPlacedOrderFromSession } from '../../../src/application/order/handlePaymentAuthorized/buildPlacedOrderFromSession';
 import { CheckoutSession } from '../../../src/domain/order/CheckoutSession';
-import { ADDRESS, DELIVERY_ADDRESS, FEE_CHARGE } from '../../fixtures/orders';
+import { ADDRESS, DELIVERY_ADDRESS, DISCOUNTED_ORDER, FEE_CHARGE } from '../../fixtures/orders';
 
 const session: CheckoutSession = {
   id: 'sess-1',
@@ -124,5 +124,18 @@ describe('buildPlacedOrderFromSession', () => {
     const order = buildPlacedOrderFromSession({ session, paymentIntentId: 'pi_1', orderRef: 'AB3-K7P', autoRejectMinutes: 10, now });
     expect('queuedAt' in order).toBe(false);
     expect('scheduledFor' in order).toBe(false);
+  });
+
+  it('copies the discount and the loyalty tick', () => {
+    const args = { paymentIntentId: 'pi_1', orderRef: 'AB3-K7P', autoRejectMinutes: 10, now };
+    const order = buildPlacedOrderFromSession({
+      ...args,
+      session: { ...session, items: DISCOUNTED_ORDER.items, discount: DISCOUNTED_ORDER.discount, loyaltyOptIn: true },
+    });
+    expect(order).toMatchObject({ discount: DISCOUNTED_ORDER.discount, loyaltyOptIn: true });
+    expect(order.items[0].discountCents).toBe(105);
+    const plain = buildPlacedOrderFromSession({ ...args, session });
+    expect('discount' in plain).toBe(false);
+    expect('loyaltyOptIn' in plain).toBe(false);
   });
 });
