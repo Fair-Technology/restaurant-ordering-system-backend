@@ -9,16 +9,24 @@ vi.mock('../../../src/infrastructure/cosmos/reference/CosmosReferenceListsReposi
   getReferenceLists: vi.fn(async () => (await import('../../../src/domain/reference/ReferenceLists')).DE_REFERENCE_LISTS),
 }));
 
+vi.mock('../../../src/infrastructure/cosmos/promotion/CosmosPromotionRepository', () => ({
+  findPromotions: vi.fn(async () => null),
+  findVoucher: vi.fn(async () => null),
+}));
+vi.mock('../../../src/infrastructure/cosmos/order/CosmosOrderRepository', () => ({ findDiscountUseRows: vi.fn(async () => []) }));
+
 vi.mock('../../../src/application/usage/orderLimitStatus', () => ({
   loadOrderLimitStatus: vi.fn(async () => ({ periodKey: '2026-10', acceptedOrderCount: 0, limit: 30, warningLevel: 0, limitReached: false })),
 }));
 
 import { loadOrderLimitStatus } from '../../../src/application/usage/orderLimitStatus';
 import { executeQuoteBasket } from '../../../src/application/order/quoteBasket/executeQuoteBasket';
+import { findDiscountUseRows } from '../../../src/infrastructure/cosmos/order/CosmosOrderRepository';
+import { findPromotions, findVoucher } from '../../../src/infrastructure/cosmos/promotion/CosmosPromotionRepository';
 import { findProductById } from '../../../src/infrastructure/cosmos/product/CosmosProductRepository';
 import { findShopById } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
 import { MODE_NOT_OFFERED_ERROR, SCHEDULED_FOR_ERROR } from '../../../src/domain/order/orderErrors';
-import { CARD_SHOP, DELIVERY_SHOP, DINE_IN_SHOP, NOW_CLOSED, NOW_OPEN, P_COLA, P_PASTA, SCHEDULED_SHOP } from '../../fixtures/orders';
+import { CARD_SHOP, DELIVERY_SHOP, DINE_IN_SHOP, NOW_CLOSED, NOW_OPEN, P_COLA, P_PASTA, PROMO_CODE, PROMOTIONS, SCHEDULED_SHOP, VOUCHER } from '../../fixtures/orders';
 
 const request = {
   shopId: 'shop-1',
@@ -31,6 +39,9 @@ const request = {
 describe('executeQuoteBasket', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    (findPromotions as any).mockResolvedValue(null);
+    (findVoucher as any).mockResolvedValue(null);
+    (findDiscountUseRows as any).mockResolvedValue([]);
     (findShopById as any).mockResolvedValue(CARD_SHOP);
     (findProductById as any).mockImplementation(async (id: string) => (id === 'p1' ? P_PASTA : id === 'p2' ? P_COLA : null));
   });
@@ -190,5 +201,60 @@ describe('executeQuoteBasket', () => {
     expect(evening.ok && evening.data.lines[0].status).toBe('unavailable');
     const noon = await executeQuoteBasket({ ...request, scheduledFor: '2026-10-06T10:30:00.000Z' }, { now: NOW_OPEN });
     expect(noon.ok && noon.data.lines[0]).toMatchObject({ status: 'ok', unitPriceCents: 800 });
+  });
+
+  it('offers the code box only when the restaurant has codes or loyalty', async () => {
+    const none = await executeQuoteBasket(request, { now: NOW_OPEN });
+    expect(none.ok && none.data).toMatchObject({ acceptsCodes: false, loyalty: null, discount: null, discountProblem: null });
+    (findPromotions as any).mockResolvedValue(PROMOTIONS);
+    const some = await executeQuoteBasket(request, { now: NOW_OPEN });
+    expect(some.ok && some.data).toMatchObject({ acceptsCodes: true, loyalty: { everyOrders: 5, rewardCents: 500 } });
+  });
+
+  it('a valid code lowers the quote', async () => {
+    (findPromotions as any).mockResolvedValue(PROMOTIONS);
+    const res = await executeQuoteBasket({ ...request, discountCode: 'welcome10' }, { now: NOW_OPEN });
+    expect(res.ok && res.data).toMatchObject({
+      subtotalCents: 1400,
+      discount: { kind: 'code', code: 'WELCOME10', cents: 140 },
+      discountProblem: null,
+      totalCents: 1260,
+      taxCents: 112,
+    });
+  });
+
+  it('says why a code does not apply', async () => {
+    const quote = async (promotions: unknown, discountCode: string) => {
+      (findPromotions as any).mockResolvedValue(promotions);
+      const res = await executeQuoteBasket({ ...request, discountCode }, { now: NOW_OPEN });
+      expect(res.ok).toBe(true);
+      return res.ok ? res.data : null;
+    };
+    const withCode = (c: object) => ({ ...PROMOTIONS, codes: [{ ...PROMO_CODE, ...c }] });
+    expect(await quote(PROMOTIONS, 'NOPE1')).toMatchObject({ discount: null, discountProblem: 'unknown', totalCents: 1400 });
+    expect(await quote(PROMOTIONS, 'a b')).toMatchObject({ discountProblem: 'unknown' });
+    expect(await quote(withCode({ validUntil: '2026-10-04' }), 'WELCOME10')).toMatchObject({ discountProblem: 'expired' });
+    expect(await quote(withCode({ validFrom: '2026-10-06' }), 'WELCOME10')).toMatchObject({ discountProblem: 'not_started' });
+    expect(await quote(withCode({ minSubtotalCents: 2000 }), 'WELCOME10')).toMatchObject({
+      discountProblem: 'minimum',
+      discountMinSubtotalCents: 2000,
+    });
+    (findDiscountUseRows as any).mockResolvedValue([{ state: 'ACCEPTED', acceptedAt: '2026-10-01T10:00:00.000Z', customerEmail: 'b@x.example' }]);
+    expect(await quote(withCode({ totalLimit: 1 }), 'WELCOME10')).toMatchObject({ discountProblem: 'used_up' });
+    (findDiscountUseRows as any).mockResolvedValue([{ state: 'REJECTED', customerEmail: 'b@x.example' }]);
+    expect(await quote(withCode({ totalLimit: 1 }), 'WELCOME10')).toMatchObject({ discount: { cents: 140 } });
+  });
+
+  it('a voucher is a fixed amount, once', async () => {
+    (findVoucher as any).mockResolvedValue(VOUCHER);
+    const ok = await executeQuoteBasket({ ...request, discountCode: 'l-abcd2345' }, { now: NOW_OPEN });
+    expect(ok.ok && ok.data).toMatchObject({ discount: { kind: 'voucher', code: 'L-ABCD2345', cents: 500 }, totalCents: 900 });
+    (findDiscountUseRows as any).mockResolvedValue([{ state: 'PLACED', customerEmail: 'x@x.example' }]);
+    const used = await executeQuoteBasket({ ...request, discountCode: 'l-abcd2345' }, { now: NOW_OPEN });
+    expect(used.ok && used.data).toMatchObject({ discountProblem: 'used_up' });
+    (findDiscountUseRows as any).mockResolvedValue([]);
+    (findVoucher as any).mockResolvedValue({ ...VOUCHER, expiresOn: '2026-10-04' });
+    const old = await executeQuoteBasket({ ...request, discountCode: 'l-abcd2345' }, { now: NOW_OPEN });
+    expect(old.ok && old.data).toMatchObject({ discountProblem: 'expired' });
   });
 });

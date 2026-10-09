@@ -1,5 +1,6 @@
-import type { FulfilmentMode, PaymentMethod } from '../../../domain/order/Order';
+import type { FulfilmentMode, OrderDiscountKind, PaymentMethod } from '../../../domain/order/Order';
 import type { CheckoutItemDto } from '../checkout/dtos';
+import type { DiscountProblem } from '../../../domain/promotion/promotions';
 import type { LineStatus } from '../_shared/priceBasket';
 
 export interface QuoteBasketRequestDto {
@@ -9,6 +10,7 @@ export interface QuoteBasketRequestDto {
   language?: string;
   postcode?: string; // read for delivery only
   scheduledFor?: string; // a slot start; prices the basket for that time
+  discountCode?: string; // a discount or voucher code the diner typed
 }
 
 export interface QuoteLineDto {
@@ -28,7 +30,7 @@ export interface BasketQuoteDto {
   lines: QuoteLineDto[];
   subtotalCents: number;
   deliveryFeeCents: number | null; // null unless delivery to a served postcode
-  totalCents: number; // subtotal + fee
+  totalCents: number; // subtotal + fee - discount
   postcodeServed: boolean | null; // null unless the mode is delivery
   taxCents: number;
   minOrderAmountCents: number;
@@ -41,4 +43,9 @@ export interface BasketQuoteDto {
   slots: string[]; // bookable slot starts for this mode ([] = orders for later are not offered)
   scheduledFor: string | null; // the parsed slot echoed back, null when none was sent
   slotAvailable: boolean | null; // null when no scheduledFor was sent
+  acceptsCodes: boolean; // the restaurant has a live code or runs loyalty, so checkout shows the code box
+  discount: { kind: OrderDiscountKind; code: string; cents: number } | null;
+  discountProblem: DiscountProblem | null; // null when no code was sent or it applies
+  discountMinSubtotalCents: number | null; // set with problem 'minimum'
+  loyalty: { everyOrders: number; rewardCents: number } | null;
 }

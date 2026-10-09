@@ -1,15 +1,20 @@
 import { menuLanguagesOf, resolveMenuLanguage } from '../../../domain/menu/menuLanguage';
 import { orderableModesFor } from '../../../domain/order/fulfilment';
 import { chargesTotalCents, deliveryFeeCharge, findDeliveryZone, hoursForMode } from '../../../domain/order/delivery';
+import { applyDiscount } from '../../../domain/order/discount';
+import { localDate } from '../../../domain/order/orderTimers';
 import { buildTaxBreakdownWithCharges } from '../../../domain/order/tax';
+import { acceptsCodes, loyaltyOffer, normaliseCode } from '../../../domain/promotion/promotions';
 import { MODE_NOT_OFFERED_ERROR, SCHEDULED_FOR_ERROR } from '../../../domain/order/orderErrors';
 import { effectivePrepMinutes, lastOrdersLeadMinutes } from '../../../domain/order/kitchenTiming';
 import { isOpenForAsapOrder } from '../../../domain/order/openingHours';
 import { addressRequired, FULFILMENT_MODES } from '../../../domain/order/Order';
 import { isBookableSlot, listSlots, parseSlotStart } from '../../../domain/order/scheduling';
 import { offeredPaymentMethods } from '../../../domain/order/paymentMethods';
+import { findPromotions } from '../../../infrastructure/cosmos/promotion/CosmosPromotionRepository';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { ApplicationResult } from '../../_shared/types';
+import { resolveDiscount, type DiscountResolution } from '../../promotion/resolveDiscount';
 import { loadOrderLimitStatus } from '../../usage/orderLimitStatus';
 import { loadPricingContext } from '../_shared/loadPricingContext';
 import { priceBasket, validateBasketItems } from '../_shared/priceBasket';
@@ -61,7 +66,27 @@ export async function executeQuoteBasket(
     const zone = mode === 'delivery' ? findDeliveryZone(shop, request.postcode) : null;
     const fee = zone ? deliveryFeeCharge(shop, zone, context.refs, pricedAt) : null;
     const charges = fee ? [fee] : [];
-    const totalCents = priced.subtotalCents + chargesTotalCents(charges);
+    const promotions = await findPromotions(shop.id);
+    const code =
+      request.discountCode === undefined || request.discountCode === null || request.discountCode === ''
+        ? null
+        : normaliseCode(request.discountCode);
+    let resolution: DiscountResolution | null = null;
+    if (request.discountCode && !code) resolution = { ok: false, problem: 'unknown', minSubtotalCents: null };
+    else if (code) {
+      resolution = await resolveDiscount({
+        shop,
+        promotions,
+        code,
+        subtotalCents: priced.subtotalCents,
+        chargesCents: chargesTotalCents(charges),
+        emailLower: null,
+        now,
+      });
+    }
+    const applied = resolution?.ok ? applyDiscount(priced.items, charges, resolution.offer) : null;
+    const totalCents = applied ? applied.totalCents : priced.subtotalCents + chargesTotalCents(charges);
+    const taxBreakdown = applied ? applied.taxBreakdown : buildTaxBreakdownWithCharges(priced.items, charges);
     const minimum = zone ? zone.minOrderCents : shop.minOrderAmountCents;
 
     return {
@@ -80,7 +105,7 @@ export async function executeQuoteBasket(
           lineTotalCents: l.item?.lineTotalCents ?? null,
         })),
         subtotalCents: priced.subtotalCents,
-        taxCents: buildTaxBreakdownWithCharges(priced.items, charges).reduce((sum, t) => sum + t.taxCents, 0),
+        taxCents: taxBreakdown.reduce((sum, t) => sum + t.taxCents, 0),
         minOrderAmountCents: minimum,
         belowMinimum: priced.subtotalCents < minimum,
         openNow: isOpenForAsapOrder(hoursForMode(shop, mode), shop.closures, shop.timezone, now, lastOrdersLeadMinutes(shop, mode)),
@@ -94,6 +119,11 @@ export async function executeQuoteBasket(
         slots: listSlots(shop, mode, now),
         scheduledFor: slot ? slot.toISOString() : null,
         slotAvailable: slot ? isBookableSlot(shop, mode, slot, now) : null,
+        acceptsCodes: acceptsCodes(promotions, localDate(now, shop.timezone)),
+        discount: applied ? { kind: applied.discount.kind, code: applied.discount.code, cents: applied.discount.cents } : null,
+        discountProblem: resolution && !resolution.ok ? resolution.problem : null,
+        discountMinSubtotalCents: resolution && !resolution.ok ? resolution.minSubtotalCents : null,
+        loyalty: loyaltyOffer(promotions),
       },
     };
   } catch {

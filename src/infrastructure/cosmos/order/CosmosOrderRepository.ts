@@ -202,3 +202,51 @@ export async function findOrdersForRejectionStats(shopId: string, sinceIso: stri
   const { resources } = await orderContainer.items.query<OrderForRejectionStats>(querySpec).fetchAll();
   return resources ?? [];
 }
+
+export interface DiscountUseRow {
+  state: StoredOrderState;
+  acceptedAt?: string;
+  customerEmail: string;
+}
+
+/** Orders of this restaurant that carry this code. */
+export async function findDiscountUseRows(shopId: string, code: string): Promise<DiscountUseRow[]> {
+  const querySpec = {
+    query: 'SELECT c.state, c.acceptedAt, c.customerEmail FROM c WHERE c.shopId = @shopId AND c.discount.code = @code',
+    parameters: [
+      { name: '@shopId', value: shopId },
+      { name: '@code', value: code },
+    ],
+  };
+  const { resources } = await orderContainer.items.query<DiscountUseRow>(querySpec).fetchAll();
+  return resources;
+}
+
+/** Every order of this restaurant that carries a code (for the owner's use counts). */
+export async function listDiscountUseRows(
+  shopId: string,
+): Promise<Array<{ code: string; state: StoredOrderState; acceptedAt?: string }>> {
+  const querySpec = {
+    query: 'SELECT c.discount.code AS code, c.state, c.acceptedAt FROM c WHERE c.shopId = @shopId AND IS_DEFINED(c.discount)',
+    parameters: [{ name: '@shopId', value: shopId }],
+  };
+  const { resources } = await orderContainer.items
+    .query<{ code: string; state: StoredOrderState; acceptedAt?: string }>(querySpec)
+    .fetchAll();
+  return resources;
+}
+
+/** Accepted orders of this diner at this restaurant since `sinceIso` (the loyalty count). */
+export async function countLoyaltyOrders(shopId: string, emailLower: string, sinceIso: string): Promise<number> {
+  const querySpec = {
+    query:
+      'SELECT VALUE COUNT(1) FROM c WHERE c.shopId = @shopId AND LOWER(c.customerEmail) = @email AND IS_DEFINED(c.acceptedAt) AND c.acceptedAt >= @since',
+    parameters: [
+      { name: '@shopId', value: shopId },
+      { name: '@email', value: emailLower },
+      { name: '@since', value: sinceIso },
+    ],
+  };
+  const { resources } = await orderContainer.items.query<number>(querySpec).fetchAll();
+  return resources[0] ?? 0;
+}

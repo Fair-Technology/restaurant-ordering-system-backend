@@ -11,18 +11,25 @@ import {
   findDeliveryZone,
   hoursForMode,
 } from '../../../domain/order/delivery';
+import { applyDiscount } from '../../../domain/order/discount';
 import { buildTaxBreakdownWithCharges } from '../../../domain/order/tax';
+import { loyaltyOffer, normaliseCode } from '../../../domain/promotion/promotions';
 import { isOpenForAsapOrder } from '../../../domain/order/openingHours';
 import {
   ADDRESS_INVALID_ERROR,
   ADDRESS_REQUIRED_ERROR,
   BASKET_CHANGED_ERROR,
   DELIVERY_ADDRESS_INVALID_ERROR,
+  DISCOUNT_ALREADY_USED_ERROR,
+  DISCOUNT_CHANGED_ERROR,
+  DISCOUNT_CODE_FORMAT_ERROR,
   DELIVERY_FEE_CHANGED_ERROR,
   DELIVERY_POSTCODE_NOT_SERVED_ERROR,
+  EXPECTED_DISCOUNT_ERROR,
   EXPECTED_FEE_ERROR,
   IDEMPOTENCY_KEY_ERROR,
   LEGAL_CHANGED_ERROR,
+  LOYALTY_OPT_IN_ERROR,
   MODE_NOT_OFFERED_ERROR,
   NO_PAYMENT_SETUP_ERROR,
   ORDER_LIMIT_REACHED_ERROR,
@@ -40,6 +47,7 @@ import {
   DeliveryAddress,
   FULFILMENT_MODES,
   LegalRevisions,
+  OrderDiscount,
   OrderTable,
   PaymentMethod,
 } from '../../../domain/order/Order';
@@ -54,10 +62,12 @@ import {
   findCheckoutSessionById,
   upsertCheckoutSession,
 } from '../../../infrastructure/cosmos/order/CosmosCheckoutSessionRepository';
+import { findPromotions } from '../../../infrastructure/cosmos/promotion/CosmosPromotionRepository';
 import { findOrderById } from '../../../infrastructure/cosmos/order/CosmosOrderRepository';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { createPaymentIntent, isStripeIdempotencyError } from '../../../infrastructure/stripe/stripeClient';
 import { ApplicationResult } from '../../_shared/types';
+import { resolveDiscount } from '../../promotion/resolveDiscount';
 import { loadOrderLimitStatus } from '../../usage/orderLimitStatus';
 import { loadPricingContext } from '../_shared/loadPricingContext';
 import { priceBasket, validateBasketItems } from '../_shared/priceBasket';
@@ -162,6 +172,18 @@ export async function executeCheckout(
   const expectedFee = request.expectedDeliveryFeeCents;
   if (expectedFee !== undefined && (typeof expectedFee !== 'number' || !Number.isInteger(expectedFee) || expectedFee < 0)) {
     return { ok: false, code: 'INVALID_INPUT', error: EXPECTED_FEE_ERROR };
+  }
+  let discountCode: string | null = null;
+  if (request.discountCode !== undefined && request.discountCode !== null && request.discountCode !== '') {
+    discountCode = normaliseCode(request.discountCode);
+    if (!discountCode) return { ok: false, code: 'INVALID_INPUT', error: DISCOUNT_CODE_FORMAT_ERROR };
+  }
+  const expectedDiscount = request.expectedDiscountCents;
+  if (expectedDiscount !== undefined && (typeof expectedDiscount !== 'number' || !Number.isInteger(expectedDiscount) || expectedDiscount < 0)) {
+    return { ok: false, code: 'INVALID_INPUT', error: EXPECTED_DISCOUNT_ERROR };
+  }
+  if (request.loyaltyOptIn !== undefined && typeof request.loyaltyOptIn !== 'boolean') {
+    return { ok: false, code: 'INVALID_INPUT', error: LOYALTY_OPT_IN_ERROR };
   }
   let scheduledFor: Date | null = null;
   if (request.scheduledFor !== undefined && request.scheduledFor !== null) {
@@ -268,11 +290,12 @@ export async function executeCheckout(
     if (!priced.allOk) {
       return { ok: false, code: 'CONFLICT', error: BASKET_CHANGED_ERROR };
     }
-    const { items: orderItems, subtotalCents } = priced;
+    let orderItems = priced.items;
+    const subtotalCents = priced.subtotalCents;
     const fee = zone ? deliveryFeeCharge(shop, zone, context.refs, pricedAt) : null;
     const charges = fee ? [fee] : [];
-    const totalCents = subtotalCents + chargesTotalCents(charges);
-    const taxBreakdown = buildTaxBreakdownWithCharges(orderItems, charges);
+    let totalCents = subtotalCents + chargesTotalCents(charges);
+    let taxBreakdown = buildTaxBreakdownWithCharges(orderItems, charges);
     const minimum = zone ? zone.minOrderCents : shop.minOrderAmountCents;
 
     // --- Enforce minimum order amount (items only, the fee does not count towards it) ---
@@ -284,6 +307,39 @@ export async function executeCheckout(
         error: `Order total is below the minimum of ${shop.currency} ${minDollars}`,
       };
     }
+
+    // --- Discount: judged now (also for an order for later), taken off the dishes only; the fee is never discounted ---
+    const promotions = discountCode || request.loyaltyOptIn === true ? await findPromotions(shop.id) : null;
+    let discount: OrderDiscount | undefined;
+    if (discountCode) {
+      const resolved = await resolveDiscount({
+        shop,
+        promotions,
+        code: discountCode,
+        subtotalCents,
+        chargesCents: chargesTotalCents(charges),
+        emailLower: request.customerEmail.trim().toLowerCase(),
+        now,
+      });
+      if (!resolved.ok) {
+        return {
+          ok: false,
+          code: 'CONFLICT',
+          error: resolved.problem === 'already_used' ? DISCOUNT_ALREADY_USED_ERROR : DISCOUNT_CHANGED_ERROR,
+        };
+      }
+      if (expectedDiscount !== undefined && expectedDiscount !== resolved.offer.cents) {
+        return { ok: false, code: 'CONFLICT', error: DISCOUNT_CHANGED_ERROR };
+      }
+      const applied = applyDiscount(orderItems, charges, resolved.offer);
+      orderItems = applied.items;
+      taxBreakdown = applied.taxBreakdown;
+      totalCents = applied.totalCents;
+      discount = applied.discount;
+    } else if (expectedDiscount !== undefined && expectedDiscount !== 0) {
+      return { ok: false, code: 'CONFLICT', error: DISCOUNT_CHANGED_ERROR };
+    }
+    const loyaltyOptIn = request.loyaltyOptIn === true && loyaltyOffer(promotions) !== null;
 
     if (addressRequired(totalCents) && !customerAddress) {
       return { ok: false, code: 'INVALID_INPUT', error: ADDRESS_REQUIRED_ERROR };
@@ -322,6 +378,8 @@ export async function executeCheckout(
       subtotalCents,
       totalCents,
       ...(charges.length > 0 ? { charges } : {}),
+      ...(discount ? { discount } : {}),
+      ...(loyaltyOptIn ? { loyaltyOptIn: true as const } : {}),
       currency: shop.currency,
       customerName: request.customerName,
       customerEmail: request.customerEmail.trim(),
