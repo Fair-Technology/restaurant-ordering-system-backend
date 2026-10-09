@@ -49,6 +49,7 @@ import {
   PAYMENT_SERVICE_UNAVAILABLE_ERROR,
   PREP_MINUTES_ERROR,
   REJECT_REASON_ERROR,
+  SCHEDULED_NOT_DUE_ERROR,
 } from '../../../src/domain/order/orderErrors';
 import { commitInvoice } from '../../../src/infrastructure/cosmos/invoice/CosmosInvoiceRepository';
 import { capturePaymentIntent, releaseAuthorization } from '../../../src/infrastructure/stripe/stripeClient';
@@ -60,6 +61,8 @@ import {
   PLACED_CARD_ORDER,
   PLACED_DELIVERY_ORDER,
   PLACED_TABLE_ORDER,
+  SCHEDULED_ORDER,
+  SLOT_1800,
 } from '../../fixtures/orders';
 
 const http = {} as any;
@@ -338,6 +341,63 @@ describe('kitchen intake', () => {
     if (!res.ok) return;
     expect(res.data.orders[0].table).toEqual({ label: '7' });
     expect(res.data.orders[1].table).toBeNull();
+  });
+
+  it('staff cannot accept a scheduled order before it is due', async () => {
+    storedOrder(SCHEDULED_ORDER);
+    const res = await executeAcceptOrder({ shopId: 'shop-1', orderId: 'o4' }, http, { now });
+    expect(res).toEqual({ ok: false, code: 'CONFLICT', error: SCHEDULED_NOT_DUE_ERROR });
+    expect(capturePaymentIntent).not.toHaveBeenCalled();
+  });
+
+  it('staff can decline a scheduled order early', async () => {
+    storedOrder(SCHEDULED_ORDER);
+    const res = await executeRejectOrder({ shopId: 'shop-1', orderId: 'o4', reason: 'too_busy' }, http, { now });
+    expect(res.ok && res.data.state).toBe('REJECTED');
+    expect(releaseAuthorization).toHaveBeenCalled();
+  });
+
+  it('a due scheduled order is ready at its booked time', async () => {
+    const store = storedOrder({ ...SCHEDULED_ORDER, queuedAt: '2026-10-05T15:40:00.000Z' });
+    await executeAcceptOrder({ shopId: 'shop-1', orderId: 'o4', prepMinutes: 20 }, http, { now: new Date('2026-10-05T15:42:00Z') });
+    expect(store.current.readyAt).toBe(SLOT_1800);
+    expect(store.current.prepMinutes).toBe(18);
+  });
+
+  it('a scheduled order accepted after its time gets the normal ready time', async () => {
+    const store = storedOrder({ ...SCHEDULED_ORDER, queuedAt: '2026-10-05T15:40:00.000Z' });
+    await executeAcceptOrder({ shopId: 'shop-1', orderId: 'o4' }, http, { now: new Date('2026-10-05T16:10:00Z') });
+    expect(store.current.readyAt).toBe('2026-10-05T16:30:00.000Z');
+    expect(store.current.prepMinutes).toBe(20);
+  });
+
+  it('the board keeps scheduled orders in Upcoming until they are due', async () => {
+    (findOrdersByShopIdAndStates as any).mockResolvedValue([SCHEDULED_ORDER, PLACED_CARD_ORDER]);
+    const early = await executeGetOrderQueue({ shopId: 'shop-1' }, http, { now });
+    expect(early.ok).toBe(true);
+    if (!early.ok) return;
+    expect(early.data.orders.map((o) => o.id)).toEqual(['o1']);
+    expect(early.data.upcoming.map((o) => o.id)).toEqual(['o4']);
+    expect(early.data.upcoming[0]).toMatchObject({ scheduledFor: SLOT_1800, outsideHours: false });
+    const due = await executeGetOrderQueue({ shopId: 'shop-1' }, http, { now: new Date('2026-10-05T15:40:00Z') });
+    expect(due.ok && due.data.orders.map((o) => o.id)).toEqual(['o4', 'o1']);
+    expect(due.ok && due.data.upcoming).toEqual([]);
+  });
+
+  it('upcoming orders are sorted by time and flag a closed slot', async () => {
+    (findShopById as any).mockResolvedValue({
+      ...CARD_SHOP,
+      closures: [{ id: 'c', start: '2026-10-05T15:00:00.000Z', end: '2026-10-05T18:00:00.000Z' }],
+    });
+    (findOrdersByShopIdAndStates as any).mockResolvedValue([
+      SCHEDULED_ORDER,
+      { ...SCHEDULED_ORDER, id: 'o5', scheduledFor: '2026-10-05T12:00:00.000Z' },
+    ]);
+    const res = await executeGetOrderQueue({ shopId: 'shop-1' }, http, { now });
+    expect(res.ok && res.data.upcoming.map((o) => [o.id, o.outsideHours])).toEqual([
+      ['o5', false],
+      ['o4', true],
+    ]);
   });
 
   describe('delivery', () => {

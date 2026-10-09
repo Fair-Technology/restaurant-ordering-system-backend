@@ -96,4 +96,33 @@ describe('buildPlacedOrderFromSession', () => {
     expect('totalCents' in plain).toBe(false);
     expect('charges' in plain).toBe(false);
   });
+
+  it('a scheduled order not yet due has no decline time', () => {
+    const args = { paymentIntentId: 'pi_1', orderRef: 'AB3-K7P', autoRejectMinutes: 10, now };
+    const order = buildPlacedOrderFromSession({
+      ...args,
+      session: { ...session, scheduledFor: '2026-10-05T16:00:00.000Z' },
+      inLiveQueue: false,
+    });
+    expect(order.scheduledFor).toBe('2026-10-05T16:00:00.000Z');
+    expect('autoRejectAt' in order).toBe(false);
+    expect('queuedAt' in order).toBe(false);
+  });
+
+  it('a scheduled order already due starts its clock now', () => {
+    const args = { paymentIntentId: 'pi_1', orderRef: 'AB3-K7P', autoRejectMinutes: 10, now };
+    const order = buildPlacedOrderFromSession({
+      ...args,
+      session: { ...session, scheduledFor: '2026-10-05T16:00:00.000Z' },
+      inLiveQueue: true,
+    });
+    expect(order.queuedAt).toBe('2026-10-05T10:00:00.000Z');
+    expect(order.autoRejectAt).toBe('2026-10-05T10:10:00.000Z');
+  });
+
+  it('an as-soon-as-possible order carries no booked time or queue time', () => {
+    const order = buildPlacedOrderFromSession({ session, paymentIntentId: 'pi_1', orderRef: 'AB3-K7P', autoRejectMinutes: 10, now });
+    expect('queuedAt' in order).toBe(false);
+    expect('scheduledFor' in order).toBe(false);
+  });
 });

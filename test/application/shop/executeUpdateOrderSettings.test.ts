@@ -36,6 +36,7 @@ import {
   DELIVERY_ZONES_ERROR,
   LAST_ORDERS_ERROR,
   PREP_SETTING_ERROR,
+  SCHEDULED_ORDERS_ERROR,
 } from '../../../src/domain/order/orderErrors';
 import { CARD_SHOP, DINE_IN_SHOP } from '../../fixtures/orders';
 
@@ -49,6 +50,7 @@ const REST = {
   deliveryHours: null,
   deliveryZones: [],
   deliveryFeeTaxClassId: null,
+  scheduledOrders: false,
 };
 
 describe('executeUpdateOrderSettings', () => {
@@ -170,6 +172,7 @@ describe('executeUpdateOrderSettings', () => {
       deliveryHours: null,
       deliveryZones: [],
       deliveryFeeTaxClassId: null,
+      scheduledOrders: false,
     });
   });
 
@@ -305,6 +308,21 @@ describe('executeUpdateOrderSettings', () => {
       delivery: true,
       deliveryZones: [],
     });
+  });
+
+  it('saves the orders-for-later switch and keeps everything else', async () => {
+    (findShopById as any).mockResolvedValue({ ...CARD_SHOP, orderSettings: { dineIn: true, busyExtraMinutes: 30 } });
+    await executeUpdateOrderSettings({ shopId: 'shop-1', body: { scheduledOrders: true } }, http);
+    expect((updateShop as any).mock.calls[0][0].orderSettings).toMatchObject({ dineIn: true, busyExtraMinutes: 30, scheduledOrders: true });
+    expect(logAudit).toHaveBeenCalledWith(
+      expect.objectContaining({ changes: [{ field: 'scheduledOrders', from: false, to: true }] }),
+    );
+  });
+
+  it('refuses a non-boolean orders-for-later switch', async () => {
+    const res = await executeUpdateOrderSettings({ shopId: 'shop-1', body: { scheduledOrders: 'yes' } as any }, http);
+    expect(res).toEqual({ ok: false, code: 'INVALID_INPUT', error: SCHEDULED_ORDERS_ERROR });
+    expect(updateShop).not.toHaveBeenCalled();
   });
 
   describe('overlapping saves', () => {

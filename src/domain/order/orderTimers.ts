@@ -2,12 +2,13 @@ import type { Order } from './Order';
 
 export const ESCALATE_AFTER_MINUTES = 3;
 
-export function isDueForEscalation(o: Pick<Order, 'state' | 'createdAt' | 'escalatedAt'>, now: Date): boolean {
-  return (
-    o.state === 'PLACED' &&
-    !o.escalatedAt &&
-    now.getTime() - Date.parse(o.createdAt) >= ESCALATE_AFTER_MINUTES * 60_000
-  );
+export function isDueForEscalation(
+  o: Pick<Order, 'state' | 'createdAt' | 'escalatedAt' | 'scheduledFor' | 'queuedAt'>,
+  now: Date,
+): boolean {
+  if (o.state !== 'PLACED' || o.escalatedAt) return false;
+  if (o.scheduledFor && !o.queuedAt) return false; // still upcoming
+  return now.getTime() - Date.parse(o.queuedAt ?? o.createdAt) >= ESCALATE_AFTER_MINUTES * 60_000;
 }
 
 export function isDueForAutoReject(o: Pick<Order, 'state' | 'autoRejectAt'>, now: Date): boolean {

@@ -25,6 +25,7 @@ export interface CustomerOrderDto {
   displayState: OrderState;
   fulfilmentMode: FulfilmentMode;
   table: { label: string } | null;
+  scheduledFor: string | null; // the booked time; null = as soon as possible
   paymentStatus: DisplayPaymentStatus;
   refundedCents: number;
   documents: OrderDocumentDto[];

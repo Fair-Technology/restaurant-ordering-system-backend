@@ -10,7 +10,7 @@ import { isDueForAutoComplete, isDueForAutoReject, isDueForEscalation } from '..
 import { addressRequired } from '../../src/domain/order/Order';
 import { escalationRecipients, orderSettingsOf } from '../../src/domain/order/orderSettings';
 import { orderableModesFor } from '../../src/domain/order/fulfilment';
-import { CARD_SHOP, DELIVERY_ZONE, PLACED_CARD_ORDER } from '../fixtures/orders';
+import { CARD_SHOP, DELIVERY_ZONE, PLACED_CARD_ORDER, SCHEDULED_ORDER } from '../fixtures/orders';
 
 describe('order rules', () => {
   it('offers card only once Stripe is ready', () => {
@@ -33,6 +33,7 @@ describe('order rules', () => {
       deliveryHours: null,
       deliveryZones: [],
       deliveryFeeTaxClassId: null,
+      scheduledOrders: false,
     });
     expect(
       orderSettingsOf({ orderSettings: { autoRejectMinutes: 15, alertEmail: null, autoAccept: false } }).autoAccept,
@@ -135,5 +136,12 @@ describe('order rules', () => {
     expect(
       escalationRecipients({ ...CARD_SHOP, orderSettings: { autoRejectMinutes: 10, alertEmail: 'INFO@mapasta.example', autoAccept: true } }),
     ).toEqual(['info@mapasta.example']);
+  });
+
+  it('a scheduled order is not escalated until it comes in', () => {
+    expect(isDueForEscalation(SCHEDULED_ORDER, new Date('2026-10-05T10:03:00Z'))).toBe(false);
+    const queued = { ...SCHEDULED_ORDER, queuedAt: '2026-10-05T15:40:00.000Z' };
+    expect(isDueForEscalation(queued, new Date('2026-10-05T15:42:59Z'))).toBe(false);
+    expect(isDueForEscalation(queued, new Date('2026-10-05T15:43:00Z'))).toBe(true);
   });
 });

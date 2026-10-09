@@ -42,7 +42,7 @@ import { findOrderById } from '../../../src/infrastructure/cosmos/order/CosmosOr
 import { loadOrderLimitStatus } from '../../../src/application/usage/orderLimitStatus';
 import { createPaymentIntent } from '../../../src/infrastructure/stripe/stripeClient';
 import { ACCEPTED_DPA, COMPLETE_LEGAL } from '../../fixtures/legal';
-import { ADDRESS, CARD_SHOP, LUNCH_HOURS, NOW_CLOSED, NOW_OPEN, P_COLA, P_PASTA, PLACED_CARD_ORDER, DINE_IN_SHOP, PLACED_TABLE_ORDER, DELIVERY_SHOP, DELIVERY_ZONE } from '../../fixtures/orders';
+import { ADDRESS, CARD_SHOP, LUNCH_HOURS, NOW_CLOSED, NOW_OPEN, P_COLA, P_PASTA, PLACED_CARD_ORDER, DINE_IN_SHOP, PLACED_TABLE_ORDER, DELIVERY_SHOP, DELIVERY_ZONE, SCHEDULED_SHOP } from '../../fixtures/orders';
 import { executeCheckout } from '../../../src/application/order/checkout/executeCheckout';
 import { CheckoutRequestDto } from '../../../src/application/order/checkout/dtos';
 import {
@@ -57,7 +57,10 @@ import {
   MODE_NOT_OFFERED_ERROR,
   NO_PAYMENT_SETUP_ERROR,
   ORDER_LIMIT_REACHED_ERROR,
+  SCHEDULE_NOT_FOR_TABLES_ERROR,
+  SCHEDULED_FOR_ERROR,
   SHOP_CLOSED_ERROR,
+  SLOT_UNAVAILABLE_ERROR,
   TABLE_INVALID_ERROR,
 } from '../../../src/domain/order/orderErrors';
 import { orderIdForIdempotencyKey } from '../../../src/domain/order/orderIds';
@@ -458,6 +461,70 @@ describe('executeCheckout card placement', () => {
       expect(res).toEqual({ ok: false, code: 'INVALID_INPUT', error: ADDRESS_REQUIRED_ERROR });
       const collection = await executeCheckout({ ...cardRequest, items }, { now: NOW_OPEN });
       expect(collection.ok).toBe(true);
+    });
+  });
+
+  describe('scheduled orders', () => {
+    const SLOT = '2026-10-06T16:00:00.000Z';
+    beforeEach(() => {
+      (findShopById as any).mockResolvedValue(SCHEDULED_SHOP);
+      (loadOrderLimitStatus as any).mockImplementation(async () => ({ periodKey: '2026-10', acceptedOrderCount: 0, limit: 30, warningLevel: 0, limitReached: false }));
+    });
+
+    it('starts a scheduled order for a free slot', async () => {
+      const res = await executeCheckout({ ...cardRequest, scheduledFor: SLOT }, { now: NOW_OPEN });
+      expect(res.ok && res.data.kind).toBe('card');
+      expect(upsertCheckoutSession).toHaveBeenCalledWith(expect.objectContaining({ scheduledFor: SLOT }));
+    });
+
+    it('a scheduled order can be placed while the restaurant is closed', async () => {
+      const res = await executeCheckout({ ...cardRequest, scheduledFor: SLOT }, { now: NOW_CLOSED });
+      expect(res.ok).toBe(true);
+      const asap = await executeCheckout(cardRequest, { now: NOW_CLOSED });
+      expect(asap).toEqual({ ok: false, code: 'INVALID_INPUT', error: SHOP_CLOSED_ERROR });
+    });
+
+    it('refuses a slot that is gone', async () => {
+      for (const scheduledFor of ['2026-10-05T10:15:00.000Z', '2026-10-09T10:15:00.000Z']) {
+        const res = await executeCheckout({ ...cardRequest, scheduledFor }, { now: NOW_OPEN });
+        expect(res).toEqual({ ok: false, code: 'CONFLICT', error: SLOT_UNAVAILABLE_ERROR });
+      }
+      expect(createPaymentIntent).not.toHaveBeenCalled();
+    });
+
+    it('refuses a time that is not a slot', async () => {
+      for (const scheduledFor of ['2026-10-06T16:10:00.000Z', 'tomorrow']) {
+        const res = await executeCheckout({ ...cardRequest, scheduledFor }, { now: NOW_OPEN });
+        expect(res).toEqual({ ok: false, code: 'INVALID_INPUT', error: SCHEDULED_FOR_ERROR });
+      }
+      expect(findShopById).not.toHaveBeenCalled();
+    });
+
+    it('table orders cannot be scheduled', async () => {
+      const res = await executeCheckout({ ...cardRequest, fulfilmentMode: 'dine_in', table: '7', scheduledFor: SLOT }, { now: NOW_OPEN });
+      expect(res).toEqual({ ok: false, code: 'INVALID_INPUT', error: SCHEDULE_NOT_FOR_TABLES_ERROR });
+    });
+
+    it('scheduling is off unless the restaurant allows it', async () => {
+      (findShopById as any).mockResolvedValue(CARD_SHOP);
+      const res = await executeCheckout({ ...cardRequest, scheduledFor: SLOT }, { now: NOW_OPEN });
+      expect(res).toEqual({ ok: false, code: 'CONFLICT', error: SLOT_UNAVAILABLE_ERROR });
+    });
+
+    it("a slot in next month checks next month's limit", async () => {
+      (loadOrderLimitStatus as any).mockImplementation(async (_s: unknown, at: Date) => ({
+        periodKey: 'x',
+        acceptedOrderCount: 30,
+        limit: 30,
+        warningLevel: 100,
+        limitReached: at.toISOString() >= '2026-11-01',
+      }));
+      const now = new Date('2026-10-30T10:00:00Z');
+      const full = await executeCheckout({ ...cardRequest, scheduledFor: '2026-11-02T11:00:00.000Z' }, { now });
+      expect(full).toEqual({ ok: false, code: 'INVALID_INPUT', error: ORDER_LIMIT_REACHED_ERROR });
+      expect(loadOrderLimitStatus).toHaveBeenCalledWith(expect.anything(), new Date('2026-11-02T11:00:00.000Z'));
+      const same = await executeCheckout({ ...cardRequest, scheduledFor: '2026-10-31T11:00:00.000Z' }, { now });
+      expect(same.ok).toBe(true);
     });
   });
 });

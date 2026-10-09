@@ -23,6 +23,7 @@ export interface OrderSettings {
   deliveryHours: WeeklyHours | null; // null = the restaurant's opening hours
   deliveryZones: DeliveryZone[];
   deliveryFeeTaxClassId: string | null; // null = the country's default tax class
+  scheduledOrders: boolean; // diners may order for later; off by default
 }
 
 /** What is stored: anything may be missing on restaurants saved before a field existed. */
@@ -43,6 +44,7 @@ export const DEFAULT_ORDER_SETTINGS: OrderSettings = {
   deliveryHours: null,
   deliveryZones: [],
   deliveryFeeTaxClassId: null,
+  scheduledOrders: false,
 };
 export const AUTO_REJECT_MIN_MINUTES = 5;
 export const AUTO_REJECT_MAX_MINUTES = 30;

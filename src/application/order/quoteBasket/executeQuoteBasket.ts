@@ -2,10 +2,11 @@ import { menuLanguagesOf, resolveMenuLanguage } from '../../../domain/menu/menuL
 import { orderableModesFor } from '../../../domain/order/fulfilment';
 import { chargesTotalCents, deliveryFeeCharge, findDeliveryZone, hoursForMode } from '../../../domain/order/delivery';
 import { buildTaxBreakdownWithCharges } from '../../../domain/order/tax';
-import { MODE_NOT_OFFERED_ERROR } from '../../../domain/order/orderErrors';
+import { MODE_NOT_OFFERED_ERROR, SCHEDULED_FOR_ERROR } from '../../../domain/order/orderErrors';
 import { effectivePrepMinutes, lastOrdersLeadMinutes } from '../../../domain/order/kitchenTiming';
 import { isOpenForAsapOrder } from '../../../domain/order/openingHours';
 import { addressRequired, FULFILMENT_MODES } from '../../../domain/order/Order';
+import { isBookableSlot, listSlots, parseSlotStart } from '../../../domain/order/scheduling';
 import { offeredPaymentMethods } from '../../../domain/order/paymentMethods';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { ApplicationResult } from '../../_shared/types';
@@ -30,6 +31,12 @@ export async function executeQuoteBasket(
     return { ok: false, code: 'INVALID_INPUT', error: 'fulfilmentMode must be one of collection, delivery, dine_in' };
   }
 
+  let slot: Date | null = null;
+  if (request.scheduledFor !== undefined && request.scheduledFor !== null) {
+    slot = parseSlotStart(request.scheduledFor);
+    if (!slot) return { ok: false, code: 'INVALID_INPUT', error: SCHEDULED_FOR_ERROR };
+  }
+
   try {
     const now = options.now ?? new Date();
     const shop = await findShopById(request.shopId);
@@ -48,10 +55,11 @@ export async function executeQuoteBasket(
 
     const context = await loadPricingContext(shop, request.items.map((i) => i.productId));
     const language = resolveMenuLanguage(request.language, menuLanguagesOf(shop));
-    const priced = priceBasket({ items: request.items, ...context, shop, mode, now, language });
+    const pricedAt = slot ?? now;
+    const priced = priceBasket({ items: request.items, ...context, shop, mode, now: pricedAt, language });
     const prepMinutes = effectivePrepMinutes(shop, mode, now);
     const zone = mode === 'delivery' ? findDeliveryZone(shop, request.postcode) : null;
-    const fee = zone ? deliveryFeeCharge(shop, zone, context.refs, now) : null;
+    const fee = zone ? deliveryFeeCharge(shop, zone, context.refs, pricedAt) : null;
     const charges = fee ? [fee] : [];
     const totalCents = priced.subtotalCents + chargesTotalCents(charges);
     const minimum = zone ? zone.minOrderCents : shop.minOrderAmountCents;
@@ -83,6 +91,9 @@ export async function executeQuoteBasket(
         postcodeServed: mode === 'delivery' ? zone !== null : null,
         prepMinutes,
         orderLimitReached: limit.limitReached,
+        slots: listSlots(shop, mode, now),
+        scheduledFor: slot ? slot.toISOString() : null,
+        slotAvailable: slot ? isBookableSlot(shop, mode, slot, now) : null,
       },
     };
   } catch {

@@ -13,6 +13,7 @@ import {
   DINE_IN_ERROR,
   LAST_ORDERS_ERROR,
   PREP_SETTING_ERROR,
+  SCHEDULED_ORDERS_ERROR,
 } from '../../../domain/order/orderErrors';
 import { EMAIL_PATTERN } from '../../../domain/legal/impressum';
 import {
@@ -156,6 +157,10 @@ export async function executeUpdateOrderSettings(
         }
         next.deliveryFeeTaxClassId = v as string | null;
       }
+      if (body.scheduledOrders !== undefined) {
+        if (typeof body.scheduledOrders !== 'boolean') return invalid(SCHEDULED_ORDERS_ERROR);
+        next.scheduledOrders = body.scheduledOrders;
+      }
 
       return { ok: 'merged', before, next };
     };
@@ -183,7 +188,7 @@ export async function executeUpdateOrderSettings(
 
     const changed = (f: keyof OrderSettings): boolean => JSON.stringify(before[f]) !== JSON.stringify(next[f]);
     const changes: { field: string; from: unknown; to: unknown }[] = [];
-    for (const f of ['autoRejectMinutes', 'autoAccept', 'dineIn', 'lastOrdersMinutes', 'busyExtraMinutes', 'delivery', 'deliveryFeeTaxClassId'] as const) {
+    for (const f of ['autoRejectMinutes', 'autoAccept', 'dineIn', 'lastOrdersMinutes', 'busyExtraMinutes', 'delivery', 'deliveryFeeTaxClassId', 'scheduledOrders'] as const) {
       if (changed(f)) changes.push({ field: f, from: before[f], to: next[f] });
     }
     // The address itself is never written to the audit log (spec §11).

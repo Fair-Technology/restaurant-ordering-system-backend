@@ -1,10 +1,12 @@
 import type { Order, OrderActor } from '../../../domain/order/Order';
 import { effectivePrepMinutes } from '../../../domain/order/kitchenTiming';
+import { isUpcoming, readyAtFor } from '../../../domain/order/scheduling';
 import {
   ORDER_CHANGED_ERROR,
   ORDER_NOT_FOUND_ERROR,
   PAYMENT_CAPTURE_FAILED_ERROR,
   PAYMENT_SERVICE_UNAVAILABLE_ERROR,
+  SCHEDULED_NOT_DUE_ERROR,
 } from '../../../domain/order/orderErrors';
 import { applyTransition } from '../../../domain/order/orderLifecycle';
 import type { TransitionResult } from '../../../domain/order/orderLifecycle';
@@ -100,13 +102,11 @@ export async function acceptPlacedOrder(input: {
   const usagePeriodKey = periodKeyFor(now, shop.timezone);
 
   const accept = (current: Order): TransitionResult => {
-    const prepMinutes = input.prepMinutes ?? effectivePrepMinutes(shop, current.fulfilmentMode, now);
-    return applyTransition(current, 'ACCEPTED', {
-      now,
-      actor,
-      readyAt: new Date(now.getTime() + prepMinutes * 60_000),
-      prepMinutes,
-    });
+    if (isUpcoming(current, shop, now)) return { ok: false, error: SCHEDULED_NOT_DUE_ERROR };
+    const prep = input.prepMinutes ?? effectivePrepMinutes(shop, current.fulfilmentMode, now);
+    const readyAt = readyAtFor(current, now, prep);
+    const prepMinutes = Math.max(1, Math.round((readyAt.getTime() - now.getTime()) / 60_000));
+    return applyTransition(current, 'ACCEPTED', { now, actor, readyAt, prepMinutes });
   };
 
   if (takesMoney) {

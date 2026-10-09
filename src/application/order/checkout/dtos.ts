@@ -21,6 +21,7 @@ export interface CheckoutRequestDto {
   deliveryAddress?: DeliveryAddress; // required for delivery
   expectedDeliveryFeeCents?: number; // what the diner was shown; a different server fee answers 409
   table?: string; // required (valid) for dine_in; ignored otherwise
+  scheduledFor?: string; // a slot start from the quote's slots; absent = as soon as possible
   idempotencyKey?: string;
   language?: string;
   legalRevisions?: LegalRevisions;

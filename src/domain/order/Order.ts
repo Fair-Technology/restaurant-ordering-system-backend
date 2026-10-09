@@ -157,6 +157,8 @@ export interface Order {
   charges?: OrderCharge[]; // absent = none (all orders before slice 8b)
   totalCents?: number; // subtotalCents + sum of charges; absent before 8b, read via chargedCents
   table?: OrderTable; // dine_in orders only
+  scheduledFor?: string; // ISO start of the booked 15-minute slot = the promised ready / delivery time. Absent = as soon as possible
+  queuedAt?: string; // ISO, when a scheduled order entered the live queue; the alert and decline count from here
   refunds?: OrderRefund[];
   releaseFailure?: PaymentReleaseFailure; // the reservation could not be released yet
   invoiceNumber?: string; // set once the invoice is issued

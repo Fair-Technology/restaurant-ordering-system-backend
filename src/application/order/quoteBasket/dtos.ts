@@ -8,6 +8,7 @@ export interface QuoteBasketRequestDto {
   fulfilmentMode?: FulfilmentMode;
   language?: string;
   postcode?: string; // read for delivery only
+  scheduledFor?: string; // a slot start; prices the basket for that time
 }
 
 export interface QuoteLineDto {
@@ -37,4 +38,7 @@ export interface BasketQuoteDto {
   addressRequired: boolean; // the diner must give an address for this total
   prepMinutes: number;
   orderLimitReached: boolean; // the monthly order limit is used up, so checkout would refuse
+  slots: string[]; // bookable slot starts for this mode ([] = orders for later are not offered)
+  scheduledFor: string | null; // the parsed slot echoed back, null when none was sent
+  slotAvailable: boolean | null; // null when no scheduledFor was sent
 }
