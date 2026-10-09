@@ -25,6 +25,7 @@ import { capturePaymentIntent, isRetryableStripeError } from '../../../infrastru
 import type { ApplicationResult } from '../../_shared/types';
 import { notifyOrderLimitThresholds } from '../../usage/orderLimitWarnings';
 import { issueInvoiceForOrder, needsInvoice } from '../invoices/issueInvoice';
+import { issueLoyaltyVoucher } from '../loyalty/issueLoyaltyVoucher';
 import { notifyCustomer } from '../notifications/notifyOrder';
 import type { AttachedDocument } from '../notifications/emailTemplates';
 import { releaseClosedOrderPayment } from './releasePayment';
@@ -204,5 +205,6 @@ export async function acceptPlacedOrder(input: {
     attachments: invoiced.attachments,
     attachedDocument: invoiced.attachedDocument,
   });
+  if (invoiced.order.loyaltyOptIn) await issueLoyaltyVoucher(invoiced.order, shop, now);
   return { ok: true, data: invoiced.order };
 }

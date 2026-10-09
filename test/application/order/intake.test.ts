@@ -21,12 +21,14 @@ vi.mock('../../../src/infrastructure/stripe/stripeClient', () => ({
   findLiveRefund: vi.fn(async () => null),
   isRetryableStripeError: (e: any) => ['StripeConnectionError', 'StripeAPIError', 'StripeRateLimitError'].includes(e?.type),
 }));
+vi.mock('../../../src/application/order/loyalty/issueLoyaltyVoucher', () => ({ issueLoyaltyVoucher: vi.fn(async () => undefined) }));
 vi.mock('../../../src/infrastructure/email/emailSender', () => ({
   sendEmail: vi.fn(async () => undefined),
   emailTransportName: () => 'log',
 }));
 
 import { authorizeShopAction } from '../../../src/application/_shared/shopAccess';
+import { issueLoyaltyVoucher } from '../../../src/application/order/loyalty/issueLoyaltyVoucher';
 import { executeAcceptOrder } from '../../../src/application/order/intake/executeAcceptOrder';
 import { executeDispatchOrder } from '../../../src/application/order/intake/executeDispatchOrder';
 import { executeCompleteOrder } from '../../../src/application/order/intake/executeCompleteOrder';
@@ -333,6 +335,23 @@ describe('kitchen intake', () => {
     const res = await executeGetOrderQueue({ shopId: 'shop-1' }, http, { now });
     expect(res.ok && res.data.busy).toEqual({ active: true, extraMinutes: 20 });
     expect(res.ok && res.data.defaultPrepMinutes).toEqual({ collection: 40, delivery: 65, dine_in: 40 });
+  });
+
+  it('an order that asked for vouchers is checked for one after acceptance', async () => {
+    storedOrder({ ...PLACED_CARD_ORDER, loyaltyOptIn: true });
+    await executeAcceptOrder(ids, http, { now });
+    expect(issueLoyaltyVoucher).toHaveBeenCalledTimes(1);
+    expect(issueLoyaltyVoucher).toHaveBeenCalledWith(
+      expect.objectContaining({ state: 'ACCEPTED', loyaltyOptIn: true }),
+      CARD_SHOP,
+      now,
+    );
+    vi.clearAllMocks();
+    (authorizeShopAction as any).mockResolvedValue(STAFF_ACCESS);
+    (findShopById as any).mockResolvedValue(CARD_SHOP);
+    storedOrder();
+    await executeAcceptOrder(ids, http, { now });
+    expect(issueLoyaltyVoucher).not.toHaveBeenCalled();
   });
 
   it('the board shows the discount but never a voucher code', async () => {

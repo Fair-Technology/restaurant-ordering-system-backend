@@ -4,6 +4,7 @@ import { menuLanguagesOf } from '../../../domain/menu/menuLanguage';
 import { chargedCents, type Order, type RejectReason } from '../../../domain/order/Order';
 import { displayPaymentStatus, isCaptured } from '../../../domain/order/payment';
 import type { MenuLanguage } from '../../../domain/reference/ReferenceLists';
+import type { LoyaltyVoucherDoc } from '../../../domain/promotion/promotions';
 import type { Shop } from '../../../domain/shop/Shop';
 
 export type OrderEmailKind =
@@ -317,4 +318,57 @@ export function buildOrderEmail(input: {
     });
   }
   return render(pick(subjects[kind]), blocks);
+}
+
+/** The "thank you, here is a voucher" email: advertising, so only sent for an order that ticked the box. */
+export function buildLoyaltyVoucherEmail(input: {
+  order: Order;
+  shop: Shop;
+  voucher: LoyaltyVoucherDoc;
+  orderCount: number;
+  shopUrl: string;
+}): OrderEmailContent {
+  const { order, shop, voucher, orderCount } = input;
+  const lang = order.language ?? menuLanguagesOf(shop)[0];
+  const de = lang === 'de';
+  const money = formatters(lang, order.currency, shop.timezone).money(voucher.amountCents);
+  const expires = new Intl.DateTimeFormat(de ? 'de-DE' : 'en-GB', { timeZone: 'UTC', day: 'numeric', month: 'long', year: 'numeric' }).format(
+    new Date(`${voucher.expiresOn}T12:00:00Z`),
+  );
+  const blocks: Block[] = [
+    { type: 'p', text: `${de ? 'Hallo' : 'Hello'} ${order.customerName},` },
+    {
+      type: 'p',
+      text: de
+        ? `danke für Ihre ${orderCount}. Bestellung bei ${shop.name}! Als Dankeschön erhalten Sie ${money} Rabatt auf Ihre nächste Bestellung.`
+        : `Thank you for your order number ${orderCount} at ${shop.name}! As a thank-you, here is ${money} off your next order.`,
+    },
+    { type: 'p', text: de ? `Ihr Gutscheincode: ${voucher.code}` : `Your voucher code: ${voucher.code}` },
+    {
+      type: 'p',
+      text: de
+        ? `Gültig bis einschließlich ${expires}. Einmal einlösbar, nicht mit anderen Codes kombinierbar. Geben Sie den Code an der Kasse unter „Rabattcode“ ein.`
+        : `Valid until ${expires} inclusive. Single use, cannot be combined with other codes. Enter it at checkout under "Discount code".`,
+    },
+    { type: 'p', text: `${de ? 'Jetzt bestellen' : 'Order now'}: ${input.shopUrl}` },
+    {
+      type: 'p',
+      text: de
+        ? `Sie erhalten diese E-Mail, weil Sie bei Ihrer Bestellung ${order.orderRef} zugestimmt haben, Gutscheine per E-Mail zu bekommen.`
+        : `You are receiving this email because you asked for vouchers by email with your order ${order.orderRef}.`,
+    },
+  ];
+  const impressum = legalOf(shop).impressum;
+  if (impressum) {
+    blocks.push({
+      type: 'p',
+      text: buildImpressumLines(impressum, lang)
+        .map((l) => `${l.label}: ${l.value}`)
+        .join('\n'),
+    });
+  }
+  return render(
+    de ? `${shop.name}: Ihr Gutschein über ${money}` : `${shop.name}: your voucher for ${money}`,
+    blocks,
+  );
 }
