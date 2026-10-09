@@ -75,8 +75,12 @@ export function withPlace(
   cap: number | null,
   now: Date,
 ): SlotPlacesDoc | 'full' {
-  const others = (doc?.places ?? []).filter((p) => isLivePlace(p, now) && p.orderId !== place.orderId);
-  if (cap !== null && others.filter((p) => p.slot === place.slot).length >= cap) return 'full';
+  const live = (doc?.places ?? []).filter((p) => isLivePlace(p, now));
+  // A hold never downgrades a place the order already has for good.
+  const kept = place.heldUntil !== null ? live.find((p) => p.orderId === place.orderId && p.heldUntil === null) : undefined;
+  const others = live.filter((p) => p.orderId !== place.orderId);
+  if (kept) place = kept;
+  else if (cap !== null && others.filter((p) => p.slot === place.slot).length >= cap) return 'full';
   return {
     id: slotPlacesDocId(ids.shopId, ids.day),
     kind: 'slot_places',

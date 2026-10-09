@@ -85,6 +85,12 @@ describe('slot capacity', () => {
     expect(res.places).toEqual([{ orderId: 'b', slot: S, heldUntil: null }]);
   });
 
+  it('a hold never downgrades a place the order already has for good', () => {
+    const D = day([{ orderId: 'b', slot: S, heldUntil: null }]);
+    const res = withPlace(D, ids, B, 1, now) as SlotPlacesDoc;
+    expect(res.places).toEqual([{ orderId: 'b', slot: S, heldUntil: null }]);
+  });
+
   it('without a limit a place is always added', () => {
     const res = withPlace(
       day([{ orderId: 'a', slot: S, heldUntil: null }]),
