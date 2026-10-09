@@ -102,6 +102,14 @@ describe('parseComboInput', () => {
     expect(res.combo.groups.map((g) => g.id)).toEqual(['g-main', 'g1']);
   });
 
+  it('keeps a repeated group id only once', () => {
+    const res = parseComboInput(
+      { ...base, groups: [{ id: 'g-main', name: 'A', productIds: ['p1'] }, { id: 'g-main', name: 'B', productIds: ['p2'] }] },
+      ctx({ existing: P_COMBO.combo! }),
+    ) as { combo: { groups: { id: string }[] } };
+    expect(res.combo.groups.map((g) => g.id)).toEqual(['g-main', 'g1']);
+  });
+
   it('refuses bad combos', () => {
     const six = Array.from({ length: 6 }, () => ({ name: 'A', productIds: ['p1'] }));
     const cases: Array<[Record<string, unknown>, string, Partial<ComboContext>?]> = [

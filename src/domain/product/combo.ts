@@ -84,6 +84,7 @@ export function parseComboInput(body: Record<string, unknown>, ctx: ComboContext
   const raw = body.groups;
   if (!Array.isArray(raw) || raw.length < 1 || raw.length > MAX_COMBO_GROUPS) return { error: COMBO_GROUPS_ERROR };
   const groups: ComboGroup[] = [];
+  const usedIds = new Set<string>();
   for (const g of raw as unknown[]) {
     const o = (g ?? {}) as Record<string, unknown>;
     const gName = str(o.name);
@@ -98,8 +99,11 @@ export function parseComboInput(body: Record<string, unknown>, ctx: ComboContext
     const productIds = [...new Set(o.productIds as string[])];
     if (productIds.length < 1 || productIds.length > MAX_GROUP_DISHES) return { error: COMBO_GROUPS_ERROR };
     if (productIds.some((id) => !ctx.dishIds.has(id))) return { error: COMBO_DISH_ERROR };
-    const keep = typeof o.id === 'string' && (ctx.existing?.groups ?? []).some((e) => e.id === o.id);
-    groups.push({ id: keep ? (o.id as string) : ctx.newId(), name: gName, productIds });
+    // An existing id is kept only the first time it appears; a repeat gets a fresh one.
+    const keep = typeof o.id === 'string' && !usedIds.has(o.id) && (ctx.existing?.groups ?? []).some((e) => e.id === o.id);
+    const id = keep ? (o.id as string) : ctx.newId();
+    usedIds.add(id);
+    groups.push({ id, name: gName, productIds });
   }
   const bmf = body.bmfDrinkShare === undefined ? false : body.bmfDrinkShare;
   if (typeof bmf !== 'boolean' || (bmf && ctx.countryCode !== 'DE')) return { error: COMBO_BMF_ERROR };
