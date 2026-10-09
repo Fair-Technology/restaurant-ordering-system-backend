@@ -18,7 +18,8 @@ export type ShopPermission =
   | 'manage_staff'
   | 'manage_billing'
   | 'view_audit'
-  | 'refund_orders';
+  | 'refund_orders'
+  | 'view_reports';
 
 export const ALL_SHOP_PERMISSIONS: readonly ShopPermission[] = [
   'view_orders',
@@ -28,6 +29,7 @@ export const ALL_SHOP_PERMISSIONS: readonly ShopPermission[] = [
   'manage_billing',
   'view_audit',
   'refund_orders',
+  'view_reports',
 ];
 
 export interface DpaAcceptance {
