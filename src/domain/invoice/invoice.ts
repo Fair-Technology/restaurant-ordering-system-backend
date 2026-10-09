@@ -110,7 +110,7 @@ function itemName(item: OrderItem): string {
   return `${item.productName}${variant}${addons}`;
 }
 
-/** Invoice line i is order item i, in the same order with no grouping: item refunds rely on it. Charges follow the items. */
+/** Invoice line i is order item i, in the same order with no grouping: item refunds rely on it. Discount lines, then charges, follow the items. */
 export function buildInvoice(input: {
   order: Order;
   shop: Shop;
@@ -126,6 +126,7 @@ export function buildInvoice(input: {
   }
   const ids = invoiceTaxIdsOf(shop);
   const issuedAt = now.toISOString();
+  const de = (order.language ?? 'de') === 'de';
   return {
     id: order.id,
     shopId: order.shopId,
@@ -158,8 +159,17 @@ export function buildInvoice(input: {
       taxRateBasisPoints: item.taxRateBasisPoints ?? 0,
       taxCents: item.taxCents ?? 0,
     })).concat(
+      (order.discount?.byRate ?? []).map((d) => ({
+        name: `${order.discount!.kind === 'voucher' ? (de ? 'Gutschein' : 'Voucher') : de ? 'Rabatt' : 'Discount'} ${order.discount!.code}`,
+        quantity: 1,
+        unitPriceCents: -d.grossCents,
+        lineTotalCents: -d.grossCents,
+        taxRateBasisPoints: d.rateBasisPoints,
+        taxCents: -d.taxCents,
+      })),
+    ).concat(
       (order.charges ?? []).map((c) => ({
-        name: (order.language ?? 'de') === 'de' ? 'Liefergebühr' : 'Delivery fee',
+        name: de ? 'Liefergebühr' : 'Delivery fee',
         quantity: 1,
         unitPriceCents: c.grossCents,
         lineTotalCents: c.grossCents,
@@ -244,14 +254,33 @@ export function buildCorrection(input: {
   } else {
     documentType = 'correction';
     if (refund.lines) {
-      lines = refund.lines.map((l) => ({
-        name: original.lines[l.lineIndex].name,
-        quantity: l.quantity,
-        unitPriceCents: -original.lines[l.lineIndex].unitPriceCents,
-        lineTotalCents: -l.grossCents,
-        taxRateBasisPoints: l.taxRateBasisPoints,
-        taxCents: -extractVatCents(l.grossCents, l.taxRateBasisPoints),
-      }));
+      lines = refund.lines.flatMap((l): InvoiceLine[] => {
+        const o = original.lines[l.lineIndex];
+        const listCents = o.unitPriceCents * l.quantity;
+        const share = listCents - l.grossCents; // 0 unless the order had a discount
+        const item: InvoiceLine = {
+          name: o.name,
+          quantity: l.quantity,
+          unitPriceCents: -o.unitPriceCents,
+          lineTotalCents: -listCents,
+          taxRateBasisPoints: l.taxRateBasisPoints,
+          taxCents: -extractVatCents(listCents, l.taxRateBasisPoints),
+        };
+        if (share <= 0) {
+          return [{ ...item, lineTotalCents: -l.grossCents, taxCents: -extractVatCents(l.grossCents, l.taxRateBasisPoints) }];
+        }
+        return [
+          item,
+          {
+            name: de ? 'Anteiliger Rabatt' : 'Share of discount',
+            quantity: 1,
+            unitPriceCents: share,
+            lineTotalCents: share,
+            taxRateBasisPoints: l.taxRateBasisPoints,
+            taxCents: extractVatCents(share, l.taxRateBasisPoints),
+          },
+        ];
+      });
     } else {
       const parts = refundPartsByRate(
         baseByRate(original.taxBreakdown),

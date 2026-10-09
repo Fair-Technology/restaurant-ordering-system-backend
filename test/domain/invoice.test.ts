@@ -15,7 +15,7 @@ import { extractVatCents } from '../../src/domain/order/tax';
 import type { Shop } from '../../src/domain/shop/Shop';
 import { priceBasket } from '../../src/application/order/_shared/priceBasket';
 import { DE_REFERENCE_LISTS } from '../../src/domain/reference/ReferenceLists';
-import { ACCEPTED_CARD_ORDER, ACCEPTED_DELIVERY_ORDER, ADDRESS, CARD_SHOP, CATEGORIES, P_PASTA } from '../fixtures/orders';
+import { ACCEPTED_CARD_ORDER, ACCEPTED_DELIVERY_ORDER, ADDRESS, CARD_SHOP, CATEGORIES, DELIVERY_ADDRESS, DISCOUNTED_ORDER, FEE_CHARGE, P_PASTA } from '../fixtures/orders';
 
 const now = new Date('2026-10-05T10:05:00Z');
 const NUMBER = 'R-2026-00001';
@@ -431,4 +431,83 @@ describe('delivery invoices', () => {
     expect(c.totalCents).toBe(-1300);
   });
 });
+});
+
+describe('discounted invoices', () => {
+  const inv = () => buildInvoice({ order: DISCOUNTED_ORDER, shop: CARD_SHOP, number: NUMBER, now });
+  const sumAt = (lines: ReturnType<typeof inv>['lines'], rate: number) =>
+    lines
+      .filter((l) => l.taxRateBasisPoints === rate)
+      .reduce((s, l) => ({ gross: s.gross + l.lineTotalCents, tax: s.tax + l.taxCents }), { gross: 0, tax: 0 });
+
+  it("the discount is its own line per VAT rate and lowers each rate's totals", () => {
+    const i = inv();
+    expect(i.lines.slice(2)).toEqual([
+      { name: 'Rabatt WELCOME10', quantity: 1, unitPriceCents: -105, lineTotalCents: -105, taxRateBasisPoints: 700, taxCents: -7 },
+      { name: 'Rabatt WELCOME10', quantity: 1, unitPriceCents: -35, lineTotalCents: -35, taxRateBasisPoints: 1900, taxCents: -6 },
+    ]);
+    expect(i.totalCents).toBe(1260);
+    expect(i.taxBreakdown).toEqual(DISCOUNTED_ORDER.taxBreakdown);
+    expect(sumAt(i.lines, 700)).toEqual({ gross: 945, tax: 62 });
+    expect(sumAt(i.lines, 1900)).toEqual({ gross: 315, tax: 50 });
+    const t = text(i);
+    expect(t).toContain('1 × Rabatt WELCOME10');
+    expect(t).toContain('Nettobetrag 7 %: 8,83 €');
+    expect(t).toContain('USt. 7 %: 0,62 €');
+    expect(t).toContain('Nettobetrag 19 %: 2,65 €');
+    expect(t).toContain('USt. 19 %: 0,50 €');
+    expect(t).toContain('Gesamtbetrag (brutto): 12,60 €');
+    const en = buildInvoice({ order: { ...DISCOUNTED_ORDER, language: 'en' }, shop: CARD_SHOP, number: NUMBER, now });
+    expect(en.lines[2].name).toBe('Discount WELCOME10');
+    const voucher = buildInvoice({
+      order: { ...DISCOUNTED_ORDER, discount: { ...DISCOUNTED_ORDER.discount!, kind: 'voucher', code: 'L-ABCD2345' } },
+      shop: CARD_SHOP,
+      number: NUMBER,
+      now,
+    });
+    expect(voucher.lines[2].name).toBe('Gutschein L-ABCD2345');
+  });
+
+  it('discount lines come before the delivery fee', () => {
+    const order = { ...DISCOUNTED_ORDER, fulfilmentMode: 'delivery' as const, deliveryAddress: DELIVERY_ADDRESS, charges: [FEE_CHARGE], totalCents: 1510 };
+    expect(buildInvoice({ order, shop: CARD_SHOP, number: NUMBER, now }).lines.map((l) => l.name)).toEqual([
+      'Carbonara',
+      'Cola',
+      'Rabatt WELCOME10',
+      'Rabatt WELCOME10',
+      'Liefergebühr',
+    ]);
+  });
+
+  it('an item refund on a discounted order shows the share of the discount', () => {
+    const c = buildCorrection({
+      original: inv(),
+      refunds: [{ amountCents: 315, lines: [{ lineIndex: 1, quantity: 1, grossCents: 315, taxRateBasisPoints: 1900 }] }],
+      index: 0,
+      refundId: 'r1',
+      number: 'R-2026-00002',
+      now,
+    });
+    expect(c.lines).toEqual([
+      { name: 'Cola', quantity: 1, unitPriceCents: -350, lineTotalCents: -350, taxRateBasisPoints: 1900, taxCents: -56 },
+      { name: 'Anteiliger Rabatt', quantity: 1, unitPriceCents: 35, lineTotalCents: 35, taxRateBasisPoints: 1900, taxCents: 6 },
+    ]);
+    expect(c.taxBreakdown).toEqual([{ rateBasisPoints: 1900, grossCents: -315, taxCents: -50 }]);
+    expect(c.totalCents).toBe(-315);
+    expect(c.documentType).toBe('correction');
+  });
+
+  it('a full refund of a discounted order negates the discount lines too', () => {
+    const c = buildCorrection({
+      original: inv(),
+      refunds: [{ amountCents: 1260 }],
+      index: 0,
+      refundId: 'r1',
+      number: 'R-2026-00002',
+      now,
+    });
+    expect(c.documentType).toBe('cancellation');
+    expect(c.lines[2].lineTotalCents).toBe(105);
+    expect(c.totalCents).toBe(-1260);
+  });
 });
