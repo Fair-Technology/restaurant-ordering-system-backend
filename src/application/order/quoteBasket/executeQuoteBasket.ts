@@ -17,7 +17,7 @@ import { ApplicationResult } from '../../_shared/types';
 import { resolveDiscount, type DiscountResolution } from '../../promotion/resolveDiscount';
 import { loadOrderLimitStatus } from '../../usage/orderLimitStatus';
 import { loadPricingContext } from '../_shared/loadPricingContext';
-import { priceBasket, validateBasketItems } from '../_shared/priceBasket';
+import { basketProductIds, priceBasket, validateBasketItems } from '../_shared/priceBasket';
 import { BasketQuoteDto, QuoteBasketRequestDto } from './dtos';
 
 /** Re-prices a basket for the diner without placing anything, so changes can be shown before they order. */
@@ -58,7 +58,7 @@ export async function executeQuoteBasket(
     }
     const limit = await loadOrderLimitStatus(shop, now);
 
-    const context = await loadPricingContext(shop, request.items.map((i) => i.productId));
+    const context = await loadPricingContext(shop, basketProductIds(request.items));
     const language = resolveMenuLanguage(request.language, menuLanguagesOf(shop));
     const pricedAt = slot ?? now;
     const priced = priceBasket({ items: request.items, ...context, shop, mode, now: pricedAt, language });
@@ -100,9 +100,9 @@ export async function executeQuoteBasket(
           name: l.displayName,
           quantity: request.items[l.index].quantity,
           status: l.status,
-          unitPriceCents: l.item?.unitPriceCents ?? null,
+          unitPriceCents: l.unitPriceCents,
           expectedUnitPriceCents: l.expectedUnitPriceCents,
-          lineTotalCents: l.item?.lineTotalCents ?? null,
+          lineTotalCents: l.lineTotalCents,
         })),
         subtotalCents: priced.subtotalCents,
         taxCents: taxBreakdown.reduce((sum, t) => sum + t.taxCents, 0),

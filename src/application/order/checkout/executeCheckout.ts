@@ -70,7 +70,7 @@ import { ApplicationResult } from '../../_shared/types';
 import { resolveDiscount } from '../../promotion/resolveDiscount';
 import { loadOrderLimitStatus } from '../../usage/orderLimitStatus';
 import { loadPricingContext } from '../_shared/loadPricingContext';
-import { priceBasket, validateBasketItems } from '../_shared/priceBasket';
+import { basketProductIds, priceBasket, validateBasketItems } from '../_shared/priceBasket';
 import { CheckoutRequestDto, CheckoutResultDto } from './dtos';
 
 const MAX_NAME_CHARS = 200;
@@ -284,7 +284,7 @@ export async function executeCheckout(
     }
 
     // --- Resolve prices server-side (never trust client amounts) ---
-    const context = await loadPricingContext(shop, request.items.map((i) => i.productId));
+    const context = await loadPricingContext(shop, basketProductIds(request.items));
     const language = resolveMenuLanguage(request.language, menuLanguagesOf(shop));
     const priced = priceBasket({ items: request.items, ...context, shop, mode, now: pricedAt, language });
     if (!priced.allOk) {

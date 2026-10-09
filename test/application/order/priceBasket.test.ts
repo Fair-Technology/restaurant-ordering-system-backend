@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { priceBasket } from '../../../src/application/order/_shared/priceBasket';
+import { basketProductIds, priceBasket, validateBasketItems } from '../../../src/application/order/_shared/priceBasket';
 import { DE_REFERENCE_LISTS } from '../../../src/domain/reference/ReferenceLists';
-import { CATEGORIES, NOW_OPEN, P_COLA, P_PASTA, P_SALAD } from '../../fixtures/orders';
+import { CATEGORIES, COMBO_CHOICES, COMBO_ORDER, NOW_OPEN, P_COLA, P_COMBO, P_COMBO_BMF, P_PASTA, P_SALAD } from '../../fixtures/orders';
 import type { Product } from '../../../src/domain/product/Product';
 
 const SHOP = { timezone: 'Europe/Berlin', menuLanguages: ['de' as const], countryCode: 'DE' };
@@ -159,5 +159,92 @@ describe('priceBasket', () => {
     const products = [P_PASTA, { ...P_COLA, unavailableModes: ['delivery' as const] }];
     expect(price([{ productId: 'p2', quantity: 1 }], { mode: 'delivery' }, products).lines[0].status).toBe('unavailable');
     expect(price([{ productId: 'p2', quantity: 1 }], { mode: 'collection' }, products).lines[0].status).toBe('ok');
+  });
+});
+
+describe('combos', () => {
+  const ALL = [P_PASTA, P_COLA, P_SALAD, P_COMBO, P_COMBO_BMF];
+  const combo = (extra: Record<string, unknown> = {}, opts: Partial<Parameters<typeof priceBasket>[0]> = {}, products: Product[] = ALL) =>
+    price([{ productId: 'p9', quantity: 1, comboChoices: COMBO_CHOICES, ...extra }], opts, products);
+
+  it('splits the combo price over its dishes by their own prices', () => {
+    expect(combo().lines[0]).toMatchObject({ status: 'ok', item: null, unitPriceCents: 1200, lineTotalCents: 1200, displayName: 'Pasta-Menü' });
+    expect(combo().items).toEqual(COMBO_ORDER.items);
+    expect(combo().taxBreakdown).toEqual([
+      { rateBasisPoints: 700, grossCents: 900, taxCents: 59 },
+      { rateBasisPoints: 1900, grossCents: 300, taxCents: 48 },
+    ]);
+  });
+
+  it('sizes and extras of a combo dish are charged on top and split with the rest', () => {
+    const r = combo({
+      quantity: 2,
+      comboChoices: [
+        { groupId: 'g-main', productId: 'p1', selectedVariantOptionId: 'big', selectedAddonOptionIds: ['parm'] },
+        { groupId: 'g-drink', productId: 'p2' },
+      ],
+    });
+    expect(r.lines[0]).toMatchObject({ unitPriceCents: 1600, lineTotalCents: 3200 });
+    expect(r.items.map((i) => [i.unitPriceCents, i.lineTotalCents, i.taxCents])).toEqual([
+      [1289, 2578, 169],
+      [311, 622, 99],
+    ]);
+    expect(r.items[0]).toMatchObject({ productName: 'Pasta-Menü: Carbonara', selectedVariantOptionName: 'Groß', selectedAddonOptionNames: ['Parmesan'] });
+    expect(r.subtotalCents).toBe(3200);
+  });
+
+  it('the BMF option puts 30 percent on the drinks', () => {
+    const r = price([{ productId: 'p10', quantity: 1, comboChoices: COMBO_CHOICES }], {}, ALL);
+    expect(r.items.map((i) => [i.unitPriceCents, i.taxCents])).toEqual([[840, 55], [360, 57]]);
+  });
+
+  it('a dish on offer weighs in at its offer price', () => {
+    const lunch = { ...P_PASTA, schedule: { startDate: '2026-10-01', startTime: '11:00', endTime: '15:00', offerPrice: 800 } };
+    const r = combo({}, {}, [lunch, P_COLA, P_SALAD, P_COMBO]);
+    expect(r.items.map((i) => i.unitPriceCents)).toEqual([835, 365]);
+  });
+
+  it('a combo needs exactly one allowed dish per group', () => {
+    const bad: Array<Record<string, unknown>> = [
+      { comboChoices: [COMBO_CHOICES[0]] },
+      { comboChoices: [COMBO_CHOICES[0], { groupId: 'g-main', productId: 'p3', selectedAddonOptionIds: ['oil'] }] },
+      { comboChoices: [{ groupId: 'g-main', productId: 'p2' }, COMBO_CHOICES[1]] },
+      { comboChoices: [COMBO_CHOICES[0], { groupId: 'g-x', productId: 'p2' }] },
+      { selectedVariantOptionId: 'big' },
+      { comboChoices: [{ groupId: 'g-main', productId: 'p3' }, COMBO_CHOICES[1]] },
+    ];
+    for (const extra of bad) expect(combo(extra).lines[0].status).toBe('invalid_options');
+  });
+
+  it('a combo cannot hold a combo', () => {
+    const nested = { ...P_COMBO, combo: { ...P_COMBO.combo!, groups: [{ id: 'g-main', name: 'X', productIds: ['p10'] }, P_COMBO.combo!.groups[1]] } };
+    const r = combo({ comboChoices: [{ groupId: 'g-main', productId: 'p10' }, COMBO_CHOICES[1]] }, {}, [...ALL.filter((p) => p.id !== 'p9'), nested]);
+    expect(r.lines[0].status).toBe('invalid_options');
+  });
+
+  it('a sold-out or excluded dish makes the combo unavailable', () => {
+    const swap = (cola: Product) => ALL.map((p) => (p.id === 'p2' ? cola : p));
+    expect(combo({}, {}, swap({ ...P_COLA, isAvailable: false })).lines[0].status).toBe('unavailable');
+    const noDelivery = swap({ ...P_COLA, unavailableModes: ['delivery' as const] });
+    expect(combo({}, { mode: 'delivery' }, noDelivery).lines[0].status).toBe('unavailable');
+    expect(combo({}, { mode: 'collection' }, noDelivery).lines[0].status).toBe('ok');
+    expect(combo({}, {}, ALL.filter((p) => p.id !== 'p2')).lines[0].status).toBe('unavailable');
+  });
+
+  it('a changed combo price is flagged', () => {
+    expect(combo({ expectedUnitPriceCents: 1100 }).lines[0]).toMatchObject({ status: 'price_changed', unitPriceCents: 1200 });
+  });
+
+  it('combo choices must be well formed', () => {
+    const msg = 'items[0].comboChoices must list one choice (groupId and productId) per combo group';
+    const eleven = Array.from({ length: 11 }, () => COMBO_CHOICES[0]);
+    for (const comboChoices of [[], 'x', [{ groupId: 'g-main' }], [{ groupId: 'g-main', productId: 'p1', selectedAddonOptionIds: [1] }], eleven]) {
+      expect(validateBasketItems([{ productId: 'p9', quantity: 1, comboChoices }])).toBe(msg);
+    }
+    expect(validateBasketItems([{ productId: 'p9', quantity: 1, comboChoices: COMBO_CHOICES }])).toBeNull();
+  });
+
+  it('names every product the basket needs', () => {
+    expect(basketProductIds([{ productId: 'p1', quantity: 1 }, { productId: 'p9', quantity: 1, comboChoices: COMBO_CHOICES }])).toEqual(['p1', 'p9', 'p1', 'p2']);
   });
 });

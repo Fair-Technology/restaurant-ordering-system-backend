@@ -26,7 +26,9 @@ import { findPromotions, findVoucher } from '../../../src/infrastructure/cosmos/
 import { findProductById } from '../../../src/infrastructure/cosmos/product/CosmosProductRepository';
 import { findShopById } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
 import { MODE_NOT_OFFERED_ERROR, SCHEDULED_FOR_ERROR } from '../../../src/domain/order/orderErrors';
-import { CARD_SHOP, DELIVERY_SHOP, DINE_IN_SHOP, NOW_CLOSED, NOW_OPEN, P_COLA, P_PASTA, PROMO_CODE, PROMOTIONS, SCHEDULED_SHOP, VOUCHER } from '../../fixtures/orders';
+import { CARD_SHOP, COMBO_CHOICES, DELIVERY_SHOP, DINE_IN_SHOP, NOW_CLOSED, NOW_OPEN, P_COLA, P_COMBO, P_PASTA, PROMO_CODE, PROMOTIONS, SCHEDULED_SHOP, SLOT_1800, VOUCHER } from '../../fixtures/orders';
+
+import type { Product } from '../../../src/domain/product/Product';
 
 const request = {
   shopId: 'shop-1',
@@ -256,5 +258,32 @@ describe('executeQuoteBasket', () => {
     (findVoucher as any).mockResolvedValue({ ...VOUCHER, expiresOn: '2026-10-04' });
     const old = await executeQuoteBasket({ ...request, discountCode: 'l-abcd2345' }, { now: NOW_OPEN });
     expect(old.ok && old.data).toMatchObject({ discountProblem: 'expired' });
+  });
+
+  describe('combos', () => {
+    const serve = (p1: Product = P_PASTA) =>
+      (findProductById as any).mockImplementation(
+        async (id: string) => ({ p1, p2: P_COLA, p9: P_COMBO } as Record<string, Product>)[id] ?? null,
+      );
+    const comboRequest = { shopId: 'shop-1', items: [{ productId: 'p9', quantity: 2, comboChoices: COMBO_CHOICES }] };
+
+    it('a combo is quoted at its own price', async () => {
+      serve();
+      const res = await executeQuoteBasket(comboRequest, { now: NOW_OPEN });
+      expect(res.ok && res.data.lines).toEqual([
+        { index: 0, productId: 'p9', name: 'Pasta-Menü', quantity: 2, status: 'ok', unitPriceCents: 1200, expectedUnitPriceCents: null, lineTotalCents: 2400 },
+      ]);
+      expect(res.ok && res.data).toMatchObject({ subtotalCents: 2400, taxCents: 214, totalCents: 2400 });
+      expect((findProductById as any).mock.calls.map((c: unknown[]) => c[0]).sort()).toEqual(['p1', 'p2', 'p9']);
+    });
+
+    it('a combo booked for later is priced for its time', async () => {
+      serve({ ...P_PASTA, schedule: { startDate: '2026-10-01', startTime: '11:00', endTime: '15:00', offerPrice: 800 } });
+      (findShopById as any).mockResolvedValue(SCHEDULED_SHOP);
+      const now = await executeQuoteBasket(comboRequest, { now: NOW_OPEN });
+      expect(now.ok && now.data.lines[0]).toMatchObject({ status: 'ok', unitPriceCents: 1200 });
+      const later = await executeQuoteBasket({ ...comboRequest, scheduledFor: SLOT_1800 }, { now: NOW_OPEN });
+      expect(later.ok && later.data.lines[0].status).toBe('unavailable');
+    });
   });
 });

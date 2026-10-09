@@ -1,4 +1,5 @@
 import { CustomerAddress, DeliveryAddress, FulfilmentMode, LegalRevisions, PaymentMethod } from '../../../domain/order/Order';
+import type { ComboChoiceInput } from '../_shared/priceBasket';
 
 export interface CheckoutItemDto {
   productId: string;
@@ -6,6 +7,7 @@ export interface CheckoutItemDto {
   selectedVariantOptionId?: string;
   selectedAddonOptionIds?: string[];
   expectedUnitPriceCents?: number; // what the diner was shown; a mismatch is reported back, never trusted
+  comboChoices?: ComboChoiceInput[]; // a combo: one picked dish per group, with its own size and extras
 }
 
 export interface CheckoutRequestDto {
