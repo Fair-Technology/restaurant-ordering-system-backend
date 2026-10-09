@@ -24,6 +24,10 @@ export const REFUND_ITEMS_ERROR = 'items must list order lines with whole quanti
 export function refundQuantityError(lineIndex: number, left: number): string {
   return `Only ${left} of line ${lineIndex + 1} can still be refunded`;
 }
+/** A combo's dishes are sold as one price, so a refund takes all of them or none. */
+export function refundComboError(name: string): string {
+  return `${name} is a combo and can only be refunded as a whole: tick every dish of it, with the same quantity`;
+}
 export const REFUND_RATE_EXCEEDED_ERROR =
   'Part of these items was already refunded as a free amount — refund a free amount instead';
 export const REFUND_AMOUNT_ERROR = 'Refund amount must be between 1 cent and the amount not yet refunded';

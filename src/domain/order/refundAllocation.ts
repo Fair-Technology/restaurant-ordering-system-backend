@@ -1,4 +1,4 @@
-import { REFUND_ITEMS_ERROR, refundQuantityError } from './orderErrors';
+import { REFUND_ITEMS_ERROR, refundComboError, refundQuantityError } from './orderErrors';
 import type { OrderItem, RefundLine, TaxBreakdownEntry } from './Order';
 import { paidCentsForUnits } from './discount';
 
@@ -105,7 +105,7 @@ export function refundedQuantities(lineCount: number, refunds: ReadonlyArray<Ref
 /** Checks a ticked-items request and prices it: a list of refund lines, or an error message. */
 export function buildItemRefundLines(
   items: ReadonlyArray<
-    Pick<OrderItem, 'quantity' | 'unitPriceCents' | 'taxRateBasisPoints'> & Partial<Pick<OrderItem, 'lineTotalCents' | 'discountCents'>>
+    Pick<OrderItem, 'quantity' | 'unitPriceCents' | 'taxRateBasisPoints'> & Partial<Pick<OrderItem, 'combo'>> & Partial<Pick<OrderItem, 'lineTotalCents' | 'discountCents'>>
   >,
   refunds: ReadonlyArray<RefundShape>,
   request: unknown,
@@ -123,6 +123,14 @@ export function buildItemRefundLines(
     if (seen.has(lineIndex)) return REFUND_ITEMS_ERROR;
     seen.add(lineIndex);
     picked.push({ lineIndex, quantity });
+  }
+  // The dishes of one combo instance (same combo.line) are refunded together: all ticked, same quantity.
+  const quantityOf = new Map(picked.map((x) => [x.lineIndex, x.quantity]));
+  for (const { lineIndex } of picked) {
+    const combo = items[lineIndex].combo;
+    if (!combo) continue;
+    const parts = items.flatMap((x, i) => (x.combo?.line === combo.line ? [i] : []));
+    if (parts.some((i) => quantityOf.get(i) !== quantityOf.get(lineIndex))) return refundComboError(combo.name);
   }
   const already = refundedQuantities(items.length, refunds);
   picked.sort((a, b) => a.lineIndex - b.lineIndex);
