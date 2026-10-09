@@ -71,3 +71,4 @@ export const DISCOUNT_ALREADY_USED_ERROR = 'You have already used this code.'; /
 export const DISCOUNT_CODE_FORMAT_ERROR = 'discountCode must be 3 to 20 letters, digits or dashes';
 export const EXPECTED_DISCOUNT_ERROR = 'expectedDiscountCents must be a whole number of cents';
 export const LOYALTY_OPT_IN_ERROR = 'loyaltyOptIn must be true or false';
+export const COMBO_CHOICES_ERROR = 'comboChoices must list one choice (groupId and productId) per combo group';

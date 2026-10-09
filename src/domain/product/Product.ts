@@ -1,5 +1,6 @@
 import { TranslationMap } from '../menu/menuLanguage';
 import type { FulfilmentMode } from '../order/Order';
+import type { ProductCombo } from './combo';
 import { SpiceLevel } from './dietary';
 
 export interface ProductSchedule {
@@ -86,6 +87,9 @@ export interface Product {
 
   // Availability schedule (optional)
   schedule?: ProductSchedule | null;
+
+  // Combo: absent/null = a dish. Set only by the combo endpoints (application/combo)
+  combo?: ProductCombo | null;
 
   // Availability & lifecycle
   isAvailable: boolean; // visible/purchasable if true

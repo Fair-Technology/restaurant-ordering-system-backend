@@ -308,3 +308,42 @@ export const DISCOUNTED_ORDER: Order = {
     { rateBasisPoints: 1900, grossCents: 315, taxCents: 50 },
   ],
 };
+
+/** Pasta-Menü 12,00: a main (Carbonara or Insalata) and a drink (Cola). */
+export const P_COMBO: Product = {
+  ...PRODUCT_BASE,
+  id: 'p9',
+  name: 'Pasta-Menü',
+  price: 1200,
+  categoryIds: ['pasta'],
+  allergenIds: [],
+  combo: {
+    groups: [
+      { id: 'g-main', name: 'Hauptgericht', productIds: ['p1', 'p3'] },
+      { id: 'g-drink', name: 'Getränk', productIds: ['p2'] },
+    ],
+    bmfDrinkShare: false,
+  },
+};
+export const P_COMBO_BMF: Product = { ...P_COMBO, id: 'p10', name: 'Pasta-Menü BMF', combo: { ...P_COMBO.combo!, bmfDrinkShare: true } };
+export const COMBO_CHOICES = [
+  { groupId: 'g-main', productId: 'p1' },
+  { groupId: 'g-drink', productId: 'p2' },
+];
+/** The accepted order for one Pasta-Menü (Carbonara + Cola): 9,00 at 7 % and 3,00 at 19 %. */
+export const COMBO_ORDER: Order = {
+  ...ACCEPTED_CARD_ORDER,
+  id: 'o6',
+  items: [
+    { productId: 'p1', productName: 'Pasta-Menü: Carbonara', quantity: 1, unitPriceCents: 900, lineTotalCents: 900,
+      taxClassId: 'food', taxRateBasisPoints: 700, taxCents: 59, combo: { line: 0, productId: 'p9', name: 'Pasta-Menü' } },
+    { productId: 'p2', productName: 'Pasta-Menü: Cola', quantity: 1, unitPriceCents: 300, lineTotalCents: 300,
+      taxClassId: 'beverage', taxRateBasisPoints: 1900, taxCents: 48, combo: { line: 0, productId: 'p9', name: 'Pasta-Menü' } },
+  ],
+  subtotalCents: 1200,
+  totalCents: 1200,
+  taxBreakdown: [
+    { rateBasisPoints: 700, grossCents: 900, taxCents: 59 },
+    { rateBasisPoints: 1900, grossCents: 300, taxCents: 48 },
+  ],
+};

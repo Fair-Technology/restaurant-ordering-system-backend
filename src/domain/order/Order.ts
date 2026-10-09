@@ -137,6 +137,14 @@ export interface OrderItem {
   taxRateBasisPoints?: number; // rate valid at placement time
   taxCents?: number; // VAT contained in lineTotalCents
   discountCents?: number; // this line's share of the order discount; absent = 0. lineTotalCents stays the menu price
+  combo?: OrderItemCombo; // set when this line is one dish of a combo
+}
+
+/** Set on every line that is one dish of a combo. Lines sharing `line` are one combo. */
+export interface OrderItemCombo {
+  line: number; // index of the basket line the combo came from (unique within the order)
+  productId: string; // the combo's product id
+  name: string; // the combo's name at placement, original menu language
 }
 
 export type OrderDiscountKind = 'code' | 'voucher';
