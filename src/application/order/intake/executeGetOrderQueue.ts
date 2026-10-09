@@ -1,8 +1,10 @@
 import type { HttpRequest } from '@azure/functions';
 import { busyStateOf, effectivePrepByMode } from '../../../domain/order/kitchenTiming';
 import { isOpenAtSlot, isUpcoming } from '../../../domain/order/scheduling';
+import { slotCapacityOf } from '../../../domain/order/slotCapacity';
 import { findOrdersByShopIdAndStates } from '../../../infrastructure/cosmos/order/CosmosOrderRepository';
 import type { ApplicationResult } from '../../_shared/types';
+import { loadSlotsTaken } from '../_shared/slotPlaces';
 import { toOrderDto } from '../_shared/toOrderDto';
 import type { OrderQueueDto } from './dtos';
 import { loadShopForOrderAction } from './loadShopForOrderAction';
@@ -22,6 +24,9 @@ export async function executeGetOrderQueue(
     const upcoming = all
       .filter((o) => isUpcoming(o, loaded.shop, now))
       .sort((a, b) => Date.parse(a.scheduledFor!) - Date.parse(b.scheduledFor!));
+    const cap = slotCapacityOf(loaded.shop);
+    const capacity =
+      cap === null ? null : { perSlot: cap, taken: await loadSlotsTaken(loaded.shop, upcoming.map((o) => o.scheduledFor!), now) };
     return {
       ok: true,
       data: {
@@ -34,6 +39,7 @@ export async function executeGetOrderQueue(
           ...toOrderDto(o, now),
           outsideHours: !isOpenAtSlot(loaded.shop, o.fulfilmentMode, new Date(o.scheduledFor!)),
         })),
+        capacity,
       },
     };
   } catch {

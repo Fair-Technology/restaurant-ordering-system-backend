@@ -12,6 +12,11 @@ vi.mock('../../../src/infrastructure/cosmos/order/CosmosOrderRepository', () => 
 vi.mock('../../../src/infrastructure/cosmos/shop/CosmosShopRepository', () => ({ findShopById: vi.fn() }));
 vi.mock('../../../src/application/order/_shared/acceptPlacedOrder', () => ({ acceptPlacedOrder: vi.fn() }));
 vi.mock('../../../src/infrastructure/stripe/stripeClient', () => ({ releaseAuthorization: vi.fn(async () => 'canceled') }));
+vi.mock('../../../src/infrastructure/cosmos/usage/CosmosSlotPlacesRepository', () => ({
+  findSlotPlacesWithEtag: vi.fn(async () => null),
+  createSlotPlaces: vi.fn(async () => 'ok'),
+  replaceSlotPlacesIfMatch: vi.fn(async () => 'ok'),
+}));
 vi.mock('../../../src/infrastructure/email/emailSender', () => ({
   sendEmail: vi.fn(async () => undefined),
   emailTransportName: () => 'log',
@@ -29,6 +34,7 @@ import { findShopById } from '../../../src/infrastructure/cosmos/shop/CosmosShop
 import { sendEmail } from '../../../src/infrastructure/email/emailSender';
 import { releaseAuthorization } from '../../../src/infrastructure/stripe/stripeClient';
 import { PAYMENT_SERVICE_UNAVAILABLE_ERROR } from '../../../src/domain/order/orderErrors';
+import { dayDoc, installSlotStore } from '../../fixtures/slotPlaces';
 import { CARD_SHOP, NOW_OPEN, PLACED_CARD_ORDER, SLOT_1800 } from '../../fixtures/orders';
 
 const session: CheckoutSession = {
@@ -175,5 +181,35 @@ describe('executeHandlePaymentAuthorized', () => {
       expect.objectContaining({ queuedAt: '2026-10-05T10:00:00.000Z', autoRejectAt: '2026-10-05T10:10:00.000Z' }),
     );
     expect(acceptPlacedOrder).toHaveBeenCalledTimes(1);
+  });
+
+  describe('booked orders', () => {
+    const cappedManual = { ...manualShop, orderSettings: { ...manualShop.orderSettings, scheduledOrders: true, slotCapacity: 1 } };
+    beforeEach(() => {
+      (findCheckoutSessionById as any).mockResolvedValue({ ...session, scheduledFor: SLOT_1800 });
+      (findShopById as any).mockResolvedValue(cappedManual);
+    });
+    const held = { orderId: 'sess-1', slot: SLOT_1800, heldUntil: '2026-10-05T10:05:00.000Z' };
+    const kept = { orderId: 'sess-1', slot: SLOT_1800, heldUntil: null };
+
+    it('a paid booking keeps its place for good', async () => {
+      const store = installSlotStore([dayDoc('2026-10-05', [held])]);
+      expect(await executeHandlePaymentAuthorized(input)).toBe('created');
+      expect(store.doc('2026-10-05')!.places).toEqual([kept]);
+    });
+
+    it('a payment after the hold lapsed still gets its place, even over the limit', async () => {
+      const other = { orderId: 'other', slot: SLOT_1800, heldUntil: null };
+      const store = installSlotStore([dayDoc('2026-10-05', [other])]);
+      expect(await executeHandlePaymentAuthorized(input)).toBe('created');
+      expect(store.doc('2026-10-05')!.places).toEqual([other, kept]);
+    });
+
+    it('a repeated webhook still makes the place permanent', async () => {
+      const store = installSlotStore([dayDoc('2026-10-05', [held])]);
+      (createOrder as any).mockRejectedValueOnce({ code: 409 });
+      expect(await executeHandlePaymentAuthorized(input)).toBe('duplicate');
+      expect(store.doc('2026-10-05')!.places).toEqual([kept]);
+    });
   });
 });

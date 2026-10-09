@@ -14,7 +14,9 @@ import {
   LAST_ORDERS_ERROR,
   PREP_SETTING_ERROR,
   SCHEDULED_ORDERS_ERROR,
+  SLOT_CAPACITY_ERROR,
 } from '../../../domain/order/orderErrors';
+import { parseSlotCapacity } from '../../../domain/order/slotCapacity';
 import { EMAIL_PATTERN } from '../../../domain/legal/impressum';
 import {
   AUTO_REJECT_MAX_MINUTES,
@@ -161,6 +163,11 @@ export async function executeUpdateOrderSettings(
         if (typeof body.scheduledOrders !== 'boolean') return invalid(SCHEDULED_ORDERS_ERROR);
         next.scheduledOrders = body.scheduledOrders;
       }
+      if (body.slotCapacity !== undefined) {
+        const v = parseSlotCapacity(body.slotCapacity);
+        if (v === 'invalid') return invalid(SLOT_CAPACITY_ERROR);
+        next.slotCapacity = v;
+      }
 
       return { ok: 'merged', before, next };
     };
@@ -188,7 +195,7 @@ export async function executeUpdateOrderSettings(
 
     const changed = (f: keyof OrderSettings): boolean => JSON.stringify(before[f]) !== JSON.stringify(next[f]);
     const changes: { field: string; from: unknown; to: unknown }[] = [];
-    for (const f of ['autoRejectMinutes', 'autoAccept', 'dineIn', 'lastOrdersMinutes', 'busyExtraMinutes', 'delivery', 'deliveryFeeTaxClassId', 'scheduledOrders'] as const) {
+    for (const f of ['autoRejectMinutes', 'autoAccept', 'dineIn', 'lastOrdersMinutes', 'busyExtraMinutes', 'delivery', 'deliveryFeeTaxClassId', 'scheduledOrders', 'slotCapacity'] as const) {
       if (changed(f)) changes.push({ field: f, from: before[f], to: next[f] });
     }
     // The address itself is never written to the audit log (spec §11).

@@ -10,6 +10,7 @@ import { createOrder, findOrderById } from '../../../infrastructure/cosmos/order
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { releaseAuthorization } from '../../../infrastructure/stripe/stripeClient';
 import { acceptPlacedOrder } from '../_shared/acceptPlacedOrder';
+import { fixSlotPlace } from '../_shared/slotPlaces';
 import { notifyCustomer } from '../notifications/notifyOrder';
 import { buildPlacedOrderFromSession } from './buildPlacedOrderFromSession';
 
@@ -59,12 +60,15 @@ export async function executeHandlePaymentAuthorized(input: {
     await createOrder(order);
   } catch (err: unknown) {
     if ((err as { code?: number })?.code === 409) {
+      if (session.scheduledFor) await fixSlotPlace({ shop, orderId: session.id, slot: session.scheduledFor, now });
       await deleteCheckoutSession(session.id);
       return 'duplicate';
     }
     throw err;
   }
   await deleteCheckoutSession(session.id);
+  // The card is reserved: the booked place is kept for good, even if its hold lapsed meanwhile.
+  if (order.scheduledFor) await fixSlotPlace({ shop, orderId: order.id, slot: order.scheduledFor, now });
 
   // Auto-accepted orders get one email (the acceptance); a received email would arrive a second before it.
   const autoAccepts = autoAcceptsOrder(shop, order);

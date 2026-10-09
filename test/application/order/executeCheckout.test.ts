@@ -24,6 +24,11 @@ vi.mock('../../../src/infrastructure/cosmos/promotion/CosmosPromotionRepository'
   findPromotions: vi.fn(async () => null),
   findVoucher: vi.fn(async () => null),
 }));
+vi.mock('../../../src/infrastructure/cosmos/usage/CosmosSlotPlacesRepository', () => ({
+  findSlotPlacesWithEtag: vi.fn(async () => null),
+  createSlotPlaces: vi.fn(async () => 'ok'),
+  replaceSlotPlacesIfMatch: vi.fn(async () => 'ok'),
+}));
 vi.mock('../../../src/infrastructure/email/emailSender', () => ({
   sendEmail: vi.fn(async () => undefined),
   emailTransportName: () => 'log',
@@ -47,6 +52,8 @@ import { findPromotions } from '../../../src/infrastructure/cosmos/promotion/Cos
 import { findDiscountUseRows, findOrderById } from '../../../src/infrastructure/cosmos/order/CosmosOrderRepository';
 import { loadOrderLimitStatus } from '../../../src/application/usage/orderLimitStatus';
 import { createPaymentIntent } from '../../../src/infrastructure/stripe/stripeClient';
+import { findSlotPlacesWithEtag } from '../../../src/infrastructure/cosmos/usage/CosmosSlotPlacesRepository';
+import { capped, dayDoc, installSlotStore } from '../../fixtures/slotPlaces';
 import { ACCEPTED_DPA, COMPLETE_LEGAL } from '../../fixtures/legal';
 import { ADDRESS, CARD_SHOP, LUNCH_HOURS, NOW_CLOSED, NOW_OPEN, P_COLA, P_PASTA, PLACED_CARD_ORDER, DINE_IN_SHOP, PLACED_TABLE_ORDER, DELIVERY_SHOP, DELIVERY_ZONE, SCHEDULED_SHOP, PROMO_CODE, PROMOTIONS } from '../../fixtures/orders';
 import { executeCheckout } from '../../../src/application/order/checkout/executeCheckout';
@@ -616,6 +623,59 @@ describe('executeCheckout card placement', () => {
         expect(res).toEqual({ ok: false, code: 'CONFLICT', error: SLOT_UNAVAILABLE_ERROR });
       }
       expect(createPaymentIntent).not.toHaveBeenCalled();
+    });
+
+    describe('capacity', () => {
+      beforeEach(() => (findShopById as any).mockResolvedValue(capped(1)));
+      const HOLD = { orderId: SESSION_ID, slot: SLOT, heldUntil: '2026-10-05T10:20:00.000Z' };
+
+      it('holds a place for 20 minutes before the card is reserved', async () => {
+        const store = installSlotStore();
+        const res = await executeCheckout({ ...cardRequest, scheduledFor: SLOT }, { now: NOW_OPEN });
+        expect(res.ok).toBe(true);
+        expect(store.doc('2026-10-06')!.places).toEqual([HOLD]);
+      });
+
+      it('refuses a full time before any card is reserved', async () => {
+        installSlotStore([dayDoc('2026-10-06', [{ orderId: 'other', slot: SLOT, heldUntil: null }])]);
+        const res = await executeCheckout({ ...cardRequest, scheduledFor: SLOT }, { now: NOW_OPEN });
+        expect(res).toEqual({ ok: false, code: 'CONFLICT', error: SLOT_UNAVAILABLE_ERROR });
+        expect(createPaymentIntent).not.toHaveBeenCalled();
+        expect(upsertCheckoutSession).not.toHaveBeenCalled();
+      });
+
+      it('a lapsed hold does not count', async () => {
+        const store = installSlotStore([
+          dayDoc('2026-10-06', [{ orderId: 'other', slot: SLOT, heldUntil: '2026-10-05T09:59:00.000Z' }]),
+        ]);
+        const res = await executeCheckout({ ...cardRequest, scheduledFor: SLOT }, { now: NOW_OPEN });
+        expect(res.ok).toBe(true);
+        expect(store.doc('2026-10-06')!.places).toEqual([HOLD]);
+      });
+
+      it('a repeated submit keeps one place', async () => {
+        const store = installSlotStore();
+        const a = await executeCheckout({ ...cardRequest, scheduledFor: SLOT }, { now: NOW_OPEN });
+        const b = await executeCheckout({ ...cardRequest, scheduledFor: SLOT }, { now: NOW_OPEN });
+        expect(a.ok && b.ok).toBe(true);
+        expect(store.doc('2026-10-06')!.places).toHaveLength(1);
+      });
+
+      it('a failed card reservation gives the place back', async () => {
+        const store = installSlotStore();
+        (createPaymentIntent as any).mockRejectedValueOnce({ type: 'StripeIdempotencyError' });
+        const res = await executeCheckout({ ...cardRequest, scheduledFor: SLOT }, { now: NOW_OPEN });
+        expect(res).toEqual({ ok: false, code: 'CONFLICT', error: BASKET_CHANGED_ERROR });
+        expect(store.doc('2026-10-06')!.places).toEqual([]);
+      });
+
+      it('orders for now hold nothing at checkout', async () => {
+        installSlotStore();
+        vi.mocked(findSlotPlacesWithEtag).mockClear();
+        const res = await executeCheckout(cardRequest, { now: NOW_OPEN });
+        expect(res.ok).toBe(true);
+        expect(findSlotPlacesWithEtag).not.toHaveBeenCalled();
+      });
     });
 
     it('refuses a time that is not a slot', async () => {

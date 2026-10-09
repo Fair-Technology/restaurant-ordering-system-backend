@@ -1,5 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+vi.mock('../../../src/infrastructure/cosmos/usage/CosmosSlotPlacesRepository', () => ({
+  findSlotPlacesWithEtag: vi.fn(async () => null),
+  createSlotPlaces: vi.fn(async () => 'ok'),
+  replaceSlotPlacesIfMatch: vi.fn(async () => 'ok'),
+}));
 vi.mock('../../../src/infrastructure/cosmos/order/CosmosCheckoutSessionRepository', () => ({
   deleteCheckoutSession: vi.fn(),
 }));

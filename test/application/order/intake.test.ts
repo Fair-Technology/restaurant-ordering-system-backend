@@ -1,5 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+vi.mock('../../../src/infrastructure/cosmos/usage/CosmosSlotPlacesRepository', () => ({
+  findSlotPlacesWithEtag: vi.fn(async () => null),
+  createSlotPlaces: vi.fn(async () => 'ok'),
+  replaceSlotPlacesIfMatch: vi.fn(async () => 'ok'),
+}));
 vi.mock('../../../src/application/_shared/shopAccess', () => ({ authorizeShopAction: vi.fn() }));
 vi.mock('../../../src/infrastructure/cosmos/shop/CosmosShopRepository', () => ({ findShopById: vi.fn() }));
 vi.mock('../../../src/infrastructure/cosmos/order/CosmosOrderRepository', () => ({
@@ -27,6 +32,12 @@ vi.mock('../../../src/infrastructure/email/emailSender', () => ({
   emailTransportName: () => 'log',
 }));
 
+import {
+  createSlotPlaces,
+  findSlotPlacesWithEtag,
+  replaceSlotPlacesIfMatch,
+} from '../../../src/infrastructure/cosmos/usage/CosmosSlotPlacesRepository';
+import { capped, dayDoc, installSlotStore } from '../../fixtures/slotPlaces';
 import { authorizeShopAction } from '../../../src/application/_shared/shopAccess';
 import { issueLoyaltyVoucher } from '../../../src/application/order/loyalty/issueLoyaltyVoucher';
 import { executeAcceptOrder } from '../../../src/application/order/intake/executeAcceptOrder';
@@ -430,6 +441,68 @@ describe('kitchen intake', () => {
       ['o5', false],
       ['o4', true],
     ]);
+  });
+
+
+  describe('capacity', () => {
+    const HELD = { orderId: 'x', slot: '2026-10-05T10:15:00.000Z', heldUntil: null };
+
+    it('accepting an order for now takes a place in the quarter hour it is ready', async () => {
+      (findShopById as any).mockResolvedValue(capped(1));
+      const store = installSlotStore([dayDoc('2026-10-05', [HELD])]);
+      const res = await executeAcceptOrder(ids, http, { now });
+      expect(res.ok).toBe(true);
+      expect(store.doc('2026-10-05')!.places).toEqual([HELD, { orderId: 'o1', slot: '2026-10-05T10:15:00.000Z', heldUntil: null }]);
+    });
+
+    it('without a limit accepting writes no place', async () => {
+      (findShopById as any).mockResolvedValue(CARD_SHOP);
+      const res = await executeAcceptOrder(ids, http, { now });
+      expect(res.ok).toBe(true);
+      expect(findSlotPlacesWithEtag).not.toHaveBeenCalled();
+      expect(createSlotPlaces).not.toHaveBeenCalled();
+      expect(replaceSlotPlacesIfMatch).not.toHaveBeenCalled();
+    });
+
+    it('an accepted booking takes no second place', async () => {
+      (findShopById as any).mockResolvedValue(capped(1));
+      installSlotStore();
+      storedOrder({ ...SCHEDULED_ORDER, queuedAt: '2026-10-05T15:40:00.000Z' });
+      const res = await executeAcceptOrder(
+        { shopId: 'shop-1', orderId: 'o4' },
+        http,
+        { now: new Date('2026-10-05T15:42:00Z'), prepMinutes: 20 } as any,
+      );
+      expect(res.ok).toBe(true);
+      expect(createSlotPlaces).not.toHaveBeenCalled();
+      expect(replaceSlotPlacesIfMatch).not.toHaveBeenCalled();
+    });
+
+    it('declining a booked order frees its place', async () => {
+      (findShopById as any).mockResolvedValue(capped(1));
+      const other = { orderId: 'y', slot: SLOT_1800, heldUntil: null };
+      const store = installSlotStore([dayDoc('2026-10-05', [{ orderId: 'o4', slot: SLOT_1800, heldUntil: null }, other])]);
+      storedOrder(SCHEDULED_ORDER);
+      const res = await executeRejectOrder({ shopId: 'shop-1', orderId: 'o4', reason: 'too_busy' }, http, { now });
+      expect(res.ok).toBe(true);
+      expect(store.doc('2026-10-05')!.places).toEqual([other]);
+    });
+
+    it('the board shows how full each booked time is', async () => {
+      (findShopById as any).mockResolvedValue(capped(2));
+      (findOrdersByShopIdAndStates as any).mockResolvedValue([SCHEDULED_ORDER]);
+      installSlotStore([
+        dayDoc('2026-10-05', [
+          { orderId: 'o4', slot: SLOT_1800, heldUntil: null },
+          { orderId: 'h', slot: SLOT_1800, heldUntil: '2026-10-05T10:15:00.000Z' },
+        ]),
+      ]);
+      const res = await executeGetOrderQueue({ shopId: 'shop-1' }, http, { now });
+      expect(res.ok && res.data.capacity).toEqual({ perSlot: 2, taken: { [SLOT_1800]: 2 } });
+      (findShopById as any).mockResolvedValue(CARD_SHOP);
+      const none = await executeGetOrderQueue({ shopId: 'shop-1' }, http, { now });
+      expect(none.ok && none.data.capacity).toBeNull();
+    });
   });
 
   describe('delivery', () => {

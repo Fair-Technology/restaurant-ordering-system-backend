@@ -13,6 +13,7 @@ import type { TransitionResult } from '../../../domain/order/orderLifecycle';
 import { hasFreshCaptureClaim } from '../../../domain/order/payment';
 import type { Shop } from '../../../domain/shop/Shop';
 import { invoiceFileName, invoiceTitle } from '../../../domain/invoice/invoice';
+import { slotCapacityOf, slotStartOf } from '../../../domain/order/slotCapacity';
 import { periodKeyFor } from '../../../domain/usage/usagePeriod';
 import {
   findOrderWithEtag,
@@ -24,6 +25,7 @@ import { renderInvoicePdf } from '../../../infrastructure/pdf/invoicePdf';
 import { capturePaymentIntent, isRetryableStripeError } from '../../../infrastructure/stripe/stripeClient';
 import type { ApplicationResult } from '../../_shared/types';
 import { notifyOrderLimitThresholds } from '../../usage/orderLimitWarnings';
+import { fixSlotPlace } from './slotPlaces';
 import { issueInvoiceForOrder, needsInvoice } from '../invoices/issueInvoice';
 import { issueLoyaltyVoucher } from '../loyalty/issueLoyaltyVoucher';
 import { notifyCustomer } from '../notifications/notifyOrder';
@@ -199,6 +201,10 @@ export async function acceptPlacedOrder(input: {
   } catch {
     // The order is accepted; a usage counter miss is repaired by reconcileShopUsage.
     console.error('[usage:error] could not count accepted order');
+  }
+  // Option (c): an order for now takes a place in the quarter hour it is ready; the limit never turns it away.
+  if (!moved.order.scheduledFor && moved.order.readyAt && slotCapacityOf(shop) !== null) {
+    await fixSlotPlace({ shop, orderId, slot: slotStartOf(new Date(moved.order.readyAt)), now });
   }
   const invoiced = await invoiceForEmail(moved.order, shop, now);
   await notifyCustomer('order_accepted', invoiced.order, shop, {
