@@ -17,6 +17,7 @@ export interface CheckoutSession {
   customerNotes?: string;
   customerAddress?: CustomerAddress;
   table?: OrderTable;
+  scheduledFor?: string;         // ISO start of the booked slot; absent = as soon as possible
   fulfilmentMode: FulfilmentMode;
   taxBreakdown?: TaxBreakdownEntry[];
   language?: MenuLanguage;

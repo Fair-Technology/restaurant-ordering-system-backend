@@ -269,3 +269,7 @@ export const ACCEPTED_DELIVERY_ORDER: Order = {
   readyAt: '2026-10-05T10:50:00.000Z',
   prepMinutes: 45,
 };
+
+export const SCHEDULED_SHOP: Shop = { ...CARD_SHOP, orderSettings: { scheduledOrders: true } };
+export const SLOT_1800 = '2026-10-05T16:00:00.000Z'; // Monday 18:00 in Berlin
+export const SCHEDULED_ORDER: Order = { ...PLACED_CARD_ORDER, id: 'o4', scheduledFor: SLOT_1800, autoRejectAt: undefined };
