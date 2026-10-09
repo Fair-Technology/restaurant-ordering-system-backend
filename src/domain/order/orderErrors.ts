@@ -66,6 +66,7 @@ export const SCHEDULE_NOT_FOR_TABLES_ERROR = 'Table orders cannot be scheduled';
 export const SLOT_UNAVAILABLE_ERROR = 'This time is no longer available. Please choose another.'; // storefront compares
 export const SCHEDULED_NOT_DUE_ERROR = 'This order is for later. It can be accepted once it moves to New.';
 export const SCHEDULED_ORDERS_ERROR = 'scheduledOrders must be true or false';
+export const SLOT_CAPACITY_ERROR = 'slotCapacity must be null or a whole number between 1 and 50';
 export const DISCOUNT_CHANGED_ERROR = 'Your discount has changed. Please check your order and try again.'; // storefront compares
 export const DISCOUNT_ALREADY_USED_ERROR = 'You have already used this code.'; // storefront compares
 export const DISCOUNT_CODE_FORMAT_ERROR = 'discountCode must be 3 to 20 letters, digits or dashes';

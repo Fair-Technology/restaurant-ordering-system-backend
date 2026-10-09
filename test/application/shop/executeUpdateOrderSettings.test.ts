@@ -51,6 +51,7 @@ const REST = {
   deliveryZones: [],
   deliveryFeeTaxClassId: null,
   scheduledOrders: false,
+  slotCapacity: null,
 };
 
 describe('executeUpdateOrderSettings', () => {
@@ -173,6 +174,7 @@ describe('executeUpdateOrderSettings', () => {
       deliveryZones: [],
       deliveryFeeTaxClassId: null,
       scheduledOrders: false,
+      slotCapacity: null,
     });
   });
 

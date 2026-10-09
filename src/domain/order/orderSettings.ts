@@ -24,6 +24,7 @@ export interface OrderSettings {
   deliveryZones: DeliveryZone[];
   deliveryFeeTaxClassId: string | null; // null = the country's default tax class
   scheduledOrders: boolean; // diners may order for later; off by default
+  slotCapacity: number | null; // at most this many orders per 15 minutes while orders for later are on; null = no limit
 }
 
 /** What is stored: anything may be missing on restaurants saved before a field existed. */
@@ -45,6 +46,7 @@ export const DEFAULT_ORDER_SETTINGS: OrderSettings = {
   deliveryZones: [],
   deliveryFeeTaxClassId: null,
   scheduledOrders: false,
+  slotCapacity: null,
 };
 export const AUTO_REJECT_MIN_MINUTES = 5;
 export const AUTO_REJECT_MAX_MINUTES = 30;

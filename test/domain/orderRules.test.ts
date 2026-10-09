@@ -34,6 +34,7 @@ describe('order rules', () => {
       deliveryZones: [],
       deliveryFeeTaxClassId: null,
       scheduledOrders: false,
+      slotCapacity: null,
     });
     expect(
       orderSettingsOf({ orderSettings: { autoRejectMinutes: 15, alertEmail: null, autoAccept: false } }).autoAccept,
