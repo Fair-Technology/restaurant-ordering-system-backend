@@ -6,6 +6,7 @@ import {
   replaceOrderIfMatch,
 } from '../../../infrastructure/cosmos/order/CosmosOrderRepository';
 import { createRefund, findLiveRefund, releaseAuthorization } from '../../../infrastructure/stripe/stripeClient';
+import { releaseSlotPlace } from './slotPlaces';
 import { notifyRestaurantReleaseFailed } from '../notifications/notifyOrder';
 
 export type ReleaseOutcome = 'released' | 'refunded' | 'failed' | 'not_needed';
@@ -33,6 +34,7 @@ async function writeOrder(orderId: string, change: (current: Order) => Order): P
  * Gives a declined or cancelled order's money back: an unspent card reservation is cancelled for free;
  * money that was already taken is refunded in full. The result (or the failure) is written to the order.
  * A failure is recorded and the restaurant emailed once; the timer retries every 15 minutes. Never throws.
+ * Also frees the order's place in its quarter hour.
  */
 export async function releaseClosedOrderPayment(
   orderId: string,
@@ -43,6 +45,10 @@ export async function releaseClosedOrderPayment(
   try {
     const found = await findOrderWithEtag(orderId);
     order = found?.order ?? null;
+    // A closed order's place goes back first; this never throws, so the money is always released.
+    if (order && order.shopId === shop.id && (order.state === 'REJECTED' || order.state === 'CANCELLED')) {
+      await releaseSlotPlace({ shop, order, now });
+    }
     if (!order || order.shopId !== shop.id || !needsPaymentRelease(order)) {
       return { outcome: 'not_needed', order };
     }

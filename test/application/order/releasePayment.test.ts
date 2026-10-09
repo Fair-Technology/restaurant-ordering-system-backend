@@ -1,5 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+vi.mock('../../../src/infrastructure/cosmos/usage/CosmosSlotPlacesRepository', () => ({
+  findSlotPlacesWithEtag: vi.fn(async () => null),
+  createSlotPlaces: vi.fn(async () => 'ok'),
+  replaceSlotPlacesIfMatch: vi.fn(async () => 'ok'),
+}));
 vi.mock('../../../src/infrastructure/cosmos/order/CosmosOrderRepository', () => ({
   findOrderWithEtag: vi.fn(),
   replaceOrderIfMatch: vi.fn(),
@@ -16,6 +21,8 @@ vi.mock('../../../src/infrastructure/stripe/stripeClient', () => ({
   isRetryableStripeError: (e: any) => ['StripeConnectionError', 'StripeAPIError', 'StripeRateLimitError'].includes(e?.type),
 }));
 
+import { findSlotPlacesWithEtag } from '../../../src/infrastructure/cosmos/usage/CosmosSlotPlacesRepository';
+import { dayDoc, installSlotStore } from '../../fixtures/slotPlaces';
 import { releaseClosedOrderPayment } from '../../../src/application/order/_shared/releasePayment';
 import {
   findOrderWithEtag,
@@ -53,6 +60,24 @@ describe('releaseClosedOrderPayment', () => {
     expect(createRefund).not.toHaveBeenCalled();
     expect(store.current.payment.status).toBe('canceled');
     expect(res.outcome).toBe('released');
+  });
+
+  it('a declined booking gives its place back', async () => {
+    const S = '2026-10-06T16:00:00.000Z';
+    storeOf({ ...REJECTED_ORDER, scheduledFor: S });
+    const slots = installSlotStore([dayDoc('2026-10-06', [{ orderId: 'o1', slot: S, heldUntil: null }])]);
+    const res = await releaseClosedOrderPayment('o1', CARD_SHOP, now); // CARD_SHOP has no limit: freeing does not depend on one
+    expect(res.outcome).toBe('released');
+    expect(slots.doc('2026-10-06')!.places).toEqual([]);
+  });
+
+  it('a place that cannot be freed does not stop the release', async () => {
+    storeOf({ ...REJECTED_ORDER, scheduledFor: '2026-10-06T16:00:00.000Z' });
+    installSlotStore();
+    vi.mocked(findSlotPlacesWithEtag).mockRejectedValueOnce(new Error('down'));
+    const res = await releaseClosedOrderPayment('o1', CARD_SHOP, now);
+    expect(res.outcome).toBe('released');
+    expect(releaseAuthorization).toHaveBeenCalledTimes(1);
   });
 
   it('a payment captured before the decline is refunded instead', async () => {
