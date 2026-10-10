@@ -1340,6 +1340,12 @@ export const swaggerSpec = {
             description: 'Shop branding configuration (optional). Set to null to disable branding.',
             $ref: '#/components/schemas/ShopBranding',
           },
+          menuLanguage: {
+            type: 'string',
+            enum: ['de', 'en'],
+            description:
+              "The shop's original (primary) menu language (optional). Absent = default for the country (de for DE/AT/CH, else en). Any other value is rejected with 400.",
+          },
         },
       },
       UpdateShopRequest: {
