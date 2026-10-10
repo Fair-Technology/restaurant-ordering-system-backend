@@ -13,13 +13,16 @@ export async function executeGetCustomerOrder(
   options: { now?: Date } = {},
 ): Promise<ApplicationResult<CustomerOrderDto>> {
   try {
-    const order = request.orderId ? await findOrderById(request.orderId) : null;
+    let order = request.orderId ? await findOrderById(request.orderId) : null;
     if (!order && request.orderId) {
       // The diner has paid but Stripe has not told us yet: the checkout exists, the order does not.
       const session = await findCheckoutSessionById(request.orderId);
       if (session && accessTokenMatches(session.customerAccessToken, request.token)) {
         return { ok: false, code: 'NOT_FOUND', error: PAYMENT_CONFIRMING_ERROR };
       }
+      // Stripe's confirmation may have landed between the two reads: the order was written
+      // and the checkout deleted after we looked for the order. Look once more.
+      if (!session) order = await findOrderById(request.orderId);
     }
     if (!order || !accessTokenMatches(order.customerAccessToken, request.token)) {
       return { ok: false, code: 'NOT_FOUND', error: ORDER_NOT_FOUND_ERROR };

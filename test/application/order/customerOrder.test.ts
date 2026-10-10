@@ -74,6 +74,25 @@ describe('customer order page', () => {
     });
   });
 
+  it('finds the order when Stripe confirms between the order and checkout reads', async () => {
+    // first read: no order yet; meanwhile the order is written and the checkout deleted
+    (findOrderById as any).mockResolvedValueOnce(null).mockResolvedValueOnce(PLACED_CARD_ORDER);
+    (findCheckoutSessionById as any).mockResolvedValue(null);
+    const res = await executeGetCustomerOrder({ orderId: 'o1', token: TOKEN }, { now });
+    expect(res.ok).toBe(true);
+    expect(findOrderById).toHaveBeenCalledTimes(2);
+  });
+
+  it('still says not found when neither the order nor the checkout exists', async () => {
+    (findOrderById as any).mockResolvedValue(null);
+    (findCheckoutSessionById as any).mockResolvedValue(null);
+    expect(await executeGetCustomerOrder({ orderId: 'o1', token: TOKEN }, { now })).toEqual({
+      ok: false,
+      code: 'NOT_FOUND',
+      error: ORDER_NOT_FOUND_ERROR,
+    });
+  });
+
   it('says the payment is being confirmed while only the checkout exists', async () => {
     (findOrderById as any).mockResolvedValue(null);
     (findCheckoutSessionById as any).mockResolvedValue({ id: 'o1', customerAccessToken: TOKEN });
