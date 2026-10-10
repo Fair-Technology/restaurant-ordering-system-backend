@@ -174,6 +174,21 @@ describe('shop cover image', () => {
     expect(logAudit).toHaveBeenCalledWith(expect.objectContaining({ action: 'shop.cover_image_remove' }));
   });
 
+  it('upload and remove keep working while the banner is switched off, and keep it off', async () => {
+    const off = (url: string | null) =>
+      makeShop({ branding: { logoUrl: null, heroImageUrl: url, accentColor: null, showHero: false } });
+    vi.mocked(findShopById).mockResolvedValue(off(null));
+    await executeSetShopCoverImage(setReq, httpRequest);
+    expect(updateShop).toHaveBeenLastCalledWith(
+      expect.objectContaining({ branding: expect.objectContaining({ heroImageUrl: newUrl, showHero: false }) }),
+    );
+    vi.mocked(findShopById).mockResolvedValue(off(BASE + 'shops/shop-1/branding/old.jpg'));
+    await executeRemoveShopCoverImage({ shopId: 'shop-1' }, httpRequest);
+    expect(updateShop).toHaveBeenLastCalledWith(
+      expect.objectContaining({ branding: expect.objectContaining({ heroImageUrl: null, showHero: false }) }),
+    );
+  });
+
   it('remove cover: no cover set is a no-op success', async () => {
     const r = await executeRemoveShopCoverImage({ shopId: 'shop-1' }, httpRequest);
     expect(r.ok).toBe(true);

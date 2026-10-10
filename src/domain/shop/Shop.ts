@@ -7,6 +7,8 @@ export interface ShopBranding {
   logoUrl: string | null;
   heroImageUrl: string | null;
   accentColor: string | null;
+  /** Whether the shop page shows its banner at all. Missing means on; the uploaded picture is kept while off. */
+  showHero?: boolean;
 }
 
 export type ShopRoleKey = 'owner' | 'manager' | 'staff';

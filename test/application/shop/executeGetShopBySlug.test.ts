@@ -61,4 +61,15 @@ describe('executeGetShopBySlug', () => {
     const off = await executeGetShopBySlug({ slug: 'mapasta' });
     expect(off.ok && off.data.fulfilment.delivery).toBeNull();
   });
+
+  it('the public shop passes the banner switch through, and leaves it missing (on) when never set', async () => {
+    const branding = { logoUrl: null, heroImageUrl: 'https://cdn.example.com/h.jpg', accentColor: null };
+    (findShopBySlug as any).mockResolvedValue({ ...CARD_SHOP, branding: { ...branding, showHero: false } });
+    const off = await executeGetShopBySlug({ slug: 'mapasta' });
+    expect(off.ok && off.data.branding?.showHero).toBe(false);
+    expect(off.ok && off.data.branding?.heroImageUrl).toBe(branding.heroImageUrl);
+    (findShopBySlug as any).mockResolvedValue({ ...CARD_SHOP, branding });
+    const unset = await executeGetShopBySlug({ slug: 'mapasta' });
+    expect(unset.ok && unset.data.branding?.showHero).toBeUndefined();
+  });
 });

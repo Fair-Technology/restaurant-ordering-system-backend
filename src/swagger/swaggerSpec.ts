@@ -1236,6 +1236,11 @@ export const swaggerSpec = {
             description: 'Hero image URL (must start with https://)',
             example: 'https://cdn.example.com/hero.jpg',
           },
+          showHero: {
+            type: 'boolean',
+            description: 'Whether the shop page shows its banner (cover image). Missing means true. The uploaded picture is kept while false.',
+            example: true,
+          },
           accentColor: {
             type: 'string',
             nullable: true,

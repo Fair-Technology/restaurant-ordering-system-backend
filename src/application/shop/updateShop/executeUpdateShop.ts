@@ -107,6 +107,9 @@ function validateBranding(branding: unknown): string | null {
       return 'branding.heroImageUrl must be a valid https URL or null';
     }
   }
+  if (b.showHero !== undefined && typeof b.showHero !== 'boolean') {
+    return 'branding.showHero must be a boolean';
+  }
   const accentError = validateAccentColor(b.accentColor);
   if (accentError) return accentError;
   return null;
@@ -204,6 +207,10 @@ export async function executeUpdateShop(
       ['isPaused', 'pausedMessage', 'minOrderAmountCents', 'currency', 'timezone'],
       ['openingHours', 'branding', 'address', 'menuLanguages'],
     );
+    // Switching the banner on or off is its own readable line, besides the generic branding entry.
+    const heroBefore = shop.branding?.showHero !== false;
+    const heroAfter = updatedShop.branding?.showHero !== false;
+    if (heroBefore !== heroAfter) changes.push({ field: 'branding.showHero', from: heroBefore, to: heroAfter });
     await logAudit({
       shopId: result.id,
       ...toAuditActor(access.actor),
