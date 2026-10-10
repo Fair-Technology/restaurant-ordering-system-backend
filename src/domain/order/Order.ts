@@ -193,7 +193,7 @@ export interface Order {
   prepMinutes?: number; // set by ACCEPTED
   usagePeriodKey?: string; // 'YYYY-MM' in shop tz, set with ACCEPTED
   taxBreakdown?: TaxBreakdownEntry[]; // absent on orders from before slice 4
-  language?: MenuLanguage; // the diner's menu language, used for emails
+  language?: MenuLanguage; // the diner's page language (de|en), used for emails and the order page
   legalRevisions?: LegalRevisions; // terms/withdrawal revisions the diner was shown
   customerAccessToken?: string; // secret order-page link token; removed by erasure and export
   idempotencyKey?: string;

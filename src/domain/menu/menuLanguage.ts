@@ -17,6 +17,17 @@ export function resolveMenuLanguage(requested: string | null | undefined, offere
   return (offered as string[]).includes(code) ? (code as MenuLanguage) : offered[0];
 }
 
+/**
+ * The language of the diner's page, stored on the order (emails, order page).
+ * Independent of the shop's menu languages: 'de' or 'en' is kept as asked, any other
+ * language falls back to 'en', and a missing one falls back to the shop's original language.
+ */
+export function resolvePageLanguage(requested: string | null | undefined, fallback: MenuLanguage): MenuLanguage {
+  const code = (requested ?? '').trim().slice(0, 2).toLowerCase();
+  if (code === '') return fallback;
+  return code === 'de' ? 'de' : 'en';
+}
+
 export function localize(
   original: string,
   translations: TranslationMap | undefined,

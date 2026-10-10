@@ -1,7 +1,7 @@
 import { EMAIL_PATTERN } from '../../../domain/legal/impressum';
 import { LEGAL_PACK_INCOMPLETE_ERROR, isLegalPackComplete } from '../../../domain/legal/legalReadiness';
 import { legalOf } from '../../../domain/legal/legalTexts';
-import { menuLanguagesOf, resolveMenuLanguage } from '../../../domain/menu/menuLanguage';
+import { menuLanguagesOf, resolveMenuLanguage, resolvePageLanguage } from '../../../domain/menu/menuLanguage';
 import { CheckoutSession } from '../../../domain/order/CheckoutSession';
 import { orderableModesFor } from '../../../domain/order/fulfilment';
 import {
@@ -286,8 +286,11 @@ export async function executeCheckout(
 
     // --- Resolve prices server-side (never trust client amounts) ---
     const context = await loadPricingContext(shop, basketProductIds(request.items));
-    const language = resolveMenuLanguage(request.language, menuLanguagesOf(shop));
-    const priced = priceBasket({ items: request.items, ...context, shop, mode, now: pricedAt, language });
+    const menuLanguages = menuLanguagesOf(shop);
+    // Dish names on the order follow the menu language; the order itself carries the diner's page language.
+    const menuLanguage = resolveMenuLanguage(request.language, menuLanguages);
+    const language = resolvePageLanguage(request.language, menuLanguages[0]);
+    const priced = priceBasket({ items: request.items, ...context, shop, mode, now: pricedAt, language: menuLanguage });
     if (!priced.allOk) {
       return { ok: false, code: 'CONFLICT', error: BASKET_CHANGED_ERROR };
     }
