@@ -1,6 +1,7 @@
 import { orderableModesFor } from '../../../domain/order/fulfilment';
 import { effectivePrepByMode } from '../../../domain/order/kitchenTiming';
 import { orderSettingsOf } from '../../../domain/order/orderSettings';
+import { legalOf } from '../../../domain/legal/legalTexts';
 import { findShopBySlug } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { GetShopBySlugRequestDto, GetShopBySlugResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
@@ -55,6 +56,8 @@ export async function executeGetShopBySlug(
       timezone: shop.timezone,
       minOrderAmountCents: shop.minOrderAmountCents,
       address: shop.address,
+      // The restaurant's phone from its legal notice, shown in the shop-page info footer
+      phone: legalOf(shop).impressum?.phone?.trim() || null,
       openingHours: shop.openingHours,
       closures: shop.closures,
       branding: shop.branding ?? null,
@@ -62,7 +65,9 @@ export async function executeGetShopBySlug(
       fulfilment: {
         modes,
         prepMinutes: effectivePrepByMode(shop, now),
-        delivery: modes.includes('delivery') ? { zones: orderSettingsOf(shop).deliveryZones } : null,
+        delivery: modes.includes('delivery')
+          ? { zones: orderSettingsOf(shop).deliveryZones, hours: orderSettingsOf(shop).deliveryHours ?? null }
+          : null,
       },
       orderLimitReached,
       createdAt: shop.createdAt,

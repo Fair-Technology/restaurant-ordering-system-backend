@@ -1,5 +1,5 @@
 import { FulfilmentMode } from '../../../domain/order/Order';
-import { DeliveryZone } from '../../../domain/order/orderSettings';
+import { DeliveryZone, WeeklyHours } from '../../../domain/order/orderSettings';
 import { ShopBranding } from '../../../domain/shop/Shop';
 
 export interface GetShopBySlugRequestDto {
@@ -24,6 +24,7 @@ export interface GetShopBySlugResultDto {
     postcode?: string;
     country?: string;
   };
+  phone: string | null; // from the legal notice; null until the owner fills it in
   openingHours: Record<
     'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun',
     Array<{
@@ -42,7 +43,7 @@ export interface GetShopBySlugResultDto {
   fulfilment: {
     modes: FulfilmentMode[];
     prepMinutes: Record<FulfilmentMode, number>;
-    delivery: { zones: DeliveryZone[] } | null; // present while delivery is offered
+    delivery: { zones: DeliveryZone[]; hours: WeeklyHours | null } | null; // present while delivery is offered; hours null = same as opening hours
   };
   orderLimitReached: boolean; // true = online ordering is paused for this month
   createdAt: string;

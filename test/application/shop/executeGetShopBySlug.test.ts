@@ -51,11 +51,31 @@ describe('executeGetShopBySlug', () => {
     expect(next.ok && next.data.fulfilment.prepMinutes.collection).toBe(20);
   });
 
+  it('the shop page gets the phone from the legal notice, and null when it is missing', async () => {
+    const impressum = { phone: ' 069 1234567 ' } as any;
+    (findShopBySlug as any).mockResolvedValue({ ...CARD_SHOP, legal: { impressum, terms: null, withdrawal: null, privacyAddition: null, revisions: [] } });
+    const res = await executeGetShopBySlug({ slug: 'mapasta' });
+    expect(res.ok && res.data.phone).toBe('069 1234567');
+    (findShopBySlug as any).mockResolvedValue({ ...CARD_SHOP, legal: undefined });
+    const none = await executeGetShopBySlug({ slug: 'mapasta' });
+    expect(none.ok && none.data.phone).toBeNull();
+  });
+
+  it('the shop page gets separate delivery hours when the restaurant set them', async () => {
+    const deliveryHours = { mon: [{ open: '17:00', close: '21:00' }], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] };
+    (findShopBySlug as any).mockResolvedValue({
+      ...DELIVERY_SHOP,
+      orderSettings: { ...(DELIVERY_SHOP as any).orderSettings, deliveryHours },
+    });
+    const res = await executeGetShopBySlug({ slug: 'mapasta' });
+    expect(res.ok && res.data.fulfilment.delivery?.hours).toEqual(deliveryHours);
+  });
+
   it('the shop page lists delivery postcodes while delivery is on', async () => {
     (findShopBySlug as any).mockResolvedValue(DELIVERY_SHOP);
     const res = await executeGetShopBySlug({ slug: 'mapasta' });
     expect(res.ok && res.data.fulfilment.modes).toEqual(['collection', 'delivery']);
-    expect(res.ok && res.data.fulfilment.delivery).toEqual({ zones: [{ postcode: '10115', feeCents: 250, minOrderCents: 1500 }] });
+    expect(res.ok && res.data.fulfilment.delivery).toEqual({ zones: [{ postcode: '10115', feeCents: 250, minOrderCents: 1500 }], hours: null });
     expect(res.ok && res.data.countryCode).toBe('DE');
     (findShopBySlug as any).mockResolvedValue(CARD_SHOP);
     const off = await executeGetShopBySlug({ slug: 'mapasta' });
