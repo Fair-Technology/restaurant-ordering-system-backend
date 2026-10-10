@@ -256,7 +256,7 @@ export async function countLoyaltyOrders(shopId: string, emailLower: string, sin
 export const REPORT_ROW_SELECT =
   'SELECT c.id, c.createdAt, c.acceptedAt, c.scheduledFor, c.fulfilmentMode, c.payment, c.subtotalCents, c.totalCents, ' +
   'c.charges, c.discount.cents AS discountCents, c.taxBreakdown, ' +
-  'ARRAY(SELECT i.productId, i.productName, i.quantity, i.unitPriceCents, i.lineTotalCents, i.taxRateBasisPoints, i.taxCents, i.discountCents FROM i IN c.items) AS items, ' +
+  'ARRAY(SELECT i.productId, i.productName, i.quantity, i.unitPriceCents, i.lineTotalCents, i.taxRateBasisPoints, i.taxCents, i.discountCents, i.combo FROM i IN c.items) AS items, ' +
   'ARRAY(SELECT r.amountCents, r.at, r.lines FROM r IN c.refunds) AS refunds ' +
   'FROM c';
 
