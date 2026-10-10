@@ -12,6 +12,7 @@ import type {
 import { baseByRate, refundPartsByRate } from '../order/refundAllocation';
 import type { RefundShape } from '../order/refundAllocation';
 import { buildTaxBreakdown, extractVatCents } from '../order/tax';
+import { menuLanguagesOf } from '../menu/menuLanguage';
 
 export const INVOICE_TEMPLATE_VERSION = 'receipt-2026-10';
 
@@ -126,7 +127,9 @@ export function buildInvoice(input: {
   }
   const ids = invoiceTaxIdsOf(shop);
   const issuedAt = now.toISOString();
-  const de = (order.language ?? 'de') === 'de';
+  // The shop's original language, not the diner's page language: a German shop issues German invoices.
+  const language = menuLanguagesOf(shop)[0];
+  const de = language === 'de';
   return {
     id: order.id,
     shopId: order.shopId,
@@ -186,7 +189,7 @@ export function buildInvoice(input: {
     },
     orderRef: order.orderRef,
     fulfilmentMode: order.fulfilmentMode,
-    language: order.language ?? 'de',
+    language,
     corrects: null,
     refundId: null,
   };

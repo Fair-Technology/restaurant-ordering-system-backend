@@ -413,8 +413,16 @@ describe('delivery invoices', () => {
     expect(t).toContain('1 × Liefergebühr');
     expect(t).toContain('Gesamtbetrag (brutto): 13,00 €');
     expect(t).not.toContain('Teststraße');
-    const en = buildInvoice({ order: { ...ACCEPTED_DELIVERY_ORDER, language: 'en' }, shop: CARD_SHOP, number: NUMBER, now });
+    const en = buildInvoice({ order: ACCEPTED_DELIVERY_ORDER, shop: { ...CARD_SHOP, menuLanguages: ['en'] }, number: NUMBER, now });
     expect(en.lines[1].name).toBe('Delivery fee');
+  });
+
+  it("is in the shop's original language even when the diner's page was English", () => {
+    const inv = buildInvoice({ order: { ...ACCEPTED_DELIVERY_ORDER, language: 'en' }, shop: CARD_SHOP, number: NUMBER, now });
+    expect(inv.language).toBe('de');
+    expect(inv.lines[1].name).toBe('Liefergebühr');
+    const c = buildCorrection({ original: inv, refunds: [{ amountCents: 1300 }], index: 0, refundId: 'r1', number: 'R-2026-00002', now });
+    expect(c.language).toBe('de');
   });
 
   it('a delivery Stornorechnung negates the fee too', () => {
@@ -457,7 +465,7 @@ describe('discounted invoices', () => {
     expect(t).toContain('Nettobetrag 19 %: 2,65 €');
     expect(t).toContain('USt. 19 %: 0,50 €');
     expect(t).toContain('Gesamtbetrag (brutto): 12,60 €');
-    const en = buildInvoice({ order: { ...DISCOUNTED_ORDER, language: 'en' }, shop: CARD_SHOP, number: NUMBER, now });
+    const en = buildInvoice({ order: DISCOUNTED_ORDER, shop: { ...CARD_SHOP, menuLanguages: ['en'] }, number: NUMBER, now });
     expect(en.lines[2].name).toBe('Discount WELCOME10');
     const voucher = buildInvoice({
       order: { ...DISCOUNTED_ORDER, discount: { ...DISCOUNTED_ORDER.discount!, kind: 'voucher', code: 'L-ABCD2345' } },
