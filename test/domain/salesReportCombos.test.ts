@@ -68,4 +68,23 @@ describe('top dishes with combos', () => {
     });
     expect(dishes([refunded])).toEqual(dishes([order('a', items)]));
   });
+
+  it('a combo discount reduces the combo row amount', () => {
+    const items = [
+      { ...part('pom', 'Pomodoro', menu, 600), discountCents: 60 },
+      { ...part('cola', 'Cola', menu, 300), discountCents: 30 },
+    ];
+    expect(dishes([order('a', items)])).toEqual([{ productId: 'menu', name: 'Pasta-Menü', quantity: 1, grossCents: 810 }]);
+  });
+
+  it('orders without combo keep one row per dish under the dish name, summed across orders', () => {
+    const rows = [order('a', [pomodoro]), order('b', [{ ...pomodoro, quantity: 2, lineTotalCents: 1800 }])];
+    expect(dishes(rows)).toEqual([{ productId: 'pom', name: 'Pomodoro', quantity: 3, grossCents: 2700 }]);
+  });
+
+  it('a plain row never takes a combo-prefixed name, even when the combo order is newer', () => {
+    const rows = [order('a', [pomodoro]), order('b', [part('pom', 'Pomodoro', menu, 600)], { acceptedAt: '2026-10-05T18:00:00.000Z' })];
+    const pom = dishes(rows).find((d) => d.productId === 'pom');
+    expect(pom?.name).toBe('Pomodoro');
+  });
 });
