@@ -224,6 +224,35 @@ describe('executeCheckout card placement', () => {
     );
   });
 
+  describe('order language', () => {
+    const storedSession = () => (upsertCheckoutSession as any).mock.calls.at(-1)[0];
+
+    it('keeps an English page language on a German-only menu, dish names stay German', async () => {
+      const res = await executeCheckout({ ...cardRequest, language: 'en' }, { now: NOW_OPEN });
+      expect(res.ok).toBe(true);
+      const session = storedSession();
+      expect(session.language).toBe('en');
+      expect(session.items[0].productName).toBe('Carbonara');
+    });
+
+    it('keeps German when asked', async () => {
+      await executeCheckout({ ...cardRequest, language: 'de-DE' }, { now: NOW_OPEN });
+      expect(storedSession().language).toBe('de');
+    });
+
+    it('falls back to English for a language that is neither de nor en', async () => {
+      const res = await executeCheckout({ ...cardRequest, language: 'it' }, { now: NOW_OPEN });
+      expect(res.ok).toBe(true);
+      expect(storedSession().language).toBe('en');
+    });
+
+    it('falls back to the shop original language when none is sent', async () => {
+      const { language: _omit, ...noLanguage } = cardRequest;
+      await executeCheckout(noLanguage, { now: NOW_OPEN });
+      expect(storedSession().language).toBe('de');
+    });
+  });
+
   it('a repeated submit reuses the same payment and link', async () => {
     (findCheckoutSessionById as any).mockResolvedValue({
       id: SESSION_ID,
