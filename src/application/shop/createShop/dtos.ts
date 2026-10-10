@@ -1,4 +1,5 @@
 import { ShopBranding } from '../../../domain/shop/Shop';
+import { MenuLanguage } from '../../../domain/reference/ReferenceLists';
 
 export interface CreateShopRequestDto {
   // Required fields from user
@@ -35,6 +36,9 @@ export interface CreateShopRequestDto {
     reason?: string;
   }>;
   branding?: ShopBranding | null;
+
+  // The shop's original (primary) menu language, picked by the owner at signup. Absent = country fallback.
+  menuLanguage?: MenuLanguage;
 
   // Version of the data processing agreement the owner ticked. Absent = not accepted yet.
   acceptDpaVersion?: string;

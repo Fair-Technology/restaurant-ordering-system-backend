@@ -96,3 +96,33 @@ describe('executeCreateShop DPA acceptance', () => {
     );
   });
 });
+
+describe('executeCreateShop primary menu language', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (createShopInRepo as any).mockImplementation(async (s: any) => s);
+  });
+
+  it('uses the chosen menuLanguage even for a German shop', async () => {
+    const result = await executeCreateShop(baseRequest({ menuLanguage: 'en' }), {} as any);
+
+    expect(result.ok).toBe(true);
+    expect(createShopInRepo).toHaveBeenCalledWith(expect.objectContaining({ menuLanguages: ['en'] }));
+  });
+
+  it('falls back to the country default when menuLanguage is absent', async () => {
+    await executeCreateShop(baseRequest(), {} as any);
+    expect(createShopInRepo).toHaveBeenCalledWith(expect.objectContaining({ menuLanguages: ['de'] }));
+
+    vi.clearAllMocks();
+    await executeCreateShop(baseRequest({ countryCode: 'AU' }), {} as any);
+    expect(createShopInRepo).toHaveBeenCalledWith(expect.objectContaining({ menuLanguages: ['en'] }));
+  });
+
+  it('rejects an unsupported menuLanguage', async () => {
+    const result = await executeCreateShop(baseRequest({ menuLanguage: 'fr' }), {} as any);
+
+    expect(result).toEqual({ ok: false, code: 'INVALID_INPUT', error: 'menuLanguage must be one of: de, en' });
+    expect(createShopInRepo).not.toHaveBeenCalled();
+  });
+});

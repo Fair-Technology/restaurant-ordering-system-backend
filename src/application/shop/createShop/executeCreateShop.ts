@@ -12,6 +12,7 @@ import { ApplicationResult } from '../../_shared/types';
 import { DpaAcceptance, Shop } from '../../../domain/shop/Shop';
 import { CURRENT_DPA, DPA_CHANGED_ERROR } from '../../../domain/legal/platformDocuments';
 import { validateUniqueSlug } from './slugHelpers';
+import { SUPPORTED_MENU_LANGUAGES } from '../../../domain/reference/ReferenceLists';
 import { defaultMenuLanguageForCountry } from '../../../domain/menu/menuLanguage';
 import { upsertSubscription } from '../../../infrastructure/cosmos/subscription/CosmosSubscriptionRepository';
 import { upsertUsage } from '../../../infrastructure/cosmos/usage/CosmosUsageRepository';
@@ -167,6 +168,17 @@ export async function executeCreateShop(
     return { ok: false, code: 'INVALID_INPUT', error: DPA_CHANGED_ERROR };
   }
 
+  if (
+    request.menuLanguage !== undefined &&
+    !(SUPPORTED_MENU_LANGUAGES as readonly unknown[]).includes(request.menuLanguage)
+  ) {
+    return {
+      ok: false,
+      code: 'INVALID_INPUT',
+      error: `menuLanguage must be one of: ${SUPPORTED_MENU_LANGUAGES.join(', ')}`,
+    };
+  }
+
   try {
     const userId = await getUserIdFromAuth(httpRequest);
 
@@ -237,7 +249,7 @@ export async function executeCreateShop(
       orderAcceptanceMode: request.orderAcceptanceMode || 'auto',
       closures: request.closures || [],
       members: [{ userId, role: 'owner', isActive: true }],
-      menuLanguages: [defaultMenuLanguageForCountry(countryCode)],
+      menuLanguages: [request.menuLanguage ?? defaultMenuLanguageForCountry(countryCode)],
       branding: request.branding ?? null,
       dpaAcceptance,
       dpaAcceptanceHistory: dpaAcceptance ? [dpaAcceptance] : [],
