@@ -25,6 +25,7 @@ export interface ReportItemRow {
   taxRateBasisPoints?: number;
   taxCents?: number;
   discountCents?: number;
+  combo?: { line: number; productId: string; name: string };
 }
 
 export interface ReportRefundRow {
@@ -265,21 +266,26 @@ export function buildSalesReport(input: {
         m.orderCount += 1;
         m.grossCents += gross;
       }
+      // A combo's dishes are one row under the combo's own id; plain dishes keep theirs. 'combo:' keeps the two id spaces apart.
+      const countedCombos = new Set<number>();
       for (const i of o.items) {
-        const d = dishes.get(i.productId) ?? {
-          productId: i.productId,
-          name: i.productName,
+        const key = i.combo ? `combo:${i.combo.productId}` : i.productId;
+        const d = dishes.get(key) ?? {
+          productId: i.combo ? i.combo.productId : i.productId,
+          name: i.combo ? i.combo.name : i.productName,
           quantity: 0,
           grossCents: 0,
           nameAt: '',
         };
-        d.quantity += i.quantity;
+        // Every dish of one combo carries the combo's quantity, so a combo counts once per instance.
+        if (!i.combo || !countedCombos.has(i.combo.line)) d.quantity += i.quantity;
+        if (i.combo) countedCombos.add(i.combo.line);
         d.grossCents += i.lineTotalCents - (i.discountCents ?? 0);
         if (acceptedAt >= d.nameAt) {
-          d.name = i.productName;
+          d.name = i.combo ? i.combo.name : i.productName;
           d.nameAt = acceptedAt;
         }
-        dishes.set(i.productId, d);
+        dishes.set(key, d);
       }
     }
 
