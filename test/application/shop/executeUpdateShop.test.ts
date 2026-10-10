@@ -23,6 +23,7 @@ vi.mock('../../../src/application/_shared/auditHelpers', () => ({
   diffFields: vi.fn(() => []),
 }));
 
+import { logAudit } from '../../../src/application/_shared/auditHelpers';
 import { authorizeShopAction } from '../../../src/application/_shared/shopAccess';
 import { findShopById, updateShop } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
 import { findProductsByShopId } from '../../../src/infrastructure/cosmos/product/CosmosProductRepository';
@@ -78,6 +79,54 @@ describe('executeUpdateShop menu languages', () => {
       code: 'INVALID_INPUT',
       error: 'The original menu language (de) cannot be changed',
     });
+  });
+});
+
+describe('executeUpdateShop banner switch', () => {
+  const branding = { logoUrl: null, heroImageUrl: 'https://cdn.example.com/h.jpg', accentColor: null };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (authorizeShopAction as any).mockResolvedValue(ownerAccess);
+    (updateShop as any).mockImplementation(async (s: any) => s);
+  });
+
+  it('saves the switch and keeps the uploaded picture', async () => {
+    (findShopById as any).mockResolvedValue(makeShop({ branding }));
+    const result = await executeUpdateShop({ shopId: 'shop-1', branding: { ...branding, showHero: false } } as any, {} as any);
+
+    expect(result.ok).toBe(true);
+    expect(updateShop).toHaveBeenCalledWith(
+      expect.objectContaining({ branding: { ...branding, showHero: false } }),
+    );
+  });
+
+  it('refuses a non-boolean switch', async () => {
+    (findShopById as any).mockResolvedValue(makeShop({ branding }));
+    const result = await executeUpdateShop({ shopId: 'shop-1', branding: { ...branding, showHero: 'no' } } as any, {} as any);
+
+    expect(result).toEqual({ ok: false, code: 'INVALID_INPUT', error: 'branding.showHero must be a boolean' });
+    expect(updateShop).not.toHaveBeenCalled();
+  });
+
+  it('logs turning the banner off, treating a missing switch as on', async () => {
+    (findShopById as any).mockResolvedValue(makeShop({ branding }));
+    await executeUpdateShop({ shopId: 'shop-1', branding: { ...branding, showHero: false } } as any, {} as any);
+
+    expect(logAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'shop.update',
+        changes: expect.arrayContaining([{ field: 'branding.showHero', from: true, to: false }]),
+      }),
+    );
+  });
+
+  it('logs nothing about the banner when an explicit true replaces a missing switch', async () => {
+    (findShopById as any).mockResolvedValue(makeShop({ branding }));
+    await executeUpdateShop({ shopId: 'shop-1', branding: { ...branding, showHero: true } } as any, {} as any);
+
+    const call = (logAudit as any).mock.calls[0][0];
+    expect(call.changes.some((c: any) => c.field === 'branding.showHero')).toBe(false);
   });
 });
 
