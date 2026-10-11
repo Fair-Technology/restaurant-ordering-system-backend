@@ -21,6 +21,7 @@
     "@stripe/connect-js": "^3.4.6",
     "@stripe/react-connect-js": "^3.4.4",
     "axios": "^1.20.0",
+    "image-size": "^2.0.4",
     "jose": "^6.2.12",
     "openapi": "^1.0.0",
     "pdf-lib": "^1.17.1",

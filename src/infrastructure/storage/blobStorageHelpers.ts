@@ -119,6 +119,25 @@ export async function deleteBlob(blobPath: string): Promise<void> {
 }
 
 /**
+ * Download the first `count` bytes (from `offset`) of a blob; null if the blob does not exist.
+ * Used to read an image's header without downloading the whole file.
+ */
+export async function downloadBlobRange(blobPath: string, offset: number, count: number): Promise<Buffer | null> {
+  const serviceClient = new BlobServiceClient(
+    `https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net`,
+    sharedKeyCredential,
+  );
+  const blob = serviceClient.getContainerClient(CONTAINER_NAME).getBlockBlobClient(blobPath);
+  try {
+    return await blob.downloadToBuffer(offset, count);
+  } catch (e: unknown) {
+    const code = (e as { statusCode?: number })?.statusCode;
+    if (code === 404) return null;
+    throw e;
+  }
+}
+
+/**
  * Extract the relative blob path from a full storage URL
  */
 export function extractBlobPath(blobUrl: string): string | null {
