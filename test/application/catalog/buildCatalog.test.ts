@@ -169,6 +169,18 @@ describe('buildCatalog combos', () => {
     expect(products.find((p) => p.id === 'pa')!.combo).toBeNull();
   });
 
+  it('group names are shown in the diner language', () => {
+    const tr: Product = {
+      ...menu,
+      combo: { ...menu.combo!, groups: [{ ...menu.combo!.groups[0], nameTranslations: { en: 'Main course' } }, menu.combo!.groups[1]] },
+    };
+    const groupNames = (lang: 'de' | 'en') =>
+      buildCatalog({ shop, categories: [category], products: [dishA, dishB, tr], refs: DE_REFERENCE_LISTS, lang, now })
+        .categories[0].products.find((p) => p.id === 'm1')!.combo!.groups.map((g) => g.name);
+    expect(groupNames('en')).toEqual(['Main course', 'Getränk']);
+    expect(groupNames('de')).toEqual(['Hauptgericht', 'Getränk']);
+  });
+
   it('a combo with an empty choice is not on the menu', () => {
     expect(build([dishA, { ...dishB, isAvailable: false }, menu]).map((p) => p.id)).not.toContain('m1');
     expect(build([dishA, { ...dishB, categoryIds: ['c-gone'] }, menu]).map((p) => p.id)).not.toContain('m1');

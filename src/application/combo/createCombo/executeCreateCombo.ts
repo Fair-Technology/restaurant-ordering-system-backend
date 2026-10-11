@@ -31,6 +31,8 @@ export async function executeCreateCombo(
       shopId: auth.shop.id,
       name: f.name,
       description: f.description,
+      nameTranslations: f.nameTranslations ?? {},
+      descriptionTranslations: f.descriptionTranslations ?? {},
       price: f.price,
       categoryIds: f.categoryIds,
       images: [],

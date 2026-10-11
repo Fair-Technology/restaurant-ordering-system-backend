@@ -169,14 +169,99 @@ describe('combo endpoints', () => {
         id: 'p9',
         name: 'Pasta-Menü',
         description: '',
+        nameTranslations: {},
+        descriptionTranslations: {},
+        images: [],
         priceCents: 1200,
         categoryId: 'pasta',
         isAvailable: true,
         bmfDrinkShare: false,
-        groups: P_COMBO.combo!.groups,
+        groups: P_COMBO.combo!.groups.map((g) => ({ ...g, nameTranslations: {} })),
         createdAt: '2026-09-01T00:00:00Z',
         updatedAt: '2026-09-01T00:00:00Z',
       },
     ]);
+  });
+
+  describe('translations', () => {
+    const tBody = {
+      ...body,
+      nameTranslations: { en: ' Pasta menu ' },
+      descriptionTranslations: { en: 'Main and drink' },
+      groups: [
+        { name: 'Hauptgericht', nameTranslations: { en: 'Main course' }, productIds: ['p1', 'p3'] },
+        { name: 'Getränk', productIds: ['p2'] },
+      ],
+    };
+
+    it('are stored trimmed and returned, groups included', async () => {
+      const res = await executeCreateCombo({ shopId: 'shop-1', body: tBody, now }, http);
+      expect(createProduct).toHaveBeenCalledWith(
+        expect.objectContaining({ nameTranslations: { en: 'Pasta menu' }, descriptionTranslations: { en: 'Main and drink' } }),
+      );
+      expect(res.ok && res.data).toMatchObject({
+        nameTranslations: { en: 'Pasta menu' },
+        descriptionTranslations: { en: 'Main and drink' },
+        images: [],
+        groups: [
+          { name: 'Hauptgericht', nameTranslations: { en: 'Main course' } },
+          { name: 'Getränk', nameTranslations: {} },
+        ],
+      });
+    });
+
+    it.each([
+      ['unknown language', { nameTranslations: { xx: 'a' } }, 'Unsupported language: xx'],
+      ['non-string value', { nameTranslations: { en: 5 } }, 'Translation for en must be a string'],
+      ['not an object', { descriptionTranslations: 'x' }, 'translations must be an object keyed by language code'],
+      ['name too long', { nameTranslations: { en: 'a'.repeat(121) } }, 'Translation for en must be at most 120 characters'],
+      [
+        'group name too long',
+        { groups: [{ name: 'A', nameTranslations: { en: 'a'.repeat(61) }, productIds: ['p1'] }] },
+        'Translation for en must be at most 60 characters',
+      ],
+    ])('reject %s', async (_n, extra, error) => {
+      const res = await executeCreateCombo({ shopId: 'shop-1', body: { ...body, ...extra }, now }, http);
+      expect(res).toEqual({ ok: false, code: 'INVALID_INPUT', error });
+      expect(createProduct).not.toHaveBeenCalled();
+    });
+
+    it('left out on update keep what is stored (as a dish update does); sent ones replace', async () => {
+      const stored = {
+        ...P_COMBO,
+        nameTranslations: { en: 'Old' },
+        descriptionTranslations: { en: 'Old d' },
+        images: [{ id: 'i1', url: 'u', createdAt: 'x' }],
+        combo: {
+          ...P_COMBO.combo!,
+          groups: [
+            { id: 'g-main', name: 'Hauptgericht', nameTranslations: { en: 'Main' }, productIds: ['p1'] },
+            { id: 'g-drink', name: 'Getränk', productIds: ['p2'] },
+          ],
+        },
+      };
+      (findProductById as any).mockResolvedValue(stored);
+      const groups = [
+        { id: 'g-main', name: 'Hauptgericht', productIds: ['p1'] },
+        { id: 'g-drink', name: 'Getränk', nameTranslations: { en: 'Drink' }, productIds: ['p2'] },
+      ];
+      await executeUpdateCombo({ shopId: 'shop-1', comboId: 'p9', body: { ...body, groups }, now }, http);
+      let saved = (updateProduct as any).mock.calls[0][0];
+      expect(saved.nameTranslations).toEqual({ en: 'Old' });
+      expect(saved.descriptionTranslations).toEqual({ en: 'Old d' });
+      expect(saved.images).toEqual(stored.images);
+      expect(saved.combo.groups[0].nameTranslations).toEqual({ en: 'Main' });
+      expect(saved.combo.groups[1].nameTranslations).toEqual({ en: 'Drink' });
+
+      await executeUpdateCombo(
+        { shopId: 'shop-1', comboId: 'p9', body: { ...body, groups, nameTranslations: {} }, now },
+        http,
+      );
+      saved = (updateProduct as any).mock.calls[1][0];
+      expect(saved.nameTranslations).toEqual({});
+      expect(logAudit).toHaveBeenLastCalledWith(
+        expect.objectContaining({ changes: expect.arrayContaining([{ field: 'nameTranslations', from: '[updated]', to: '[updated]' }]) }),
+      );
+    });
   });
 });

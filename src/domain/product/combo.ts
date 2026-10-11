@@ -1,3 +1,4 @@
+import { normaliseTranslations, type TranslationMap } from '../menu/menuLanguage';
 import { allocateByWeight } from '../order/discount';
 import { roundHalfUp } from '../order/tax';
 
@@ -5,6 +6,7 @@ import { roundHalfUp } from '../order/tax';
 export interface ComboGroup {
   id: string; // stable across edits (kept when the owner's save sends it back)
   name: string; // original menu language, 1–60 characters
+  nameTranslations?: TranslationMap; // each value at most 60 characters
   productIds: string[]; // dishes (never combos) of the same restaurant, 1–50, no duplicates
 }
 export interface ProductCombo {
@@ -25,6 +27,8 @@ export interface ComboContext {
 export interface ComboFields {
   name: string;
   description: string;
+  nameTranslations?: TranslationMap; // undefined = the body left it out
+  descriptionTranslations?: TranslationMap;
   price: number; // cents
   categoryIds: string[]; // exactly one
   isAvailable: boolean;
@@ -74,6 +78,18 @@ export function parseComboInput(body: Record<string, unknown>, ctx: ComboContext
   if (!name || name.length > 120) return { error: COMBO_NAME_ERROR };
   const description = body.description === undefined || body.description === null ? '' : str(body.description);
   if (description === null || description.length > 2000) return { error: COMBO_DESCRIPTION_ERROR };
+  let nameTranslations: TranslationMap | undefined;
+  if (body.nameTranslations !== undefined) {
+    const t = normaliseTranslations(body.nameTranslations, 120);
+    if (typeof t === 'string') return { error: t };
+    nameTranslations = t;
+  }
+  let descriptionTranslations: TranslationMap | undefined;
+  if (body.descriptionTranslations !== undefined) {
+    const t = normaliseTranslations(body.descriptionTranslations, 2000);
+    if (typeof t === 'string') return { error: t };
+    descriptionTranslations = t;
+  }
   const price = body.priceCents;
   if (typeof price !== 'number' || !Number.isInteger(price) || price < 1 || price > MAX_COMBO_PRICE_CENTS) {
     return { error: COMBO_PRICE_ERROR };
@@ -103,7 +119,16 @@ export function parseComboInput(body: Record<string, unknown>, ctx: ComboContext
     const keep = typeof o.id === 'string' && !usedIds.has(o.id) && (ctx.existing?.groups ?? []).some((e) => e.id === o.id);
     const id = keep ? (o.id as string) : ctx.newId();
     usedIds.add(id);
-    groups.push({ id, name: gName, productIds });
+    // Left out = keep what the group already had (as dishes do on update); a new group has none.
+    let gTranslations: TranslationMap | undefined;
+    if (o.nameTranslations !== undefined) {
+      const t = normaliseTranslations(o.nameTranslations, 60);
+      if (typeof t === 'string') return { error: t };
+      gTranslations = t;
+    } else if (keep) {
+      gTranslations = ctx.existing?.groups.find((e) => e.id === id)?.nameTranslations;
+    }
+    groups.push({ id, name: gName, ...(gTranslations && { nameTranslations: gTranslations }), productIds });
   }
   const bmf = body.bmfDrinkShare === undefined ? false : body.bmfDrinkShare;
   if (typeof bmf !== 'boolean' || (bmf && ctx.countryCode !== 'DE')) return { error: COMBO_BMF_ERROR };
@@ -112,6 +137,8 @@ export function parseComboInput(body: Record<string, unknown>, ctx: ComboContext
   return {
     name,
     description,
+    nameTranslations,
+    descriptionTranslations,
     price,
     categoryIds: [body.categoryId],
     isAvailable,

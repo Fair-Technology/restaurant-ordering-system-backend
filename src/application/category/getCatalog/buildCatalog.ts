@@ -72,7 +72,7 @@ export function buildCatalog(input: {
   const comboGroups = (p: Product) =>
     (p.combo?.groups ?? []).map((g) => ({
       id: g.id,
-      name: L(g.name, undefined),
+      name: L(g.name, g.nameTranslations),
       productIds: g.productIds.filter((id) => listed.has(id)),
     }));
   const offered = visible.filter((p) => !p.combo || comboGroups(p).every((g) => g.productIds.length > 0));
