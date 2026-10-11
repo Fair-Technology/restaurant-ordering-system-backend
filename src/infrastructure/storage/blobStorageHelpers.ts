@@ -129,10 +129,18 @@ export async function downloadBlobRange(blobPath: string, offset: number, count:
   );
   const blob = serviceClient.getContainerClient(CONTAINER_NAME).getBlockBlobClient(blobPath);
   try {
-    return await blob.downloadToBuffer(offset, count);
+    // Up to `count` bytes: a file shorter than the range gives what it has. (downloadToBuffer
+    // insists on exactly `count` and throws "Stream drains before getting enough data".)
+    const response = await blob.download(offset, count);
+    const chunks: Buffer[] = [];
+    for await (const chunk of response.readableStreamBody ?? []) {
+      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    }
+    return Buffer.concat(chunks);
   } catch (e: unknown) {
     const code = (e as { statusCode?: number })?.statusCode;
     if (code === 404) return null;
+    if (code === 416) return Buffer.alloc(0); // offset at or past the end, e.g. an empty file
     throw e;
   }
 }

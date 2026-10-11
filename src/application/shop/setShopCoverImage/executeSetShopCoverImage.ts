@@ -93,6 +93,7 @@ export async function executeSetShopCoverImage(
     if (error.message === 'Authentication required') {
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
     }
+    console.error('[setShopCoverImage] failed:', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to set shop cover image' };
   }
 }

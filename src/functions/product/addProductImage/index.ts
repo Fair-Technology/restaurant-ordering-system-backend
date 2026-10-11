@@ -39,6 +39,7 @@ app.http('addProductImage', {
 
       return mapResultToHttp(result);
     } catch (error) {
+      console.error('[addProductImage] failed:', error);
       return {
         status: 500,
         jsonBody: { error: 'Internal server error' }
