@@ -47,6 +47,14 @@ describe('addProductImage exact pixel size', () => {
     expect(deleteBlob).not.toHaveBeenCalled();
   });
 
+  it('works for a combo and keeps its combo definition', async () => {
+    product = { ...product, combo: { groups: [{ id: 'g', name: 'A', productIds: ['p1'] }], bmfDrinkShare: false } };
+    const r = await executeAddProductImage(req, httpRequest);
+    expect(r.ok).toBe(true);
+    expect(readBlobImageSize).toHaveBeenCalledWith(path);
+    expect(vi.mocked(updateProduct).mock.calls[0][0]).toMatchObject({ combo: { bmfDrinkShare: false }, images: [{ id: 'old' }, { id: 'img-1' }] });
+  });
+
   it.each([
     ['wrong ratio', { width: 1000, height: 1000 }],
     ['right ratio, wrong size', { width: 800, height: 600 }],

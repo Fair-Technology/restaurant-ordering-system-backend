@@ -36,6 +36,9 @@ export async function executeUpdateCombo(
       ...before,
       name: f.name,
       description: f.description,
+      // Left out = keep, as a dish update does.
+      ...(f.nameTranslations && { nameTranslations: f.nameTranslations }),
+      ...(f.descriptionTranslations && { descriptionTranslations: f.descriptionTranslations }),
       price: f.price,
       categoryIds: f.categoryIds,
       isAvailable: f.isAvailable,
@@ -54,7 +57,7 @@ export async function executeUpdateCombo(
         before as unknown as Record<string, unknown>,
         after as unknown as Record<string, unknown>,
         ['name', 'price', 'isAvailable', 'description'],
-        ['categoryIds', 'combo'],
+        ['categoryIds', 'combo', 'nameTranslations', 'descriptionTranslations'],
       ),
     });
     return { ok: true, data: toComboDto(saved) };

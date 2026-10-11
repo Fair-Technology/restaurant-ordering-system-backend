@@ -692,6 +692,68 @@ export const swaggerSpec = {
         },
       },
     },
+    '/shops/{shopId}/combos': {
+      get: {
+        summary: 'List combos',
+        operationId: 'getCombos',
+        description: 'The restaurant combos, sorted by name. Includes images and translations.',
+        tags: ['Combos'],
+        parameters: [{ name: 'shopId', in: 'path', required: true, schema: { type: 'string' }, description: 'Shop ID' }],
+        responses: {
+          '200': {
+            description: 'Combos',
+            content: { 'application/json': { schema: { type: 'array', items: { $ref: '#/components/schemas/ComboResponse' } } } },
+          },
+          '403': { $ref: '#/components/responses/Forbidden' },
+          '404': { $ref: '#/components/responses/NotFound' },
+          '500': { $ref: '#/components/responses/InternalError' },
+        },
+      },
+      post: {
+        summary: 'Create combo',
+        operationId: 'createCombo',
+        description: 'Adds a combo. Translations are optional. A combo photo is uploaded like a dish photo: POST /shops/{shopId}/products/{comboId}/images/upload-url, PUT the file (exactly 1200 x 900 px), then POST /shops/{shopId}/products/{comboId}/images. Updates with images omitted keep the existing photo.',
+        tags: ['Combos'],
+        parameters: [{ name: 'shopId', in: 'path', required: true, schema: { type: 'string' }, description: 'Shop ID' }],
+        requestBody: {
+          required: true,
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/ComboRequest' } } },
+        },
+        responses: {
+          '201': {
+            description: 'Combo created',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/ComboResponse' } } },
+          },
+          '400': { $ref: '#/components/responses/BadRequest' },
+          '403': { $ref: '#/components/responses/Forbidden' },
+          '404': { $ref: '#/components/responses/NotFound' },
+          '500': { $ref: '#/components/responses/InternalError' },
+        },
+      },
+    },
+    '/shops/{shopId}/combos/{comboId}': {
+      put: {
+        summary: 'Replace combo',
+        operationId: 'updateCombo',
+        description: 'Replaces the combo fields as a whole. Group ids sent back are kept. Translation fields left out keep their stored value. A combo photo is uploaded like a dish photo: POST /shops/{shopId}/products/{comboId}/images/upload-url, PUT the file (exactly 1200 x 900 px), then POST /shops/{shopId}/products/{comboId}/images. Updates with images omitted keep the existing photo.',
+        tags: ['Combos'],
+        parameters: [{ name: 'shopId', in: 'path', required: true, schema: { type: 'string' }, description: 'Shop ID' }, { name: 'comboId', in: 'path', required: true, schema: { type: 'string' }, description: 'Combo (product) ID' }],
+        requestBody: {
+          required: true,
+          content: { 'application/json': { schema: { $ref: '#/components/schemas/ComboRequest' } } },
+        },
+        responses: {
+          '200': {
+            description: 'Combo updated',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/ComboResponse' } } },
+          },
+          '400': { $ref: '#/components/responses/BadRequest' },
+          '403': { $ref: '#/components/responses/Forbidden' },
+          '404': { $ref: '#/components/responses/NotFound' },
+          '500': { $ref: '#/components/responses/InternalError' },
+        },
+      },
+    },
     '/shops/{shopId}/logo/upload-url': {
       post: {
         summary: 'Generate upload URL for shop logo',
@@ -1186,6 +1248,49 @@ export const swaggerSpec = {
         type: 'object',
         additionalProperties: { type: 'string' },
         description: 'Text per menu language (de, en). Missing or empty shows the original.',
+      },
+      ComboGroup: {
+        type: 'object',
+        required: ['name', 'productIds'],
+        properties: {
+          id: { type: 'string', description: 'Send back to keep the group id stable across edits' },
+          name: { type: 'string', maxLength: 60 },
+          nameTranslations: { $ref: '#/components/schemas/TranslationMap' },
+          productIds: { type: 'array', items: { type: 'string' }, minItems: 1, maxItems: 50 },
+        },
+      },
+      ComboRequest: {
+        type: 'object',
+        required: ['name', 'priceCents', 'categoryId', 'groups'],
+        properties: {
+          name: { type: 'string', maxLength: 120 },
+          description: { type: 'string', maxLength: 2000 },
+          nameTranslations: { $ref: '#/components/schemas/TranslationMap' },
+          descriptionTranslations: { $ref: '#/components/schemas/TranslationMap' },
+          priceCents: { type: 'integer', minimum: 1, maximum: 100000 },
+          categoryId: { type: 'string' },
+          isAvailable: { type: 'boolean', default: true },
+          bmfDrinkShare: { type: 'boolean', default: false },
+          groups: { type: 'array', minItems: 1, maxItems: 5, items: { $ref: '#/components/schemas/ComboGroup' } },
+        },
+      },
+      ComboResponse: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' },
+          name: { type: 'string' },
+          description: { type: 'string' },
+          nameTranslations: { $ref: '#/components/schemas/TranslationMap' },
+          descriptionTranslations: { $ref: '#/components/schemas/TranslationMap' },
+          images: { type: 'array', items: { $ref: '#/components/schemas/ProductImageRef' } },
+          priceCents: { type: 'integer' },
+          categoryId: { type: 'string', nullable: true },
+          isAvailable: { type: 'boolean' },
+          bmfDrinkShare: { type: 'boolean' },
+          groups: { type: 'array', items: { $ref: '#/components/schemas/ComboGroup' } },
+          createdAt: { type: 'string', format: 'date-time' },
+          updatedAt: { type: 'string', format: 'date-time' },
+        },
       },
       OpeningTimeSlot: {
         type: 'object',
