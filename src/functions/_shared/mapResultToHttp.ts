@@ -47,6 +47,11 @@ export function mapResultToHttp<T>(result: ApplicationResult<T>): HttpResponseIn
         status: 409,
         jsonBody: { error: result.error, code: 'OPEN_ORDERS' }
       };
+    case 'PRODUCT_IMAGE_REQUIRED':
+      return {
+        status: 409,
+        jsonBody: { error: result.error, code: 'PRODUCT_IMAGE_REQUIRED' }
+      };
     case 'COVER_IMAGE_WRONG_SIZE':
     case 'PRODUCT_IMAGE_WRONG_SIZE':
       return {

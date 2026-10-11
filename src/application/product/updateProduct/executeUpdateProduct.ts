@@ -13,6 +13,7 @@ import { UpdateProductRequestDto, UpdateProductResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 import { validateMenuFields } from '../menuFields';
 import { toMenuFieldsDto } from '../menuFieldsDto';
+import { PRODUCT_IMAGE_REQUIRED, wouldRemoveLastProductImage } from '../../../domain/images/imageRules';
 import { diffFields, logAudit } from '../../_shared/auditHelpers';
 
 export async function executeUpdateProduct(
@@ -81,6 +82,14 @@ export async function executeUpdateProduct(
       getReferenceLists(shop.countryCode ?? ''),
     ]);
     if (!access.ok) return access;
+
+    if (wouldRemoveLastProductImage(product.images, request.images)) {
+      return {
+        ok: false,
+        code: PRODUCT_IMAGE_REQUIRED,
+        error: 'A dish must keep at least one photo. Add the new photo first, then remove the old one.',
+      };
+    }
 
     const menu = validateMenuFields(request, refs, product);
     if ('error' in menu) {

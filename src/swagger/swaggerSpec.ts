@@ -504,6 +504,8 @@ export const swaggerSpec = {
         summary: 'Update product',
         operationId: 'updateProduct',
         tags: ['Products'],
+        description:
+          'Sending an images array that would leave a dish which has photos with none is refused with 409 code PRODUCT_IMAGE_REQUIRED (body { error, code }); nothing is changed. To replace a photo, add the new one first (POST .../images), then remove the old one.',
         parameters: [
           {
             name: 'productId',
@@ -527,6 +529,17 @@ export const swaggerSpec = {
             content: {
               'application/json': {
                 schema: { $ref: '#/components/schemas/ProductResponse' },
+              },
+            },
+          },
+          '409': {
+            description: 'The update would remove the dish\'s last photo (code PRODUCT_IMAGE_REQUIRED)',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: { error: { type: 'string' }, code: { type: 'string', example: 'PRODUCT_IMAGE_REQUIRED' } },
+                },
               },
             },
           },
