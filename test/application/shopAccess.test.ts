@@ -112,4 +112,14 @@ describe('resolveShopAccess (staff)', () => {
     const access = await resolveShopAccess(staffPrincipal, shop, makeStaffDeps(null));
     expect(access).toBeNull();
   });
+
+  it('a deleted shop is closed to its owner and staff, open only to a superadmin where allowed', async () => {
+    const deleted = { ...shop, isDeleted: true } as unknown as Shop;
+    const owner: Principal = { kind: 'entra', userId: 'u-owner' };
+    expect(await resolveShopAccess(owner, deleted, makeDeps(false))).toBeNull();
+    expect(await resolveShopAccess(owner, deleted, makeDeps(true))).toBeNull();
+    const sa = await resolveShopAccess(owner, deleted, makeDeps(true), { allowSuperadmin: true });
+    expect(sa?.actor.actorType).toBe('superadmin');
+  });
 });
+

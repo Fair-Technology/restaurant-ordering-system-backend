@@ -169,6 +169,8 @@ export const swaggerSpec = {
       },
       delete: {
         summary: 'Delete shop (soft delete)',
+        description:
+          'Owner (or superadmin) only. Hides the shop but keeps its orders and invoices. Refused with 409 code OPEN_ORDERS while any order is placed, accepted, ready or out for delivery (booked orders included). Cancels the subscription immediately; if that fails nothing is deleted. Deleted shops answer 404.',
         operationId: 'deleteShop',
         tags: ['Shops'],
         parameters: [
@@ -189,7 +191,50 @@ export const swaggerSpec = {
               },
             },
           },
+          '403': { $ref: '#/components/responses/Forbidden' },
           '404': { $ref: '#/components/responses/NotFound' },
+          '409': {
+            description: 'The shop has orders in progress (code OPEN_ORDERS)',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: { error: { type: 'string' }, code: { type: 'string', example: 'OPEN_ORDERS' } },
+                },
+              },
+            },
+          },
+          '500': { $ref: '#/components/responses/InternalError' },
+        },
+      },
+    },
+    '/shops/{shopId}/restore': {
+      post: {
+        summary: 'Restore a deleted shop (superadmin only)',
+        description: 'Clears the delete. Does not restart the subscription.',
+        operationId: 'restoreShop',
+        tags: ['Shops'],
+        parameters: [
+          {
+            name: 'shopId',
+            in: 'path',
+            required: true,
+            schema: { type: 'string' },
+            description: 'Shop ID',
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Shop restored',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/DeleteResponse' },
+              },
+            },
+          },
+          '403': { $ref: '#/components/responses/Forbidden' },
+          '404': { $ref: '#/components/responses/NotFound' },
+          '409': { description: 'The shop is not deleted' },
           '500': { $ref: '#/components/responses/InternalError' },
         },
       },
@@ -1398,6 +1443,11 @@ export const swaggerSpec = {
           isDeleted: {
             type: 'boolean',
             description: 'Whether shop is deleted',
+          },
+          deletedAt: {
+            type: 'string',
+            format: 'date-time',
+            description: 'When the shop was deleted (only present while deleted)',
           },
           isPaused: {
             type: 'boolean',

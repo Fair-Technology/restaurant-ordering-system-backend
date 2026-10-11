@@ -98,6 +98,14 @@ export async function findAllShops(): Promise<Shop[]> {
   }
 }
 
+/** Superadmin listing: like findAllShops but deleted shops are included. */
+export async function findAllShopsIncludingDeleted(): Promise<Shop[]> {
+  const { resources } = await shopContainer.items
+    .query<Shop>({ query: 'SELECT TOP 20 * FROM c ORDER BY c.createdAt DESC', parameters: [] })
+    .fetchAll();
+  return resources || [];
+}
+
 export async function findShopsByMemberId(userId: string): Promise<Shop[]> {
   try {
     const querySpec = {

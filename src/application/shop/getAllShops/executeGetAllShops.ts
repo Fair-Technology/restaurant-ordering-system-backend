@@ -1,18 +1,30 @@
-import { findAllShops } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
+import { HttpRequest } from '@azure/functions';
+import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
+import { findUserById } from '../../../infrastructure/cosmos/user/CosmosUserRepository';
+import { findAllShopsIncludingDeleted } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { GetAllShopsRequestDto, GetAllShopsResultDto, ShopSummaryDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 
 export async function executeGetAllShops(
   _request: GetAllShopsRequestDto,
+  httpRequest: HttpRequest,
 ): Promise<ApplicationResult<GetAllShopsResultDto>> {
   try {
-    const shops = await findAllShops();
+    // Superadmin only: the list includes deleted shops, so it must not be public.
+    const userId = await getUserIdFromAuth(httpRequest);
+    const user = await findUserById(userId);
+    if (user?.systemRole !== 'superadmin') {
+      return { ok: false, code: 'FORBIDDEN', error: 'Superadmin access required' };
+    }
+
+    const shops = await findAllShopsIncludingDeleted();
 
     const shopDtos: ShopSummaryDto[] = shops.map((shop) => ({
       id: shop.id,
       slug: shop.slug,
       name: shop.name,
       isDeleted: shop.isDeleted,
+      deletedAt: shop.deletedAt,
       isPaused: shop.isPaused,
       pausedMessage: shop.pausedMessage,
       orderAcceptanceMode: shop.orderAcceptanceMode,
@@ -37,7 +49,10 @@ export async function executeGetAllShops(
       ok: true,
       data: resultDto,
     };
-  } catch {
+  } catch (error: any) {
+    if (error.message === 'Authentication required') {
+      return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
+    }
     return {
       ok: false,
       code: 'INTERNAL_ERROR',

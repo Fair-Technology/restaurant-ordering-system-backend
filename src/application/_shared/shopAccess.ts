@@ -37,6 +37,16 @@ export async function resolveShopAccess(
   deps: ShopAccessDeps,
   options: { allowSuperadmin?: boolean } = {},
 ): Promise<ShopAccess | null> {
+  // A deleted shop is closed to everyone except a superadmin on an endpoint that allows one.
+  if (shop.isDeleted) {
+    if (principal.kind === 'entra' && options.allowSuperadmin && (await deps.isSuperadmin(principal.userId))) {
+      return {
+        actor: { actorType: 'superadmin', actorId: principal.userId, role: null },
+        permissions: [...ALL_SHOP_PERMISSIONS],
+      };
+    }
+    return null;
+  }
   if (principal.kind === 'entra') {
     const isOwner = shop.members.some(
       (m) => m.userId === principal.userId && m.role === 'owner' && m.isActive,
