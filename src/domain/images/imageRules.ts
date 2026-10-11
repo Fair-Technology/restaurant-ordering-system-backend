@@ -31,3 +31,12 @@ export function wouldRemoveLastProductImage(
 ): boolean {
   return requested !== undefined && (existing?.length ?? 0) > 0 && requested.length === 0;
 }
+
+/**
+ * A dish's new image list may name photos by id (and url) only: fill in everything else (createdAt, alt, sortOrder)
+ * from the photo already stored under that id, so shrinking the list never strips a photo's details.
+ */
+export function mergeProductImages<T extends { id: string }>(existing: readonly T[] | undefined, requested: readonly T[]): T[] {
+  const byId = new Map((existing ?? []).map((img) => [img.id, img]));
+  return requested.map((img) => ({ ...byId.get(img.id), ...img }));
+}

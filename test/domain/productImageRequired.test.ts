@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { wouldRemoveLastProductImage } from '../../src/domain/images/imageRules';
+import { mergeProductImages, wouldRemoveLastProductImage } from '../../src/domain/images/imageRules';
 import { mapResultToHttp } from '../../src/functions/_shared/mapResultToHttp';
 
 const img = (id: string) => ({ id, url: `https://x/${id}.jpg` });
@@ -24,5 +24,18 @@ describe('PRODUCT_IMAGE_REQUIRED over HTTP', () => {
     const res = mapResultToHttp({ ok: false, code: 'PRODUCT_IMAGE_REQUIRED', error: 'nope' });
     expect(res.status).toBe(409);
     expect(res.jsonBody).toEqual({ error: 'nope', code: 'PRODUCT_IMAGE_REQUIRED' });
+  });
+});
+
+describe('mergeProductImages', () => {
+  it('fills a shrunk list from the stored photo with the same id', () => {
+    const stored = [
+      { id: 'a', url: 'https://x/a.jpg', createdAt: '2026-01-01' },
+      { id: 'b', url: 'https://x/b.jpg', createdAt: '2026-02-02', sortOrder: 1 },
+    ];
+    expect(mergeProductImages(stored, [{ id: 'b', url: 'https://x/b.jpg' }])).toEqual([stored[1]]);
+  });
+  it('keeps unknown ids as sent', () => {
+    expect(mergeProductImages([], [{ id: 'n', url: 'u' }])).toEqual([{ id: 'n', url: 'u' }]);
   });
 });

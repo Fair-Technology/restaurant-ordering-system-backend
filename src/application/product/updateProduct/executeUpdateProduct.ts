@@ -13,7 +13,7 @@ import { UpdateProductRequestDto, UpdateProductResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 import { validateMenuFields } from '../menuFields';
 import { toMenuFieldsDto } from '../menuFieldsDto';
-import { PRODUCT_IMAGE_REQUIRED, wouldRemoveLastProductImage } from '../../../domain/images/imageRules';
+import { PRODUCT_IMAGE_REQUIRED, mergeProductImages, wouldRemoveLastProductImage } from '../../../domain/images/imageRules';
 import { diffFields, logAudit } from '../../_shared/auditHelpers';
 
 export async function executeUpdateProduct(
@@ -191,7 +191,7 @@ export async function executeUpdateProduct(
       ...(request.categoryIds !== undefined && {
         categoryIds: request.categoryIds,
       }),
-      ...(request.images !== undefined && { images: request.images }),
+      ...(request.images !== undefined && { images: mergeProductImages(product.images, request.images) }),
       ...(request.isAvailable !== undefined && {
         isAvailable: request.isAvailable,
       }),
