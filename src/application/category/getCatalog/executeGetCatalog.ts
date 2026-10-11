@@ -2,6 +2,7 @@ import { findCategoriesByShopId } from '../../../infrastructure/cosmos/category/
 import { findProductsByShopId } from '../../../infrastructure/cosmos/product/CosmosProductRepository';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { getReferenceLists } from '../../../infrastructure/cosmos/reference/CosmosReferenceListsRepository';
+import { isShopOffline } from '../../../domain/shop/Shop';
 import { ApplicationResult } from '../../_shared/types';
 import { buildCatalog } from './buildCatalog';
 import { GetCatalogResultDto } from './dtos';
@@ -35,7 +36,7 @@ export async function executeGetCatalog(
       return { ok: false, code: 'NOT_FOUND', error: 'Shop not found' };
     }
 
-    if (shop.isPaused) {
+    if (isShopOffline(shop)) {
       return {
         ok: false,
         code: 'FORBIDDEN',

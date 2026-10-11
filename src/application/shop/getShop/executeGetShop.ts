@@ -1,3 +1,4 @@
+import { isShopOffline } from '../../../domain/shop/Shop';
 import { orderSettingsOf } from '../../../domain/order/orderSettings';
 import { HttpRequest } from '@azure/functions';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
@@ -60,6 +61,12 @@ export async function executeGetShop(
       deletedAt: shop.deletedAt,
       isPaused: shop.isPaused,
       pausedMessage: shop.pausedMessage,
+      ordersPaused: shop.ordersPaused === true,
+      ordersPausedMessage: shop.ordersPausedMessage,
+      isOffline: isShopOffline(shop),
+      offlineBySuperadmin: shop.offlineBySuperadmin === true,
+      // The internal reason is for the platform only
+      ...(access?.actor.actorType === 'superadmin' && { offlineBySuperadminReason: shop.offlineBySuperadminReason }),
       orderAcceptanceMode: shop.orderAcceptanceMode,
       currency: shop.currency,
       timezone: shop.timezone,

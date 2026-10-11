@@ -55,7 +55,13 @@ export interface Shop {
   deletedAt?: string; // ISO, when the owner deleted it; cleared on restore
   deletedBy?: string; // user id of whoever deleted it; cleared on restore
   isPaused: boolean;
-  pausedMessage?: string; // required if isPaused === true
+  pausedMessage?: string; // optional note shown with the offline state
+  // Owner temporarily stops taking NEW orders; the menu stays visible. Absent on older shops = false.
+  ordersPaused?: boolean;
+  ordersPausedMessage?: string;
+  // Platform (superadmin) took the shop offline. The owner cannot switch it back online. Absent = false.
+  offlineBySuperadmin?: boolean;
+  offlineBySuperadminReason?: string; // internal note, never shown to the public
 
   // Checkout
   orderAcceptanceMode: 'auto'; // fixed for now
@@ -149,4 +155,11 @@ export function stripeReady(shop: Pick<Shop, 'stripe'>): boolean {
 // account's country can never be changed afterwards.
 export function stripeAccountCreateParams(shop: Pick<Shop, 'id' | 'countryCode'>) {
   return { country: shop.countryCode, metadata: { shopId: shop.id } };
+}
+
+export const ORDERS_PAUSED_MESSAGE_MAX_LENGTH = 280;
+
+/** Offline = not presented at all: switched off by the owner (isPaused) or by the platform. */
+export function isShopOffline(shop: Pick<Shop, 'isPaused' | 'offlineBySuperadmin'>): boolean {
+  return shop.isPaused === true || shop.offlineBySuperadmin === true;
 }

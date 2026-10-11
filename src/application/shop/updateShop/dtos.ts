@@ -6,6 +6,8 @@ export interface UpdateShopRequestDto {
   isPaused?: boolean;
   menuLanguages?: MenuLanguage[];
   pausedMessage?: string;
+  ordersPaused?: boolean;
+  ordersPausedMessage?: string;
   minOrderAmountCents?: number;
   address?: {
     street?: string;

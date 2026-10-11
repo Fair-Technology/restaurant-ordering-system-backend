@@ -9,6 +9,10 @@ export interface ShopSummaryDto {
   isDeleted: boolean;
   isPaused: boolean;
   pausedMessage?: string;
+  ordersPaused: boolean;
+  ordersPausedMessage?: string;
+  isOffline: boolean; // isPaused || offlineBySuperadmin
+  offlineBySuperadmin: boolean;
   orderAcceptanceMode: string;
   currency: string;
   timezone: string;

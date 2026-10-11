@@ -273,3 +273,56 @@ describe('executeUpdateShop go-live', () => {
     expect(updateShop).toHaveBeenCalledWith(expect.not.objectContaining({ paymentPolicy: expect.anything() }));
   });
 });
+
+describe('executeUpdateShop pausing orders', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (authorizeShopAction as any).mockResolvedValue(ownerAccess);
+    (findShopById as any).mockResolvedValue(makeShop({ isPaused: false }));
+    (updateShop as any).mockImplementation(async (s: any) => s);
+  });
+
+  it('saves ordersPaused with a trimmed message, then clears it', async () => {
+    const on = await executeUpdateShop(
+      { shopId: 'shop-1', ordersPaused: true, ordersPausedMessage: '  Back at 7  ' } as any,
+      {} as any,
+    );
+    expect(on.ok).toBe(true);
+    expect(updateShop).toHaveBeenLastCalledWith(
+      expect.objectContaining({ ordersPaused: true, ordersPausedMessage: 'Back at 7' }),
+    );
+
+    const off = await executeUpdateShop(
+      { shopId: 'shop-1', ordersPaused: false, ordersPausedMessage: '   ' } as any,
+      {} as any,
+    );
+    expect(off.ok).toBe(true);
+    const saved = (updateShop as any).mock.calls.at(-1)[0];
+    expect(saved.ordersPaused).toBe(false);
+    expect(saved.ordersPausedMessage).toBeUndefined();
+  });
+
+  it('rejects a bad ordersPaused and an over-long message', async () => {
+    expect(await executeUpdateShop({ shopId: 'shop-1', ordersPaused: 'yes' } as any, {} as any)).toMatchObject({
+      ok: false,
+      code: 'INVALID_INPUT',
+    });
+    expect(
+      await executeUpdateShop({ shopId: 'shop-1', ordersPausedMessage: 'x'.repeat(281) } as any, {} as any),
+    ).toMatchObject({ ok: false, code: 'INVALID_INPUT' });
+    expect(updateShop).not.toHaveBeenCalled();
+  });
+
+  it('ignores superadmin fields sent by the owner', async () => {
+    await executeUpdateShop({ shopId: 'shop-1', offlineBySuperadmin: true, ordersPaused: true } as any, {} as any);
+    const saved = (updateShop as any).mock.calls[0][0];
+    expect(saved.offlineBySuperadmin).toBeUndefined();
+  });
+
+  it('refuses to bring the shop online while the platform has it offline', async () => {
+    (findShopById as any).mockResolvedValue(makeShop({ isPaused: true, offlineBySuperadmin: true }));
+    const result = await executeUpdateShop({ shopId: 'shop-1', isPaused: false } as any, {} as any);
+    expect(result).toMatchObject({ ok: false, code: 'SHOP_OFFLINE_BY_SUPERADMIN' });
+    expect(updateShop).not.toHaveBeenCalled();
+  });
+});
