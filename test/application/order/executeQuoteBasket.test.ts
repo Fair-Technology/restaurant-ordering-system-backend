@@ -101,6 +101,18 @@ describe('executeQuoteBasket', () => {
     expect(res).toEqual({ ok: false, code: 'INVALID_INPUT', error: 'This shop is not currently accepting orders' });
   });
 
+  it('refuses a shop the platform took offline', async () => {
+    (findShopById as any).mockResolvedValue({ ...CARD_SHOP, offlineBySuperadmin: true });
+    const res = await executeQuoteBasket(request, { now: NOW_OPEN });
+    expect(res).toMatchObject({ ok: false, code: 'INVALID_INPUT' });
+  });
+
+  it('refuses with ORDERS_PAUSED while the owner has paused orders', async () => {
+    (findShopById as any).mockResolvedValue({ ...CARD_SHOP, ordersPaused: true, ordersPausedMessage: 'Kitchen is full' });
+    const res = await executeQuoteBasket(request, { now: NOW_OPEN });
+    expect(res).toEqual({ ok: false, code: 'ORDERS_PAUSED', error: 'Kitchen is full' });
+  });
+
   it('quotes a table order when dine-in is on', async () => {
     (findShopById as any).mockResolvedValue(DINE_IN_SHOP);
     const res = await executeQuoteBasket({ ...request, fulfilmentMode: 'dine_in' as const }, { now: NOW_OPEN });

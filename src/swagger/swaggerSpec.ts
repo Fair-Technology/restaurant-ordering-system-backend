@@ -163,6 +163,7 @@ export const swaggerSpec = {
             },
           },
           '400': { $ref: '#/components/responses/BadRequest' },
+          '409': { description: 'Code SHOP_OFFLINE_BY_SUPERADMIN: the platform took the shop offline, owner cannot set isPaused false' },
           '404': { $ref: '#/components/responses/NotFound' },
           '500': { $ref: '#/components/responses/InternalError' },
         },
@@ -235,6 +236,50 @@ export const swaggerSpec = {
           '403': { $ref: '#/components/responses/Forbidden' },
           '404': { $ref: '#/components/responses/NotFound' },
           '409': { description: 'The shop is not deleted' },
+          '500': { $ref: '#/components/responses/InternalError' },
+        },
+      },
+    },
+    '/shops/{shopId}/superadmin-offline': {
+      post: {
+        summary: 'Take a shop offline as the platform, or lift it (superadmin only)',
+        description:
+          'While set, the owner cannot switch the shop online (409 SHOP_OFFLINE_BY_SUPERADMIN on updateShop) and the storefront shows no menu. The owner isPaused flag is untouched.',
+        operationId: 'setShopOfflineBySuperadmin',
+        tags: ['Shops'],
+        parameters: [
+          { name: 'shopId', in: 'path', required: true, schema: { type: 'string' }, description: 'Shop ID' },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['offline'],
+                properties: {
+                  offline: { type: 'boolean' },
+                  reason: { type: 'string', maxLength: 500, description: 'Internal note, never shown publicly' },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Updated',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: { offlineBySuperadmin: { type: 'boolean' }, offlineBySuperadminReason: { type: 'string' } },
+                },
+              },
+            },
+          },
+          '400': { $ref: '#/components/responses/BadRequest' },
+          '403': { $ref: '#/components/responses/Forbidden' },
+          '404': { $ref: '#/components/responses/NotFound' },
           '500': { $ref: '#/components/responses/InternalError' },
         },
       },
@@ -1542,6 +1587,12 @@ export const swaggerSpec = {
             type: 'string',
             description: 'Message when shop is paused',
           },
+          ordersPaused: { type: 'boolean', description: 'Owner pauses new orders; the menu stays visible' },
+          ordersPausedMessage: {
+            type: 'string',
+            maxLength: 280,
+            description: 'Shown to customers while orders are paused; blank clears it',
+          },
           currency: { type: 'string', description: 'Shop currency' },
           timezone: { type: 'string', description: 'Shop timezone' },
           minOrderAmountCents: {
@@ -1597,6 +1648,11 @@ export const swaggerSpec = {
             type: 'string',
             description: 'Message shown when shop is paused',
           },
+          ordersPaused: { type: 'boolean', description: 'Owner has paused new orders; menu still visible' },
+          ordersPausedMessage: { type: 'string', description: 'Message shown while orders are paused' },
+          isOffline: { type: 'boolean', description: 'isPaused or offlineBySuperadmin: show no menu' },
+          offlineBySuperadmin: { type: 'boolean', description: 'Platform took the shop offline (not on the public read)' },
+          offlineBySuperadminReason: { type: 'string', description: 'Internal note; superadmin views only' },
           currency: {
             type: 'string',
             description: 'Shop currency (ISO code)',

@@ -9,7 +9,7 @@ import { authorizeShopAction, toAuditActor } from '../../_shared/shopAccess';
 import { UpdateShopRequestDto, UpdateShopResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 import { diffFields, logAudit } from '../../_shared/auditHelpers';
-import { Shop, stripeReady } from '../../../domain/shop/Shop';
+import { ORDERS_PAUSED_MESSAGE_MAX_LENGTH, Shop, stripeReady } from '../../../domain/shop/Shop';
 import { validateAccentColor } from '../../_shared/contrast';
 import { GO_LIVE_STRIPE_ERROR, GO_LIVE_TAX_ID_ERROR } from '../../../domain/order/orderErrors';
 import { menuLanguagesOf, validateMenuLanguagesChange } from '../../../domain/menu/menuLanguage';
@@ -132,6 +132,24 @@ export async function executeUpdateShop(
     };
   }
 
+  if (request.ordersPaused !== undefined && typeof request.ordersPaused !== 'boolean') {
+    return { ok: false, code: 'INVALID_INPUT', error: 'ordersPaused must be a boolean' };
+  }
+  let ordersPausedMessage: string | undefined;
+  if (request.ordersPausedMessage !== undefined) {
+    if (typeof request.ordersPausedMessage !== 'string') {
+      return { ok: false, code: 'INVALID_INPUT', error: 'ordersPausedMessage must be a string' };
+    }
+    ordersPausedMessage = request.ordersPausedMessage.trim() || undefined;
+    if (ordersPausedMessage && ordersPausedMessage.length > ORDERS_PAUSED_MESSAGE_MAX_LENGTH) {
+      return {
+        ok: false,
+        code: 'INVALID_INPUT',
+        error: `ordersPausedMessage must be at most ${ORDERS_PAUSED_MESSAGE_MAX_LENGTH} characters`,
+      };
+    }
+  }
+
   if (request.branding !== undefined) {
     const brandingError = validateBranding(request.branding);
     if (brandingError) {
@@ -169,6 +187,15 @@ export async function executeUpdateShop(
       nextLanguages = r;
     }
 
+    // The platform took this shop offline: the owner cannot switch it back on.
+    if (request.isPaused === false && shop.offlineBySuperadmin === true) {
+      return {
+        ok: false,
+        code: 'SHOP_OFFLINE_BY_SUPERADMIN',
+        error: 'The platform has taken this shop offline. Please contact support.',
+      };
+    }
+
     // Gate going live behind all criteria — only when actually switching on.
     // A shop that is already live re-sends isPaused: false on every status save;
     // re-checking then would block the save (e.g. after a new DPA version) while
@@ -187,6 +214,8 @@ export async function executeUpdateShop(
       ...(request.pausedMessage !== undefined && {
         pausedMessage: request.pausedMessage,
       }),
+      ...(request.ordersPaused !== undefined && { ordersPaused: request.ordersPaused }),
+      ...(request.ordersPausedMessage !== undefined && { ordersPausedMessage }),
       ...(request.minOrderAmountCents !== undefined && {
         minOrderAmountCents: request.minOrderAmountCents,
       }),
@@ -204,7 +233,7 @@ export async function executeUpdateShop(
     const changes = diffFields(
       shop as unknown as Record<string, unknown>,
       updatedShop as unknown as Record<string, unknown>,
-      ['isPaused', 'pausedMessage', 'minOrderAmountCents', 'currency', 'timezone'],
+      ['isPaused', 'pausedMessage', 'ordersPaused', 'ordersPausedMessage', 'minOrderAmountCents', 'currency', 'timezone'],
       ['openingHours', 'branding', 'address', 'menuLanguages'],
     );
     // Switching the banner on or off is its own readable line, besides the generic branding entry.

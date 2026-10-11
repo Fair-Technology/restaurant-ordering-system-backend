@@ -47,6 +47,12 @@ export function mapResultToHttp<T>(result: ApplicationResult<T>): HttpResponseIn
         status: 409,
         jsonBody: { error: result.error, code: 'OPEN_ORDERS' }
       };
+    case 'SHOP_OFFLINE_BY_SUPERADMIN':
+    case 'ORDERS_PAUSED':
+      return {
+        status: 409,
+        jsonBody: { error: result.error, code: result.code }
+      };
     case 'PRODUCT_IMAGE_REQUIRED':
       return {
         status: 409,

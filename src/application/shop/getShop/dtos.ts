@@ -14,6 +14,11 @@ export interface GetShopResultDto {
   deletedAt?: string;
   isPaused: boolean;
   pausedMessage?: string;
+  ordersPaused: boolean;
+  ordersPausedMessage?: string;
+  isOffline: boolean; // isPaused || offlineBySuperadmin
+  offlineBySuperadmin: boolean;
+  offlineBySuperadminReason?: string;
   orderAcceptanceMode: string;
   currency: string;
   timezone: string;

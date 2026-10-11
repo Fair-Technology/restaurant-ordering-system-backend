@@ -66,6 +66,7 @@ import { findPromotions } from '../../../infrastructure/cosmos/promotion/CosmosP
 import { findOrderById } from '../../../infrastructure/cosmos/order/CosmosOrderRepository';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { createPaymentIntent, isStripeIdempotencyError } from '../../../infrastructure/stripe/stripeClient';
+import { isShopOffline } from '../../../domain/shop/Shop';
 import { ApplicationResult } from '../../_shared/types';
 import { resolveDiscount } from '../../promotion/resolveDiscount';
 import { loadOrderLimitStatus } from '../../usage/orderLimitStatus';
@@ -201,13 +202,20 @@ export async function executeCheckout(
     if (!shop || shop.isDeleted) {
       return { ok: false, code: 'NOT_FOUND', error: 'Shop not found' };
     }
-    if (shop.isPaused) {
+    if (isShopOffline(shop)) {
       return {
         ok: false,
         code: 'INVALID_INPUT',
-        error: shop.isPaused && shop.pausedMessage
+        error: shop.pausedMessage
           ? shop.pausedMessage
           : 'This shop is not currently accepting orders',
+      };
+    }
+    if (shop.ordersPaused === true) {
+      return {
+        ok: false,
+        code: 'ORDERS_PAUSED',
+        error: shop.ordersPausedMessage ? shop.ordersPausedMessage : 'This shop has paused new orders for now',
       };
     }
     if (!isLegalPackComplete(shop)) {

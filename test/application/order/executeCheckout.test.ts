@@ -161,6 +161,21 @@ describe('executeCheckout menu declaration', () => {
   });
 });
 
+describe('executeCheckout paused and offline', () => {
+  it('refuses with ORDERS_PAUSED while the owner has paused orders', async () => {
+    (findShopById as any).mockResolvedValue({ ...CARD_SHOP, ordersPaused: true, ordersPausedMessage: 'No more orders tonight' });
+    const res = await executeCheckout(baseRequest);
+    expect(res).toEqual({ ok: false, code: 'ORDERS_PAUSED', error: 'No more orders tonight' });
+    expect(findProductById).not.toHaveBeenCalled();
+  });
+
+  it('refuses a shop the platform took offline', async () => {
+    (findShopById as any).mockResolvedValue({ ...CARD_SHOP, offlineBySuperadmin: true });
+    const res = await executeCheckout(baseRequest);
+    expect(res).toMatchObject({ ok: false, code: 'INVALID_INPUT' });
+  });
+});
+
 describe('executeCheckout card placement', () => {
   const cardRequest: CheckoutRequestDto = {
     shopId: 'shop-1',

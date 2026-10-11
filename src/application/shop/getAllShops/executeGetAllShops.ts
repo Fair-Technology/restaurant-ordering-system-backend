@@ -1,3 +1,4 @@
+import { isShopOffline } from '../../../domain/shop/Shop';
 import { HttpRequest } from '@azure/functions';
 import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
 import { findUserById } from '../../../infrastructure/cosmos/user/CosmosUserRepository';
@@ -27,6 +28,11 @@ export async function executeGetAllShops(
       deletedAt: shop.deletedAt,
       isPaused: shop.isPaused,
       pausedMessage: shop.pausedMessage,
+      ordersPaused: shop.ordersPaused === true,
+      ordersPausedMessage: shop.ordersPausedMessage,
+      isOffline: isShopOffline(shop),
+      offlineBySuperadmin: shop.offlineBySuperadmin === true,
+      offlineBySuperadminReason: shop.offlineBySuperadminReason,
       orderAcceptanceMode: shop.orderAcceptanceMode,
       currency: shop.currency,
       timezone: shop.timezone,

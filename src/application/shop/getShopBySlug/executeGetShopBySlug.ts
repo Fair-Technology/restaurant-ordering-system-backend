@@ -1,3 +1,4 @@
+import { isShopOffline } from '../../../domain/shop/Shop';
 import { orderableModesFor } from '../../../domain/order/fulfilment';
 import { effectivePrepByMode } from '../../../domain/order/kitchenTiming';
 import { orderSettingsOf } from '../../../domain/order/orderSettings';
@@ -51,6 +52,9 @@ export async function executeGetShopBySlug(
       isDeleted: shop.isDeleted,
       isPaused: shop.isPaused,
       pausedMessage: shop.pausedMessage,
+      ordersPaused: shop.ordersPaused === true,
+      ordersPausedMessage: shop.ordersPausedMessage,
+      isOffline: isShopOffline(shop),
       orderAcceptanceMode: shop.orderAcceptanceMode,
       currency: shop.currency,
       timezone: shop.timezone,

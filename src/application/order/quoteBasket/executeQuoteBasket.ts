@@ -14,6 +14,7 @@ import { offeredPaymentMethods } from '../../../domain/order/paymentMethods';
 import { findPromotions } from '../../../infrastructure/cosmos/promotion/CosmosPromotionRepository';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { loadBookableSlots } from '../_shared/slotPlaces';
+import { isShopOffline } from '../../../domain/shop/Shop';
 import { ApplicationResult } from '../../_shared/types';
 import { resolveDiscount, type DiscountResolution } from '../../promotion/resolveDiscount';
 import { loadOrderLimitStatus } from '../../usage/orderLimitStatus';
@@ -47,11 +48,18 @@ export async function executeQuoteBasket(
     const now = options.now ?? new Date();
     const shop = await findShopById(request.shopId);
     if (!shop || shop.isDeleted) return { ok: false, code: 'NOT_FOUND', error: 'Shop not found' };
-    if (shop.isPaused) {
+    if (isShopOffline(shop)) {
       return {
         ok: false,
         code: 'INVALID_INPUT',
         error: shop.pausedMessage ? shop.pausedMessage : 'This shop is not currently accepting orders',
+      };
+    }
+    if (shop.ordersPaused === true) {
+      return {
+        ok: false,
+        code: 'ORDERS_PAUSED',
+        error: shop.ordersPausedMessage ? shop.ordersPausedMessage : 'This shop has paused new orders for now',
       };
     }
     if (!orderableModesFor(shop).includes(mode)) {
