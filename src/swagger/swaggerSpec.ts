@@ -661,7 +661,18 @@ export const swaggerSpec = {
               },
             },
           },
-          '400': { $ref: '#/components/responses/BadRequest' },
+          '400': {
+            description:
+              'Bad request. Code PRODUCT_IMAGE_WRONG_SIZE (body { error, code }) means the uploaded file is not exactly 1200 x 900 px; the uploaded file is deleted and nothing is changed.',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: { error: { type: 'string' }, code: { type: 'string', example: 'PRODUCT_IMAGE_WRONG_SIZE' } },
+                },
+              },
+            },
+          },
           '403': { $ref: '#/components/responses/Forbidden' },
           '404': { $ref: '#/components/responses/NotFound' },
           '500': { $ref: '#/components/responses/InternalError' },
@@ -821,7 +832,18 @@ export const swaggerSpec = {
               },
             },
           },
-          '400': { $ref: '#/components/responses/BadRequest' },
+          '400': {
+            description:
+              'Bad request. Code COVER_IMAGE_WRONG_SIZE (body { error, code }) means the uploaded file is not exactly 1920 x 640 px; the uploaded file is deleted and nothing is changed.',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: { error: { type: 'string' }, code: { type: 'string', example: 'COVER_IMAGE_WRONG_SIZE' } },
+                },
+              },
+            },
+          },
           '403': { $ref: '#/components/responses/Forbidden' },
           '404': { $ref: '#/components/responses/NotFound' },
           '500': { $ref: '#/components/responses/InternalError' },

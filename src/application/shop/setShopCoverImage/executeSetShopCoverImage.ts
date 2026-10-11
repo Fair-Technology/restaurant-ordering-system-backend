@@ -8,6 +8,8 @@ import { deleteBlob, extractBlobPath, generateBlobUrl } from '../../../infrastru
 import { SetShopCoverImageRequestDto, ShopCoverImageResultDto, toCoverImageResult } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 import { logAudit } from '../../_shared/auditHelpers';
+import { verifyUploadedImageSize } from '../../_shared/verifyUploadedImageSize';
+import { COVER_IMAGE_SIZE, COVER_IMAGE_WRONG_SIZE } from '../../../domain/images/imageRules';
 
 // Extensions the upload-URL step can generate (getFileExtensionFromContentType).
 const COVER_IMAGE_EXTENSIONS = ['.jpg', '.png', '.webp'];
@@ -48,6 +50,15 @@ export async function executeSetShopCoverImage(
     if (!isIssuedUrl) {
       return { ok: false, code: 'INVALID_INPUT', error: COVER_IMAGE_URL_ERROR };
     }
+
+    // The owner's browser crops to the exact cover size; check the real file, not the claim.
+    const sizeError = await verifyUploadedImageSize(
+      extractBlobPath(request.url) ?? '',
+      COVER_IMAGE_SIZE,
+      'Cover image',
+      COVER_IMAGE_WRONG_SIZE,
+    );
+    if (sizeError) return sizeError;
 
     const oldUrl = shop.branding?.heroImageUrl ?? null;
     const result = await updateShopInRepo({

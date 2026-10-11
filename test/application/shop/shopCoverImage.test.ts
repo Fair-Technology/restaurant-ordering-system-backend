@@ -31,6 +31,9 @@ vi.mock('../../../src/infrastructure/storage/blobStorageHelpers', () => ({
   },
 }));
 
+vi.mock('../../../src/infrastructure/storage/blobImageSize', () => ({ readBlobImageSize: vi.fn() }));
+
+import { readBlobImageSize } from '../../../src/infrastructure/storage/blobImageSize';
 import { executeGenerateShopCoverImageUploadUrl } from '../../../src/application/shop/generateShopCoverImageUploadUrl/executeGenerateShopCoverImageUploadUrl';
 import { executeSetShopCoverImage } from '../../../src/application/shop/setShopCoverImage/executeSetShopCoverImage';
 import { executeRemoveShopCoverImage } from '../../../src/application/shop/removeShopCoverImage/executeRemoveShopCoverImage';
@@ -66,6 +69,7 @@ beforeEach(() => {
   vi.mocked(findShopById).mockResolvedValue(makeShop());
   vi.mocked(updateShop).mockImplementation(async (s: any) => s);
   vi.mocked(deleteBlob).mockResolvedValue(undefined as any);
+  vi.mocked(readBlobImageSize).mockResolvedValue({ status: 'ok', size: { width: 1920, height: 640 } });
 });
 
 describe('shop cover image', () => {
@@ -202,5 +206,47 @@ describe('shop cover image', () => {
     const r = await executeRemoveShopCoverImage({ shopId: 'shop-1' }, httpRequest);
     expect(r).toEqual(forbidden);
     expect(updateShop).not.toHaveBeenCalled();
+  });
+
+  describe('exact pixel size', () => {
+    const oldCover = BASE + 'shops/shop-1/branding/old.jpg';
+
+    it('accepts exactly 1920 x 640 and reads the header of the uploaded blob', async () => {
+      const r = await executeSetShopCoverImage(setReq, httpRequest);
+      expect(r.ok).toBe(true);
+      expect(readBlobImageSize).toHaveBeenCalledWith('shops/shop-1/branding/img-1.jpg');
+    });
+
+    it.each([
+      ['wrong ratio', { width: 1600, height: 900 }],
+      ['right ratio, wrong size', { width: 1200, height: 400 }],
+      ['right ratio, too big', { width: 3840, height: 1280 }],
+    ])('rejects %s, deletes the new blob, leaves the shop unchanged', async (_name, size) => {
+      vi.mocked(findShopById).mockResolvedValue(withHero(oldCover));
+      vi.mocked(readBlobImageSize).mockResolvedValue({ status: 'ok', size });
+      const r = await executeSetShopCoverImage(setReq, httpRequest);
+      expect(r).toEqual({ ok: false, code: 'COVER_IMAGE_WRONG_SIZE', error: 'Cover image must be exactly 1920 x 640 px' });
+      expect(deleteBlob).toHaveBeenCalledTimes(1);
+      expect(deleteBlob).toHaveBeenCalledWith('shops/shop-1/branding/img-1.jpg');
+      expect(updateShop).not.toHaveBeenCalled();
+      expect(logAudit).not.toHaveBeenCalled();
+    });
+
+    it('rejects a file whose header cannot be read as an image', async () => {
+      vi.mocked(readBlobImageSize).mockResolvedValue({ status: 'unreadable' });
+      const r = await executeSetShopCoverImage(setReq, httpRequest);
+      expect(r.ok).toBe(false);
+      if (!r.ok) expect(r.code).toBe('COVER_IMAGE_WRONG_SIZE');
+      expect(deleteBlob).toHaveBeenCalledWith('shops/shop-1/branding/img-1.jpg');
+      expect(updateShop).not.toHaveBeenCalled();
+    });
+
+    it('answers INVALID_INPUT when nothing was uploaded', async () => {
+      vi.mocked(readBlobImageSize).mockResolvedValue({ status: 'missing' });
+      const r = await executeSetShopCoverImage(setReq, httpRequest);
+      expect(r.ok).toBe(false);
+      if (!r.ok) expect(r.code).toBe('INVALID_INPUT');
+      expect(updateShop).not.toHaveBeenCalled();
+    });
   });
 });
