@@ -42,6 +42,11 @@ export function mapResultToHttp<T>(result: ApplicationResult<T>): HttpResponseIn
         status: 409,
         jsonBody: { error: result.error }
       };
+    case 'OPEN_ORDERS':
+      return {
+        status: 409,
+        jsonBody: { error: result.error, code: 'OPEN_ORDERS' }
+      };
     case 'LIMIT_REACHED':
       return {
         status: 422,

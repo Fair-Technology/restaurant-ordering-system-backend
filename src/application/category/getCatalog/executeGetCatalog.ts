@@ -31,7 +31,7 @@ export async function executeGetCatalog(
       findProductsByShopId(shopId),
     ]);
 
-    if (!shop) {
+    if (!shop || shop.isDeleted) {
       return { ok: false, code: 'NOT_FOUND', error: 'Shop not found' };
     }
 

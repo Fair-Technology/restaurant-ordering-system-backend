@@ -10,6 +10,9 @@ export type OrderState =
   | 'REJECTED'
   | 'CANCELLED';
 
+/** Stored states an order can still change from. Booked (scheduled) orders wait in PLACED, so they count too. */
+export const OPEN_ORDER_STATES: readonly StoredOrderState[] = ['PLACED', 'ACCEPTED', 'READY', 'OUT_FOR_DELIVERY'];
+
 export type StoredOrderState = Exclude<OrderState, 'IN_PREPARATION'>;
 
 export type FulfilmentMode = 'collection' | 'delivery' | 'dine_in';

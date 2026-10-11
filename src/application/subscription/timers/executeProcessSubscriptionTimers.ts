@@ -20,6 +20,12 @@ export interface SubscriptionTimersResult {
 
 const DAY_MS = 86_400_000;
 
+/** A deleted restaurant gets no payment-warning emails. */
+async function findLiveShop(shopId: string) {
+  const shop = await findShopById(shopId);
+  return shop && !shop.isDeleted ? shop : null;
+}
+
 /** Hourly: sends the grace-period warnings, applies downgrades that have come due, and tidies expired manual plans. */
 export async function executeProcessSubscriptionTimers(input: { now: Date }): Promise<SubscriptionTimersResult> {
   const { now } = input;
@@ -39,7 +45,7 @@ export async function executeProcessSubscriptionTimers(input: { now: Date }): Pr
       if (grace && sub.paymentFailedAt && now.getTime() < Date.parse(grace)) {
         const failedAt = Date.parse(sub.paymentFailedAt);
         const dueCount = GRACE_WARNING_DAYS.filter((d) => now.getTime() >= failedAt + d * DAY_MS).length;
-        const shop = (sub.graceWarningsSent ?? 0) < dueCount ? await findShopById(sub.shopId) : null;
+        const shop = (sub.graceWarningsSent ?? 0) < dueCount ? await findLiveShop(sub.shopId) : null;
         while (shop && (sub.graceWarningsSent ?? 0) < dueCount) {
           const n = (sub.graceWarningsSent ?? 0) + 1;
           sub = await upsertSubscription({ ...sub, graceWarningsSent: n, updatedAt: now.toISOString() });

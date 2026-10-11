@@ -52,6 +52,8 @@ export interface Shop {
 
   // State & visibility
   isDeleted: boolean; // soft delete
+  deletedAt?: string; // ISO, when the owner deleted it; cleared on restore
+  deletedBy?: string; // user id of whoever deleted it; cleared on restore
   isPaused: boolean;
   pausedMessage?: string; // required if isPaused === true
 

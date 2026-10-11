@@ -47,11 +47,17 @@ export async function executeGetShop(
 
     const access = await resolveShopAccess(principal, shop, realDeps, { allowSuperadmin: true });
 
+    // A deleted shop is gone for everyone except superadmin (who can restore it).
+    if (shop.isDeleted && access?.actor.actorType !== 'superadmin') {
+      return { ok: false, code: 'NOT_FOUND', error: 'Shop not found' };
+    }
+
     const shopDto: GetShopResultDto = {
       id: shop.id,
       slug: shop.slug,
       name: shop.name,
       isDeleted: shop.isDeleted,
+      deletedAt: shop.deletedAt,
       isPaused: shop.isPaused,
       pausedMessage: shop.pausedMessage,
       orderAcceptanceMode: shop.orderAcceptanceMode,

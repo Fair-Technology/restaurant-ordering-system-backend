@@ -1,4 +1,4 @@
-import { Order, StoredOrderState } from '../../../domain/order/Order';
+import { Order, OPEN_ORDER_STATES, StoredOrderState } from '../../../domain/order/Order';
 import { orderContainer } from '../cosmosClient';
 import type { OrderForRejectionStats } from '../../../domain/usage/rejectionStats';
 import type { ReportOrderRow } from '../../../domain/report/salesReport';
@@ -281,6 +281,19 @@ export async function findReportRows(
     rows: [...accepted.resources, ...refunded.resources],
     requestCharge: accepted.requestCharge + refunded.requestCharge,
   };
+}
+
+/** Orders of a shop that are not finished (placed, accepted, ready, out for delivery; booked orders included). */
+export async function countOpenOrdersByShopId(shopId: string): Promise<number> {
+  const querySpec = {
+    query: 'SELECT VALUE COUNT(1) FROM c WHERE c.shopId = @shopId AND ARRAY_CONTAINS(@states, c.state)',
+    parameters: [
+      { name: '@shopId', value: shopId },
+      { name: '@states', value: [...OPEN_ORDER_STATES] },
+    ],
+  };
+  const { resources } = await orderContainer.items.query<number>(querySpec).fetchAll();
+  return resources[0] ?? 0;
 }
 
 /** Orders waiting for staff now (booked orders still under Upcoming excluded). */
