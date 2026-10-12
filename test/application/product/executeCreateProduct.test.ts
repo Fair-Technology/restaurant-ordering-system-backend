@@ -54,7 +54,7 @@ describe('executeCreateProduct menu fields', () => {
         dietaryTagIds: [],
         spiceLevel: null,
         prepMinutes: null,
-        taxClassId: null,
+        taxClassId: 'food', // copied from its category c1
       }),
     );
     if (!result.ok) return;
@@ -101,5 +101,25 @@ describe('executeCreateProduct menu fields', () => {
 
     expect(result.ok).toBe(true);
     expect(findCategoriesByShopId).not.toHaveBeenCalled();
+  });
+
+  it('a new dish copies its category\'s tax class when none is sent', async () => {
+    (findCategoriesByShopId as any).mockResolvedValue([
+      { id: 'kids', shopId: 'shop-1', isDeleted: false, taxClassId: 'food' },
+      { id: 'drinks', shopId: 'shop-1', isDeleted: false, taxClassId: 'beverage' },
+    ]);
+    await executeCreateProduct({ ...base, categoryIds: ['drinks', 'kids'] } as any, {} as any);
+    expect(createProduct).toHaveBeenCalledWith(expect.objectContaining({ taxClassId: 'beverage' }));
+  });
+
+  it('keeps a class picked for the dish, even when its category suggests another', async () => {
+    (findCategoriesByShopId as any).mockResolvedValue([{ id: 'kids', shopId: 'shop-1', isDeleted: false, taxClassId: 'food' }]);
+    await executeCreateProduct({ ...base, categoryIds: ['kids'], taxClassId: 'beverage' } as any, {} as any);
+    expect(createProduct).toHaveBeenCalledWith(expect.objectContaining({ taxClassId: 'beverage' }));
+  });
+
+  it('a dish without a category takes the country default', async () => {
+    await executeCreateProduct({ ...base, categoryIds: [] } as any, {} as any);
+    expect(createProduct).toHaveBeenCalledWith(expect.objectContaining({ taxClassId: 'food' }));
   });
 });

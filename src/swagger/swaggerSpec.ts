@@ -456,6 +456,36 @@ export const swaggerSpec = {
         },
       },
     },
+    '/shops/{shopId}/categories/{categoryId}/apply-tax-class': {
+      post: {
+        summary: "Set every dish in the category to the category's tax class",
+        description: 'Bulk fix for a section whose dishes were taxed wrongly. Combos are skipped (taxed per dish inside). Dishes already on the class are left alone.',
+        operationId: 'applyCategoryTaxClass',
+        tags: ['Categories'],
+        parameters: [
+          { name: 'shopId', in: 'path', required: true, schema: { type: 'string' } },
+          { name: 'categoryId', in: 'path', required: true, schema: { type: 'string' } },
+        ],
+        responses: {
+          '200': {
+            description: 'Applied',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    taxClassId: { type: 'string' },
+                    updatedCount: { type: 'integer', description: 'Dishes whose class changed' },
+                  },
+                },
+              },
+            },
+          },
+          '400': { $ref: '#/components/responses/BadRequest' },
+          '404': { $ref: '#/components/responses/NotFound' },
+        },
+      },
+    },
     '/products': {
       get: {
         summary: 'Get products by shop',
@@ -1709,7 +1739,7 @@ export const swaggerSpec = {
           nameTranslations: { $ref: '#/components/schemas/TranslationMap' },
           sortOrder: { type: 'number', description: 'Sort order for display' },
           icon: { type: 'string', description: 'Lucide icon name' },
-          taxClassId: { type: 'string', description: 'Tax class id; absent = country default' },
+          taxClassId: { type: 'string', description: 'Tax class suggested for new dishes in this category; absent = country default' },
         },
       },
       UpdateCategoryRequest: {
@@ -1876,7 +1906,7 @@ export const swaggerSpec = {
           taxClassId: {
             type: 'string',
             nullable: true,
-            description: 'Per-dish tax class override; null = inherit from category',
+            description: "The dish's own tax class. Absent or null when saving = copy its first category's class (else the country default)",
           },
           isAvailable: {
             type: 'boolean',
@@ -1943,7 +1973,7 @@ export const swaggerSpec = {
           taxClassId: {
             type: 'string',
             nullable: true,
-            description: 'Per-dish tax class override; null = inherit from category',
+            description: "The dish's own tax class. Absent or null when saving = copy its first category's class (else the country default)",
           },
           isAvailable: {
             type: 'boolean',
@@ -2019,7 +2049,7 @@ export const swaggerSpec = {
           taxClassId: {
             type: 'string',
             nullable: true,
-            description: 'Per-dish tax class override; null = inherit from category',
+            description: "The dish's own tax class. Absent or null when saving = copy its first category's class (else the country default)",
           },
           isDeclared: {
             type: 'boolean',

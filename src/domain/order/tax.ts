@@ -13,7 +13,26 @@ export function extractVatCents(grossCents: number, rateBasisPoints: number): nu
   return roundHalfUp(grossCents * rateBasisPoints, 10000 + rateBasisPoints);
 }
 
-/** Per-dish override, else the first found category (in categoryIds order), else the country default. */
+/**
+ * The class a new dish starts with: its first found category's (in categoryIds order), else the country
+ * default. Only a suggestion — the dish stores its own copy, so later category changes don't re-tax it.
+ */
+export function suggestedTaxClassId(
+  categoryIds: readonly string[],
+  categories: ReadonlyArray<Pick<Category, 'id' | 'taxClassId'>>,
+  countryDefault: string | null,
+): string | null {
+  for (const categoryId of categoryIds) {
+    const category = categories.find((c) => c.id === categoryId);
+    if (category) return category.taxClassId ?? countryDefault;
+  }
+  return countryDefault;
+}
+
+/**
+ * The dish's own class. Falling back to the category is a safety net for dishes saved before every dish
+ * owned its class (2026-10-12); the conversion script gives those their own copy.
+ */
 export function effectiveTaxClassId(
   product: Pick<Product, 'taxClassId' | 'categoryIds'>,
   categories: ReadonlyArray<Pick<Category, 'id' | 'taxClassId'>>,

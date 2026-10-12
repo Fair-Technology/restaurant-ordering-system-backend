@@ -1,6 +1,7 @@
 import { HttpRequest } from '@azure/functions';
 import { createProduct as createProductInRepo } from '../../../infrastructure/cosmos/product/CosmosProductRepository';
 import { findCategoriesByShopId } from '../../../infrastructure/cosmos/category/CosmosCategoryRepository';
+import { suggestedTaxClassId } from '../../../domain/order/tax';
 import { Category } from '../../../domain/category/Category';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { getReferenceLists } from '../../../infrastructure/cosmos/reference/CosmosReferenceListsRepository';
@@ -143,7 +144,8 @@ export async function executeCreateProduct(
       spiceLevel: menu.spiceLevel ?? null,
       prepMinutes: menu.prepMinutes ?? null,
       unavailableModes: menu.unavailableModes ?? [],
-      taxClassId: menu.taxClassId ?? null,
+      // Every dish owns its class; without one sent, it copies its category's
+      taxClassId: menu.taxClassId ?? suggestedTaxClassId(uniqueCategoryIds, shopCategories, refs.defaultTaxClassId),
       isAvailable: (request.categoryIds?.length ?? 0) > 0
         ? (request.isAvailable ?? true)
         : false,

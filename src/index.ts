@@ -40,6 +40,7 @@ import './functions/category/getCategory/index';
 import './functions/category/createCategory/index';
 import './functions/category/updateCategory/index';
 import './functions/category/deleteCategory/index';
+import './functions/category/applyCategoryTaxClass/index';
 
 // Order endpoints
 import './functions/order/checkout/index';
