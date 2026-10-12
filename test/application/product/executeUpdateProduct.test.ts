@@ -119,10 +119,27 @@ describe('executeUpdateProduct menu fields', () => {
     expect(findCategoriesByShopId).toHaveBeenCalledWith('shop-1');
   });
 
-  it('skips the category query when categoryIds is not part of the update', async () => {
+  it('reads the categories once even when categoryIds is not part of the update', async () => {
     const result = await executeUpdateProduct({ productId: 'p1', shopId: 'shop-1', name: 'Margherita 2' } as any, {} as any);
 
     expect(result.ok).toBe(true);
-    expect(findCategoriesByShopId).not.toHaveBeenCalled();
+    expect(findCategoriesByShopId).toHaveBeenCalledTimes(1);
+  });
+
+  it('a dish saved before dishes owned their class gets its category\'s copied in on its next save', async () => {
+    await executeUpdateProduct({ productId: 'p1', shopId: 'shop-1', name: 'Margherita 2' } as any, {} as any);
+    expect(updateProduct).toHaveBeenCalledWith(expect.objectContaining({ taxClassId: 'food' }));
+  });
+
+  it('null (the old "inherit") copies the category\'s class instead of storing null', async () => {
+    (findProductById as any).mockResolvedValue(storedProduct({ taxClassId: 'beverage' }));
+    await executeUpdateProduct({ productId: 'p1', shopId: 'shop-1', taxClassId: null } as any, {} as any);
+    expect(updateProduct).toHaveBeenCalledWith(expect.objectContaining({ taxClassId: 'food' }));
+  });
+
+  it('keeps the dish\'s own class when it differs from its category\'s', async () => {
+    (findProductById as any).mockResolvedValue(storedProduct({ taxClassId: 'beverage' }));
+    await executeUpdateProduct({ productId: 'p1', shopId: 'shop-1', name: 'Kinder-Apfelschorle' } as any, {} as any);
+    expect(updateProduct).toHaveBeenCalledWith(expect.objectContaining({ taxClassId: 'beverage' }));
   });
 });

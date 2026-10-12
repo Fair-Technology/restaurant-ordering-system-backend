@@ -45,6 +45,13 @@ describe('priceBasket', () => {
     expect(r.taxBreakdown).toEqual([{ rateBasisPoints: 1900, grossCents: 350, taxCents: 56 }]);
   });
 
+  it('a dish is taxed by its own class, not by the category it sits in', () => {
+    // A kids apple juice in a Food category (pasta) keeps its own Beverages class
+    const juice = { ...P_COLA, categoryIds: ['pasta', 'drinks'], taxClassId: 'beverage' };
+    const r = price([{ productId: 'p2', quantity: 1 }], {}, [juice]);
+    expect(r.items[0]).toMatchObject({ taxClassId: 'beverage', taxRateBasisPoints: 1900 });
+  });
+
   it('mixed basket breakdown', () => {
     const r = price([
       { productId: 'p1', quantity: 1 },

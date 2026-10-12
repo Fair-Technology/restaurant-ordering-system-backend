@@ -5,6 +5,7 @@ import {
 } from '../../../infrastructure/cosmos/product/CosmosProductRepository';
 import { findCategoriesByShopId } from '../../../infrastructure/cosmos/category/CosmosCategoryRepository';
 import { Category } from '../../../domain/category/Category';
+import { suggestedTaxClassId } from '../../../domain/order/tax';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { getReferenceLists } from '../../../infrastructure/cosmos/reference/CosmosReferenceListsRepository';
 import { authorizeShopAction, toAuditActor } from '../../_shared/shopAccess';
@@ -60,7 +61,8 @@ export async function executeUpdateProduct(
     const [product, shop, shopCategories] = await Promise.all([
       findProductById(productId, shopId),
       findShopById(shopId),
-      needsCategoryLookup ? findCategoriesByShopId(shopId) : Promise.resolve<Category[]>([]),
+      // Always read: also needed to give a dish without its own tax class a copy of its category's
+      findCategoriesByShopId(shopId),
     ]);
 
     if (!product) {
@@ -199,6 +201,14 @@ export async function executeUpdateProduct(
       ...menu,
       updatedAt: new Date().toISOString(),
     };
+    // Every dish owns its class: null (the old "inherit") or a dish saved before then gets its category's copied in
+    if (!updatedProduct.taxClassId && !updatedProduct.combo) {
+      updatedProduct.taxClassId = suggestedTaxClassId(
+        updatedProduct.categoryIds,
+        shopCategories.filter((c) => !c.isDeleted),
+        refs.defaultTaxClassId,
+      );
+    }
 
     const result = await updateProductInRepo(updatedProduct);
 
