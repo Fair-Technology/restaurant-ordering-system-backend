@@ -118,8 +118,8 @@ describe('executeCreateProduct menu fields', () => {
     expect(createProduct).toHaveBeenCalledWith(expect.objectContaining({ taxClassId: 'beverage' }));
   });
 
-  it('a dish without a category takes the country default', async () => {
+  it('a dish without a category (e.g. imported) has no class until it gets a category', async () => {
     await executeCreateProduct({ ...base, categoryIds: [] } as any, {} as any);
-    expect(createProduct).toHaveBeenCalledWith(expect.objectContaining({ taxClassId: 'food' }));
+    expect(createProduct).toHaveBeenCalledWith(expect.objectContaining({ taxClassId: null }));
   });
 });

@@ -142,4 +142,11 @@ describe('executeUpdateProduct menu fields', () => {
     await executeUpdateProduct({ productId: 'p1', shopId: 'shop-1', name: 'Kinder-Apfelschorle' } as any, {} as any);
     expect(updateProduct).toHaveBeenCalledWith(expect.objectContaining({ taxClassId: 'beverage' }));
   });
+
+  it('an imported dish without a class gets its first category\'s when it is given one', async () => {
+    (findProductById as any).mockResolvedValue(storedProduct({ categoryIds: [], isAvailable: false }));
+    (findCategoriesByShopId as any).mockResolvedValue([{ id: 'drinks', shopId: 'shop-1', isDeleted: false, taxClassId: 'beverage' }]);
+    await executeUpdateProduct({ productId: 'p1', shopId: 'shop-1', categoryIds: ['drinks'] } as any, {} as any);
+    expect(updateProduct).toHaveBeenCalledWith(expect.objectContaining({ taxClassId: 'beverage' }));
+  });
 });
