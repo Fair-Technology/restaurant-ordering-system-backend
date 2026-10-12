@@ -144,8 +144,11 @@ export async function executeCreateProduct(
       spiceLevel: menu.spiceLevel ?? null,
       prepMinutes: menu.prepMinutes ?? null,
       unavailableModes: menu.unavailableModes ?? [],
-      // Every dish owns its class; without one sent, it copies its category's
-      taxClassId: menu.taxClassId ?? suggestedTaxClassId(uniqueCategoryIds, shopCategories, refs.defaultTaxClassId),
+      // Every dish owns its class; without one sent, it copies its category's. A dish without a category
+      // (e.g. from the menu import) can't be sold yet, so it gets its class with its first category
+      taxClassId:
+        menu.taxClassId ??
+        (uniqueCategoryIds.length > 0 ? suggestedTaxClassId(uniqueCategoryIds, shopCategories, refs.defaultTaxClassId) : null),
       isAvailable: (request.categoryIds?.length ?? 0) > 0
         ? (request.isAvailable ?? true)
         : false,

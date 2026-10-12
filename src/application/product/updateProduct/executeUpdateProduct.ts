@@ -202,7 +202,7 @@ export async function executeUpdateProduct(
       updatedAt: new Date().toISOString(),
     };
     // Every dish owns its class: null (the old "inherit") or a dish saved before then gets its category's copied in
-    if (!updatedProduct.taxClassId && !updatedProduct.combo) {
+    if (!updatedProduct.taxClassId && !updatedProduct.combo && updatedProduct.categoryIds.length > 0) {
       updatedProduct.taxClassId = suggestedTaxClassId(
         updatedProduct.categoryIds,
         shopCategories.filter((c) => !c.isDeleted),
