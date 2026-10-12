@@ -1,4 +1,4 @@
-import type { Category } from '../../../domain/category/Category';
+import { type Category, isCategoryLive } from '../../../domain/category/Category';
 import { localize, menuLanguagesOf } from '../../../domain/menu/menuLanguage';
 import type { FulfilmentMode, OrderItem, TaxBreakdownEntry } from '../../../domain/order/Order';
 import { COMBO_CHOICES_ERROR } from '../../../domain/order/orderErrors';
@@ -99,9 +99,22 @@ export function activeBasePriceCents(p: Pick<Product, 'price' | 'schedule'>): nu
   return typeof offer === 'number' && Number.isInteger(offer) && offer > 0 && offer < p.price ? offer : p.price;
 }
 
-function isOrderable(p: Product | undefined, mode: FulfilmentMode, timezone: string, now: Date): p is Product {
+/** False when every category the dish sits in is switched off or outside its times (a dish shows if any is live). */
+function hasLiveCategory(p: Product, categories: Category[], timezone: string, now: Date): boolean {
+  const own = categories.filter((c) => (p.categoryIds ?? []).includes(c.id) && !c.isDeleted);
+  return own.length === 0 || own.some((c) => isCategoryLive(c, timezone, now));
+}
+
+function isOrderable(
+  p: Product | undefined,
+  mode: FulfilmentMode,
+  timezone: string,
+  now: Date,
+  categories: Category[],
+): p is Product {
   return (
     !!p &&
+    hasLiveCategory(p, categories, timezone, now) &&
     !p.isDeleted &&
     p.isAvailable &&
     isDeclared(p) &&
@@ -179,7 +192,7 @@ export function priceBasket(input: {
       lineTotalCents: null,
     });
 
-    if (!isOrderable(p, mode, shop.timezone, now)) return reject('unavailable');
+    if (!isOrderable(p, mode, shop.timezone, now, categories)) return reject('unavailable');
 
     if (p.combo) {
       if (entry.selectedVariantOptionId || (entry.selectedAddonOptionIds ?? []).length > 0) return reject('invalid_options');
@@ -191,7 +204,7 @@ export function priceBasket(input: {
         if (picked.length !== 1 || !group.productIds.includes(picked[0].productId)) return reject('invalid_options');
         const dish = products.get(picked[0].productId);
         if (dish?.combo) return reject('invalid_options');
-        if (!isOrderable(dish, mode, shop.timezone, now)) return reject('unavailable');
+        if (!isOrderable(dish, mode, shop.timezone, now, categories)) return reject('unavailable');
         const sel = priceSelection(dish, picked[0].selectedVariantOptionId, picked[0].selectedAddonOptionIds);
         if (typeof sel === 'string') return reject(sel);
         const classId = effectiveTaxClassId(dish, categories, refs.defaultTaxClassId);

@@ -1,4 +1,4 @@
-import { Category } from '../../../domain/category/Category';
+import { Category, isCategoryLive } from '../../../domain/category/Category';
 import { menuLanguagesOf, localize, resolveMenuLanguage, TranslationMap } from '../../../domain/menu/menuLanguage';
 import { isOnMenu, Product, ProductOption, ProductSchedule } from '../../../domain/product/Product';
 import { DIETARY_TAGS, SPICE_LEVELS, SpiceLevel } from '../../../domain/product/dietary';
@@ -63,9 +63,10 @@ export function buildCatalog(input: {
 
   const visible = products.filter((p) => isOnMenu(p) && isWithinSchedule(p.schedule ?? null, shop.timezone, now));
 
-  // A combo only offers dishes that are on the menu and listed under a live category; with a choice
-  // left empty it is not on the menu at all.
-  const liveCategoryIds = new Set(categories.filter((c) => !c.isDeleted).map((c) => c.id));
+  // A category is live when not deleted, switched on and inside its times. A combo only offers dishes
+  // that are on the menu and listed under a live category; with a choice left empty it is not on the menu at all.
+  const liveCategories = categories.filter((c) => isCategoryLive(c, shop.timezone, now));
+  const liveCategoryIds = new Set(liveCategories.map((c) => c.id));
   const listed = new Map(
     visible.filter((p) => !p.combo && p.categoryIds.some((id) => liveCategoryIds.has(id))).map((p) => [p.id, p]),
   );
@@ -105,8 +106,7 @@ export function buildCatalog(input: {
     isAvailable: o.isAvailable,
   });
 
-  const categoryDtos: CatalogCategoryDto[] = categories
-    .filter((c) => !c.isDeleted)
+  const categoryDtos: CatalogCategoryDto[] = liveCategories
     .map((c) => ({
       id: c.id,
       name: L(c.name, c.nameTranslations),
