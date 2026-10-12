@@ -9,6 +9,7 @@ import { authorizeShopAction, toAuditActor } from '../../_shared/shopAccess';
 import { UpdateCategoryRequestDto, UpdateCategoryResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 import { normaliseTranslations } from '../../../domain/menu/menuLanguage';
+import { parseCategorySchedule } from '../../../domain/category/Category';
 import { diffFields, logAudit } from '../../_shared/auditHelpers';
 
 export async function executeUpdateCategory(
@@ -79,6 +80,16 @@ export async function executeUpdateCategory(
       nameTranslations = normalised;
     }
 
+    if (request.isAvailable !== undefined && typeof request.isAvailable !== 'boolean') {
+      return { ok: false, code: 'INVALID_INPUT', error: 'isAvailable must be true or false' };
+    }
+    let schedule = existingCategory.schedule ?? null;
+    if (request.schedule !== undefined) {
+      const parsed = parseCategorySchedule(request.schedule);
+      if (typeof parsed === 'string') return { ok: false, code: 'INVALID_INPUT', error: parsed };
+      schedule = parsed;
+    }
+
     const now = new Date().toISOString();
 
     const updatedCategory = {
@@ -91,6 +102,8 @@ export async function executeUpdateCategory(
           : existingCategory.sortOrder,
       icon: request.icon !== undefined ? request.icon : existingCategory.icon,
       taxClassId: request.taxClassId ?? existingCategory.taxClassId ?? null,
+      isAvailable: request.isAvailable ?? existingCategory.isAvailable !== false,
+      schedule,
       updatedAt: now,
     };
 
@@ -99,8 +112,8 @@ export async function executeUpdateCategory(
     const changes = diffFields(
       existingCategory as unknown as Record<string, unknown>,
       updatedCategory as unknown as Record<string, unknown>,
-      ['name', 'sortOrder', 'icon', 'taxClassId'],
-      ['nameTranslations'],
+      ['name', 'sortOrder', 'icon', 'taxClassId', 'isAvailable'],
+      ['nameTranslations', 'schedule'],
     );
     await logAudit({
       shopId: savedCategory.shopId,
@@ -120,6 +133,8 @@ export async function executeUpdateCategory(
       sortOrder: savedCategory.sortOrder,
       icon: savedCategory.icon,
       taxClassId: savedCategory.taxClassId ?? null,
+      isAvailable: savedCategory.isAvailable !== false,
+      schedule: savedCategory.schedule ?? null,
       isDeleted: savedCategory.isDeleted,
       createdAt: savedCategory.createdAt,
       updatedAt: savedCategory.updatedAt,

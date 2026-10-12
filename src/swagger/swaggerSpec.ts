@@ -1720,6 +1720,21 @@ export const swaggerSpec = {
           sortOrder: { type: 'number', description: 'Sort order for display' },
           icon: { type: 'string', description: 'Lucide icon name' },
           taxClassId: { type: 'string', description: 'Tax class id' },
+          isAvailable: { type: 'boolean', description: 'false switches the category off: hidden on the storefront, its dishes not orderable unless also in a live category' },
+          schedule: {
+            allOf: [{ $ref: '#/components/schemas/CategorySchedule' }],
+            nullable: true,
+            description: 'Weekly times the category shows; null clears them (always shown)',
+          },
+        },
+      },
+      CategorySchedule: {
+        type: 'object',
+        required: ['daysOfWeek', 'startTime', 'endTime'],
+        properties: {
+          daysOfWeek: { type: 'array', items: { type: 'integer', minimum: 0, maximum: 6 }, description: '0=Sunday … 6=Saturday; at least one' },
+          startTime: { type: 'string', example: '11:30', description: 'HH:mm in the shop time zone; shown from' },
+          endTime: { type: 'string', example: '14:30', description: 'HH:mm; hidden from; after startTime' },
         },
       },
       CategoryResponse: {
@@ -1732,6 +1747,12 @@ export const swaggerSpec = {
           sortOrder: { type: 'number', description: 'Sort order for display' },
           icon: { type: 'string', description: 'Lucide icon name' },
           taxClassId: { type: 'string', nullable: true, description: 'Tax class id, or null if the country has none configured' },
+          isAvailable: { type: 'boolean', description: 'false = switched off, hidden on the storefront' },
+          schedule: {
+            allOf: [{ $ref: '#/components/schemas/CategorySchedule' }],
+            nullable: true,
+            description: 'Weekly times the category shows; null = always',
+          },
           isDeleted: {
             type: 'boolean',
             description: 'Whether category is deleted',

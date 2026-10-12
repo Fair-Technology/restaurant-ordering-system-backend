@@ -41,6 +41,8 @@ export async function executeGetCategoriesByShop(
       sortOrder: category.sortOrder,
       icon: category.icon,
       taxClassId: category.taxClassId ?? null,
+      isAvailable: category.isAvailable !== false,
+      schedule: category.schedule ?? null,
       isDeleted: category.isDeleted,
       createdAt: category.createdAt,
       updatedAt: category.updatedAt,
