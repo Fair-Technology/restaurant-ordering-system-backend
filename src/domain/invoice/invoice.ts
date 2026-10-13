@@ -451,26 +451,6 @@ export function invoiceTextLines(inv: InvoiceDoc): InvoiceText {
   };
 }
 
-// Characters beyond Latin-1 that the PDF's standard font (WinAnsi, Windows-1252) can still show.
-const WIN_ANSI_EXTRAS = new Set('€‚ƒ„…†‡ˆ‰Š‹ŒŽ‘’“”•–—˜™š›œžŸ');
-
-/** Replaces every character the PDF font cannot show with '?' (one per character, emoji included). */
-export function toWinAnsi(text: string): string {
-  let out = '';
-  for (const ch of text) {
-    const code = ch.codePointAt(0) as number;
-    if (/\s/.test(ch) && code !== 0xa0) out += ' ';
-    else if (
-      (code >= 0x20 && code <= 0x7e) ||
-      (code >= 0xa0 && code <= 0xff) ||
-      WIN_ANSI_EXTRAS.has(ch)
-    )
-      out += ch;
-    else out += '?';
-  }
-  return out;
-}
-
 export function invoiceFileName(
   inv: Pick<InvoiceDoc, 'number' | 'language' | 'documentType'>,
 ): string {
