@@ -33,6 +33,9 @@ export interface ValidMenuFields {
   addonGroups?: ProductAddonGroup[];
 }
 
+export const OPTION_ALLERGENS_ERROR = "Each option's allergenIds must be a list of allergen ids";
+export const OPTION_ADDITIVES_ERROR = "Each option's additiveIds must be a list of additive ids";
+
 const SPICE_VALUES: ReadonlyArray<SpiceLevel | null> = [null, 'mild', 'medium', 'hot'];
 
 function dedupe(ids: string[]): string[] {
@@ -59,8 +62,25 @@ function validateIdList(
   return dedupe(value as string[]);
 }
 
+function optionIdList(
+  value: unknown,
+  previous: string[] | undefined,
+  known: ReadonlySet<string>,
+  fieldName: 'allergenIds' | 'additiveIds',
+  unknownLabel: 'allergen' | 'additive',
+  shapeError: string,
+): string[] | { error: string } {
+  if (value === undefined) return Array.isArray(previous) ? [...previous] : [];
+  if (!Array.isArray(value)) return { error: shapeError };
+  const result = validateIdList(value, known, fieldName, unknownLabel);
+  if (typeof result === 'string') return { error: result };
+  return result ?? [];
+}
+
 function validateGroup(
   group: ProductVariantGroup | ProductAddonGroup,
+  known: { allergens: ReadonlySet<string>; additives: ReadonlySet<string> },
+  previous: ReadonlyMap<string, ProductOption>,
 ): ProductVariantGroup | ProductAddonGroup | string {
   const nameTranslations = normaliseTranslations(group.nameTranslations, 120);
   if (typeof nameTranslations === 'string') return nameTranslations;
@@ -69,7 +89,13 @@ function validateGroup(
   for (const option of group.options) {
     const optionTranslations = normaliseTranslations(option.nameTranslations, 120);
     if (typeof optionTranslations === 'string') return optionTranslations;
-    options.push({ ...option, nameTranslations: optionTranslations });
+    const prev = previous.get(option.id);
+    const raw = option as unknown as { allergenIds?: unknown; additiveIds?: unknown };
+    const a = optionIdList(raw.allergenIds, prev?.allergenIds, known.allergens, 'allergenIds', 'allergen', OPTION_ALLERGENS_ERROR);
+    if (!Array.isArray(a)) return a.error;
+    const d = optionIdList(raw.additiveIds, prev?.additiveIds, known.additives, 'additiveIds', 'additive', OPTION_ADDITIVES_ERROR);
+    if (!Array.isArray(d)) return d.error;
+    options.push({ ...option, nameTranslations: optionTranslations, allergenIds: a, additiveIds: d });
   }
 
   return { ...group, nameTranslations, options } as ProductVariantGroup | ProductAddonGroup;
@@ -78,13 +104,21 @@ function validateGroup(
 export function validateMenuFields(
   input: MenuFieldsInput,
   refs: ReferenceListsDoc,
-  existing: { allergenIds?: string[] | null; dietaryTagIds?: string[] } | null,
+  existing: {
+    allergenIds?: string[] | null;
+    dietaryTagIds?: string[];
+    variantGroups?: ProductVariantGroup[];
+    addonGroups?: ProductAddonGroup[];
+  } | null,
 ): ValidMenuFields | { error: string } {
   const out: ValidMenuFields = {};
 
   const allergenIds = new Set(refs.allergens.map((a) => a.id));
   const additiveIds = new Set(refs.additives.map((a) => a.id));
   const dietaryTagIds = new Set<string>(DIETARY_TAGS.map((t) => t.id));
+  const known = { allergens: allergenIds, additives: additiveIds };
+  const optionsOf = (gs: ReadonlyArray<{ options?: ProductOption[] }> | undefined) =>
+    new Map((gs ?? []).flatMap((g) => g.options ?? []).map((o) => [o.id, o] as const));
 
   if ('allergenIds' in input && input.allergenIds !== undefined) {
     const result = validateIdList(input.allergenIds, allergenIds, 'allergenIds', 'allergen');
@@ -157,7 +191,7 @@ export function validateMenuFields(
   if (input.variantGroups) {
     const groups: ProductVariantGroup[] = [];
     for (const group of input.variantGroups) {
-      const result = validateGroup(group);
+      const result = validateGroup(group, known, optionsOf(existing?.variantGroups));
       if (typeof result === 'string') return { error: result };
       groups.push(result as ProductVariantGroup);
     }
@@ -167,7 +201,7 @@ export function validateMenuFields(
   if (input.addonGroups) {
     const groups: ProductAddonGroup[] = [];
     for (const group of input.addonGroups) {
-      const result = validateGroup(group);
+      const result = validateGroup(group, known, optionsOf(existing?.addonGroups));
       if (typeof result === 'string') return { error: result };
       groups.push(result as ProductAddonGroup);
     }

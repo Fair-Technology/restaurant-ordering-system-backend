@@ -104,6 +104,8 @@ export function buildCatalog(input: {
     name: L(o.name, o.nameTranslations),
     priceDelta: o.priceDelta,
     isAvailable: o.isAvailable,
+    allergens: allergenLabel(o.allergenIds ?? []),
+    additives: additiveLabel(o.additiveIds ?? []),
   });
 
   const categoryDtos: CatalogCategoryDto[] = liveCategories

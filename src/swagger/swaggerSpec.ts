@@ -1424,6 +1424,10 @@ export const swaggerSpec = {
           name: { type: 'string', description: 'Option name', example: 'Large' },
           priceDelta: { type: 'integer', description: 'Price delta in cents', example: 200 },
           isAvailable: { type: 'boolean', description: 'Whether option is available', example: true },
+          allergenIds: { type: 'array', items: { type: 'string' }, description: 'Owner-declared allergen ids this option adds (product endpoints; absent on older records = none)' },
+          additiveIds: { type: 'array', items: { type: 'string' }, description: 'Owner-declared additive ids this option adds (product endpoints; absent on older records = none)' },
+          allergens: { type: 'array', items: { $ref: '#/components/schemas/CatalogLabel' }, description: 'Catalog only: allergens this option adds, labelled' },
+          additives: { type: 'array', items: { type: 'object', properties: { id: { type: 'string' }, code: { type: 'integer' }, label: { type: 'string' } }, required: ['id', 'code', 'label'] }, description: 'Catalog only' },
         },
       },
       VariantGroup: {
@@ -1443,6 +1447,10 @@ export const swaggerSpec = {
           name: { type: 'string', description: 'Option name', example: 'Extra cheese' },
           priceDelta: { type: 'integer', description: 'Price delta in cents', example: 150 },
           isAvailable: { type: 'boolean', description: 'Whether option is available', example: true },
+          allergenIds: { type: 'array', items: { type: 'string' }, description: 'Owner-declared allergen ids this option adds (product endpoints; absent on older records = none)' },
+          additiveIds: { type: 'array', items: { type: 'string' }, description: 'Owner-declared additive ids this option adds (product endpoints; absent on older records = none)' },
+          allergens: { type: 'array', items: { $ref: '#/components/schemas/CatalogLabel' }, description: 'Catalog only: allergens this option adds, labelled' },
+          additives: { type: 'array', items: { type: 'object', properties: { id: { type: 'string' }, code: { type: 'integer' }, label: { type: 'string' } }, required: ['id', 'code', 'label'] }, description: 'Catalog only' },
         },
       },
       AddonGroup: {
