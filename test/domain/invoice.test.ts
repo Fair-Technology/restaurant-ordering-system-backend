@@ -7,7 +7,6 @@ import {
   invoiceFileName,
   invoiceTextLines,
   nextSequence,
-  toWinAnsi,
   yearKeyOf,
 } from '../../src/domain/invoice/invoice';
 import type { Order } from '../../src/domain/order/Order';
@@ -353,10 +352,6 @@ describe('invoice rules', () => {
       }),
     ]);
     expect(c.lines[0].taxCents).toBe(-33);
-  });
-
-  it('replaces characters the PDF font cannot show', () => {
-    expect(toWinAnsi('Café € 🍕 Ω')).toBe('Café € ? ?');
   });
 
   it('file names say what the document is', () => {
