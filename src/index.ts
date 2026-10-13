@@ -63,6 +63,7 @@ import './functions/order/ordersScreenHeartbeat/index';
 import './functions/order/viewCustomerOrder/index';
 import './functions/order/cancelCustomerOrder/index';
 import './functions/order/orderTimers/index';
+import './functions/order/reconcileCheckouts/index';
 
 // Promotion endpoints
 import './functions/promotion/getPromotions/index';

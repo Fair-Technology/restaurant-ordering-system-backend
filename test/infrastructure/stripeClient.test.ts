@@ -35,6 +35,7 @@ import {
   isRetryableStripeError,
   listPaymentRefunds,
   releaseAuthorization,
+  retrievePaymentIntentSnapshot,
   storefrontDomainName,
 } from '../../src/infrastructure/stripe/stripeClient';
 
@@ -177,6 +178,21 @@ describe('stripeClient', () => {
     expect(await findLiveRefund({ connectAccountId: 'acct_1', paymentIntentId: 'pi_1' })).toEqual({ id: 're_ok' });
     m.refundsList.mockResolvedValue({ data: [] });
     expect(await findLiveRefund({ connectAccountId: 'acct_1', paymentIntentId: 'pi_1' })).toBeNull();
+  });
+
+  it('reads a payment on the restaurant account with its authorisation time', async () => {
+    m.piRetrieve.mockResolvedValue({ id: 'pi_1', status: 'requires_capture', amount: 1050, currency: 'eur', metadata: { sessionId: 's1' }, latest_charge: { id: 'ch_1', created: 1791194340 } });
+    expect(await retrievePaymentIntentSnapshot({ connectAccountId: 'acct_1', paymentIntentId: 'pi_1' })).toEqual({
+      id: 'pi_1', status: 'requires_capture', amountCents: 1050, currency: 'eur', sessionId: 's1', authorizedAtMs: 1791194340000,
+    });
+    expect(m.piRetrieve).toHaveBeenCalledWith('pi_1', { expand: ['latest_charge'] }, { stripeAccount: 'acct_1' });
+  });
+
+  it('a payment without a charge object or session id reads as null', async () => {
+    m.piRetrieve.mockResolvedValue({ id: 'pi_1', status: 'requires_capture', amount: 1050, currency: 'eur', metadata: {}, latest_charge: 'ch_1' });
+    const snap = await retrievePaymentIntentSnapshot({ connectAccountId: 'acct_1', paymentIntentId: 'pi_1' });
+    expect(snap.authorizedAtMs).toBeNull();
+    expect(snap.sessionId).toBeNull();
   });
 
   it('storefront domain comes from the storefront URL', () => {

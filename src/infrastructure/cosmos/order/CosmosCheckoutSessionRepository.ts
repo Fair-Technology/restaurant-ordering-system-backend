@@ -30,3 +30,14 @@ export async function deleteCheckoutSession(sessionId: string): Promise<void> {
     throw error;
   }
 }
+
+/** Checkouts last written in [oldest, newest] (Cosmos _ts, epoch seconds). */
+export async function findCheckoutSessionsWrittenBetween(oldestEpochSeconds: number, newestEpochSeconds: number): Promise<CheckoutSession[]> {
+  const { resources } = await checkoutSessionContainer.items
+    .query<CheckoutSession>({
+      query: 'SELECT * FROM c WHERE c._ts >= @oldest AND c._ts <= @newest',
+      parameters: [{ name: '@oldest', value: oldestEpochSeconds }, { name: '@newest', value: newestEpochSeconds }],
+    })
+    .fetchAll();
+  return resources;
+}
