@@ -13,13 +13,14 @@ Everything the platform writes as legal wording lives in code, so a change is on
 
 All platform-written wording is a placeholder marked "DRAFT – not reviewed by a lawyer". `isDraft: true` on a document makes the admin and storefront show it as a draft. Nothing here is lawyer-approved yet.
 
-Sign-off: Manish, after the lawyer review. Replace the placeholder clauses in `platformDocuments.ts`, set `isDraft: false` on the reviewed version, and review `privacyNotice.ts` the same way.
+Sign-off: Manish reviews Claude's draft wording. Privacy notice: set `PRIVACY_IS_DRAFT = false` and drop `-draft` from `PRIVACY_TEMPLATE_VERSION`; diners accept nothing, so no one is asked again. DPA: it cannot leave draft while any clause starts with the placeholder; a non-draft DPA is a new appended version with `isDraft: false`, which owners accept once.
 
 ## Publishing a new DPA version
 
 1. Append a new `PlatformDocument` to `DPA_VERSIONS`. Never edit a published one: restaurants accepted a specific version, and that record has to stay true.
 2. Use a new `version` string (the convention is the publish date, `YYYY-MM-DD`, plus `-draft` while it is a draft).
 3. `CURRENT_DPA` is always the last entry.
+4. Give each version its own frozen `HEADINGS_<date>` and `EXTRA_PARAGRAPHS_<date>`; never edit an older version's constants.
 
 What happens next:
 
