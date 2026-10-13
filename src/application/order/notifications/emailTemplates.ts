@@ -48,6 +48,10 @@ const REJECT_SENTENCES: Record<RejectReason, Bilingual> = {
     de: 'Die Zahlung konnte bei der Annahme nicht abgeschlossen werden.',
     en: 'The payment could not be completed when the restaurant accepted.',
   },
+  shop_unavailable: {
+    de: 'Das Restaurant nimmt gerade keine Bestellungen an.',
+    en: 'The restaurant is not taking orders right now.',
+  },
 };
 
 function escapeHtml(value: string): string {

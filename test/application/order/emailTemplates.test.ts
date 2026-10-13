@@ -99,6 +99,15 @@ describe('order emails', () => {
     expect(mail.text).toContain('Die Zahlung konnte bei der Annahme nicht abgeschlossen werden.');
   });
 
+  it('a decline because the shop stopped taking orders explains itself', () => {
+    const mail = build('order_rejected', {
+      ...PLACED_CARD_ORDER,
+      state: 'REJECTED',
+      history: [...PLACED_CARD_ORDER.history, { from: 'PLACED', to: 'REJECTED', at: '2026-10-05T10:00:30.000Z', actor: { type: 'system' }, reason: 'shop_unavailable' }],
+    });
+    expect(mail.text).toContain('Das Restaurant nimmt gerade keine Bestellungen an.');
+  });
+
   it('a paid order that is declined promises a refund', () => {
     const mail = build('order_cancelled', { ...ACCEPTED_CARD_ORDER, state: 'CANCELLED' });
     expect(mail.text).toContain('Wir erstatten Ihnen den vollen Betrag von 10,50 €.');

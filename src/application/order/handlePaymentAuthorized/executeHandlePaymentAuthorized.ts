@@ -1,3 +1,5 @@
+import { applyTransition } from '../../../domain/order/orderLifecycle';
+import { shopRefusalForPaidCheckout } from '../../../domain/order/shopAvailability';
 import { autoAcceptsOrder, isUpcoming } from '../../../domain/order/scheduling';
 import { orderSettingsOf } from '../../../domain/order/orderSettings';
 import { PAYMENT_SERVICE_UNAVAILABLE_ERROR } from '../../../domain/order/orderErrors';
@@ -10,15 +12,17 @@ import { createOrder, findOrderById } from '../../../infrastructure/cosmos/order
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { releaseAuthorization } from '../../../infrastructure/stripe/stripeClient';
 import { acceptPlacedOrder } from '../_shared/acceptPlacedOrder';
+import { releaseClosedOrderPayment } from '../_shared/releasePayment';
 import { fixSlotPlace } from '../_shared/slotPlaces';
 import { notifyCustomer } from '../notifications/notifyOrder';
 import { buildPlacedOrderFromSession } from './buildPlacedOrderFromSession';
 
-export type PaymentAuthorizedOutcome = 'created' | 'duplicate' | 'released_orphan' | 'no_session';
+export type PaymentAuthorizedOutcome = 'created' | 'declined_shop_unavailable' | 'duplicate' | 'released_orphan' | 'no_session';
 
 /**
  * Stripe says the diner's card money is reserved: the order now comes into being (placed, reserved).
  * With auto-accept on it is accepted right away; if the payment service is down it waits for the timer.
+ * The shop is re-checked now: if it stopped taking orders meanwhile, the order is created already declined and the hold released.
  * A reservation with no checkout left (the diner idled for over an hour) is released and no order is made.
  */
 export async function executeHandlePaymentAuthorized(input: {
@@ -56,17 +60,30 @@ export async function executeHandlePaymentAuthorized(input: {
     now,
     inLiveQueue,
   });
+  const refusal = shopRefusalForPaidCheckout(shop, session);
+  let toWrite = order;
+  if (refusal) {
+    const declined = applyTransition(order, 'REJECTED', { now, actor: { type: 'system' }, reason: 'shop_unavailable' });
+    if (!declined.ok) throw new Error(declined.error); // PLACED→REJECTED with a reason always succeeds
+    toWrite = declined.order;
+  }
   try {
-    await createOrder(order);
+    await createOrder(toWrite);
   } catch (err: unknown) {
     if ((err as { code?: number })?.code === 409) {
-      if (session.scheduledFor) await fixSlotPlace({ shop, orderId: session.id, slot: session.scheduledFor, now });
+      if (session.scheduledFor && !refusal) await fixSlotPlace({ shop, orderId: session.id, slot: session.scheduledFor, now });
       await deleteCheckoutSession(session.id);
       return 'duplicate';
     }
     throw err;
   }
   await deleteCheckoutSession(session.id);
+  if (refusal) {
+    console.warn('[payment-authorized:shop-unavailable]', toWrite.id, refusal);
+    const released = await releaseClosedOrderPayment(toWrite.id, shop, now);
+    await notifyCustomer('order_rejected', released.order ?? toWrite, shop);
+    return 'declined_shop_unavailable';
+  }
   // The card is reserved: the booked place is kept for good, even if its hold lapsed meanwhile.
   if (order.scheduledFor) await fixSlotPlace({ shop, orderId: order.id, slot: order.scheduledFor, now });
 

@@ -7,7 +7,7 @@ import type { Shop } from '../../../domain/shop/Shop';
 import { documentsOf } from '../invoices/issueInvoice';
 import type { CustomerOrderDto } from './dtos';
 
-const KNOWN_REASONS: readonly string[] = [...REJECT_REASON_CODES, 'no_response', 'payment_failed'];
+const KNOWN_REASONS: readonly string[] = [...REJECT_REASON_CODES, 'no_response', 'payment_failed', 'shop_unavailable'];
 
 /** The diner's view of an order: never the staff note, the token, or other people's data. */
 export function toCustomerOrderDto(order: Order, shop: Shop, now: Date): CustomerOrderDto {

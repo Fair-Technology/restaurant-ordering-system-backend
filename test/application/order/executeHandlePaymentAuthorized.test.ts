@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CheckoutSession } from '../../../src/domain/order/CheckoutSession';
 
 vi.mock('../../../src/infrastructure/cosmos/order/CosmosCheckoutSessionRepository', () => ({
@@ -8,10 +8,16 @@ vi.mock('../../../src/infrastructure/cosmos/order/CosmosCheckoutSessionRepositor
 vi.mock('../../../src/infrastructure/cosmos/order/CosmosOrderRepository', () => ({
   createOrder: vi.fn(async (o) => o),
   findOrderById: vi.fn(async () => null),
+  findOrderWithEtag: vi.fn(),
+  replaceOrderIfMatch: vi.fn(),
 }));
 vi.mock('../../../src/infrastructure/cosmos/shop/CosmosShopRepository', () => ({ findShopById: vi.fn() }));
 vi.mock('../../../src/application/order/_shared/acceptPlacedOrder', () => ({ acceptPlacedOrder: vi.fn() }));
-vi.mock('../../../src/infrastructure/stripe/stripeClient', () => ({ releaseAuthorization: vi.fn(async () => 'canceled') }));
+vi.mock('../../../src/infrastructure/stripe/stripeClient', () => ({
+  releaseAuthorization: vi.fn(async () => 'canceled'),
+  createRefund: vi.fn(),
+  findLiveRefund: vi.fn(async () => null),
+}));
 vi.mock('../../../src/infrastructure/cosmos/usage/CosmosSlotPlacesRepository', () => ({
   findSlotPlacesWithEtag: vi.fn(async () => null),
   createSlotPlaces: vi.fn(async () => 'ok'),
@@ -29,13 +35,14 @@ import {
   deleteCheckoutSession,
   findCheckoutSessionById,
 } from '../../../src/infrastructure/cosmos/order/CosmosCheckoutSessionRepository';
-import { createOrder, findOrderById } from '../../../src/infrastructure/cosmos/order/CosmosOrderRepository';
+import { createOrder, findOrderById, findOrderWithEtag, replaceOrderIfMatch } from '../../../src/infrastructure/cosmos/order/CosmosOrderRepository';
 import { findShopById } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
 import { sendEmail } from '../../../src/infrastructure/email/emailSender';
 import { releaseAuthorization } from '../../../src/infrastructure/stripe/stripeClient';
 import { PAYMENT_SERVICE_UNAVAILABLE_ERROR } from '../../../src/domain/order/orderErrors';
 import { dayDoc, installSlotStore } from '../../fixtures/slotPlaces';
-import { CARD_SHOP, NOW_OPEN, PLACED_CARD_ORDER, SLOT_1800 } from '../../fixtures/orders';
+import { CARD_SHOP, NOW_CLOSED, NOW_OPEN, orderStore, PLACED_CARD_ORDER, SLOT_1800 } from '../../fixtures/orders';
+import type { Order } from '../../../src/domain/order/Order';
 
 const session: CheckoutSession = {
   id: 'sess-1',
@@ -210,6 +217,94 @@ describe('executeHandlePaymentAuthorized', () => {
       (createOrder as any).mockRejectedValueOnce({ code: 409 });
       expect(await executeHandlePaymentAuthorized(input)).toBe('duplicate');
       expect(store.doc('2026-10-05')!.places).toEqual([kept]);
+    });
+  });
+});
+
+describe('a shop that stopped taking orders after checkout (audit row 3)', () => {
+  let store: ReturnType<typeof orderStore>;
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (findCheckoutSessionById as any).mockResolvedValue(session);
+    (findOrderById as any).mockResolvedValue(null);
+    (findShopById as any).mockResolvedValue(manualShop);
+    (acceptPlacedOrder as any).mockResolvedValue({ ok: true, data: {} });
+    (createOrder as any).mockImplementation(async (o: Order) => {
+      store = orderStore(o);
+      (findOrderWithEtag as any).mockImplementation(store.findOrderWithEtag);
+      (replaceOrderIfMatch as any).mockImplementation(store.replaceOrderIfMatch);
+      return o;
+    });
+  });
+  afterEach(() => {
+    (createOrder as any).mockImplementation(async (o: Order) => o);
+  });
+
+  it('an orders-paused shop: declined, card released, nothing accepted', async () => {
+    (findShopById as any).mockResolvedValue({ ...CARD_SHOP, ordersPaused: true });
+    expect(await executeHandlePaymentAuthorized(input)).toBe('declined_shop_unavailable');
+    expect(createOrder).toHaveBeenCalledWith(expect.objectContaining({ id: 'sess-1', state: 'REJECTED' }));
+    expect(store.current.history.at(-1)).toMatchObject({
+      from: 'PLACED', to: 'REJECTED', actor: { type: 'system' }, reason: 'shop_unavailable',
+    });
+    expect(releaseAuthorization).toHaveBeenCalledWith({
+      connectAccountId: 'acct_1', paymentIntentId: 'pi_1', idempotencyKey: 'release-sess-1',
+    });
+    expect(store.current.payment.status).toBe('canceled');
+    expect(acceptPlacedOrder).not.toHaveBeenCalled();
+    expect(sendEmail).toHaveBeenCalledTimes(1);
+    expect(sendEmail).toHaveBeenCalledWith(expect.objectContaining({ tag: 'order_rejected' }));
+    expect(deleteCheckoutSession).toHaveBeenCalledWith('sess-1');
+  });
+
+  it('an owner-offline shop declines the same way', async () => {
+    (findShopById as any).mockResolvedValue({ ...CARD_SHOP, isPaused: true });
+    expect(await executeHandlePaymentAuthorized(input)).toBe('declined_shop_unavailable');
+    expect(acceptPlacedOrder).not.toHaveBeenCalled();
+  });
+
+  it('a superadmin-offline shop declines the same way', async () => {
+    (findShopById as any).mockResolvedValue({ ...CARD_SHOP, offlineBySuperadmin: true });
+    expect(await executeHandlePaymentAuthorized(input)).toBe('declined_shop_unavailable');
+    expect(acceptPlacedOrder).not.toHaveBeenCalled();
+  });
+
+  it('a holiday closure added after checkout declines', async () => {
+    (findShopById as any).mockResolvedValue({
+      ...CARD_SHOP,
+      closures: [{ id: 'c1', start: '2026-10-05T00:00:00Z', end: '2026-10-06T00:00:00Z' }],
+    });
+    expect(await executeHandlePaymentAuthorized(input)).toBe('declined_shop_unavailable');
+  });
+
+  it('the clock passing closing time after checkout does not decline', async () => {
+    expect(await executeHandlePaymentAuthorized({ ...input, now: NOW_CLOSED })).toBe('created');
+    expect(releaseAuthorization).not.toHaveBeenCalled();
+  });
+
+  describe('booked orders', () => {
+    const held = { orderId: 'sess-1', slot: SLOT_1800, heldUntil: '2026-10-05T10:05:00.000Z' };
+    const closedShop = {
+      ...manualShop,
+      orderSettings: { ...manualShop.orderSettings, scheduledOrders: true, slotCapacity: 1 },
+      closures: [{ id: 'c1', start: '2026-10-05T14:00:00Z', end: '2026-10-05T18:00:00Z' }],
+    };
+    beforeEach(() => {
+      (findCheckoutSessionById as any).mockResolvedValue({ ...session, scheduledFor: SLOT_1800 });
+      (findShopById as any).mockResolvedValue(closedShop);
+    });
+
+    it('a booked order whose slot fell into a closure is declined and its place freed', async () => {
+      const store2 = installSlotStore([dayDoc('2026-10-05', [held])]);
+      expect(await executeHandlePaymentAuthorized(input)).toBe('declined_shop_unavailable');
+      expect(store2.doc('2026-10-05')!.places).toEqual([]);
+    });
+
+    it('a repeated webhook for a refused booking does not pin its place', async () => {
+      const store2 = installSlotStore([dayDoc('2026-10-05', [held])]);
+      (createOrder as any).mockRejectedValueOnce({ code: 409 });
+      expect(await executeHandlePaymentAuthorized(input)).toBe('duplicate');
+      expect(store2.doc('2026-10-05')!.places).toEqual([held]);
     });
   });
 });

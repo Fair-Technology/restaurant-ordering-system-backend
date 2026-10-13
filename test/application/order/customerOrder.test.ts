@@ -57,6 +57,17 @@ describe('customer order page', () => {
     stored();
   });
 
+  it('a shop-unavailable decline keeps its reason for the diner', async () => {
+    stored({
+      ...PLACED_CARD_ORDER,
+      state: 'REJECTED',
+      payment: { method: 'card', status: 'canceled', stripePaymentIntentId: 'pi_1' },
+      history: [...PLACED_CARD_ORDER.history, { from: 'PLACED', to: 'REJECTED', at: '2026-10-05T10:00:30.000Z', actor: { type: 'system' }, reason: 'shop_unavailable' }],
+    });
+    const res = await executeGetCustomerOrder({ orderId: 'o1', token: TOKEN }, { now });
+    expect(res.ok && res.data.rejectionReason).toBe('shop_unavailable');
+  });
+
   it('shows the order with the right token', async () => {
     const res = await executeGetCustomerOrder({ orderId: 'o1', token: TOKEN }, { now });
     expect(res.ok).toBe(true);
