@@ -18,7 +18,7 @@ const PLACEHOLDER: Record<LegalLanguage, string> = {
   en: '[Placeholder – the reviewed clause is inserted after the lawyer review.]',
 };
 
-const HEADINGS: Record<LegalLanguage, string[]> = {
+const HEADINGS_2026_10_01: Record<LegalLanguage, string[]> = {
   en: [
     'Parties and subject matter',
     'Duration',
@@ -54,7 +54,7 @@ const HEADINGS: Record<LegalLanguage, string[]> = {
 };
 
 // Only the agreed shape (spec §15) for these sections; no other clause wording.
-const EXTRA_PARAGRAPHS: Record<LegalLanguage, Record<number, string>> = {
+const EXTRA_PARAGRAPHS_2026_10_01: Record<LegalLanguage, Record<number, string>> = {
   en: {
     8: "The restaurant gives the platform a general authorisation to use sub-processors, currently the Microsoft services listed below. The platform gives 30 days' notice of any change, the restaurant may object, and if the objection cannot be resolved either side may terminate the agreement.",
     10: 'The platform notifies the restaurant without undue delay after becoming aware of a personal data breach.',
@@ -69,24 +69,59 @@ const EXTRA_PARAGRAPHS: Record<LegalLanguage, Record<number, string>> = {
   },
 };
 
-function buildSections(lang: LegalLanguage): LegalSection[] {
-  return HEADINGS[lang].map((heading, idx) => {
+function buildSections(
+  lang: LegalLanguage,
+  headings: Record<LegalLanguage, string[]>,
+  extras: Record<LegalLanguage, Record<number, string>>,
+): LegalSection[] {
+  return headings[lang].map((heading, idx) => {
     const n = idx + 1;
-    const extra = EXTRA_PARAGRAPHS[lang][n];
+    const extra = extras[lang][n];
     return { heading, paragraphs: extra ? [PLACEHOLDER[lang], extra] : [PLACEHOLDER[lang]] };
   });
 }
+
+// Version 2026-10-13: only clause 14 differs. Each version keeps its own frozen constants.
+const HEADINGS_2026_10_13: Record<LegalLanguage, string[]> = {
+  en: HEADINGS_2026_10_01.en.map((h, i) => (i === 13 ? 'Payments (Stripe)' : h)),
+  de: HEADINGS_2026_10_01.de.map((h, i) => (i === 13 ? 'Zahlungen (Stripe)' : h)),
+};
+
+const EXTRA_PARAGRAPHS_2026_10_13: Record<LegalLanguage, Record<number, string>> = {
+  en: {
+    ...EXTRA_PARAGRAPHS_2026_10_01.en,
+    14: "Stripe is an independent controller for the payment data of diners who pay by card, Apple Pay or Google Pay. It is not a sub-processor of the platform. Card and payment details go directly from the diner's browser to Stripe and do not pass through the platform.",
+  },
+  de: {
+    ...EXTRA_PARAGRAPHS_2026_10_01.de,
+    14: 'Stripe ist für die Zahlungsdaten der Gäste, die per Karte, Apple Pay oder Google Pay bezahlen, ein eigenständiger Verantwortlicher. Stripe ist kein Unterauftragsverarbeiter der Plattform. Karten- und Zahlungsdaten gehen direkt vom Browser des Gastes an Stripe und laufen nicht über die Plattform.',
+  },
+};
 
 const DPA_2026_10_01_DRAFT: PlatformDocument = {
   version: '2026-10-01-draft',
   isDraft: true,
   publishedAt: '2026-10-01',
   title: { de: 'Auftragsverarbeitungsvertrag (ENTWURF)', en: 'Data processing agreement (DRAFT)' },
-  sections: { de: buildSections('de'), en: buildSections('en') },
+  sections: {
+    de: buildSections('de', HEADINGS_2026_10_01, EXTRA_PARAGRAPHS_2026_10_01),
+    en: buildSections('en', HEADINGS_2026_10_01, EXTRA_PARAGRAPHS_2026_10_01),
+  },
+};
+
+const DPA_2026_10_13_DRAFT: PlatformDocument = {
+  version: '2026-10-13-draft',
+  isDraft: true,
+  publishedAt: '2026-10-13',
+  title: DPA_2026_10_01_DRAFT.title,
+  sections: {
+    de: buildSections('de', HEADINGS_2026_10_13, EXTRA_PARAGRAPHS_2026_10_13),
+    en: buildSections('en', HEADINGS_2026_10_13, EXTRA_PARAGRAPHS_2026_10_13),
+  },
 };
 
 /** Append a new version; never edit a published one. */
-export const DPA_VERSIONS: readonly PlatformDocument[] = [DPA_2026_10_01_DRAFT];
+export const DPA_VERSIONS: readonly PlatformDocument[] = [DPA_2026_10_01_DRAFT, DPA_2026_10_13_DRAFT];
 export const CURRENT_DPA: PlatformDocument = DPA_VERSIONS[DPA_VERSIONS.length - 1];
 
 export const DPA_CHANGED_ERROR =

@@ -22,7 +22,7 @@ The platform keeps this record as processor for restaurants. The EU representati
 | Sign-in identity and email | Restaurant owners | Access to the admin |
 | Staff names and sign-in details | Restaurant staff | Access to the restaurant's orders |
 
-Card and PayPal data is processed by Stripe as an independent controller and does not pass through the platform.
+Card, Apple Pay and Google Pay payment data is processed by Stripe as an independent controller and does not pass through the platform.
 
 ## Sub-processors and location
 

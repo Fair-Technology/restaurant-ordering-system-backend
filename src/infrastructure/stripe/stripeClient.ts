@@ -19,6 +19,10 @@ export interface CreatePaymentIntentInput {
   idempotencyKey: string;
 }
 
+/** Payment methods diners can use. Apple Pay and Google Pay ride on 'card'.
+ *  Changing this changes what the privacy notice and DPA must say. */
+export const DINER_PAYMENT_METHOD_TYPES: readonly ['card'] = ['card'] as const;
+
 /** Direct charge on the restaurant's account. Money is only reserved here; it is taken on acceptance. */
 export async function createPaymentIntent(
   input: CreatePaymentIntentInput,
@@ -27,7 +31,7 @@ export async function createPaymentIntent(
     {
       amount: input.amountCents,
       currency: input.currency.toLowerCase(),
-      payment_method_types: ['card'],
+      payment_method_types: [...DINER_PAYMENT_METHOD_TYPES],
       capture_method: 'manual',
       description: input.description,
       metadata: { orderRef: input.orderRef, sessionId: input.sessionId },

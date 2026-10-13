@@ -39,7 +39,7 @@ describe('buildPrivacyNotice', () => {
   it('is marked draft', () => {
     const n = buildPrivacyNotice(base);
     expect(n.isDraft).toBe(true);
-    expect(n.templateVersion).toBe('2026-10-09-draft');
+    expect(n.templateVersion).toBe('2026-10-13-draft');
   });
 
   it("includes the restaurant's own addition last", () => {
