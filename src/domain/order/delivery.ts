@@ -1,6 +1,6 @@
 import type { Shop } from '../shop/Shop';
 import type { ReferenceListsDoc } from '../reference/ReferenceLists';
-import { resolveTaxRateBasisPoints } from '../reference/ReferenceLists';
+import { defaultDeliveryFeeTaxClassId, DELIVERY_TAX_CLASS_ID, requireTaxRateBasisPoints } from '../reference/ReferenceLists';
 import type { DeliveryAddress, FulfilmentMode, OrderCharge } from './Order';
 import { extractVatCents } from './tax';
 import { orderSettingsOf, type DeliveryZone, type StoredOrderSettings, type WeeklyHours } from './orderSettings';
@@ -55,16 +55,18 @@ export function hoursForMode(shop: Pick<Shop, 'openingHours' | 'orderSettings'>,
   return own ?? shop.openingHours;
 }
 
-/** The fee as a charge at the rate of the restaurant's chosen class for delivery; null for a free delivery. */
+/** The fee as a charge at the rate of the country's Delivery class; null for a free delivery. */
 export function deliveryFeeCharge(
   shop: { orderSettings?: StoredOrderSettings | null },
   zone: DeliveryZone,
-  refs: Pick<ReferenceListsDoc, 'taxRates' | 'defaultTaxClassId'>,
+  refs: Pick<ReferenceListsDoc, 'taxRates' | 'defaultTaxClassId' | 'taxClasses'>,
   now: Date,
 ): OrderCharge | null {
   if (zone.feeCents === 0) return null;
-  const taxClassId = orderSettingsOf(shop).deliveryFeeTaxClassId ?? refs.defaultTaxClassId;
-  const rate = taxClassId ? (resolveTaxRateBasisPoints(refs.taxRates, taxClassId, 'delivery', now) ?? 0) : 0;
+  // Always the country's Delivery class (superadmin sets its rate); owners cannot pick. Only a country without one falls back.
+  const taxClassId = defaultDeliveryFeeTaxClassId(refs);
+  if (taxClassId !== DELIVERY_TAX_CLASS_ID) console.warn('[tax:no-delivery-class] delivery fee falls back to the default class', taxClassId);
+  const rate = taxClassId ? requireTaxRateBasisPoints(refs.taxRates, taxClassId, 'delivery', now) : 0;
   return {
     kind: 'delivery_fee',
     grossCents: zone.feeCents,

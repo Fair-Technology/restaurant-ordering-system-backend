@@ -73,6 +73,8 @@ import { loadOrderLimitStatus } from '../../usage/orderLimitStatus';
 import { holdSlotPlace, releaseSlotPlace } from '../_shared/slotPlaces';
 import { loadPricingContext } from '../_shared/loadPricingContext';
 import { basketProductIds, priceBasket, validateBasketItems } from '../_shared/priceBasket';
+import { TaxRateMissingError } from '../../../domain/reference/ReferenceLists';
+import { taxRateMissingResult } from '../_shared/taxRateMissing';
 import { CheckoutRequestDto, CheckoutResultDto } from './dtos';
 
 const MAX_NAME_CHARS = 200;
@@ -435,6 +437,7 @@ export async function executeCheckout(
       },
     };
   } catch (error: any) {
+    if (error instanceof TaxRateMissingError) return taxRateMissingResult(request.shopId, error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Checkout failed' };
   }
 }

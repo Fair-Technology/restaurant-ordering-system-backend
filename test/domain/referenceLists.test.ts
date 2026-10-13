@@ -40,6 +40,14 @@ describe('DE_REFERENCE_LISTS', () => {
     }
   });
 
+  it('Germany has a Delivery class at 19 % in every mode', () => {
+    const at = new Date('2026-10-13T12:00:00Z');
+    for (const mode of ['collection', 'delivery', 'dine_in'] as const) {
+      expect(resolveTaxRateBasisPoints(DE_REFERENCE_LISTS.taxRates, 'delivery', mode, at)).toBe(1900);
+    }
+    expect(DE_REFERENCE_LISTS.taxClasses.map((c) => c.id)).toEqual(['food', 'beverage', 'delivery']);
+  });
+
   it('has no rate before the first effective date', () => {
     const at = new Date('2025-12-31T22:59:59Z');
     expect(resolveTaxRateBasisPoints(DE_REFERENCE_LISTS.taxRates, 'food', 'collection', at)).toBeNull();

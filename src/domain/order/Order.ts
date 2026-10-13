@@ -46,7 +46,7 @@ export interface OrderHistoryEntry {
 
 export const REJECT_REASON_CODES = ['too_busy', 'item_unavailable', 'closing_soon', 'other'] as const;
 export type StaffRejectReason = (typeof REJECT_REASON_CODES)[number];
-export type RejectReason = StaffRejectReason | 'no_response' | 'payment_failed'; // 'no_response' = automatic decline
+export type RejectReason = StaffRejectReason | 'no_response' | 'payment_failed' | 'shop_unavailable'; // 'no_response' = automatic decline
 export const CUSTOMER_CANCEL_REASON = 'customer_cancelled';
 
 export interface TaxBreakdownEntry {

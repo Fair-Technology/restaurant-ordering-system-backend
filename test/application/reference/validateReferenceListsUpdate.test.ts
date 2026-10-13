@@ -59,20 +59,50 @@ describe('validateReferenceListsUpdate', () => {
     const result = validateReferenceListsUpdate(baseline, next, now);
     expect(typeof result).not.toBe('string');
     if (typeof result === 'string') return;
-    expect(result.taxRates).toHaveLength(7);
+    expect(result.taxRates).toHaveLength(10);
   });
 
   it('allows a new class to start with current rates', () => {
     const next = nextFromBaseline(baseline);
     next.taxClasses.push({ id: 'test_class', labels: { de: 'Test', en: 'Test' }, isActive: true });
-    next.taxRates.push({
-      taxClassId: 'test_class',
-      fulfilmentMode: 'collection',
-      rateBasisPoints: 1000,
-      effectiveFrom: '2026-01-01T00:00:00+01:00',
-    });
+    for (const fulfilmentMode of ['collection', 'delivery', 'dine_in'] as const) {
+      next.taxRates.push({
+        taxClassId: 'test_class',
+        fulfilmentMode,
+        rateBasisPoints: 1000,
+        effectiveFrom: '2026-01-01T00:00:00+01:00',
+      });
+    }
     const result = validateReferenceListsUpdate(baseline, next, now);
     expect(typeof result).not.toBe('string');
+  });
+
+  it('refuses an active class with no rate for a mode (audit row 5)', () => {
+    const next = nextFromBaseline(baseline);
+    next.taxClasses.push({ id: 'test_class', labels: { de: 'Test', en: 'Test' }, isActive: true });
+    next.taxRates.push({ taxClassId: 'test_class', fulfilmentMode: 'collection', rateBasisPoints: 1000, effectiveFrom: '2026-01-01T00:00:00+01:00' });
+    expect(validateReferenceListsUpdate(baseline, next, now)).toBe('Tax class test_class needs a rate in effect now for delivery');
+  });
+
+  it('a future-only rate does not count as in effect', () => {
+    const next = nextFromBaseline(baseline);
+    next.taxClasses.push({ id: 'test_class', labels: { de: 'Test', en: 'Test' }, isActive: true });
+    for (const fulfilmentMode of ['collection', 'delivery', 'dine_in'] as const) {
+      next.taxRates.push({ taxClassId: 'test_class', fulfilmentMode, rateBasisPoints: 1000, effectiveFrom: '2027-01-01T00:00:00+01:00' });
+    }
+    expect(validateReferenceListsUpdate(baseline, next, now)).toBe('Tax class test_class needs a rate in effect now for collection');
+  });
+
+  it('an inactive class may have no rates', () => {
+    const next = nextFromBaseline(baseline);
+    next.taxClasses.push({ id: 'test_class', labels: { de: 'Test', en: 'Test' }, isActive: false });
+    expect(typeof validateReferenceListsUpdate(baseline, next, now)).not.toBe('string');
+  });
+
+  it('the Delivery class cannot be the default', () => {
+    const next = nextFromBaseline(baseline);
+    next.defaultTaxClassId = 'delivery';
+    expect(validateReferenceListsUpdate(baseline, next, now)).toBe('The Delivery tax class cannot be the default for dishes');
   });
 
   it('rejects duplicate ids', () => {
@@ -95,6 +125,8 @@ describe('validateReferenceListsUpdate', () => {
       taxClasses: [{ id: 'food', labels: { de: 'Speisen', en: 'Food' }, isActive: true }],
       defaultTaxClassId: 'food',
       taxRates: [
+        { taxClassId: 'food', fulfilmentMode: 'collection' as const, rateBasisPoints: 700, effectiveFrom: '2020-01-01T00:00:00+01:00' },
+        { taxClassId: 'food', fulfilmentMode: 'delivery' as const, rateBasisPoints: 700, effectiveFrom: '2020-01-01T00:00:00+01:00' },
         { taxClassId: 'food', fulfilmentMode: 'dine_in' as const, rateBasisPoints: 700, effectiveFrom: '2020-01-01T00:00:00+01:00' },
       ],
     };

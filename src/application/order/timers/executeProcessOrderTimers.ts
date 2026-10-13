@@ -10,6 +10,7 @@ import {
 } from '../../../domain/order/orderTimers';
 import { orderSettingsOf } from '../../../domain/order/orderSettings';
 import { autoAcceptsOrder, isUpcoming } from '../../../domain/order/scheduling';
+import { isShopOffline } from '../../../domain/shop/Shop';
 import type { Shop } from '../../../domain/shop/Shop';
 import {
   findInvoicedOrdersWithRefunds,
@@ -125,7 +126,9 @@ export async function executeProcessOrderTimers(input: { now: Date }): Promise<O
         o = entered.order;
         result.queued++;
       }
-      if (autoAcceptsOrder(shop, o)) {
+      // An offline shop has nobody cooking: its orders wait for staff or the timeout instead of being charged.
+      // A pause only stops new orders, so orders placed before it still go through.
+      if (autoAcceptsOrder(shop, o) && !isShopOffline(shop)) {
         const accepted = await acceptPlacedOrder({ orderId: o.id, shop, actor: { type: 'system' }, now });
         if (accepted.ok) {
           result.autoAccepted++;

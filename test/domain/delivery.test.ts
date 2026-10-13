@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   chargesTotalCents,
   cleanDeliveryAddress,
@@ -12,7 +12,7 @@ import {
 } from '../../src/domain/order/delivery';
 import { chargedCents, deliveryFeeCentsOf } from '../../src/domain/order/Order';
 import { buildTaxBreakdownWithCharges } from '../../src/domain/order/tax';
-import { DE_REFERENCE_LISTS } from '../../src/domain/reference/ReferenceLists';
+import { DE_REFERENCE_LISTS, TaxRateMissingError } from '../../src/domain/reference/ReferenceLists';
 import {
   ACCEPTED_TWO_LINE_ORDER,
   CARD_SHOP,
@@ -80,17 +80,36 @@ describe('delivery rules', () => {
     expect(hoursForMode(DELIVERY_SHOP, 'delivery')).toEqual(LUNCH_HOURS);
   });
 
-  it('the fee carries the rate of the class the restaurant picked', () => {
-    expect(deliveryFeeCharge(DELIVERY_SHOP, DELIVERY_ZONE, DE_REFERENCE_LISTS, NOW_OPEN)).toEqual({
-      kind: 'delivery_fee',
-      grossCents: 250,
-      taxClassId: 'food',
-      taxRateBasisPoints: 700,
-      taxCents: 16,
-    });
+  it('a Delivery class without a delivery rate refuses (audit row 5)', () => {
+    const refs = structuredClone(DE_REFERENCE_LISTS);
+    refs.taxRates = refs.taxRates.filter((r) => r.taxClassId !== 'delivery' || r.fulfilmentMode !== 'delivery');
+    expect(() => deliveryFeeCharge(DELIVERY_SHOP, DELIVERY_ZONE, refs, NOW_OPEN)).toThrow(TaxRateMissingError);
+  });
+
+  it('the fee always uses the Delivery class, whatever the shop once stored', () => {
+    const delivery = { kind: 'delivery_fee', grossCents: 250, taxClassId: 'delivery', taxRateBasisPoints: 1900, taxCents: 40 };
+    expect(deliveryFeeCharge(DELIVERY_SHOP, DELIVERY_ZONE, DE_REFERENCE_LISTS, NOW_OPEN)).toEqual(delivery);
     expect(
-      deliveryFeeCharge({ ...CARD_SHOP, orderSettings: { deliveryFeeTaxClassId: 'beverage' } }, DELIVERY_ZONE, DE_REFERENCE_LISTS, NOW_OPEN),
-    ).toEqual({ kind: 'delivery_fee', grossCents: 250, taxClassId: 'beverage', taxRateBasisPoints: 1900, taxCents: 40 });
+      deliveryFeeCharge({ ...CARD_SHOP, orderSettings: { deliveryFeeTaxClassId: 'food' } }, DELIVERY_ZONE, DE_REFERENCE_LISTS, NOW_OPEN),
+    ).toEqual(delivery);
+  });
+
+  it('a country without a Delivery class falls back to its default class', () => {
+    const refs = { ...DE_REFERENCE_LISTS, taxClasses: DE_REFERENCE_LISTS.taxClasses.filter((c) => c.id !== 'delivery') };
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    expect(deliveryFeeCharge(DELIVERY_SHOP, DELIVERY_ZONE, refs, NOW_OPEN)).toMatchObject({ taxClassId: 'food', taxRateBasisPoints: 700, taxCents: 16 });
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it('an inactive Delivery class counts as missing', () => {
+    const refs = { ...DE_REFERENCE_LISTS, taxClasses: DE_REFERENCE_LISTS.taxClasses.map((c) => (c.id === 'delivery' ? { ...c, isActive: false } : c)) };
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    expect(deliveryFeeCharge(DELIVERY_SHOP, DELIVERY_ZONE, refs, NOW_OPEN)?.taxClassId).toBe('food');
+    warn.mockRestore();
+  });
+
+  it('a free delivery has no fee charge', () => {
     expect(deliveryFeeCharge(DELIVERY_SHOP, { ...DELIVERY_ZONE, feeCents: 0 }, DE_REFERENCE_LISTS, NOW_OPEN)).toBeNull();
   });
 

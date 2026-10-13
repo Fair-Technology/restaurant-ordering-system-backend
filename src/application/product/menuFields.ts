@@ -1,9 +1,9 @@
 import { FULFILMENT_MODES, FulfilmentMode } from '../../domain/order/Order';
-import { UNAVAILABLE_MODES_ERROR } from '../../domain/order/orderErrors';
+import { DELIVERY_TAX_CLASS_FOR_DISHES_ERROR, UNAVAILABLE_MODES_ERROR } from '../../domain/order/orderErrors';
 import { dietaryConflict, DIETARY_TAGS, SpiceLevel } from '../../domain/product/dietary';
 import { normaliseTranslations, TranslationMap } from '../../domain/menu/menuLanguage';
 import { ProductAddonGroup, ProductOption, ProductVariantGroup } from '../../domain/product/Product';
-import { ReferenceListsDoc } from '../../domain/reference/ReferenceLists';
+import { DELIVERY_TAX_CLASS_ID, ReferenceListsDoc } from '../../domain/reference/ReferenceLists';
 
 export interface MenuFieldsInput {
   nameTranslations?: unknown;
@@ -134,6 +134,7 @@ export function validateMenuFields(
 
   if ('taxClassId' in input && input.taxClassId !== undefined) {
     const v = input.taxClassId;
+    if (v === DELIVERY_TAX_CLASS_ID) return { error: DELIVERY_TAX_CLASS_FOR_DISHES_ERROR };
     if (v !== null) {
       const isActive = refs.taxClasses.some((c) => c.id === v && c.isActive);
       if (!isActive) return { error: `Unknown tax class: ${v}` };

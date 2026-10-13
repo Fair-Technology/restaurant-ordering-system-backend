@@ -44,6 +44,9 @@ export interface ReferenceListsDoc {
   updatedBy: string | null;
 }
 
+/** The tax class every delivery fee is taxed with. Hard-coded id; superadmin maintains its rate per country. */
+export const DELIVERY_TAX_CLASS_ID = 'delivery';
+
 export function referenceListsId(countryCode: string): string {
   return `reference_lists:${countryCode.toUpperCase()}`;
 }
@@ -85,6 +88,7 @@ export const DE_REFERENCE_LISTS: ReferenceListsDoc = {
   taxClasses: [
     { id: 'food', labels: { de: 'Speisen', en: 'Food' }, isActive: true },
     { id: 'beverage', labels: { de: 'Getränke', en: 'Beverages' }, isActive: true },
+    { id: 'delivery', labels: { de: 'Lieferung', en: 'Delivery' }, isActive: true }, // delivery fees only, never dishes
   ],
   defaultTaxClassId: 'food',
   taxRates: [
@@ -94,6 +98,9 @@ export const DE_REFERENCE_LISTS: ReferenceListsDoc = {
     { taxClassId: 'beverage', fulfilmentMode: 'collection', rateBasisPoints: 1900, effectiveFrom: '2026-01-01T00:00:00+01:00' },
     { taxClassId: 'beverage', fulfilmentMode: 'delivery', rateBasisPoints: 1900, effectiveFrom: '2026-01-01T00:00:00+01:00' },
     { taxClassId: 'beverage', fulfilmentMode: 'dine_in', rateBasisPoints: 1900, effectiveFrom: '2026-01-01T00:00:00+01:00' },
+    { taxClassId: 'delivery', fulfilmentMode: 'collection', rateBasisPoints: 1900, effectiveFrom: '2026-01-01T00:00:00+01:00' },
+    { taxClassId: 'delivery', fulfilmentMode: 'delivery', rateBasisPoints: 1900, effectiveFrom: '2026-01-01T00:00:00+01:00' },
+    { taxClassId: 'delivery', fulfilmentMode: 'dine_in', rateBasisPoints: 1900, effectiveFrom: '2026-01-01T00:00:00+01:00' },
   ],
   updatedAt: null,
   updatedBy: null,
@@ -134,6 +141,36 @@ export function resolveTaxRateBasisPoints(
     }
   }
   return best ? best.rateBasisPoints : null;
+}
+
+/** The class for delivery fees: the country's active Delivery class, else its default class. */
+export function defaultDeliveryFeeTaxClassId(refs: Pick<ReferenceListsDoc, 'taxClasses' | 'defaultTaxClassId'>): string | null {
+  return refs.taxClasses.some((c) => c.id === DELIVERY_TAX_CLASS_ID && c.isActive) ? DELIVERY_TAX_CLASS_ID : refs.defaultTaxClassId;
+}
+
+/** A tax class has no rate for this mode at this moment: the sale must be refused, never priced at 0 %. */
+export class TaxRateMissingError extends Error {
+  readonly taxClassId: string;
+  readonly mode: FulfilmentMode;
+  readonly at: Date;
+  constructor(taxClassId: string, mode: FulfilmentMode, at: Date) {
+    super(`No ${mode} rate in effect for tax class ${taxClassId} at ${at.toISOString()}`);
+    this.name = 'TaxRateMissingError';
+    this.taxClassId = taxClassId;
+    this.mode = mode;
+    this.at = at;
+  }
+}
+
+export function requireTaxRateBasisPoints(
+  rows: readonly TaxRateRow[],
+  taxClassId: string,
+  mode: FulfilmentMode,
+  at: Date,
+): number {
+  const rate = resolveTaxRateBasisPoints(rows, taxClassId, mode, at);
+  if (rate === null) throw new TaxRateMissingError(taxClassId, mode, at);
+  return rate;
 }
 
 export interface CurrentTaxRate {

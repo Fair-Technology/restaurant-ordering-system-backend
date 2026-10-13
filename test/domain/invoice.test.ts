@@ -417,6 +417,23 @@ describe('delivery invoices', () => {
     expect(en.lines[1].name).toBe('Delivery fee');
   });
 
+  it('a fee taxed at the Delivery class prints at 19 %', () => {
+    const order = {
+      ...ACCEPTED_DELIVERY_ORDER,
+      charges: [{ kind: 'delivery_fee' as const, grossCents: 250, taxClassId: 'delivery', taxRateBasisPoints: 1900, taxCents: 40 }],
+      taxBreakdown: [
+        { rateBasisPoints: 700, grossCents: 1050, taxCents: 69 },
+        { rateBasisPoints: 1900, grossCents: 250, taxCents: 40 },
+      ],
+    };
+    const inv = buildInvoice({ order, shop: CARD_SHOP, number: NUMBER, now });
+    expect(inv.lines[1]).toEqual({ name: 'Liefergebühr', quantity: 1, unitPriceCents: 250, lineTotalCents: 250, taxRateBasisPoints: 1900, taxCents: 40 });
+    const t = text(inv);
+    expect(t).toContain('USt. 19 %: 0,40 €');
+    expect(t).toContain('Nettobetrag 19 %: 2,10 €');
+    expect(t).toContain('Gesamtbetrag (brutto): 13,00 €');
+  });
+
   it("is in the shop's original language even when the diner's page was English", () => {
     const inv = buildInvoice({ order: { ...ACCEPTED_DELIVERY_ORDER, language: 'en' }, shop: CARD_SHOP, number: NUMBER, now });
     expect(inv.language).toBe('de');

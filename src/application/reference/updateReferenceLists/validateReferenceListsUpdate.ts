@@ -1,5 +1,5 @@
 import { FULFILMENT_MODES } from '../../../domain/order/Order';
-import { AdditiveDef, AllergenDef, ReferenceListsDoc, TaxClassDef, TaxRateRow } from '../../../domain/reference/ReferenceLists';
+import { AdditiveDef, AllergenDef, DELIVERY_TAX_CLASS_ID, ReferenceListsDoc, resolveTaxRateBasisPoints, TaxClassDef, TaxRateRow } from '../../../domain/reference/ReferenceLists';
 
 export interface ReferenceListsUpdateDto {
   allergens: AllergenDef[];
@@ -179,8 +179,17 @@ export function validateReferenceListsUpdate(
     if (typeof defaultTaxClassId !== 'string' || !activeClassIds.has(defaultTaxClassId)) {
       return 'defaultTaxClassId must be an active tax class';
     }
+    if (defaultTaxClassId === DELIVERY_TAX_CLASS_ID) return 'The Delivery tax class cannot be the default for dishes';
   } else if (activeClassIds.size > 0) {
     return 'defaultTaxClassId is required when tax classes exist';
+  }
+
+  // Rule 10: every active class has a rate in effect now for every mode, so pricing never meets a gap
+  for (const c of taxClasses) {
+    if (!c.isActive) continue;
+    for (const mode of FULFILMENT_MODES) {
+      if (resolveTaxRateBasisPoints(taxRates, c.id, mode, now) === null) return `Tax class ${c.id} needs a rate in effect now for ${mode}`;
+    }
   }
 
   return { allergens, additives, taxClasses, defaultTaxClassId, taxRates };

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { basketProductIds, priceBasket, validateBasketItems } from '../../../src/application/order/_shared/priceBasket';
-import { DE_REFERENCE_LISTS } from '../../../src/domain/reference/ReferenceLists';
+import { DE_REFERENCE_LISTS, TaxRateMissingError } from '../../../src/domain/reference/ReferenceLists';
 import { CATEGORIES, COMBO_CHOICES, COMBO_ORDER, NOW_OPEN, P_COLA, P_COMBO, P_COMBO_BMF, P_PASTA, P_SALAD } from '../../fixtures/orders';
 import type { Product } from '../../../src/domain/product/Product';
 
@@ -253,5 +253,32 @@ describe('combos', () => {
 
   it('names every product the basket needs', () => {
     expect(basketProductIds([{ productId: 'p1', quantity: 1 }, { productId: 'p9', quantity: 1, comboChoices: COMBO_CHOICES }])).toEqual(['p1', 'p9', 'p1', 'p2']);
+  });
+});
+
+describe('a missing tax rate (audit row 5)', () => {
+  const SNACK_REFS = structuredClone(DE_REFERENCE_LISTS);
+  SNACK_REFS.taxClasses.push({ id: 'snacks', labels: { de: 'Snacks', en: 'Snacks' }, isActive: true });
+  SNACK_REFS.taxRates.push({ taxClassId: 'snacks', fulfilmentMode: 'collection', rateBasisPoints: 700, effectiveFrom: '2026-01-01T00:00:00+01:00' });
+
+  it('refuses a dish whose class has no rate for the mode', () => {
+    const run = () => price([{ productId: 'p1', quantity: 1 }], { refs: SNACK_REFS, mode: 'delivery' }, [{ ...P_PASTA, taxClassId: 'snacks' }]);
+    expect(run).toThrow(TaxRateMissingError);
+    try {
+      run();
+    } catch (e) {
+      expect(e).toMatchObject({ taxClassId: 'snacks', mode: 'delivery' });
+    }
+  });
+
+  it('refuses a combo whose dish lacks a rate', () => {
+    expect(() =>
+      price([{ productId: 'p9', quantity: 1, comboChoices: COMBO_CHOICES }], { refs: SNACK_REFS, mode: 'delivery' }, [P_PASTA, { ...P_COLA, taxClassId: 'snacks' }, P_COMBO]),
+    ).toThrow(TaxRateMissingError);
+  });
+
+  it('still prices the mode that has a rate', () => {
+    const r = price([{ productId: 'p1', quantity: 1 }], { refs: SNACK_REFS, mode: 'collection' }, [{ ...P_PASTA, taxClassId: 'snacks' }]);
+    expect(r.items[0].taxRateBasisPoints).toBe(700);
   });
 });

@@ -2,6 +2,7 @@ import { HttpRequest } from '@azure/functions';
 import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
 import { findUserById } from '../../../infrastructure/cosmos/user/CosmosUserRepository';
 import { findShopById, updateShop } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
+import { declineWaitingOrdersForShop } from '../../order/_shared/declineWaitingOrders';
 import { logAudit } from '../../_shared/auditHelpers';
 import { ApplicationResult } from '../../_shared/types';
 
@@ -14,6 +15,7 @@ const REASON_MAX_LENGTH = 500;
 export async function executeSetShopOfflineBySuperadmin(
   request: { shopId: string; offline: boolean; reason?: string },
   httpRequest: HttpRequest,
+  options: { now?: Date } = {},
 ): Promise<ApplicationResult<{ offlineBySuperadmin: boolean; offlineBySuperadminReason?: string }>> {
   if (!request.shopId || typeof request.shopId !== 'string' || request.shopId.trim() === '') {
     return { ok: false, code: 'INVALID_INPUT', error: 'shopId is required and must be a non-empty string' };
@@ -29,6 +31,7 @@ export async function executeSetShopOfflineBySuperadmin(
     return { ok: false, code: 'INVALID_INPUT', error: `reason must be at most ${REASON_MAX_LENGTH} characters` };
   }
 
+  const now = options.now ?? new Date();
   try {
     const userId = await getUserIdFromAuth(httpRequest);
     const user = await findUserById(userId);
@@ -45,7 +48,7 @@ export async function executeSetShopOfflineBySuperadmin(
       ...rest,
       offlineBySuperadmin: request.offline,
       ...(nextReason && { offlineBySuperadminReason: nextReason }),
-      updatedAt: new Date().toISOString(),
+      updatedAt: now.toISOString(),
     });
 
     await logAudit({
@@ -63,6 +66,12 @@ export async function executeSetShopOfflineBySuperadmin(
           : []),
       ],
     });
+
+    // Taking a shop down also declines what is still waiting for its answer (never throws).
+    if (request.offline) {
+      const declined = await declineWaitingOrdersForShop({ ...shop, offlineBySuperadmin: true }, now);
+      if (declined > 0) console.log('[takedown] declined waiting orders', shop.id, declined);
+    }
 
     return {
       ok: true,

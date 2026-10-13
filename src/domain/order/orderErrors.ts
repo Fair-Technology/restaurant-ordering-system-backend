@@ -63,7 +63,6 @@ export const DELIVERY_ERROR = 'delivery must be true or false';
 export const DELIVERY_ZONES_ERROR =
   'deliveryZones must list up to 200 different postcodes, each with a fee of 0 to 100 € and a minimum order of 0 to 1000 € in whole cents';
 export const DELIVERY_HOURS_ERROR = 'deliveryHours must be null or a weekly list of HH:mm times';
-export const DELIVERY_FEE_TAX_CLASS_ERROR = "deliveryFeeTaxClassId must be null or one of this country's tax classes";
 export const UNAVAILABLE_MODES_ERROR = 'unavailableModes must list collection, delivery or dine_in';
 export const SCHEDULED_FOR_ERROR = 'scheduledFor must be the start of a 15-minute slot, as an ISO date and time';
 export const SCHEDULE_NOT_FOR_TABLES_ERROR = 'Table orders cannot be scheduled';
@@ -76,4 +75,6 @@ export const DISCOUNT_ALREADY_USED_ERROR = 'You have already used this code.'; /
 export const DISCOUNT_CODE_FORMAT_ERROR = 'discountCode must be 3 to 20 letters, digits or dashes';
 export const EXPECTED_DISCOUNT_ERROR = 'expectedDiscountCents must be a whole number of cents';
 export const LOYALTY_OPT_IN_ERROR = 'loyaltyOptIn must be true or false';
+export const DELIVERY_TAX_CLASS_FOR_DISHES_ERROR = 'The Delivery tax class is only for delivery fees';
+export const TAX_RATE_MISSING_ERROR = 'This restaurant cannot take orders right now. Please try again later.';
 export const COMBO_CHOICES_ERROR = 'comboChoices must list one choice (groupId and productId) per combo group';

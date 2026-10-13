@@ -115,6 +115,27 @@ describe('executeProcessOrderTimers', () => {
     expect(res.escalated).toBe(0);
   });
 
+  it.each([
+    ['an owner-offline shop does not auto-accept a waiting order', { isPaused: true }],
+    ['a platform-offline shop does not auto-accept a waiting order', { offlineBySuperadmin: true }],
+  ])('%s', async (_name, flags) => {
+    (findShopById as any).mockResolvedValue({ ...DEFAULT_SHOP, ...flags });
+    const store = storedOrder();
+    const res = await executeProcessOrderTimers({ now: new Date('2026-10-05T10:01:00Z') });
+    expect(capturePaymentIntent).not.toHaveBeenCalled();
+    expect(store.current.state).toBe('PLACED');
+    expect(res.autoAccepted).toBe(0);
+  });
+
+  it('a paused shop still auto-accepts an order placed before the pause', async () => {
+    (findShopById as any).mockResolvedValue({ ...DEFAULT_SHOP, ordersPaused: true });
+    const store = storedOrder();
+    const res = await executeProcessOrderTimers({ now: new Date('2026-10-05T10:01:00Z') });
+    expect(capturePaymentIntent).toHaveBeenCalledTimes(1);
+    expect(store.current.state).toBe('ACCEPTED');
+    expect(res.autoAccepted).toBe(1);
+  });
+
   it('leaves an auto-accept order waiting when the payment service is down, and still declines it at the timeout', async () => {
     (findShopById as any).mockResolvedValue(DEFAULT_SHOP);
     (capturePaymentIntent as any).mockRejectedValue({ type: 'StripeConnectionError' });
