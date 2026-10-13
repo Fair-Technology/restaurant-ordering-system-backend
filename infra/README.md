@@ -123,9 +123,12 @@ az functionapp config appsettings set -g rg-restaurant-ordering-system-dev -n re
 ```
 
 **Stripe webhook.** The Connect endpoint `/api/webhooks/stripe-connect` must
-send five events: `payment_intent.amount_capturable_updated`,
+send six events: `payment_intent.amount_capturable_updated`,
 `payment_intent.succeeded`, `payment_intent.canceled`,
-`payment_intent.payment_failed` and `account.updated`. Its signing secret is
+`payment_intent.payment_failed`, `account.updated` and `charge.refunded`.
+Refunds made in a restaurant's Stripe dashboard come in through `charge.refunded`
+and are recorded as a free-amount refund; the correction invoice follows within a
+minute from the order timer. Its signing secret is
 `STRIPE_CONNECT_WEBHOOK_SECRET`. Locally:
 
 ```

@@ -84,6 +84,7 @@ export async function releaseClosedOrderPayment(
         (await createRefund({
           connectAccountId,
           paymentIntentId,
+          orderId: order.id,
           amountCents: chargedCents(order),
           idempotencyKey: `auto-refund-${order.id}${keySuffix}`,
         }));

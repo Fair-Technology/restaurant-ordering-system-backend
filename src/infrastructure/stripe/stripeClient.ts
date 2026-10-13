@@ -1,4 +1,5 @@
 import Stripe from 'stripe';
+import type { StripeRefundSummary } from '../../domain/order/externalRefunds';
 
 export function getStripe(): Stripe {
   const key = process.env.STRIPE_SECRET_KEY;
@@ -89,9 +90,13 @@ export async function releaseAuthorization(input: {
   }
 }
 
+/** Stamped on every refund our app creates, so the refund webhook can tell ours from the Stripe dashboard's. */
+export const APP_REFUND_SOURCE = 'ordering-app';
+
 export async function createRefund(input: {
   connectAccountId: string;
   paymentIntentId: string;
+  orderId: string;
   amountCents: number;
   idempotencyKey: string;
 }): Promise<{ id: string }> {
@@ -100,10 +105,30 @@ export async function createRefund(input: {
       payment_intent: input.paymentIntentId,
       amount: input.amountCents,
       reason: 'requested_by_customer',
+      metadata: { source: APP_REFUND_SOURCE, orderId: input.orderId },
     },
     { stripeAccount: input.connectAccountId, idempotencyKey: input.idempotencyKey },
   );
   return { id: refund.id };
+}
+
+/** Every refund on the payment, as Stripe returns them (newest first); callers sort. */
+export async function listPaymentRefunds(input: {
+  connectAccountId: string;
+  paymentIntentId: string;
+}): Promise<StripeRefundSummary[]> {
+  const list = await getStripe().refunds.list(
+    { payment_intent: input.paymentIntentId, limit: 100 },
+    { stripeAccount: input.connectAccountId },
+  );
+  return list.data.map((r) => ({
+    id: r.id,
+    amountCents: r.amount,
+    currency: r.currency,
+    status: r.status ?? null,
+    createdAtIso: new Date(r.created * 1000).toISOString(),
+    fromApp: r.metadata?.source === APP_REFUND_SOURCE,
+  }));
 }
 
 /** The first refund on the payment that has not failed or been cancelled, or null when none was made. */

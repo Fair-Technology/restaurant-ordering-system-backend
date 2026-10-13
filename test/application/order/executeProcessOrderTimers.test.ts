@@ -353,6 +353,38 @@ describe('executeProcessOrderTimers', () => {
     expect((sendEmail as any).mock.calls[0][0].attachments[0].name).toMatch(/^Rechnungskorrektur-R-2026-/);
   });
 
+  it('a full refund made in the Stripe dashboard gets a Stornorechnung', async () => {
+    const order = {
+      ...ACCEPTED_CARD_ORDER,
+      state: 'COMPLETED' as const,
+      invoiceNumber: 'R-2026-00001',
+      payment: { ...ACCEPTED_CARD_ORDER.payment, status: 'refunded' as const },
+      refunds: [
+        {
+          id: 'stripe-re_d1',
+          amountCents: 1050,
+          reason: 'Stripe dashboard',
+          at: '2026-10-05T12:00:00.000Z',
+          actor: { type: 'system' as const },
+          stripeRefundId: 're_d1',
+        },
+      ],
+    };
+    const now = new Date('2026-10-06T10:00:00Z');
+    const original = buildInvoice({ order, shop: CARD_SHOP, number: 'R-2026-00001', now: new Date('2026-10-05T10:05:00Z') });
+    (findInvoiceById as any).mockImplementation(async (_s: string, id: string) => (id === order.id ? original : null));
+    (findPlacedOrdersCreatedBefore as any).mockResolvedValue([]);
+    (findInvoicedOrdersWithRefunds as any).mockResolvedValue([order]);
+    const store = storedOrder(order);
+    const res = await executeProcessOrderTimers({ now });
+    expect(res.correctionsIssued).toBe(1);
+    expect(store.current.refunds![0]).toEqual(
+      expect.objectContaining({ correctionKind: 'cancellation', correctionEmailedAt: now.toISOString() }),
+    );
+    expect(sendEmail).toHaveBeenCalledTimes(1);
+    expect((sendEmail as any).mock.calls[0][0].attachments[0].name).toMatch(/^Stornorechnung-R-2026-/);
+  });
+
   describe('scheduled orders', () => {
     beforeEach(() => {
       (findShopById as any).mockResolvedValue(SCHEDULED_SHOP);

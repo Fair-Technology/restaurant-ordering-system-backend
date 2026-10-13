@@ -99,7 +99,7 @@ describe('executeRefundOrder', () => {
     expect(res.ok).toBe(true);
     expect(m.authorizeShopAction).toHaveBeenCalledWith(http, CARD_SHOP, 'refund_orders');
     expect(m.createRefund).toHaveBeenCalledWith(
-      expect.objectContaining({ amountCents: 300, idempotencyKey: 'refund-o1-0-300' }),
+      expect.objectContaining({ amountCents: 300, idempotencyKey: 'refund-o1-0-300', orderId: 'o1' }),
     );
     const stored = m.store.current as Order;
     expect(stored.payment.status).toBe('partially_refunded');

@@ -2,6 +2,7 @@ import { app, HttpRequest, HttpResponseInit } from '@azure/functions';
 import Stripe from 'stripe';
 import { executeHandlePaymentAuthorized } from '../../../application/order/handlePaymentAuthorized/executeHandlePaymentAuthorized';
 import { executePaymentIntentUpdates } from '../../../application/order/paymentIntentUpdates/executePaymentIntentUpdates';
+import { executeRecordStripeRefunds } from '../../../application/order/stripeRefunds/executeRecordStripeRefunds';
 import { getStripe } from '../../../infrastructure/stripe/stripeClient';
 import {
   findShopByStripeConnectAccountId,
@@ -60,6 +61,15 @@ app.http('stripeConnectWebhook', {
         }
         // payment_intent.payment_failed is deliberately not handled: the diner can try another card
         // on the same payment, so the checkout must stay.
+        case 'charge.refunded': {
+          // A refund made anywhere, including the restaurant's own Stripe dashboard. Ours are skipped inside.
+          const charge = event.data.object as Stripe.Charge;
+          const paymentIntentId =
+            typeof charge.payment_intent === 'string' ? charge.payment_intent : charge.payment_intent?.id;
+          if (!paymentIntentId) break;
+          await executeRecordStripeRefunds({ paymentIntentId, connectAccountId: event.account ?? null });
+          break;
+        }
         case 'account.updated': {
           const account = event.data.object as Stripe.Account;
           const shop = await findShopByStripeConnectAccountId(account.id);
