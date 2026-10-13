@@ -29,4 +29,5 @@ export interface CheckoutSession {
   orderRef?: string;             // human-readable reference, created at checkout
   createdAt: string;
   ttl: number;                   // Cosmos TTL in seconds from _ts (set to 3600)
+  _ts?: number; // Cosmos last-write time, epoch seconds; set by Cosmos on read, never written by us
 }

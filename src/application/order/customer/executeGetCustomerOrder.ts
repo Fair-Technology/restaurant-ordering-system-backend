@@ -3,6 +3,7 @@ import { accessTokenMatches } from '../../../domain/order/orderIds';
 import { findCheckoutSessionById } from '../../../infrastructure/cosmos/order/CosmosCheckoutSessionRepository';
 import { findOrderById } from '../../../infrastructure/cosmos/order/CosmosOrderRepository';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
+import { reconcileCheckoutSession, type ReconcileOutcome } from '../reconcile/reconcileCheckoutSession';
 import type { ApplicationResult } from '../../_shared/types';
 import type { CustomerOrderDto } from './dtos';
 import { toCustomerOrderDto } from './toCustomerOrderDto';
@@ -18,7 +19,16 @@ export async function executeGetCustomerOrder(
       // The diner has paid but Stripe has not told us yet: the checkout exists, the order does not.
       const session = await findCheckoutSessionById(request.orderId);
       if (session && accessTokenMatches(session.customerAccessToken, request.token)) {
-        return { ok: false, code: 'NOT_FOUND', error: PAYMENT_CONFIRMING_ERROR };
+        let outcome: ReconcileOutcome | null = null;
+        try {
+          outcome = await reconcileCheckoutSession({ session, now: options.now ?? new Date(), source: 'order_page' });
+        } catch {
+          console.error('[checkout-reconcile:error]', session.id);
+        }
+        if (outcome !== 'created' && outcome !== 'duplicate' && outcome !== 'declined_shop_unavailable') {
+          return { ok: false, code: 'NOT_FOUND', error: PAYMENT_CONFIRMING_ERROR };
+        }
+        order = await findOrderById(request.orderId);
       }
       // Stripe's confirmation may have landed between the two reads: the order was written
       // and the checkout deleted after we looked for the order. Look once more.

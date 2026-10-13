@@ -189,3 +189,23 @@ export function isRetryableStripeError(err: unknown): boolean {
   const type = errorType(err);
   return type === 'StripeConnectionError' || type === 'StripeAPIError' || type === 'StripeRateLimitError';
 }
+
+export interface PaymentIntentSnapshot {
+  id: string;
+  status: Stripe.PaymentIntent.Status;
+  amountCents: number;
+  currency: string;              // lower-case, as Stripe returns it
+  sessionId: string | null;      // metadata.sessionId, null when absent
+  authorizedAtMs: number | null; // latest_charge.created * 1000 when expanded to an object, else null
+}
+
+/** Reads a payment on the restaurant's account, for checking whether a checkout was really paid. */
+export async function retrievePaymentIntentSnapshot(input: { connectAccountId: string; paymentIntentId: string }): Promise<PaymentIntentSnapshot> {
+  const pi = await getStripe().paymentIntents.retrieve(input.paymentIntentId, { expand: ['latest_charge'] }, { stripeAccount: input.connectAccountId });
+  const charge = pi.latest_charge;
+  return {
+    id: pi.id, status: pi.status, amountCents: pi.amount, currency: pi.currency,
+    sessionId: pi.metadata?.sessionId ?? null,
+    authorizedAtMs: charge && typeof charge !== 'string' ? charge.created * 1000 : null,
+  };
+}

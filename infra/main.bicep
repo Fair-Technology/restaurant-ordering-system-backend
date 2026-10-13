@@ -88,6 +88,8 @@ resource cosmosContainers 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/co
       id: c.name
       partitionKey: { paths: [ c.pk ], kind: 'Hash' }
       uniqueKeyPolicy: empty(c.uniqueKeys) ? null : { uniqueKeys: [ { paths: c.uniqueKeys } ] }
+      // -1 = each item's own ttl applies (checkout sessions set 3600); nothing expires without one
+      defaultTtl: c.name == 'checkout_sessions' ? -1 : null
     }
   }
 }]

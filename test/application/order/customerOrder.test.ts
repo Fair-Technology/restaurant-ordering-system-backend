@@ -25,6 +25,9 @@ vi.mock('../../../src/infrastructure/email/emailSender', () => ({
   emailTransportName: () => 'log',
 }));
 
+vi.mock('../../../src/application/order/reconcile/reconcileCheckoutSession', () => ({ reconcileCheckoutSession: vi.fn() }));
+
+import { reconcileCheckoutSession } from '../../../src/application/order/reconcile/reconcileCheckoutSession';
 import { executeCancelCustomerOrder } from '../../../src/application/order/customer/executeCancelCustomerOrder';
 import { executeGetCustomerOrder } from '../../../src/application/order/customer/executeGetCustomerOrder';
 import { findCheckoutSessionById } from '../../../src/infrastructure/cosmos/order/CosmosCheckoutSessionRepository';
@@ -54,6 +57,7 @@ describe('customer order page', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     (findShopById as any).mockResolvedValue(CARD_SHOP);
+    (reconcileCheckoutSession as any).mockResolvedValue('not_paid');
     stored();
   });
 
@@ -112,12 +116,38 @@ describe('customer order page', () => {
       code: 'NOT_FOUND',
       error: PAYMENT_CONFIRMING_ERROR,
     });
+    expect(reconcileCheckoutSession).toHaveBeenCalledWith({ session: { id: 'o1', customerAccessToken: TOKEN }, now, source: 'order_page' });
     // a wrong token learns nothing about the checkout
     expect(await executeGetCustomerOrder({ orderId: 'o1', token: 'x'.repeat(32) }, { now })).toEqual({
       ok: false,
       code: 'NOT_FOUND',
       error: ORDER_NOT_FOUND_ERROR,
     });
+    // a wrong token never reaches Stripe
+    expect(reconcileCheckoutSession).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows the order the moment the safety net builds it', async () => {
+    (findOrderById as any).mockResolvedValueOnce(null).mockResolvedValueOnce(PLACED_CARD_ORDER);
+    (findCheckoutSessionById as any).mockResolvedValue({ id: 'o1', customerAccessToken: TOKEN });
+    (reconcileCheckoutSession as any).mockResolvedValue('created');
+    const res = await executeGetCustomerOrder({ orderId: 'o1', token: TOKEN }, { now });
+    expect(res.ok).toBe(true);
+    expect((res as any).data.orderRef).toBe('AB3-K7P');
+  });
+
+  it('shows the order when the webhook got there first', async () => {
+    (findOrderById as any).mockResolvedValueOnce(null).mockResolvedValueOnce(PLACED_CARD_ORDER);
+    (findCheckoutSessionById as any).mockResolvedValue({ id: 'o1', customerAccessToken: TOKEN });
+    (reconcileCheckoutSession as any).mockResolvedValue('duplicate');
+    expect((await executeGetCustomerOrder({ orderId: 'o1', token: TOKEN }, { now })).ok).toBe(true);
+  });
+
+  it('a safety-net failure still says confirming', async () => {
+    (findOrderById as any).mockResolvedValue(null);
+    (findCheckoutSessionById as any).mockResolvedValue({ id: 'o1', customerAccessToken: TOKEN });
+    (reconcileCheckoutSession as any).mockRejectedValue(new Error('stripe down'));
+    expect(await executeGetCustomerOrder({ orderId: 'o1', token: TOKEN }, { now })).toEqual({ ok: false, code: 'NOT_FOUND', error: PAYMENT_CONFIRMING_ERROR });
   });
 
   it('a wrong token looks like a missing order', async () => {
