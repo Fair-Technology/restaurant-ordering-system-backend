@@ -6,6 +6,8 @@ export interface CatalogOptionDto {
   name: string;
   priceDelta: number;
   isAvailable: boolean;
+  allergens: CatalogLabelDto[];
+  additives: CatalogAdditiveDto[];
 }
 
 export interface CatalogVariantGroupDto {

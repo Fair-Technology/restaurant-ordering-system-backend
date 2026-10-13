@@ -28,6 +28,8 @@ export interface ProductOption {
   nameTranslations?: TranslationMap;
   priceDelta: number; // cents
   isAvailable: boolean; // independent availability
+  allergenIds?: string[]; // what choosing this option adds to the dish; absent on records saved before 2026-10 = none
+  additiveIds?: string[];
 }
 
 export interface ProductVariantGroup {
