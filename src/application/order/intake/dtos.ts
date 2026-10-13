@@ -9,6 +9,12 @@ export interface SlotCapacityDto {
   taken: Record<string, number>; // live places per ISO slot start, over the days of the listed upcoming orders
 }
 
+export interface OrdersScreenDto {
+  lastSeenAt: string | null; // last ping from any open board; null = never
+  watched: boolean; // a board was seen in the last 3 minutes
+  autoAcceptOn: boolean; // auto-accept is in force right now (on, and the restaurant is not offline)
+}
+
 export interface OrderQueueDto {
   serverTime: string;
   timezone: string; // the restaurant's, so a tablet elsewhere shows its times correctly
@@ -17,6 +23,7 @@ export interface OrderQueueDto {
   orders: OrderDto[]; // live orders only: booked orders not yet due are under `upcoming`
   upcoming: UpcomingOrderDto[]; // booked orders not yet due, soonest first
   capacity: SlotCapacityDto | null; // null = no limit in force
+  ordersScreen: OrdersScreenDto;
 }
 
 export interface AcceptOrderBody {
