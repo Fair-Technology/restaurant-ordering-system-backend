@@ -20,6 +20,8 @@ import { resolveDiscount, type DiscountResolution } from '../../promotion/resolv
 import { loadOrderLimitStatus } from '../../usage/orderLimitStatus';
 import { loadPricingContext } from '../_shared/loadPricingContext';
 import { basketProductIds, priceBasket, validateBasketItems } from '../_shared/priceBasket';
+import { TaxRateMissingError } from '../../../domain/reference/ReferenceLists';
+import { taxRateMissingResult } from '../_shared/taxRateMissing';
 import { BasketQuoteDto, QuoteBasketRequestDto } from './dtos';
 
 /** Re-prices a basket for the diner without placing anything, so changes can be shown before they order. */
@@ -136,7 +138,8 @@ export async function executeQuoteBasket(
         loyalty: loyaltyOffer(promotions),
       },
     };
-  } catch {
+  } catch (error: unknown) {
+    if (error instanceof TaxRateMissingError) return taxRateMissingResult(request.shopId, error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Quote failed' };
   }
 }

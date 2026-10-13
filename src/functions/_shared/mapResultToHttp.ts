@@ -49,6 +49,7 @@ export function mapResultToHttp<T>(result: ApplicationResult<T>): HttpResponseIn
       };
     case 'SHOP_OFFLINE_BY_SUPERADMIN':
     case 'ORDERS_PAUSED':
+    case 'TAX_RATE_MISSING':
       return {
         status: 409,
         jsonBody: { error: result.error, code: result.code }

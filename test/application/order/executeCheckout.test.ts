@@ -42,6 +42,8 @@ vi.mock('../../../src/infrastructure/stripe/stripeClient', () => ({
   isStripeIdempotencyError: (e: any) => e?.type === 'StripeIdempotencyError',
 }));
 
+import { getReferenceLists } from '../../../src/infrastructure/cosmos/reference/CosmosReferenceListsRepository';
+import { DE_REFERENCE_LISTS } from '../../../src/domain/reference/ReferenceLists';
 import { findShopById } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
 import { findProductById } from '../../../src/infrastructure/cosmos/product/CosmosProductRepository';
 import {
@@ -62,6 +64,7 @@ import {
   ADDRESS_INVALID_ERROR,
   ADDRESS_REQUIRED_ERROR,
   BASKET_CHANGED_ERROR,
+  TAX_RATE_MISSING_ERROR,
   DELIVERY_ADDRESS_INVALID_ERROR,
   DELIVERY_FEE_CHANGED_ERROR,
   DISCOUNT_ALREADY_USED_ERROR,
@@ -452,6 +455,17 @@ describe('executeCheckout card placement', () => {
           ],
         }),
       );
+    });
+
+    it('refuses and logs when the fee class has no delivery rate', async () => {
+      (getReferenceLists as any).mockResolvedValueOnce({ ...DE_REFERENCE_LISTS,
+        taxRates: DE_REFERENCE_LISTS.taxRates.filter((r) => r.fulfilmentMode !== 'delivery' || r.taxClassId !== 'food') });
+      const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const res = await executeCheckout(deliveryRequest, { now: NOW_OPEN });
+      expect(res).toEqual({ ok: false, code: 'TAX_RATE_MISSING', error: TAX_RATE_MISSING_ERROR });
+      expect(createPaymentIntent).not.toHaveBeenCalled();
+      expect(spy).toHaveBeenCalledWith('[tax:missing-rate]', 'shop-1', 'food', 'delivery', NOW_OPEN.toISOString());
+      spy.mockRestore();
     });
 
     it('refuses a postcode the restaurant does not deliver to', async () => {

@@ -136,6 +136,31 @@ export function resolveTaxRateBasisPoints(
   return best ? best.rateBasisPoints : null;
 }
 
+/** A tax class has no rate for this mode at this moment: the sale must be refused, never priced at 0 %. */
+export class TaxRateMissingError extends Error {
+  readonly taxClassId: string;
+  readonly mode: FulfilmentMode;
+  readonly at: Date;
+  constructor(taxClassId: string, mode: FulfilmentMode, at: Date) {
+    super(`No ${mode} rate in effect for tax class ${taxClassId} at ${at.toISOString()}`);
+    this.name = 'TaxRateMissingError';
+    this.taxClassId = taxClassId;
+    this.mode = mode;
+    this.at = at;
+  }
+}
+
+export function requireTaxRateBasisPoints(
+  rows: readonly TaxRateRow[],
+  taxClassId: string,
+  mode: FulfilmentMode,
+  at: Date,
+): number {
+  const rate = resolveTaxRateBasisPoints(rows, taxClassId, mode, at);
+  if (rate === null) throw new TaxRateMissingError(taxClassId, mode, at);
+  return rate;
+}
+
 export interface CurrentTaxRate {
   taxClassId: string;
   rates: Record<FulfilmentMode, number | null>;

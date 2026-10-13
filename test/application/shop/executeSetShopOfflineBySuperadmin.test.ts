@@ -123,5 +123,8 @@ describe('executeSetShopOfflineBySuperadmin', () => {
     expect(mapResultToHttp({ ok: false, code: 'ORDERS_PAUSED', error: 'e' })).toMatchObject({
       status: 409, jsonBody: { code: 'ORDERS_PAUSED' },
     });
+    expect(mapResultToHttp({ ok: false, code: 'TAX_RATE_MISSING', error: 'e' })).toMatchObject({
+      status: 409, jsonBody: { code: 'TAX_RATE_MISSING', error: 'e' },
+    });
   });
 });

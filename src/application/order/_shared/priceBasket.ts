@@ -5,7 +5,7 @@ import { COMBO_CHOICES_ERROR } from '../../../domain/order/orderErrors';
 import { buildTaxBreakdown, effectiveTaxClassId, extractVatCents } from '../../../domain/order/tax';
 import { BEVERAGE_TAX_CLASS_ID, splitComboUnit } from '../../../domain/product/combo';
 import { isDeclared, Product } from '../../../domain/product/Product';
-import { MenuLanguage, ReferenceListsDoc, resolveTaxRateBasisPoints } from '../../../domain/reference/ReferenceLists';
+import { MenuLanguage, ReferenceListsDoc, requireTaxRateBasisPoints } from '../../../domain/reference/ReferenceLists';
 import type { Shop } from '../../../domain/shop/Shop';
 import { isProductScheduleActive } from '../../_shared/scheduleUtils';
 
@@ -208,7 +208,7 @@ export function priceBasket(input: {
         const sel = priceSelection(dish, picked[0].selectedVariantOptionId, picked[0].selectedAddonOptionIds);
         if (typeof sel === 'string') return reject(sel);
         const classId = effectiveTaxClassId(dish, categories, refs.defaultTaxClassId);
-        const rate = classId ? (resolveTaxRateBasisPoints(refs.taxRates, classId, mode, now) ?? 0) : 0;
+        const rate = classId ? requireTaxRateBasisPoints(refs.taxRates, classId, mode, now) : 0;
         parts.push({ dish, sel, choice: picked[0], classId, rate });
       }
       // The combo price plus every size and extra surcharge, split over the dishes by what each costs on its own.
@@ -255,7 +255,7 @@ export function priceBasket(input: {
     const unitPriceCents = sel.unitPriceCents;
     const lineTotalCents = unitPriceCents * entry.quantity;
     const taxClassId = effectiveTaxClassId(p, categories, refs.defaultTaxClassId);
-    const rate = taxClassId ? (resolveTaxRateBasisPoints(refs.taxRates, taxClassId, mode, now) ?? 0) : 0;
+    const rate = taxClassId ? requireTaxRateBasisPoints(refs.taxRates, taxClassId, mode, now) : 0;
     const item: OrderItem = {
       productId: p.id,
       productName: p.name,

@@ -29,6 +29,8 @@ import { executeQuoteBasket } from '../../../src/application/order/quoteBasket/e
 import { findDiscountUseRows } from '../../../src/infrastructure/cosmos/order/CosmosOrderRepository';
 import { findPromotions, findVoucher } from '../../../src/infrastructure/cosmos/promotion/CosmosPromotionRepository';
 import { findProductById } from '../../../src/infrastructure/cosmos/product/CosmosProductRepository';
+import { getReferenceLists } from '../../../src/infrastructure/cosmos/reference/CosmosReferenceListsRepository';
+import { DE_REFERENCE_LISTS } from '../../../src/domain/reference/ReferenceLists';
 import { findShopById } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
 import { findSlotPlacesWithEtag } from '../../../src/infrastructure/cosmos/usage/CosmosSlotPlacesRepository';
 import { capped, dayDoc, installSlotStore } from '../../fixtures/slotPlaces';
@@ -158,6 +160,16 @@ describe('executeQuoteBasket', () => {
       taxCents: 141,
       prepMinutes: 45,
     });
+  });
+
+  it('a missing rate refuses the quote', async () => {
+    (findShopById as any).mockResolvedValue(DELIVERY_SHOP);
+    (getReferenceLists as any).mockResolvedValueOnce({ ...DE_REFERENCE_LISTS,
+      taxRates: DE_REFERENCE_LISTS.taxRates.filter((r) => r.fulfilmentMode !== 'delivery' || r.taxClassId !== 'food') });
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const res = await executeQuoteBasket({ ...request, fulfilmentMode: 'delivery' as const, postcode: '10115' }, { now: NOW_OPEN });
+    expect(res).toMatchObject({ ok: false, code: 'TAX_RATE_MISSING' });
+    spy.mockRestore();
   });
 
   it('says when a postcode is not served', async () => {

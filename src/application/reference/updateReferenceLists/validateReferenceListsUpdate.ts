@@ -1,5 +1,5 @@
 import { FULFILMENT_MODES } from '../../../domain/order/Order';
-import { AdditiveDef, AllergenDef, ReferenceListsDoc, TaxClassDef, TaxRateRow } from '../../../domain/reference/ReferenceLists';
+import { AdditiveDef, AllergenDef, ReferenceListsDoc, resolveTaxRateBasisPoints, TaxClassDef, TaxRateRow } from '../../../domain/reference/ReferenceLists';
 
 export interface ReferenceListsUpdateDto {
   allergens: AllergenDef[];
@@ -181,6 +181,14 @@ export function validateReferenceListsUpdate(
     }
   } else if (activeClassIds.size > 0) {
     return 'defaultTaxClassId is required when tax classes exist';
+  }
+
+  // Rule 10: every active class has a rate in effect now for every mode, so pricing never meets a gap
+  for (const c of taxClasses) {
+    if (!c.isActive) continue;
+    for (const mode of FULFILMENT_MODES) {
+      if (resolveTaxRateBasisPoints(taxRates, c.id, mode, now) === null) return `Tax class ${c.id} needs a rate in effect now for ${mode}`;
+    }
   }
 
   return { allergens, additives, taxClasses, defaultTaxClassId, taxRates };

@@ -12,7 +12,7 @@ import {
 } from '../../src/domain/order/delivery';
 import { chargedCents, deliveryFeeCentsOf } from '../../src/domain/order/Order';
 import { buildTaxBreakdownWithCharges } from '../../src/domain/order/tax';
-import { DE_REFERENCE_LISTS } from '../../src/domain/reference/ReferenceLists';
+import { DE_REFERENCE_LISTS, TaxRateMissingError } from '../../src/domain/reference/ReferenceLists';
 import {
   ACCEPTED_TWO_LINE_ORDER,
   CARD_SHOP,
@@ -78,6 +78,15 @@ describe('delivery rules', () => {
     expect(hoursForMode(shop, 'delivery')).toEqual(EVENING);
     expect(hoursForMode(shop, 'collection')).toEqual(LUNCH_HOURS);
     expect(hoursForMode(DELIVERY_SHOP, 'delivery')).toEqual(LUNCH_HOURS);
+  });
+
+  it('a fee class without a delivery rate refuses (audit row 5)', () => {
+    const refs = structuredClone(DE_REFERENCE_LISTS);
+    refs.taxClasses.push({ id: 'snacks', labels: { de: 'Snacks', en: 'Snacks' }, isActive: true });
+    refs.taxRates.push({ taxClassId: 'snacks', fulfilmentMode: 'collection', rateBasisPoints: 700, effectiveFrom: '2026-01-01T00:00:00+01:00' });
+    expect(() =>
+      deliveryFeeCharge({ orderSettings: { deliveryFeeTaxClassId: 'snacks' } }, DELIVERY_ZONE, refs, NOW_OPEN),
+    ).toThrow(TaxRateMissingError);
   });
 
   it('the fee carries the rate of the class the restaurant picked', () => {
