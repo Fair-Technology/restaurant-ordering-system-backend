@@ -8,7 +8,7 @@ import type { ExactImageSize } from '../../domain/images/imageRules';
 const RANGES_BYTES = [64 * 1024, 512 * 1024, 2 * 1024 * 1024];
 
 export type BlobImageSize =
-  | { status: 'ok'; size: ExactImageSize }
+  | { status: 'ok'; size: ExactImageSize; format: string }
   | { status: 'missing' }
   | { status: 'unreadable' };
 
@@ -18,7 +18,7 @@ export async function readBlobImageSize(blobPath: string): Promise<BlobImageSize
     if (!bytes) return { status: 'missing' };
     try {
       const dims = imageSize(bytes);
-      if (dims.width && dims.height) return { status: 'ok', size: { width: dims.width, height: dims.height } };
+      if (dims.width && dims.height) return { status: 'ok', size: { width: dims.width, height: dims.height }, format: dims.type ?? 'unknown' };
     } catch {
       // header not (fully) inside this range, try a bigger one
     }

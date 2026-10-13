@@ -11,6 +11,7 @@ import { ApplicationResult } from '../../_shared/types';
 import { Product } from '../../../domain/product/Product';
 import { validateMenuFields } from '../menuFields';
 import { toMenuFieldsDto } from '../menuFieldsDto';
+import { CREATE_WITH_PHOTOS_ERROR } from '../../../domain/images/imageRules';
 import { logAudit } from '../../_shared/auditHelpers';
 
 export async function executeCreateProduct(
@@ -56,6 +57,10 @@ export async function executeCreateProduct(
       code: 'INVALID_INPUT',
       error: 'price is required and must be a non-negative number',
     };
+  }
+
+  if (request.images != null && (!Array.isArray(request.images) || request.images.length > 0)) {
+    return { ok: false, code: 'INVALID_INPUT', error: CREATE_WITH_PHOTOS_ERROR };
   }
 
   // De-duplicate categoryIds up front; the DB-backed existence check runs
@@ -135,7 +140,7 @@ export async function executeCreateProduct(
       descriptionTranslations: menu.descriptionTranslations ?? {},
       price: request.price,
       categoryIds: request.categoryIds || [],
-      images: request.images || [],
+      images: [],
       variantGroups: menu.variantGroups ?? request.variantGroups,
       addonGroups: menu.addonGroups ?? request.addonGroups,
       allergenIds: menu.allergenIds ?? null,

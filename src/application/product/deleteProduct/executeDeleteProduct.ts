@@ -5,7 +5,8 @@ import {
 } from '../../../infrastructure/cosmos/product/CosmosProductRepository';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { authorizeShopAction, toAuditActor } from '../../_shared/shopAccess';
-import { deleteBlob, extractBlobPath } from '../../../infrastructure/storage/blobStorageHelpers';
+import { deleteBlob } from '../../../infrastructure/storage/blobStorageHelpers';
+import { ownedBlobPath, productImageFolder } from '../../../infrastructure/storage/blobUrls';
 import { DeleteProductRequestDto, DeleteProductResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 import { logAudit } from '../../_shared/auditHelpers';
@@ -82,7 +83,7 @@ export async function executeDeleteProduct(
     // Clean up image blobs — best effort, never fails the delete response
     await Promise.allSettled(
       (product.images ?? []).map((img) => {
-        const path = extractBlobPath(img.url);
+        const path = ownedBlobPath(img.url, productImageFolder(product.shopId, product.id));
         return path ? deleteBlob(path) : Promise.resolve();
       }),
     );

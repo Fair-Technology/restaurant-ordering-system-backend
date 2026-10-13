@@ -19,7 +19,6 @@ vi.mock('../../../src/infrastructure/cosmos/reference/CosmosReferenceListsReposi
 }));
 vi.mock('../../../src/infrastructure/storage/blobStorageHelpers', () => ({
   deleteBlob: vi.fn(),
-  extractBlobPath: vi.fn(),
 }));
 vi.mock('../../../src/application/_shared/auditHelpers', () => ({
   logAudit: vi.fn(),

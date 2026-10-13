@@ -9,12 +9,13 @@ import { suggestedTaxClassId } from '../../../domain/order/tax';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { getReferenceLists } from '../../../infrastructure/cosmos/reference/CosmosReferenceListsRepository';
 import { authorizeShopAction, toAuditActor } from '../../_shared/shopAccess';
-import { deleteBlob, extractBlobPath } from '../../../infrastructure/storage/blobStorageHelpers';
+import { deleteBlob } from '../../../infrastructure/storage/blobStorageHelpers';
+import { ownedBlobPath, productImageFolder } from '../../../infrastructure/storage/blobUrls';
 import { UpdateProductRequestDto, UpdateProductResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 import { validateMenuFields } from '../menuFields';
 import { toMenuFieldsDto } from '../menuFieldsDto';
-import { PRODUCT_IMAGE_REQUIRED, mergeProductImages, wouldRemoveLastProductImage } from '../../../domain/images/imageRules';
+import { PRODUCT_IMAGE_REQUIRED, mergeProductImages, unknownOrChangedImage, wouldRemoveLastProductImage } from '../../../domain/images/imageRules';
 import { diffFields, logAudit } from '../../_shared/auditHelpers';
 
 export async function executeUpdateProduct(
@@ -85,12 +86,18 @@ export async function executeUpdateProduct(
     ]);
     if (!access.ok) return access;
 
+    if (request.images !== undefined && !Array.isArray(request.images)) return { ok: false, code: 'INVALID_INPUT', error: 'images must be an array' };
     if (wouldRemoveLastProductImage(product.images, request.images)) {
       return {
         ok: false,
         code: PRODUCT_IMAGE_REQUIRED,
         error: 'A dish must keep at least one photo. Add the new photo first, then remove the old one.',
       };
+    }
+
+    if (request.images !== undefined) {
+      const imageError = unknownOrChangedImage(product.images, request.images);
+      if (imageError) return { ok: false, code: 'INVALID_INPUT', error: imageError };
     }
 
     const menu = validateMenuFields(request, refs, product);
@@ -246,7 +253,7 @@ export async function executeUpdateProduct(
       // Delete blobs for images removed from the array — best effort
       Promise.allSettled(
         removedImages.map((img) => {
-          const path = extractBlobPath(img.url);
+          const path = ownedBlobPath(img.url, productImageFolder(shopId, productId));
           return path ? deleteBlob(path) : Promise.resolve();
         }),
       ),

@@ -64,7 +64,7 @@ export function generateBlobUrl(blobPath: string): string {
 }
 
 /**
- * Generate SAS URL for blob upload with write permissions
+ * Generate SAS URL for blob upload with create-only permission
  * @param blobPath - The blob path within the container
  * @returns Object containing the SAS URL and expiry time
  */
@@ -72,10 +72,9 @@ export function generateUploadSasUrl(blobPath: string): { sasUrl: string; expire
   const expiresAt = new Date();
   expiresAt.setMinutes(expiresAt.getMinutes() + 10); // 10 minutes from now
 
-  // Set permissions for create and write only
+  // create only: a new blob, never an overwrite
   const permissions = new BlobSASPermissions();
   permissions.create = true;
-  permissions.write = true;
 
   // Generate SAS query parameters
   const sasQueryParams = generateBlobSASQueryParameters(
@@ -145,13 +144,28 @@ export async function downloadBlobRange(blobPath: string, offset: number, count:
   }
 }
 
+export interface BlobUploadProperties {
+  contentLength: number;
+  contentType: string | null;
+}
+
 /**
- * Extract the relative blob path from a full storage URL
+ * Stored size and declared content type of a blob; null if the blob does not exist.
  */
-export function extractBlobPath(blobUrl: string): string | null {
-  const marker = `/${CONTAINER_NAME}/`;
-  const idx = blobUrl.indexOf(marker);
-  return idx === -1 ? null : blobUrl.slice(idx + marker.length);
+export async function getBlobProperties(blobPath: string): Promise<BlobUploadProperties | null> {
+  const blob = new BlobServiceClient(
+    `https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net`,
+    sharedKeyCredential,
+  )
+    .getContainerClient(CONTAINER_NAME)
+    .getBlockBlobClient(blobPath);
+  try {
+    const p = await blob.getProperties();
+    return { contentLength: p.contentLength ?? 0, contentType: p.contentType ?? null };
+  } catch (e: unknown) {
+    if ((e as { statusCode?: number })?.statusCode === 404) return null;
+    throw e;
+  }
 }
 
 /**

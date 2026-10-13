@@ -4,7 +4,8 @@ import {
   updateShop as updateShopInRepo,
 } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { authorizeShopAction, toAuditActor } from '../../_shared/shopAccess';
-import { deleteBlob, extractBlobPath } from '../../../infrastructure/storage/blobStorageHelpers';
+import { deleteBlob } from '../../../infrastructure/storage/blobStorageHelpers';
+import { ownedBlobPath, shopBrandingFolder } from '../../../infrastructure/storage/blobUrls';
 import { ShopCoverImageResultDto, toCoverImageResult } from '../setShopCoverImage/dtos';
 import { ApplicationResult } from '../../_shared/types';
 import { logAudit } from '../../_shared/auditHelpers';
@@ -37,7 +38,7 @@ export async function executeRemoveShopCoverImage(
       updatedAt: new Date().toISOString(),
     });
 
-    const oldPath = oldUrl !== shop.branding.logoUrl ? extractBlobPath(oldUrl) : null;
+    const oldPath = oldUrl !== shop.branding.logoUrl ? ownedBlobPath(oldUrl, shopBrandingFolder(shop.id)) : null;
     if (oldPath) {
       try {
         await deleteBlob(oldPath);
