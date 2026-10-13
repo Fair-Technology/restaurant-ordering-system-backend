@@ -5,6 +5,10 @@ vi.mock('../../../src/infrastructure/cosmos/usage/CosmosSlotPlacesRepository', (
   createSlotPlaces: vi.fn(async () => 'ok'),
   replaceSlotPlacesIfMatch: vi.fn(async () => 'ok'),
 }));
+vi.mock('../../../src/infrastructure/cosmos/usage/CosmosOrdersScreenRepository', () => ({
+  findOrdersScreenDoc: vi.fn(async () => null),
+  upsertOrdersScreenDoc: vi.fn(async () => undefined),
+}));
 vi.mock('../../../src/application/_shared/shopAccess', () => ({ authorizeShopAction: vi.fn() }));
 vi.mock('../../../src/infrastructure/cosmos/shop/CosmosShopRepository', () => ({ findShopById: vi.fn() }));
 vi.mock('../../../src/infrastructure/cosmos/order/CosmosOrderRepository', () => ({
@@ -51,6 +55,7 @@ import {
   findOrdersByShopIdAndStates,
   replaceOrderIfMatch,
 } from '../../../src/infrastructure/cosmos/order/CosmosOrderRepository';
+import { findOrdersScreenDoc } from '../../../src/infrastructure/cosmos/usage/CosmosOrdersScreenRepository';
 import { findShopById } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
 import { incrementAcceptedOrders } from '../../../src/infrastructure/cosmos/usage/CosmosUsageRepository';
 import { notifyOrderLimitThresholds } from '../../../src/application/usage/orderLimitWarnings';
@@ -110,6 +115,7 @@ describe('kitchen intake', () => {
     vi.clearAllMocks();
     (authorizeShopAction as any).mockResolvedValue(STAFF_ACCESS);
     (findShopById as any).mockResolvedValue(CARD_SHOP);
+    (findOrdersScreenDoc as any).mockResolvedValue(null);
     storedOrder();
   });
 
@@ -330,6 +336,38 @@ describe('kitchen intake', () => {
       autoAccepted: false,
     });
     expect('paymentMethod' in res.data.orders[0]).toBe(false);
+  });
+
+  it('the queue reports auto-accept held when no orders screen has been seen', async () => {
+    (findOrdersByShopIdAndStates as any).mockResolvedValue([]);
+    const res = await executeGetOrderQueue({ shopId: 'shop-1' }, http, { now });
+    expect(res.ok && res.data.ordersScreen).toEqual({ lastSeenAt: null, watched: false, autoAcceptOn: true });
+  });
+
+  it('a board seen two minutes ago counts as watched', async () => {
+    (findOrdersByShopIdAndStates as any).mockResolvedValue([]);
+    (findOrdersScreenDoc as any).mockResolvedValue({
+      id: 'orders_screen_shop-1',
+      kind: 'orders_screen',
+      shopId: 'shop-1',
+      lastSeenAt: '2026-10-05T10:03:00.000Z',
+    });
+    const res = await executeGetOrderQueue({ shopId: 'shop-1' }, http, { now });
+    expect(res.ok && res.data.ordersScreen).toEqual({ lastSeenAt: '2026-10-05T10:03:00.000Z', watched: true, autoAcceptOn: true });
+  });
+
+  it('a restaurant accepting by hand is not told auto-accept is on', async () => {
+    (findOrdersByShopIdAndStates as any).mockResolvedValue([]);
+    (findShopById as any).mockResolvedValue({ ...CARD_SHOP, orderSettings: { autoAccept: false } });
+    const res = await executeGetOrderQueue({ shopId: 'shop-1' }, http, { now });
+    expect(res.ok && res.data.ordersScreen.autoAcceptOn).toBe(false);
+  });
+
+  it('an offline restaurant is not told auto-accept is on', async () => {
+    (findOrdersByShopIdAndStates as any).mockResolvedValue([]);
+    (findShopById as any).mockResolvedValue({ ...CARD_SHOP, isPaused: true });
+    const res = await executeGetOrderQueue({ shopId: 'shop-1' }, http, { now });
+    expect(res.ok && res.data.ordersScreen.autoAcceptOn).toBe(false);
   });
 
   it('staff accepts with the busy estimate', async () => {

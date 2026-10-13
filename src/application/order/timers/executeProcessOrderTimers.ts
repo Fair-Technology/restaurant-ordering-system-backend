@@ -24,6 +24,7 @@ import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepo
 import { issueCorrectionForRefund, issueInvoiceForOrder, needsInvoice } from '../invoices/issueInvoice';
 import { notifyCustomer, notifyRestaurantEscalation } from '../notifications/notifyOrder';
 import { acceptPlacedOrder } from '../_shared/acceptPlacedOrder';
+import { isOrdersScreenWatched } from '../_shared/ordersScreen';
 import { releaseClosedOrderPayment } from '../_shared/releasePayment';
 import { renderInvoicePdf } from '../../../infrastructure/pdf/invoicePdf';
 import { transitionOrder } from '../_shared/transitionOrder';
@@ -74,6 +75,7 @@ export interface OrderTimersResult {
  * and the alert, decline and auto-accept start from that moment. Accepts waiting orders for restaurants with auto-accept on (the retry for an order
  * the webhook could not accept because the payment service was down). For orders nobody has answered: emails the restaurant after 3 minutes, declines at
  * the restaurant's timeout (and gives the money back). Declined orders whose payment could not be released are retried every 15 minutes. For ready or delivered orders nobody marked as handed over: completes them once the local day is over.
+ * A shop that is offline, or has no orders screen open in the last 3 minutes, is not auto-accepted: its orders wait for staff or the timeout.
  * One bad order never stops the rest; a lost race with staff is skipped silently.
  */
 export async function executeProcessOrderTimers(input: { now: Date }): Promise<OrderTimersResult> {
@@ -92,6 +94,11 @@ export async function executeProcessOrderTimers(input: { now: Date }): Promise<O
   const shopOf = async (id: string): Promise<Shop | null> => {
     if (!shops.has(id)) shops.set(id, await findShopById(id));
     return shops.get(id) ?? null;
+  };
+  const watched = new Map<string, boolean>();
+  const watchedOf = async (shopId: string): Promise<boolean> => {
+    if (!watched.has(shopId)) watched.set(shopId, await isOrdersScreenWatched(shopId, now));
+    return watched.get(shopId)!;
   };
 
   // Every waiting order, whatever its age: auto-accept retries each minute, while escalation and
@@ -126,9 +133,9 @@ export async function executeProcessOrderTimers(input: { now: Date }): Promise<O
         o = entered.order;
         result.queued++;
       }
-      // An offline shop has nobody cooking: its orders wait for staff or the timeout instead of being charged.
-      // A pause only stops new orders, so orders placed before it still go through.
-      if (autoAcceptsOrder(shop, o) && !isShopOffline(shop)) {
+      // An offline shop, or one with no orders screen open in the last 3 minutes, has nobody cooking: its orders wait
+      // for staff or the timeout instead of being charged. A pause only stops new orders, so orders placed before it still go through.
+      if (autoAcceptsOrder(shop, o) && !isShopOffline(shop) && (await watchedOf(shop.id))) {
         const accepted = await acceptPlacedOrder({ orderId: o.id, shop, actor: { type: 'system' }, now });
         if (accepted.ok) {
           result.autoAccepted++;
