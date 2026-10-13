@@ -87,6 +87,7 @@ describe('releaseClosedOrderPayment', () => {
     expect(createRefund).toHaveBeenCalledWith({
       connectAccountId: 'acct_1',
       paymentIntentId: 'pi_1',
+      orderId: 'o1',
       amountCents: 1050,
       idempotencyKey: 'auto-refund-o1',
     });

@@ -33,6 +33,7 @@ import {
   ensurePaymentMethodDomain,
   findLiveRefund,
   isRetryableStripeError,
+  listPaymentRefunds,
   releaseAuthorization,
   storefrontDomainName,
 } from '../../src/infrastructure/stripe/stripeClient';
@@ -110,14 +111,35 @@ describe('stripeClient', () => {
     const r = await createRefund({
       connectAccountId: 'acct_1',
       paymentIntentId: 'pi_1',
+      orderId: 'o1',
       amountCents: 1050,
       idempotencyKey: 'auto-refund-o1',
     });
     expect(r).toEqual({ id: 're_1' });
     expect(m.refundsCreate).toHaveBeenCalledWith(
-      { payment_intent: 'pi_1', amount: 1050, reason: 'requested_by_customer' },
+      {
+        payment_intent: 'pi_1',
+        amount: 1050,
+        reason: 'requested_by_customer',
+        metadata: { source: 'ordering-app', orderId: 'o1' },
+      },
       { stripeAccount: 'acct_1', idempotencyKey: 'auto-refund-o1' },
     );
+  });
+
+  it("lists a payment's refunds and tells ours from the dashboard's", async () => {
+    m.refundsList.mockResolvedValue({
+      data: [
+        { id: 're_d', amount: 300, currency: 'eur', status: 'succeeded', created: 1791201600, metadata: {} },
+        { id: 're_a', amount: 200, currency: 'eur', status: 'succeeded', created: 1791201600, metadata: { source: 'ordering-app', orderId: 'o1' } },
+      ],
+    });
+    const at = new Date(1791201600000).toISOString();
+    await expect(listPaymentRefunds({ connectAccountId: 'acct_1', paymentIntentId: 'pi_1' })).resolves.toEqual([
+      { id: 're_d', amountCents: 300, currency: 'eur', status: 'succeeded', createdAtIso: at, fromApp: false },
+      { id: 're_a', amountCents: 200, currency: 'eur', status: 'succeeded', createdAtIso: at, fromApp: true },
+    ]);
+    expect(m.refundsList).toHaveBeenCalledWith({ payment_intent: 'pi_1', limit: 100 }, { stripeAccount: 'acct_1' });
   });
 
   it('registers the storefront domain once', async () => {

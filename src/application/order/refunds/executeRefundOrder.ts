@@ -107,6 +107,7 @@ export async function executeRefundOrder(
       const refund = await createRefund({
         connectAccountId,
         paymentIntentId,
+        orderId: o.id,
         amountCents: amount,
         idempotencyKey: `refund-${o.id}-${prior.length}-${amount}`,
       });
