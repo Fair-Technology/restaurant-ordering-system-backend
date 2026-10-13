@@ -4,7 +4,8 @@ import {
   updateShop as updateShopInRepo,
 } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { authorizeShopAction, toAuditActor } from '../../_shared/shopAccess';
-import { deleteBlob, extractBlobPath } from '../../../infrastructure/storage/blobStorageHelpers';
+import { deleteBlob } from '../../../infrastructure/storage/blobStorageHelpers';
+import { ownedBlobPath, shopBrandingFolder } from '../../../infrastructure/storage/blobUrls';
 import { SetShopLogoRequestDto, SetShopLogoResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 import { logAudit } from '../../_shared/auditHelpers';
@@ -37,7 +38,7 @@ export async function executeSetShopLogo(
     // Delete old logo blob if it exists and differs from the new URL
     const oldLogoUrl = shop.branding?.logoUrl;
     if (oldLogoUrl && oldLogoUrl !== request.url) {
-      const oldPath = extractBlobPath(oldLogoUrl);
+      const oldPath = ownedBlobPath(oldLogoUrl, shopBrandingFolder(shop.id));
       if (oldPath) {
         await deleteBlob(oldPath);
       }

@@ -22,7 +22,7 @@ beforeEach(() => vi.clearAllMocks());
 describe('readBlobImageSize', () => {
   it('reads the real size from the first bytes only', async () => {
     vi.mocked(downloadBlobRange).mockResolvedValue(png(1920, 640));
-    expect(await readBlobImageSize('a/b.png')).toEqual({ status: 'ok', size: { width: 1920, height: 640 } });
+    expect(await readBlobImageSize('a/b.png')).toEqual({ status: 'ok', size: { width: 1920, height: 640 }, format: 'png' });
     expect(downloadBlobRange).toHaveBeenCalledTimes(1);
     expect(downloadBlobRange).toHaveBeenCalledWith('a/b.png', 0, 64 * 1024);
   });
@@ -42,7 +42,7 @@ describe('readBlobImageSize', () => {
     vi.mocked(downloadBlobRange)
       .mockResolvedValueOnce(Buffer.alloc(64 * 1024, 1))
       .mockResolvedValueOnce(png(1200, 900));
-    expect(await readBlobImageSize('a/b.png')).toEqual({ status: 'ok', size: { width: 1200, height: 900 } });
+    expect(await readBlobImageSize('a/b.png')).toEqual({ status: 'ok', size: { width: 1200, height: 900 }, format: 'png' });
     expect(downloadBlobRange).toHaveBeenLastCalledWith('a/b.png', 0, 512 * 1024);
   });
 });

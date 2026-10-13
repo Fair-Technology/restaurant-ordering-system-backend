@@ -8,7 +8,7 @@ import { AddProductImageRequestDto, AddProductImageResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 import { ProductImage } from '../../../domain/product/Product';
 import { HttpRequest } from '@azure/functions';
-import { extractBlobPath } from '../../../infrastructure/storage/blobStorageHelpers';
+import { ownedBlobPath, productImageFolder } from '../../../infrastructure/storage/blobUrls';
 import { verifyUploadedImageSize } from '../../_shared/verifyUploadedImageSize';
 import { PRODUCT_IMAGE_SIZE, PRODUCT_IMAGE_WRONG_SIZE } from '../../../domain/images/imageRules';
 
@@ -86,8 +86,8 @@ export async function executeAddProductImage(
     // The blob must be one uploaded for this dish (we may delete it below) and exactly the dish photo size.
     const shopId = request.shopId.trim();
     const productId = request.productId.trim();
-    const blobPath = extractBlobPath(request.url.trim().split(/[?#]/)[0]);
-    if (!blobPath || blobPath.includes('..') || !blobPath.startsWith(`shops/${shopId}/products/${productId}/`)) {
+    const blobPath = ownedBlobPath(request.url.trim(), productImageFolder(shopId, productId));
+    if (!blobPath) {
       return { ok: false, code: 'INVALID_INPUT', error: 'url must be an image uploaded for this product' };
     }
 

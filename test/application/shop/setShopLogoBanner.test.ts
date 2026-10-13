@@ -14,7 +14,6 @@ vi.mock('../../../src/infrastructure/cosmos/shop/CosmosShopRepository', () => ({
 vi.mock('../../../src/application/_shared/auditHelpers', () => ({ logAudit: vi.fn(), diffFields: vi.fn(() => []) }));
 vi.mock('../../../src/infrastructure/storage/blobStorageHelpers', () => ({
   deleteBlob: vi.fn(async () => {}),
-  extractBlobPath: () => null,
 }));
 
 import { executeSetShopLogo } from '../../../src/application/shop/setShopLogo/executeSetShopLogo';

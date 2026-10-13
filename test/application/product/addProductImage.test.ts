@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 vi.mock('../../../src/application/_shared/shopAccess', () => ({ authorizeShopAction: vi.fn() }));
 vi.mock('../../../src/infrastructure/cosmos/shop/CosmosShopRepository', () => ({ findShopById: vi.fn() }));
@@ -9,11 +9,7 @@ vi.mock('../../../src/infrastructure/cosmos/product/CosmosProductRepository', ()
 vi.mock('../../../src/infrastructure/storage/blobImageSize', () => ({ readBlobImageSize: vi.fn() }));
 vi.mock('../../../src/infrastructure/storage/blobStorageHelpers', () => ({
   deleteBlob: vi.fn(async () => {}),
-  extractBlobPath: (u: string) => {
-    const m = '/product-media/';
-    const i = u.indexOf(m);
-    return i === -1 ? null : u.slice(i + m.length);
-  },
+  getBlobProperties: vi.fn(),
 }));
 
 import { executeAddProductImage } from '../../../src/application/product/addProductImage/executeAddProductImage';
@@ -21,7 +17,7 @@ import { authorizeShopAction } from '../../../src/application/_shared/shopAccess
 import { findShopById } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
 import { findProductById, updateProduct } from '../../../src/infrastructure/cosmos/product/CosmosProductRepository';
 import { readBlobImageSize } from '../../../src/infrastructure/storage/blobImageSize';
-import { deleteBlob } from '../../../src/infrastructure/storage/blobStorageHelpers';
+import { deleteBlob, getBlobProperties } from '../../../src/infrastructure/storage/blobStorageHelpers';
 
 const BASE = 'https://acct.blob.core.windows.net/product-media/';
 const path = 'shops/shop-1/products/prod-1/img-1.jpg';
@@ -31,12 +27,16 @@ const httpRequest = {} as any;
 let product: any;
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.stubEnv('STORAGE_ACCOUNT_NAME', 'acct');
+  vi.mocked(getBlobProperties).mockResolvedValue({ contentLength: 200_000, contentType: 'image/jpeg' });
   product = { id: 'prod-1', shopId: 'shop-1', images: [{ id: 'old', url: BASE + 'shops/shop-1/products/prod-1/old.jpg', createdAt: 'x' }] };
   vi.mocked(findShopById).mockResolvedValue({ id: 'shop-1' } as any);
   vi.mocked(authorizeShopAction).mockResolvedValue({ ok: true } as any);
   vi.mocked(findProductById).mockImplementation(async () => product);
-  vi.mocked(readBlobImageSize).mockResolvedValue({ status: 'ok', size: { width: 1200, height: 900 } });
+  vi.mocked(readBlobImageSize).mockResolvedValue({ status: 'ok', size: { width: 1200, height: 900 }, format: 'jpg' });
 });
+
+afterEach(() => vi.unstubAllEnvs());
 
 describe('addProductImage exact pixel size', () => {
   it('accepts exactly 1200 x 900 and saves the photo', async () => {
@@ -60,7 +60,7 @@ describe('addProductImage exact pixel size', () => {
     ['right ratio, wrong size', { width: 800, height: 600 }],
     ['right ratio, too big', { width: 2400, height: 1800 }],
   ])('rejects %s, deletes the blob, leaves the dish unchanged', async (_n, size) => {
-    vi.mocked(readBlobImageSize).mockResolvedValue({ status: 'ok', size });
+    vi.mocked(readBlobImageSize).mockResolvedValue({ status: 'ok', size, format: 'jpg' });
     const r = await executeAddProductImage(req, httpRequest);
     expect(r).toEqual({ ok: false, code: 'PRODUCT_IMAGE_WRONG_SIZE', error: 'Dish photo must be exactly 1200 x 900 px' });
     expect(deleteBlob).toHaveBeenCalledWith(path);
@@ -83,12 +83,22 @@ describe('addProductImage exact pixel size', () => {
       BASE + 'shops/shop-1/products/prod-2/img-1.jpg',
       BASE + 'shops/shop-1/products/prod-1/../../branding/logo.png',
       'https://evil.example/x.jpg',
+      'https://evil.example/product-media/shops/shop-1/products/prod-1/img-1.jpg',
+      BASE + path + '?sig=x',
     ]) {
       const r = await executeAddProductImage({ ...req, url }, httpRequest);
       expect(r).toMatchObject({ ok: false, code: 'INVALID_INPUT' });
     }
     expect(readBlobImageSize).not.toHaveBeenCalled();
     expect(deleteBlob).not.toHaveBeenCalled();
+  });
+
+  it('refuses an oversized upload and deletes it', async () => {
+    vi.mocked(getBlobProperties).mockResolvedValue({ contentLength: 10485761, contentType: 'image/jpeg' });
+    const r = await executeAddProductImage(req, httpRequest);
+    expect(r).toEqual({ ok: false, code: 'INVALID_INPUT', error: 'Dish photo must be at most 10 MB' });
+    expect(deleteBlob).toHaveBeenCalledWith(path);
+    expect(updateProduct).not.toHaveBeenCalled();
   });
 
   it('a duplicate image id is refused without touching the existing blob', async () => {

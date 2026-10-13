@@ -4,7 +4,8 @@ import {
   updateShop as updateShopInRepo,
 } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { authorizeShopAction, toAuditActor } from '../../_shared/shopAccess';
-import { deleteBlob, extractBlobPath, generateBlobUrl } from '../../../infrastructure/storage/blobStorageHelpers';
+import { deleteBlob, generateBlobUrl } from '../../../infrastructure/storage/blobStorageHelpers';
+import { ownedBlobPath, shopBrandingFolder } from '../../../infrastructure/storage/blobUrls';
 import { SetShopCoverImageRequestDto, ShopCoverImageResultDto, toCoverImageResult } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 import { logAudit } from '../../_shared/auditHelpers';
@@ -44,16 +45,14 @@ export async function executeSetShopCoverImage(
 
     // The URL must be exactly one of the blob URLs the upload-URL step could have issued
     // for this shop and imageId: no extra segments, "..", query or fragment.
-    const isIssuedUrl =
-      IMAGE_ID_PATTERN.test(imageId) &&
-      COVER_IMAGE_EXTENSIONS.some((ext) => request.url === generateBlobUrl(`shops/${shopId}/branding/${imageId}${ext}`));
-    if (!isIssuedUrl) {
-      return { ok: false, code: 'INVALID_INPUT', error: COVER_IMAGE_URL_ERROR };
-    }
+    const issuedPath = IMAGE_ID_PATTERN.test(imageId)
+      ? COVER_IMAGE_EXTENSIONS.map((ext) => `shops/${shopId}/branding/${imageId}${ext}`).find((p) => request.url === generateBlobUrl(p))
+      : undefined;
+    if (!issuedPath) return { ok: false, code: 'INVALID_INPUT', error: COVER_IMAGE_URL_ERROR };
 
     // The owner's browser crops to the exact cover size; check the real file, not the claim.
     const sizeError = await verifyUploadedImageSize(
-      extractBlobPath(request.url) ?? '',
+      issuedPath,
       COVER_IMAGE_SIZE,
       'Cover image',
       COVER_IMAGE_WRONG_SIZE,
@@ -69,7 +68,7 @@ export async function executeSetShopCoverImage(
 
     // Delete the replaced file only after the database write succeeded.
     if (oldUrl && oldUrl !== request.url && oldUrl !== shop.branding?.logoUrl) {
-      const oldPath = extractBlobPath(oldUrl);
+      const oldPath = ownedBlobPath(oldUrl, shopBrandingFolder(shopId));
       if (oldPath) {
         try {
           await deleteBlob(oldPath);

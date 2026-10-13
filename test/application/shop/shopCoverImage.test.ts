@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 vi.mock('../../../src/application/_shared/shopAccess', () => ({
   authorizeShopAction: vi.fn(),
@@ -24,11 +24,7 @@ vi.mock('../../../src/infrastructure/storage/blobStorageHelpers', () => ({
     expiresAt: '2026-10-06T00:10:00.000Z',
   }),
   deleteBlob: vi.fn(async () => {}),
-  extractBlobPath: (u: string) => {
-    const m = '/product-media/';
-    const i = u.indexOf(m);
-    return i === -1 ? null : u.slice(i + m.length);
-  },
+  getBlobProperties: vi.fn(),
 }));
 
 vi.mock('../../../src/infrastructure/storage/blobImageSize', () => ({ readBlobImageSize: vi.fn() }));
@@ -36,11 +32,12 @@ vi.mock('../../../src/infrastructure/storage/blobImageSize', () => ({ readBlobIm
 import { readBlobImageSize } from '../../../src/infrastructure/storage/blobImageSize';
 import { executeGenerateShopCoverImageUploadUrl } from '../../../src/application/shop/generateShopCoverImageUploadUrl/executeGenerateShopCoverImageUploadUrl';
 import { executeSetShopCoverImage } from '../../../src/application/shop/setShopCoverImage/executeSetShopCoverImage';
+import { executeSetShopLogo } from '../../../src/application/shop/setShopLogo/executeSetShopLogo';
 import { executeRemoveShopCoverImage } from '../../../src/application/shop/removeShopCoverImage/executeRemoveShopCoverImage';
 import { authorizeShopAction } from '../../../src/application/_shared/shopAccess';
 import { findShopById, updateShop } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
 import { logAudit } from '../../../src/application/_shared/auditHelpers';
-import { deleteBlob } from '../../../src/infrastructure/storage/blobStorageHelpers';
+import { deleteBlob, getBlobProperties } from '../../../src/infrastructure/storage/blobStorageHelpers';
 
 const BASE = 'https://acct.blob.core.windows.net/product-media/';
 const httpRequest = {} as any;
@@ -65,12 +62,16 @@ const setReq = { shopId: 'shop-1', imageId: 'img-1', url: newUrl };
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.stubEnv('STORAGE_ACCOUNT_NAME', 'acct');
+  vi.mocked(getBlobProperties).mockResolvedValue({ contentLength: 200_000, contentType: 'image/jpeg' });
   vi.mocked(authorizeShopAction).mockResolvedValue(ownerAccess as any);
   vi.mocked(findShopById).mockResolvedValue(makeShop());
   vi.mocked(updateShop).mockImplementation(async (s: any) => s);
   vi.mocked(deleteBlob).mockResolvedValue(undefined as any);
-  vi.mocked(readBlobImageSize).mockResolvedValue({ status: 'ok', size: { width: 1920, height: 640 } });
+  vi.mocked(readBlobImageSize).mockResolvedValue({ status: 'ok', size: { width: 1920, height: 640 }, format: 'jpg' });
 });
+
+afterEach(() => vi.unstubAllEnvs());
 
 describe('shop cover image', () => {
   it('cover upload URL: refuses a GIF', async () => {
@@ -223,7 +224,7 @@ describe('shop cover image', () => {
       ['right ratio, too big', { width: 3840, height: 1280 }],
     ])('rejects %s, deletes the new blob, leaves the shop unchanged', async (_name, size) => {
       vi.mocked(findShopById).mockResolvedValue(withHero(oldCover));
-      vi.mocked(readBlobImageSize).mockResolvedValue({ status: 'ok', size });
+      vi.mocked(readBlobImageSize).mockResolvedValue({ status: 'ok', size, format: 'jpg' });
       const r = await executeSetShopCoverImage(setReq, httpRequest);
       expect(r).toEqual({ ok: false, code: 'COVER_IMAGE_WRONG_SIZE', error: 'Cover image must be exactly 1920 x 640 px' });
       expect(deleteBlob).toHaveBeenCalledTimes(1);
@@ -248,5 +249,36 @@ describe('shop cover image', () => {
       if (!r.ok) expect(r.code).toBe('INVALID_INPUT');
       expect(updateShop).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe('branding deletes stay inside this shop folder', () => {
+  it('remove cover: never deletes another shop file', async () => {
+    vi.mocked(findShopById).mockResolvedValue(withHero(BASE + 'shops/shop-2/branding/x.jpg'));
+    const r = await executeRemoveShopCoverImage({ shopId: 'shop-1' }, httpRequest);
+    expect(r.ok).toBe(true);
+    expect(updateShop).toHaveBeenCalledTimes(1);
+    expect(deleteBlob).not.toHaveBeenCalled();
+  });
+
+  it('set cover: never deletes a foreign old cover', async () => {
+    vi.mocked(findShopById).mockResolvedValue(withHero('https://evil.example/product-media/shops/shop-2/branding/x.jpg'));
+    const r = await executeSetShopCoverImage(setReq, httpRequest);
+    expect(r.ok).toBe(true);
+    expect(deleteBlob).not.toHaveBeenCalled();
+  });
+
+  it('set logo: deletes an own old logo, never a foreign one', async () => {
+    const logoReq = { shopId: 'shop-1', imageId: 'n', url: BASE + 'shops/shop-1/branding/n.png' };
+    vi.mocked(findShopById).mockResolvedValue(makeShop());
+    await executeSetShopLogo(logoReq, httpRequest);
+    expect(deleteBlob).toHaveBeenCalledWith('shops/shop-1/branding/logo.png');
+
+    vi.mocked(deleteBlob).mockClear();
+    vi.mocked(findShopById).mockResolvedValue(
+      makeShop({ branding: { logoUrl: BASE + 'shops/shop-2/branding/logo.png', heroImageUrl: null, accentColor: null } }),
+    );
+    await executeSetShopLogo(logoReq, httpRequest);
+    expect(deleteBlob).not.toHaveBeenCalled();
   });
 });
