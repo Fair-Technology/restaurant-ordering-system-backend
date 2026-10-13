@@ -24,18 +24,19 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup Node ${{ env.NODE_VERSION }} Environment
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
+          cache: npm
 
-      - name: 'Resolve Project Dependencies Using Npm'
-        shell: bash
-        run: |
-          pushd './${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}'
-          npm install
-          npm run build --if-present
-          npm run test --if-present
-          popd
+      - name: Install dependencies exactly as pinned in package-lock.json
+        run: npm ci
+
+      - name: Build (TypeScript compile)
+        run: npm run build
+
+      - name: Test (vitest)
+        run: npm test
 
       - name: Zip artifact for deployment
         run: zip release.zip ./* -r

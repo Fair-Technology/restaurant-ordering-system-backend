@@ -14,6 +14,9 @@ npm run dev
 # Build TypeScript to dist/
 npm run build
 
+# Run tests
+npm test
+
 # Start locally (build + run on port 7071)
 npm start
 
@@ -25,7 +28,13 @@ The local Azure Functions API is available at `http://localhost:7071/api/`.
 Swagger UI: `http://localhost:7071/api/swagger`
 Swagger JSON: `http://localhost:7071/api/swagger.json`
 
-No test runner or linter is currently configured. Prettier is used for formatting (`.prettierrc`: single quotes, trailing commas, semicolons).
+## Tests
+
+`npm test` runs the whole vitest suite (~150 files, ~1,270 tests, a few seconds). There is no vitest config: vitest's defaults pick up every `*.test.ts`, and they live under `test/`, mirroring the source layers (`test/domain`, `test/application/<area>`, `test/infrastructure`, `test/swagger`, `test/scripts`; fixtures in `test/fixtures`). Run one file with `npx vitest run test/domain/<file>.test.ts`. Tests need no Azure, Cosmos, Stripe or `local.settings.json`.
+
+CI (`.github/workflows/dev_restaurant-ordering-system-dev.yml`) runs `npm ci`, `npm run build` and `npm test` on every push to `dev`; the deploy job only runs if all three pass.
+
+No linter is configured. Prettier is used for formatting (`.prettierrc`: single quotes, trailing commas, semicolons).
 
 ## Architecture
 
