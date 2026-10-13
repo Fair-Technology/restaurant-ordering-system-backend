@@ -7,7 +7,6 @@ import {
   AUTO_ACCEPT_HOURS_ERROR,
   BUSY_MINUTES_ERROR,
   DELIVERY_ERROR,
-  DELIVERY_FEE_TAX_CLASS_ERROR,
   DELIVERY_HOURS_ERROR,
   DELIVERY_ZONES_ERROR,
   DINE_IN_ERROR,
@@ -29,7 +28,6 @@ import {
   orderSettingsOf,
   type OrderSettings,
 } from '../../../domain/order/orderSettings';
-import { getReferenceLists } from '../../../infrastructure/cosmos/reference/CosmosReferenceListsRepository';
 import { findShopWithEtag, replaceShopIfMatch } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import type { Shop } from '../../../domain/shop/Shop';
 import { logAudit } from '../../_shared/auditHelpers';
@@ -150,15 +148,8 @@ export async function executeUpdateOrderSettings(
         if (zones === 'invalid') return invalid(DELIVERY_ZONES_ERROR);
         next.deliveryZones = zones;
       }
-      if (body.deliveryFeeTaxClassId !== undefined) {
-        const v = body.deliveryFeeTaxClassId;
-        if (v !== null) {
-          if (typeof v !== 'string') return invalid(DELIVERY_FEE_TAX_CLASS_ERROR);
-          const refs = await getReferenceLists(shop.countryCode ?? '');
-          if (!refs.taxClasses.some((c) => c.id === v && c.isActive)) return invalid(DELIVERY_FEE_TAX_CLASS_ERROR);
-        }
-        next.deliveryFeeTaxClassId = v as string | null;
-      }
+      // Deprecated: the fee always uses the country's Delivery class. Older admin clients may still send a value; it is ignored and null stored.
+      if (body.deliveryFeeTaxClassId !== undefined) next.deliveryFeeTaxClassId = null;
       if (body.scheduledOrders !== undefined) {
         if (typeof body.scheduledOrders !== 'boolean') return invalid(SCHEDULED_ORDERS_ERROR);
         next.scheduledOrders = body.scheduledOrders;

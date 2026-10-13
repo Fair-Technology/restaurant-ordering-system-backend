@@ -22,7 +22,7 @@ export interface OrderSettings {
   delivery: boolean;
   deliveryHours: WeeklyHours | null; // null = the restaurant's opening hours
   deliveryZones: DeliveryZone[];
-  deliveryFeeTaxClassId: string | null; // null = the country's default tax class
+  deliveryFeeTaxClassId: string | null; // DEPRECATED: no longer read; the fee always uses the country's Delivery class. Always stored null.
   scheduledOrders: boolean; // diners may order for later; off by default
   slotCapacity: number | null; // at most this many orders per 15 minutes while orders for later are on; null = no limit
 }

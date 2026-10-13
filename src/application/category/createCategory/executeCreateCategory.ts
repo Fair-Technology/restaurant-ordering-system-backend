@@ -4,6 +4,8 @@ import {
   findCategoriesByShopId,
 } from '../../../infrastructure/cosmos/category/CosmosCategoryRepository';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
+import { DELIVERY_TAX_CLASS_FOR_DISHES_ERROR } from '../../../domain/order/orderErrors';
+import { DELIVERY_TAX_CLASS_ID } from '../../../domain/reference/ReferenceLists';
 import { getReferenceLists } from '../../../infrastructure/cosmos/reference/CosmosReferenceListsRepository';
 import { authorizeShopAction, toAuditActor } from '../../_shared/shopAccess';
 import { CreateCategoryRequestDto, CreateCategoryResultDto } from './dtos';
@@ -65,6 +67,9 @@ export async function executeCreateCategory(
     const refs = await getReferenceLists(shop.countryCode ?? '');
 
     if (request.taxClassId !== undefined) {
+      if (request.taxClassId === DELIVERY_TAX_CLASS_ID) {
+        return { ok: false, code: 'INVALID_INPUT', error: DELIVERY_TAX_CLASS_FOR_DISHES_ERROR };
+      }
       const isActive = refs.taxClasses.some((c) => c.id === request.taxClassId && c.isActive);
       if (!isActive) {
         return { ok: false, code: 'INVALID_INPUT', error: `Unknown tax class: ${request.taxClassId}` };

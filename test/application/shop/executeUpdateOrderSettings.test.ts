@@ -31,7 +31,6 @@ import {
   AUTO_ACCEPT_HOURS_ERROR,
   BUSY_MINUTES_ERROR,
   DELIVERY_ERROR,
-  DELIVERY_FEE_TAX_CLASS_ERROR,
   DELIVERY_HOURS_ERROR,
   DELIVERY_ZONES_ERROR,
   LAST_ORDERS_ERROR,
@@ -274,14 +273,13 @@ describe('executeUpdateOrderSettings', () => {
     expect((updateShop as any).mock.calls[0][0].orderSettings).toMatchObject({
       delivery: true,
       deliveryZones: [{ postcode: '10115', feeCents: 250, minOrderCents: 1500 }],
-      deliveryFeeTaxClassId: 'food',
+      deliveryFeeTaxClassId: null,
       deliveryHours: { mon: [{ open: '17:00', close: '22:00' }], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] },
     });
     expect(logAudit).toHaveBeenCalledWith(
       expect.objectContaining({
         changes: expect.arrayContaining([
           { field: 'delivery', from: false, to: true },
-          { field: 'deliveryFeeTaxClassId', from: null, to: 'food' },
           { field: 'deliveryZones', from: 'none', to: '10115' },
           { field: 'deliveryHours', from: 'opening hours', to: 'mon 17:00\u201322:00' },
         ]),
@@ -289,12 +287,16 @@ describe('executeUpdateOrderSettings', () => {
     );
   });
 
+  it('ignores a sent fee tax class and stores null (the fee always uses the Delivery class)', async () => {
+    await executeUpdateOrderSettings({ shopId: 'shop-1', body: { delivery: true, deliveryFeeTaxClassId: 'food' } as any }, http);
+    expect((updateShop as any).mock.calls[0][0].orderSettings.deliveryFeeTaxClassId).toBeNull();
+  });
+
   it('refuses bad delivery settings', async () => {
     const cases: [any, string][] = [
       [{ delivery: 'yes' }, DELIVERY_ERROR],
       [{ deliveryZones: [{ postcode: '1011', feeCents: 0, minOrderCents: 0 }] }, DELIVERY_ZONES_ERROR],
       [{ deliveryHours: { mon: [{ open: '9:00', close: '18:00' }] } }, DELIVERY_HOURS_ERROR],
-      [{ deliveryFeeTaxClassId: 'luxury' }, DELIVERY_FEE_TAX_CLASS_ERROR],
     ];
     for (const [body, error] of cases) {
       expect(await executeUpdateOrderSettings({ shopId: 'shop-1', body }, http)).toEqual({ ok: false, code: 'INVALID_INPUT', error });

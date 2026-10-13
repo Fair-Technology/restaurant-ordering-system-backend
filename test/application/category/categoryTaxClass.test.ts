@@ -35,6 +35,7 @@ import { createCategory, updateCategory } from '../../../src/infrastructure/cosm
 import { getReferenceLists } from '../../../src/infrastructure/cosmos/reference/CosmosReferenceListsRepository';
 import { executeCreateCategory } from '../../../src/application/category/createCategory/executeCreateCategory';
 import { executeUpdateCategory } from '../../../src/application/category/updateCategory/executeUpdateCategory';
+import { DELIVERY_TAX_CLASS_FOR_DISHES_ERROR } from '../../../src/domain/order/orderErrors';
 import { DE_REFERENCE_LISTS } from '../../../src/domain/reference/ReferenceLists';
 
 const ownerAccess = {
@@ -59,6 +60,14 @@ describe('category tax class', () => {
     expect(createCategory).toHaveBeenCalledWith(
       expect.objectContaining({ taxClassId: 'food', nameTranslations: {} }),
     );
+  });
+
+  it('a category cannot suggest the Delivery class', async () => {
+    const expected = { ok: false, code: 'INVALID_INPUT', error: DELIVERY_TAX_CLASS_FOR_DISHES_ERROR };
+    expect(await executeCreateCategory({ shopId: 'shop-1', name: 'Lieferung', taxClassId: 'delivery' } as any, {} as any)).toEqual(expected);
+    expect(createCategory).not.toHaveBeenCalled();
+    expect(await executeUpdateCategory({ categoryId: 'c1', shopId: 'shop-1', taxClassId: 'delivery' } as any, {} as any)).toEqual(expected);
+    expect(updateCategory).not.toHaveBeenCalled();
   });
 
   it('accepts beverage', async () => {

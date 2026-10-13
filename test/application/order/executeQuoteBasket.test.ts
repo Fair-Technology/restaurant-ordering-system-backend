@@ -157,7 +157,7 @@ describe('executeQuoteBasket', () => {
       postcodeServed: true,
       minOrderAmountCents: 1500,
       belowMinimum: true,
-      taxCents: 141,
+      taxCents: 165,
       prepMinutes: 45,
     });
   });

@@ -446,12 +446,12 @@ describe('executeCheckout card placement', () => {
         expect.objectContaining({
           fulfilmentMode: 'delivery',
           deliveryAddress: { street: 'Teststraße 1', postcode: '10115', city: 'Berlin' },
-          charges: [{ kind: 'delivery_fee', grossCents: 250, taxClassId: 'food', taxRateBasisPoints: 700, taxCents: 16 }],
+          charges: [{ kind: 'delivery_fee', grossCents: 250, taxClassId: 'delivery', taxRateBasisPoints: 1900, taxCents: 40 }],
           subtotalCents: 1750,
           totalCents: 2000,
           taxBreakdown: [
-            { rateBasisPoints: 700, grossCents: 1300, taxCents: 85 },
-            { rateBasisPoints: 1900, grossCents: 700, taxCents: 112 },
+            { rateBasisPoints: 700, grossCents: 1050, taxCents: 69 },
+            { rateBasisPoints: 1900, grossCents: 950, taxCents: 152 },
           ],
         }),
       );

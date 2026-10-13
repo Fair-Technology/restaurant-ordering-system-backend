@@ -59,7 +59,7 @@ describe('validateReferenceListsUpdate', () => {
     const result = validateReferenceListsUpdate(baseline, next, now);
     expect(typeof result).not.toBe('string');
     if (typeof result === 'string') return;
-    expect(result.taxRates).toHaveLength(7);
+    expect(result.taxRates).toHaveLength(10);
   });
 
   it('allows a new class to start with current rates', () => {
@@ -97,6 +97,12 @@ describe('validateReferenceListsUpdate', () => {
     const next = nextFromBaseline(baseline);
     next.taxClasses.push({ id: 'test_class', labels: { de: 'Test', en: 'Test' }, isActive: false });
     expect(typeof validateReferenceListsUpdate(baseline, next, now)).not.toBe('string');
+  });
+
+  it('the Delivery class cannot be the default', () => {
+    const next = nextFromBaseline(baseline);
+    next.defaultTaxClassId = 'delivery';
+    expect(validateReferenceListsUpdate(baseline, next, now)).toBe('The Delivery tax class cannot be the default for dishes');
   });
 
   it('rejects duplicate ids', () => {

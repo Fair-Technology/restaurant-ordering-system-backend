@@ -2,11 +2,15 @@ import { describe, it, expect } from 'vitest';
 import { validateMenuFields } from '../../../src/application/product/menuFields';
 import { DE_REFERENCE_LISTS } from '../../../src/domain/reference/ReferenceLists';
 
-import { UNAVAILABLE_MODES_ERROR } from '../../../src/domain/order/orderErrors';
+import { DELIVERY_TAX_CLASS_FOR_DISHES_ERROR, UNAVAILABLE_MODES_ERROR } from '../../../src/domain/order/orderErrors';
 
 const refs = DE_REFERENCE_LISTS;
 
 describe('validateMenuFields', () => {
+  it('a dish cannot use the Delivery class', () => {
+    expect(validateMenuFields({ taxClassId: 'delivery' }, refs, null)).toEqual({ error: DELIVERY_TAX_CLASS_FOR_DISHES_ERROR });
+  });
+
   it('accepts a full declaration', () => {
     const result = validateMenuFields(
       {
