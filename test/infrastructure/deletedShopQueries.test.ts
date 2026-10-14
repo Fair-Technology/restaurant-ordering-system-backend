@@ -33,4 +33,13 @@ describe('deleted shops in shop queries', () => {
     await findAllShopsIncludingDeleted();
     expect(query.mock.calls[0][0].query).not.toContain('isDeleted');
   });
+
+  it.each([
+    ['findAllShops', () => findAllShops()],
+    ['findAllShopsIncludingDeleted', () => findAllShopsIncludingDeleted()],
+  ])('%s has no row cap', async (_name, run) => {
+    await run();
+    expect(query.mock.calls[0][0].query).not.toMatch(/\bTOP\b/i);
+    expect(query.mock.calls[0][0].query).toContain('ORDER BY c.createdAt DESC');
+  });
 });
