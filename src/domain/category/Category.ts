@@ -66,6 +66,23 @@ export function parseCategorySchedule(
   };
 }
 
+// Building a formatter costs ~40 µs; a quote asks for one per slot and line, so each time zone's is built once.
+const weekdayTimeFormats = new Map<string, Intl.DateTimeFormat>();
+function weekdayTimeFormat(timeZone: string): Intl.DateTimeFormat {
+  let f = weekdayTimeFormats.get(timeZone);
+  if (!f) {
+    f = new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      weekday: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    });
+    weekdayTimeFormats.set(timeZone, f);
+  }
+  return f;
+}
+
 /** True while the category is on the storefront: not deleted, switched on, and inside its times. */
 export function isCategoryLive(
   c: Pick<Category, 'isDeleted' | 'isAvailable' | 'schedule'>,
@@ -74,13 +91,7 @@ export function isCategoryLive(
 ): boolean {
   if (c.isDeleted || c.isAvailable === false) return false;
   if (!c.schedule) return true;
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: timezone,
-    weekday: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23',
-  }).formatToParts(now);
+  const parts = weekdayTimeFormat(timezone).formatToParts(now);
   const part = (type: string) =>
     parts.find((p) => p.type === type)?.value ?? '';
   const day = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(

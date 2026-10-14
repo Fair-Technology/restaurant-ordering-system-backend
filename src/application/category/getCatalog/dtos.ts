@@ -55,9 +55,17 @@ export interface CatalogProductDto {
   dietaryTags: CatalogLabelDto[];
   spice: CatalogLabelDto | null;
   unavailableModes: FulfilmentMode[]; // modes this dish is not offered for
+  availableNow: boolean; // one of its categories is inside its times right now
   combo: CatalogComboDto | null; // null for a dish
   createdAt: string;
   updatedAt: string;
+}
+
+/** A category's weekly times in the shop time zone (0=Sunday); the end is exclusive. */
+export interface CatalogCategoryScheduleDto {
+  daysOfWeek: number[];
+  startTime: string;
+  endTime: string;
 }
 
 export interface CatalogCategoryDto {
@@ -65,6 +73,8 @@ export interface CatalogCategoryDto {
   name: string;
   sortOrder: number;
   icon?: string;
+  availableNow: boolean; // inside its times right now; false = the storefront lists it under "Other times"
+  schedule: CatalogCategoryScheduleDto | null; // null = always
   products: CatalogProductDto[];
 }
 
