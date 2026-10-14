@@ -22,6 +22,7 @@ import { loadPricingContext } from '../_shared/loadPricingContext';
 import { basketProductIds, priceBasket, validateBasketItems } from '../_shared/priceBasket';
 import { TaxRateMissingError } from '../../../domain/reference/ReferenceLists';
 import { taxRateMissingResult } from '../_shared/taxRateMissing';
+import { judgeBasketTimes } from './basketTimes';
 import { BasketQuoteDto, QuoteBasketRequestDto } from './dtos';
 
 /** Re-prices a basket for the diner without placing anything, so changes can be shown before they order. */
@@ -72,7 +73,7 @@ export async function executeQuoteBasket(
     const context = await loadPricingContext(shop, basketProductIds(request.items));
     const language = resolveMenuLanguage(request.language, menuLanguagesOf(shop));
     const pricedAt = slot ?? now;
-    const priced = priceBasket({ items: request.items, ...context, shop, mode, now: pricedAt, language });
+    const priced = priceBasket({ items: request.items, ...context, shop, mode, now: pricedAt, language, checkTimes: false });
     const prepMinutes = effectivePrepMinutes(shop, mode, now);
     const zone = mode === 'delivery' ? findDeliveryZone(shop, request.postcode) : null;
     const fee = zone ? deliveryFeeCharge(shop, zone, context.refs, pricedAt) : null;
@@ -100,6 +101,18 @@ export async function executeQuoteBasket(
     const taxBreakdown = applied ? applied.taxBreakdown : buildTaxBreakdownWithCharges(priced.items, charges);
     const minimum = zone ? zone.minOrderCents : shop.minOrderAmountCents;
     const booking = await loadBookableSlots(shop, mode, now, slot);
+    const openNow = isOpenForAsapOrder(hoursForMode(shop, mode), shop.closures, shop.timezone, now, lastOrdersLeadMinutes(shop, mode));
+    const times = judgeBasketTimes({
+      items: request.items,
+      lines: priced.lines,
+      products: context.products,
+      categories: context.categories,
+      timezone: shop.timezone,
+      now,
+      openNow,
+      bookable: booking.slots,
+      chosen: slot,
+    });
 
     return {
       ok: true,
@@ -120,7 +133,7 @@ export async function executeQuoteBasket(
         taxCents: taxBreakdown.reduce((sum, t) => sum + t.taxCents, 0),
         minOrderAmountCents: minimum,
         belowMinimum: priced.subtotalCents < minimum,
-        openNow: isOpenForAsapOrder(hoursForMode(shop, mode), shop.closures, shop.timezone, now, lastOrdersLeadMinutes(shop, mode)),
+        openNow,
         paymentMethods: offeredPaymentMethods(shop),
         addressRequired: addressRequired(totalCents),
         deliveryFeeCents: zone ? zone.feeCents : null,
@@ -128,9 +141,11 @@ export async function executeQuoteBasket(
         postcodeServed: mode === 'delivery' ? zone !== null : null,
         prepMinutes,
         orderLimitReached: limit.limitReached,
-        slots: booking.slots,
+        slots: times.slots,
         scheduledFor: slot ? slot.toISOString() : null,
-        slotAvailable: booking.slotAvailable,
+        slotAvailable: booking.slotAvailable === null ? null : booking.slotAvailable && times.chosenServed === true,
+        servedNow: times.servedNow,
+        timeLimited: times.timeLimited,
         acceptsCodes: acceptsCodes(promotions, localDate(now, shop.timezone)),
         discount: applied ? { kind: applied.discount.kind, code: applied.discount.code, cents: applied.discount.cents } : null,
         discountProblem: resolution && !resolution.ok ? resolution.problem : null,
