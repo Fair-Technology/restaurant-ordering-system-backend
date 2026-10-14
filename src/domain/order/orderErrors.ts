@@ -65,6 +65,8 @@ export const DELIVERY_ZONES_ERROR =
 export const DELIVERY_HOURS_ERROR = 'deliveryHours must be null or a weekly list of HH:mm times';
 export const UNAVAILABLE_MODES_ERROR = 'unavailableModes must list collection, delivery or dine_in';
 export const SCHEDULED_FOR_ERROR = 'scheduledFor must be the start of a 15-minute slot, as an ISO date and time';
+export const REPLACES_ORDER_ERROR =
+  "replacesOrderId and replacesAccessToken must be sent together: the earlier checkout's orderId and accessToken";
 export const SCHEDULE_NOT_FOR_TABLES_ERROR = 'Table orders cannot be scheduled';
 export const SLOT_UNAVAILABLE_ERROR = 'This time is no longer available. Please choose another.'; // storefront compares
 export const SCHEDULED_NOT_DUE_ERROR = 'This order is for later. It can be accepted once it moves to New.';

@@ -1,24 +1,25 @@
 import { ProductSchedule } from '../../domain/product/Product';
 
+// Formatters are costly to build and a quote asks for many, so each time zone's are built once.
+function cached(make: (timeZone: string) => Intl.DateTimeFormat): (timeZone: string) => Intl.DateTimeFormat {
+  const byZone = new Map<string, Intl.DateTimeFormat>();
+  return (timeZone) => {
+    let f = byZone.get(timeZone);
+    if (!f) {
+      f = make(timeZone);
+      byZone.set(timeZone, f);
+    }
+    return f;
+  };
+}
+const dateFormat = cached((timeZone) => new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }));
+const timeFormat = cached((timeZone) => new Intl.DateTimeFormat('en-GB', { timeZone, hour: '2-digit', minute: '2-digit', hour12: false }));
+const weekdayFormat = cached((timeZone) => new Intl.DateTimeFormat('en-US', { timeZone, weekday: 'short' }));
+
 export function isProductScheduleActive(schedule: ProductSchedule, timezone: string, now: Date = new Date()): boolean {
-  const formatter = new Intl.DateTimeFormat('en-CA', {
-    timeZone: timezone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  });
-
-  const timeFormatter = new Intl.DateTimeFormat('en-GB', {
-    timeZone: timezone,
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  });
-
-  const weekdayFormatter = new Intl.DateTimeFormat('en-US', {
-    timeZone: timezone,
-    weekday: 'short',
-  });
+  const formatter = dateFormat(timezone);
+  const timeFormatter = timeFormat(timezone);
+  const weekdayFormatter = weekdayFormat(timezone);
 
   // Current date as "YYYY-MM-DD" in shop timezone
   const currentDate = formatter.format(now); // en-CA gives YYYY-MM-DD

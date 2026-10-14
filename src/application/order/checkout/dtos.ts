@@ -27,6 +27,8 @@ export interface CheckoutRequestDto {
   discountCode?: string; // a discount or voucher code; read case-insensitively
   expectedDiscountCents?: number; // what the diner was shown; a different server discount answers 409
   loyaltyOptIn?: boolean; // the diner asked for loyalty vouchers by email
+  replacesOrderId?: string; // orderId of this diner's earlier, still unpaid checkout; needs replacesAccessToken
+  replacesAccessToken?: string; // that checkout's accessToken (proves it is the same diner)
   idempotencyKey?: string;
   language?: string;
   legalRevisions?: LegalRevisions;

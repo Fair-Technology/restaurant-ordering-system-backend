@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../../src/infrastructure/cosmos/shop/CosmosShopRepository', () => ({ findShopById: vi.fn() }));
 vi.mock('../../../src/infrastructure/cosmos/product/CosmosProductRepository', () => ({ findProductById: vi.fn() }));
@@ -28,6 +28,7 @@ import { loadOrderLimitStatus } from '../../../src/application/usage/orderLimitS
 import { executeQuoteBasket } from '../../../src/application/order/quoteBasket/executeQuoteBasket';
 import { findDiscountUseRows } from '../../../src/infrastructure/cosmos/order/CosmosOrderRepository';
 import { findPromotions, findVoucher } from '../../../src/infrastructure/cosmos/promotion/CosmosPromotionRepository';
+import { findCategoriesByShopId } from '../../../src/infrastructure/cosmos/category/CosmosCategoryRepository';
 import { findProductById } from '../../../src/infrastructure/cosmos/product/CosmosProductRepository';
 import { getReferenceLists } from '../../../src/infrastructure/cosmos/reference/CosmosReferenceListsRepository';
 import { DE_REFERENCE_LISTS } from '../../../src/domain/reference/ReferenceLists';
@@ -35,7 +36,7 @@ import { findShopById } from '../../../src/infrastructure/cosmos/shop/CosmosShop
 import { findSlotPlacesWithEtag } from '../../../src/infrastructure/cosmos/usage/CosmosSlotPlacesRepository';
 import { capped, dayDoc, installSlotStore } from '../../fixtures/slotPlaces';
 import { MODE_NOT_OFFERED_ERROR, SCHEDULED_FOR_ERROR } from '../../../src/domain/order/orderErrors';
-import { CARD_SHOP, COMBO_CHOICES, DELIVERY_SHOP, DINE_IN_SHOP, NOW_CLOSED, NOW_OPEN, P_COLA, P_COMBO, P_PASTA, PROMO_CODE, PROMOTIONS, SCHEDULED_SHOP, SLOT_1800, VOUCHER } from '../../fixtures/orders';
+import { CARD_SHOP, CATEGORIES, COMBO_CHOICES, DELIVERY_SHOP, DINE_IN_SHOP, NOW_CLOSED, NOW_OPEN, P_COLA, P_COMBO, P_PASTA, PROMO_CODE, PROMOTIONS, SCHEDULED_SHOP, SLOT_1800, VOUCHER } from '../../fixtures/orders';
 
 import type { Product } from '../../../src/domain/product/Product';
 
@@ -265,16 +266,18 @@ describe('executeQuoteBasket', () => {
     });
   });
 
-  it('a scheduled basket is priced for the time it is made', async () => {
+  it("a scheduled basket is priced for its time; a time outside a dish's own schedule is not available", async () => {
     const P_LUNCH = { ...P_PASTA, schedule: { startDate: '2026-10-01', startTime: '11:00', endTime: '15:00', offerPrice: 800 } };
     (findShopById as any).mockResolvedValue(SCHEDULED_SHOP);
     (findProductById as any).mockImplementation(async (id: string) => (id === 'p1' ? P_LUNCH : id === 'p2' ? P_COLA : null));
     const now = await executeQuoteBasket(request, { now: NOW_OPEN });
     expect(now.ok && now.data.lines[0]).toMatchObject({ status: 'ok', unitPriceCents: 800 });
     const evening = await executeQuoteBasket({ ...request, scheduledFor: '2026-10-06T16:00:00.000Z' }, { now: NOW_OPEN });
-    expect(evening.ok && evening.data.lines[0].status).toBe('unavailable');
+    expect(evening.ok && evening.data.lines[0].status).toBe('ok');
+    expect(evening.ok && evening.data.slotAvailable).toBe(false);
     const noon = await executeQuoteBasket({ ...request, scheduledFor: '2026-10-06T10:30:00.000Z' }, { now: NOW_OPEN });
     expect(noon.ok && noon.data.lines[0]).toMatchObject({ status: 'ok', unitPriceCents: 800 });
+    expect(noon.ok && noon.data.slotAvailable).toBe(true);
   });
 
   it('offers the code box only when the restaurant has codes or loyalty', async () => {
@@ -355,7 +358,81 @@ describe('executeQuoteBasket', () => {
       const now = await executeQuoteBasket(comboRequest, { now: NOW_OPEN });
       expect(now.ok && now.data.lines[0]).toMatchObject({ status: 'ok', unitPriceCents: 1200 });
       const later = await executeQuoteBasket({ ...comboRequest, scheduledFor: SLOT_1800 }, { now: NOW_OPEN });
-      expect(later.ok && later.data.lines[0].status).toBe('unavailable');
+      expect(later.ok && later.data.lines[0].status).toBe('ok');
+      expect(later.ok && later.data.slotAvailable).toBe(false);
+      expect(now.ok && now.data.timeLimited).toEqual([{ index: 0, servedNow: true, servedLater: true }]);
     });
+  });
+});
+
+describe('dishes served at certain times', () => {
+  const ALL = [0, 1, 2, 3, 4, 5, 6];
+  const EVENING = { daysOfWeek: ALL, startTime: '17:00', endTime: '21:00' };
+  const withTimes = (sched: Record<string, object>) => CATEGORIES.map((c) => (sched[c.id] ? { ...c, schedule: sched[c.id] } : c));
+  const local = (iso: string) =>
+    new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(iso));
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (findPromotions as any).mockResolvedValue(null);
+    (findVoucher as any).mockResolvedValue(null);
+    (findDiscountUseRows as any).mockResolvedValue([]);
+    (findShopById as any).mockResolvedValue(SCHEDULED_SHOP);
+    (findProductById as any).mockImplementation(async (id: string) => (id === 'p1' ? P_PASTA : id === 'p2' ? P_COLA : null));
+  });
+  afterEach(() => {
+    (findCategoriesByShopId as any).mockImplementation(async () => CATEGORIES);
+  });
+
+  it('a dish from an evening category leaves only evening times and no order for now', async () => {
+    const all = await executeQuoteBasket(request, { now: NOW_OPEN });
+    if (!all.ok) throw new Error('quote failed');
+    expect(all.data).toMatchObject({ servedNow: true, timeLimited: [] });
+    (findCategoriesByShopId as any).mockResolvedValue(withTimes({ drinks: EVENING }));
+    const res = await executeQuoteBasket(request, { now: NOW_OPEN });
+    if (!res.ok) throw new Error('quote failed');
+    expect(res.data.lines.map((l) => l.status)).toEqual(['ok', 'ok']);
+    expect(res.data).toMatchObject({ openNow: true, servedNow: false, timeLimited: [{ index: 1, servedNow: false, servedLater: true }] });
+    expect(res.data.slots).toEqual(all.data.slots.filter((s) => local(s) >= '17:00' && local(s) < '21:00'));
+    expect(res.data.slots[0]).toBe('2026-10-05T15:00:00.000Z');
+  });
+
+  it("a chosen time outside the dish's times is not available", async () => {
+    (findCategoriesByShopId as any).mockResolvedValue(withTimes({ drinks: EVENING }));
+    const early = await executeQuoteBasket({ ...request, scheduledFor: '2026-10-06T10:00:00.000Z' }, { now: NOW_OPEN });
+    expect(early.ok && early.data.slotAvailable).toBe(false);
+    const evening = await executeQuoteBasket({ ...request, scheduledFor: '2026-10-06T16:00:00.000Z' }, { now: NOW_OPEN });
+    expect(evening.ok && evening.data.slotAvailable).toBe(true);
+  });
+
+  it('two dishes whose times never meet leave no time and are both named', async () => {
+    (findCategoriesByShopId as any).mockResolvedValue(
+      withTimes({ pasta: { daysOfWeek: ALL, startTime: '11:30', endTime: '13:00' }, drinks: EVENING }),
+    );
+    const res = await executeQuoteBasket(request, { now: NOW_OPEN });
+    if (!res.ok) throw new Error('quote failed');
+    expect(res.data.slots).toEqual([]);
+    expect(res.data.servedNow).toBe(false);
+    expect(res.data.timeLimited).toEqual([
+      { index: 0, servedNow: true, servedLater: true },
+      { index: 1, servedNow: false, servedLater: true },
+    ]);
+  });
+
+  it('a dish not on offer in the next four days is flagged as never', async () => {
+    (findCategoriesByShopId as any).mockResolvedValue(withTimes({ drinks: { daysOfWeek: [6], startTime: '17:00', endTime: '21:00' } }));
+    const res = await executeQuoteBasket(request, { now: NOW_OPEN });
+    if (!res.ok) throw new Error('quote failed');
+    expect(res.data.slots).toEqual([]);
+    expect(res.data.timeLimited).toEqual([{ index: 1, servedNow: false, servedLater: false }]);
+  });
+
+  it('a timed basket is still quoted quickly', async () => {
+    (findCategoriesByShopId as any).mockResolvedValue(
+      withTimes({ pasta: { daysOfWeek: ALL, startTime: '11:30', endTime: '13:00' }, drinks: EVENING }),
+    );
+    const t0 = performance.now();
+    await executeQuoteBasket(request, { now: NOW_CLOSED });
+    expect(performance.now() - t0).toBeLessThan(1000);
   });
 });

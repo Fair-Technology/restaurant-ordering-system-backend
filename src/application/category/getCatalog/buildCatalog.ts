@@ -63,10 +63,10 @@ export function buildCatalog(input: {
 
   const visible = products.filter((p) => isOnMenu(p) && isWithinSchedule(p.schedule ?? null, shop.timezone, now));
 
-  // A category is live when not deleted, switched on and inside its times. A combo only offers dishes
-  // that are on the menu and listed under a live category; with a choice left empty it is not on the menu at all.
-  const liveCategories = categories.filter((c) => isCategoryLive(c, shop.timezone, now));
-  const liveCategoryIds = new Set(liveCategories.map((c) => c.id));
+  // Every switched-on category goes to the storefront, also those outside their times (marked, so the menu can offer
+  // them under "Other times"). Combos only offer dishes listed under a category that is live right now.
+  const shownCategories = categories.filter((c) => !c.isDeleted && c.isAvailable !== false);
+  const liveCategoryIds = new Set(shownCategories.filter((c) => isCategoryLive(c, shop.timezone, now)).map((c) => c.id));
   const listed = new Map(
     visible.filter((p) => !p.combo && p.categoryIds.some((id) => liveCategoryIds.has(id))).map((p) => [p.id, p]),
   );
@@ -108,12 +108,16 @@ export function buildCatalog(input: {
     additives: additiveLabel(o.additiveIds ?? []),
   });
 
-  const categoryDtos: CatalogCategoryDto[] = liveCategories
+  const categoryDtos: CatalogCategoryDto[] = shownCategories
     .map((c) => ({
       id: c.id,
       name: L(c.name, c.nameTranslations),
       sortOrder: c.sortOrder,
       icon: c.icon ?? undefined,
+      availableNow: liveCategoryIds.has(c.id),
+      schedule: c.schedule
+        ? { daysOfWeek: [...c.schedule.daysOfWeek], startTime: c.schedule.startTime, endTime: c.schedule.endTime }
+        : null,
       products: offered
         .filter((p) => p.categoryIds.includes(c.id))
         .map((p): CatalogProductDto => ({
@@ -147,6 +151,7 @@ export function buildCatalog(input: {
           dietaryTags: tagLabel(p.dietaryTagIds),
           spice: spice(p.spiceLevel),
           unavailableModes: p.unavailableModes ?? [],
+          availableNow: p.categoryIds.some((id) => liveCategoryIds.has(id)),
           combo: p.combo ? { groups: comboGroups(p) } : null,
           createdAt: p.createdAt,
           updatedAt: p.updatedAt,

@@ -15,3 +15,6 @@ export function accessTokenMatches(stored: string | undefined, given: unknown): 
   if (typeof given !== 'string' || !stored || given.length !== stored.length) return false;
   return timingSafeEqual(Buffer.from(given), Buffer.from(stored));
 }
+
+/** An order id as made by orderIdForIdempotencyKey. */
+export const ORDER_ID_PATTERN = /^[0-9a-f]{32}$/;

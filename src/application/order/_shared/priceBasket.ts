@@ -105,21 +105,51 @@ function hasLiveCategory(p: Product, categories: Category[], timezone: string, n
   return own.length === 0 || own.some((c) => isCategoryLive(c, timezone, now));
 }
 
+/** The time-independent part of "on the menu": the dish sits in a category that exists and is switched on (or in none). */
+function hasEnabledCategory(p: Product, categories: Category[]): boolean {
+  const own = categories.filter((c) => (p.categoryIds ?? []).includes(c.id) && !c.isDeleted);
+  return own.length === 0 || own.some((c) => c.isAvailable !== false);
+}
+
+/** The dish is on offer at `at`: one of its categories is inside its times, and its own schedule (if any) is running. */
+export function isServedAt(p: Product, categories: Category[], timezone: string, at: Date): boolean {
+  return hasLiveCategory(p, categories, timezone, at) && !(p.schedule && !isProductScheduleActive(p.schedule, timezone, at));
+}
+
+const lineProductIds = (item: BasketItemInput): string[] => [item.productId, ...(item.comboChoices ?? []).map((c) => c.productId)];
+
+/** Every dish a basket line names (a dish, or a combo and each dish picked in it) is on offer at `at`. Unknown products count as on offer: pricing flags them. */
+export function lineServedAt(item: BasketItemInput, products: Map<string, Product>, categories: Category[], timezone: string, at: Date): boolean {
+  return lineProductIds(item).every((id) => {
+    const p = products.get(id);
+    return !p || isServedAt(p, categories, timezone, at);
+  });
+}
+
+/** A line whose availability can depend on the time: one of its dishes has its own schedule or sits in a category with times. */
+export function lineIsTimed(item: BasketItemInput, products: Map<string, Product>, categories: Category[]): boolean {
+  return lineProductIds(item).some((id) => {
+    const p = products.get(id);
+    return !!p && (!!p.schedule || categories.some((c) => !c.isDeleted && !!c.schedule && (p.categoryIds ?? []).includes(c.id)));
+  });
+}
+
 function isOrderable(
   p: Product | undefined,
   mode: FulfilmentMode,
   timezone: string,
   now: Date,
   categories: Category[],
+  checkTimes: boolean,
 ): p is Product {
   return (
     !!p &&
-    hasLiveCategory(p, categories, timezone, now) &&
+    hasEnabledCategory(p, categories) &&
     !p.isDeleted &&
     p.isAvailable &&
     isDeclared(p) &&
     !(p.unavailableModes ?? []).includes(mode) &&
-    !(p.schedule && !isProductScheduleActive(p.schedule, timezone, now))
+    (!checkTimes || isServedAt(p, categories, timezone, now))
   );
 }
 
@@ -175,8 +205,11 @@ export function priceBasket(input: {
   mode: FulfilmentMode;
   now: Date;
   language: MenuLanguage;
+  /** false: category windows and dish schedules are not judged (the quote judges them separately). Default true. */
+  checkTimes?: boolean;
 }): PricedBasket {
   const { products, categories, refs, shop, mode, now, language } = input;
+  const checkTimes = input.checkTimes !== false;
   const originalLanguage = menuLanguagesOf(shop)[0];
   const lines: PricedLine[] = input.items.map((entry, index) => {
     const base = { index, productId: entry.productId, expectedUnitPriceCents: entry.expectedUnitPriceCents ?? null };
@@ -192,7 +225,7 @@ export function priceBasket(input: {
       lineTotalCents: null,
     });
 
-    if (!isOrderable(p, mode, shop.timezone, now, categories)) return reject('unavailable');
+    if (!isOrderable(p, mode, shop.timezone, now, categories, checkTimes)) return reject('unavailable');
 
     if (p.combo) {
       if (entry.selectedVariantOptionId || (entry.selectedAddonOptionIds ?? []).length > 0) return reject('invalid_options');
@@ -204,7 +237,7 @@ export function priceBasket(input: {
         if (picked.length !== 1 || !group.productIds.includes(picked[0].productId)) return reject('invalid_options');
         const dish = products.get(picked[0].productId);
         if (dish?.combo) return reject('invalid_options');
-        if (!isOrderable(dish, mode, shop.timezone, now, categories)) return reject('unavailable');
+        if (!isOrderable(dish, mode, shop.timezone, now, categories, checkTimes)) return reject('unavailable');
         const sel = priceSelection(dish, picked[0].selectedVariantOptionId, picked[0].selectedAddonOptionIds);
         if (typeof sel === 'string') return reject(sel);
         const classId = effectiveTaxClassId(dish, categories, refs.defaultTaxClassId);

@@ -9,6 +9,7 @@ vi.mock('../../../src/infrastructure/cosmos/product/CosmosProductRepository', ()
 vi.mock('../../../src/infrastructure/cosmos/order/CosmosCheckoutSessionRepository', () => ({
   findCheckoutSessionById: vi.fn(async () => null),
   upsertCheckoutSession: vi.fn(async (s) => s),
+  deleteCheckoutSession: vi.fn(async () => undefined),
 }));
 vi.mock('../../../src/infrastructure/cosmos/category/CosmosCategoryRepository', () => ({
   findCategoriesByShopId: vi.fn(async () => (await import('../../fixtures/orders')).CATEGORIES),
@@ -40,6 +41,8 @@ vi.mock('../../../src/domain/order/orderRef', () => ({ generateOrderRef: () => '
 vi.mock('../../../src/infrastructure/stripe/stripeClient', () => ({
   createPaymentIntent: vi.fn(async () => ({ id: 'pi_1', clientSecret: 'cs_1' })),
   isStripeIdempotencyError: (e: any) => e?.type === 'StripeIdempotencyError',
+  retrievePaymentIntentSnapshot: vi.fn(),
+  releaseAuthorization: vi.fn(async () => 'canceled'),
 }));
 
 import { getReferenceLists } from '../../../src/infrastructure/cosmos/reference/CosmosReferenceListsRepository';
@@ -47,17 +50,19 @@ import { DE_REFERENCE_LISTS } from '../../../src/domain/reference/ReferenceLists
 import { findShopById } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
 import { findProductById } from '../../../src/infrastructure/cosmos/product/CosmosProductRepository';
 import {
+  deleteCheckoutSession,
   findCheckoutSessionById,
   upsertCheckoutSession,
 } from '../../../src/infrastructure/cosmos/order/CosmosCheckoutSessionRepository';
 import { findPromotions } from '../../../src/infrastructure/cosmos/promotion/CosmosPromotionRepository';
 import { findDiscountUseRows, findOrderById } from '../../../src/infrastructure/cosmos/order/CosmosOrderRepository';
 import { loadOrderLimitStatus } from '../../../src/application/usage/orderLimitStatus';
-import { createPaymentIntent } from '../../../src/infrastructure/stripe/stripeClient';
+import { createPaymentIntent, releaseAuthorization, retrievePaymentIntentSnapshot } from '../../../src/infrastructure/stripe/stripeClient';
+import { findCategoriesByShopId } from '../../../src/infrastructure/cosmos/category/CosmosCategoryRepository';
 import { findSlotPlacesWithEtag } from '../../../src/infrastructure/cosmos/usage/CosmosSlotPlacesRepository';
 import { capped, dayDoc, installSlotStore } from '../../fixtures/slotPlaces';
 import { ACCEPTED_DPA, COMPLETE_LEGAL } from '../../fixtures/legal';
-import { ADDRESS, CARD_SHOP, COMBO_CHOICES, P_COMBO, LUNCH_HOURS, NOW_CLOSED, NOW_OPEN, P_COLA, P_PASTA, PLACED_CARD_ORDER, DINE_IN_SHOP, PLACED_TABLE_ORDER, DELIVERY_SHOP, DELIVERY_ZONE, SCHEDULED_SHOP, PROMO_CODE, PROMOTIONS } from '../../fixtures/orders';
+import { ADDRESS, CARD_SHOP, COMBO_CHOICES, P_COMBO, LUNCH_HOURS, NOW_CLOSED, NOW_OPEN, P_COLA, P_PASTA, PLACED_CARD_ORDER, DINE_IN_SHOP, PLACED_TABLE_ORDER, DELIVERY_SHOP, DELIVERY_ZONE, SCHEDULED_SHOP, PROMO_CODE, PROMOTIONS, CATEGORIES } from '../../fixtures/orders';
 import { executeCheckout } from '../../../src/application/order/checkout/executeCheckout';
 import { CheckoutRequestDto } from '../../../src/application/order/checkout/dtos';
 import {
@@ -78,6 +83,7 @@ import {
   MODE_NOT_OFFERED_ERROR,
   NO_PAYMENT_SETUP_ERROR,
   ORDER_LIMIT_REACHED_ERROR,
+  REPLACES_ORDER_ERROR,
   SCHEDULE_NOT_FOR_TABLES_ERROR,
   SCHEDULED_FOR_ERROR,
   SHOP_CLOSED_ERROR,
@@ -714,6 +720,27 @@ describe('executeCheckout card placement', () => {
       expect(createPaymentIntent).not.toHaveBeenCalled();
     });
 
+    it('checkout still refuses a dish outside its category times', async () => {
+      const evening = () =>
+        (findCategoriesByShopId as any).mockResolvedValueOnce(
+          CATEGORIES.map((c) => (c.id === 'drinks' ? { ...c, schedule: { daysOfWeek: [0, 1, 2, 3, 4, 5, 6], startTime: '17:00', endTime: '21:00' } } : c)),
+        );
+      evening();
+      const asap = await executeCheckout(cardRequest, { now: NOW_OPEN });
+      expect(asap).toEqual({ ok: false, code: 'CONFLICT', error: BASKET_CHANGED_ERROR });
+      evening();
+      const later = await executeCheckout({ ...cardRequest, scheduledFor: '2026-10-06T16:00:00.000Z' }, { now: NOW_OPEN });
+      expect(later.ok).toBe(true);
+    });
+
+    it("checkout still refuses a scheduled time outside a dish's own schedule", async () => {
+      const P_LUNCH = { ...P_PASTA, schedule: { startDate: '2026-10-01', startTime: '11:00', endTime: '15:00' } };
+      (findProductById as any).mockImplementation(async (id: string) => (id === 'p1' ? P_LUNCH : id === 'p2' ? P_COLA : null));
+      const evening = await executeCheckout({ ...cardRequest, scheduledFor: '2026-10-06T16:00:00.000Z' }, { now: NOW_OPEN });
+      expect(evening).toEqual({ ok: false, code: 'CONFLICT', error: BASKET_CHANGED_ERROR });
+      expect(createPaymentIntent).not.toHaveBeenCalled();
+    });
+
     describe('capacity', () => {
       beforeEach(() => (findShopById as any).mockResolvedValue(capped(1)));
       const HOLD = { orderId: SESSION_ID, slot: SLOT, heldUntil: '2026-10-05T10:20:00.000Z' };
@@ -764,6 +791,182 @@ describe('executeCheckout card placement', () => {
         const res = await executeCheckout(cardRequest, { now: NOW_OPEN });
         expect(res.ok).toBe(true);
         expect(findSlotPlacesWithEtag).not.toHaveBeenCalled();
+      });
+
+      describe('replacing an earlier checkout', () => {
+        const KEY2 = 'key-87654321';
+        const SESSION_ID_2 = orderIdForIdempotencyKey('shop-1', KEY2);
+        const HOLD2 = { orderId: SESSION_ID_2, slot: SLOT, heldUntil: '2026-10-05T10:20:00.000Z' };
+        const SLOT_GONE = { ok: false, code: 'CONFLICT', error: SLOT_UNAVAILABLE_ERROR };
+        const saved = new Map<string, any>();
+        beforeEach(() => {
+          saved.clear();
+          (upsertCheckoutSession as any).mockImplementation(async (s: any) => { saved.set(s.id, s); return s; });
+          (findCheckoutSessionById as any).mockImplementation(async (id: string) => saved.get(id) ?? null);
+          (retrievePaymentIntentSnapshot as any).mockReset();
+          (retrievePaymentIntentSnapshot as any).mockResolvedValue({ id: 'pi_1', status: 'requires_payment_method', amountCents: 1400, currency: 'eur', sessionId: SESSION_ID, authorizedAtMs: null });
+          (releaseAuthorization as any).mockReset();
+          (releaseAuthorization as any).mockResolvedValue('canceled');
+        });
+        afterEach(() => {
+          (upsertCheckoutSession as any).mockImplementation(async (s: any) => s);
+          (findCheckoutSessionById as any).mockImplementation(async () => null);
+          (findOrderById as any).mockImplementation(async () => null);
+        });
+        async function first(extra: Partial<CheckoutRequestDto> = { scheduledFor: SLOT }) {
+          const r = await executeCheckout({ ...cardRequest, ...extra }, { now: NOW_OPEN });
+          if (!r.ok || r.data.kind !== 'card') throw new Error('first checkout failed');
+          return r.data;
+        }
+        const second = (extra: Partial<CheckoutRequestDto>) =>
+          executeCheckout({ ...cardRequest, scheduledFor: SLOT, idempotencyKey: KEY2, ...extra }, { now: NOW_OPEN });
+
+        it("a re-submit frees the diner's own earlier hold", async () => {
+          const store = installSlotStore();
+          const a = await first();
+          const res = await second({ replacesOrderId: SESSION_ID, replacesAccessToken: a.accessToken });
+          expect(res.ok && res.data.kind).toBe('card');
+          expect(store.doc('2026-10-06')!.places).toEqual([HOLD2]);
+          expect(releaseAuthorization).toHaveBeenCalledWith({ connectAccountId: 'acct_1', paymentIntentId: 'pi_1', idempotencyKey: `replace-${SESSION_ID}` });
+          expect(deleteCheckoutSession).toHaveBeenCalledWith(SESSION_ID);
+        });
+
+        it('a wrong access token frees nothing', async () => {
+          const store = installSlotStore();
+          await first();
+          (deleteCheckoutSession as any).mockClear();
+          const res = await second({ replacesOrderId: SESSION_ID, replacesAccessToken: 'x'.repeat(32) });
+          expect(res).toEqual(SLOT_GONE);
+          expect(retrievePaymentIntentSnapshot).not.toHaveBeenCalled();
+          expect(releaseAuthorization).not.toHaveBeenCalled();
+          expect(deleteCheckoutSession).not.toHaveBeenCalled();
+          expect(store.doc('2026-10-06')!.places).toEqual([{ orderId: SESSION_ID, slot: SLOT, heldUntil: '2026-10-05T10:20:00.000Z' }]);
+        });
+
+        it("another restaurant's checkout is never touched", async () => {
+          installSlotStore();
+          const a = await first();
+          saved.set(SESSION_ID, { ...saved.get(SESSION_ID), shopId: 'shop-2' });
+          const res = await second({ replacesOrderId: SESSION_ID, replacesAccessToken: a.accessToken });
+          expect(res).toEqual(SLOT_GONE);
+          expect(retrievePaymentIntentSnapshot).not.toHaveBeenCalled();
+          expect(releaseAuthorization).not.toHaveBeenCalled();
+        });
+
+        it('an earlier checkout that already became an order is never touched', async () => {
+          installSlotStore();
+          const a = await first();
+          (findOrderById as any).mockImplementation(async (id: string) => (id === SESSION_ID ? { ...PLACED_CARD_ORDER, id: SESSION_ID } : null));
+          const res = await second({ replacesOrderId: SESSION_ID, replacesAccessToken: a.accessToken });
+          expect(res).toEqual(SLOT_GONE);
+          expect(retrievePaymentIntentSnapshot).not.toHaveBeenCalled();
+        });
+
+        it('an earlier payment that is already reserved keeps its place', async () => {
+          const store = installSlotStore();
+          const a = await first();
+          (deleteCheckoutSession as any).mockClear();
+          (retrievePaymentIntentSnapshot as any).mockResolvedValue({ id: 'pi_1', status: 'requires_capture', amountCents: 1400, currency: 'eur', sessionId: SESSION_ID, authorizedAtMs: 1 });
+          const res = await second({ replacesOrderId: SESSION_ID, replacesAccessToken: a.accessToken });
+          expect(res).toEqual(SLOT_GONE);
+          expect(releaseAuthorization).not.toHaveBeenCalled();
+          expect(deleteCheckoutSession).not.toHaveBeenCalled();
+          expect(store.doc('2026-10-06')!.places).toEqual([{ orderId: SESSION_ID, slot: SLOT, heldUntil: '2026-10-05T10:20:00.000Z' }]);
+        });
+
+        it.each(['processing', 'succeeded'])('an earlier payment that is %s keeps its place and is never cancelled', async (status) => {
+          const store = installSlotStore();
+          const a = await first();
+          (deleteCheckoutSession as any).mockClear();
+          (retrievePaymentIntentSnapshot as any).mockResolvedValue({ id: 'pi_1', status, amountCents: 1400, currency: 'eur', sessionId: SESSION_ID, authorizedAtMs: 1 });
+          const res = await second({ replacesOrderId: SESSION_ID, replacesAccessToken: a.accessToken });
+          expect(res).toEqual(SLOT_GONE);
+          expect(releaseAuthorization).not.toHaveBeenCalled();
+          expect(deleteCheckoutSession).not.toHaveBeenCalled();
+          expect(store.doc('2026-10-06')!.places).toEqual([{ orderId: SESSION_ID, slot: SLOT, heldUntil: '2026-10-05T10:20:00.000Z' }]);
+        });
+
+        it('a failing cancel keeps the old session and place, and the new checkout still gets its hold when there is room', async () => {
+          const store = installSlotStore();
+          const a = await first();
+          (deleteCheckoutSession as any).mockClear();
+          (releaseAuthorization as any).mockRejectedValue(new Error('stripe down'));
+          const res = await second({ replacesOrderId: SESSION_ID, replacesAccessToken: a.accessToken });
+          expect(deleteCheckoutSession).not.toHaveBeenCalled();
+          expect(res).toEqual(SLOT_GONE); // capacity 1 is still held by the old, un-cancelled checkout
+          expect(store.doc('2026-10-06')!.places.map((x: any) => x.orderId)).toEqual([SESSION_ID]);
+        });
+
+        it('an already cancelled earlier payment frees the place without cancelling again', async () => {
+          const store = installSlotStore();
+          const a = await first();
+          (retrievePaymentIntentSnapshot as any).mockResolvedValue({ id: 'pi_1', status: 'canceled', amountCents: 1400, currency: 'eur', sessionId: SESSION_ID, authorizedAtMs: null });
+          const res = await second({ replacesOrderId: SESSION_ID, replacesAccessToken: a.accessToken });
+          expect(res.ok).toBe(true);
+          expect(store.doc('2026-10-06')!.places).toEqual([HOLD2]);
+          expect(releaseAuthorization).not.toHaveBeenCalled();
+        });
+
+        it('a payment captured meanwhile keeps its place', async () => {
+          installSlotStore();
+          const a = await first();
+          (deleteCheckoutSession as any).mockClear();
+          (releaseAuthorization as any).mockResolvedValue('already_captured');
+          const res = await second({ replacesOrderId: SESSION_ID, replacesAccessToken: a.accessToken });
+          expect(res).toEqual(SLOT_GONE);
+          expect(deleteCheckoutSession).not.toHaveBeenCalled();
+        });
+
+        it('a payment that does not match the checkout is left alone', async () => {
+          installSlotStore();
+          const a = await first();
+          (retrievePaymentIntentSnapshot as any).mockResolvedValue({ id: 'pi_1', status: 'requires_payment_method', amountCents: 1400, currency: 'eur', sessionId: 'other', authorizedAtMs: null });
+          const res = await second({ replacesOrderId: SESSION_ID, replacesAccessToken: a.accessToken });
+          expect(res).toEqual(SLOT_GONE);
+          expect(releaseAuthorization).not.toHaveBeenCalled();
+        });
+
+        it('a Stripe failure while freeing still answers as before', async () => {
+          installSlotStore();
+          const a = await first();
+          (retrievePaymentIntentSnapshot as any).mockRejectedValue(new Error('down'));
+          const res = await second({ replacesOrderId: SESSION_ID, replacesAccessToken: a.accessToken });
+          expect(res).toEqual(SLOT_GONE);
+        });
+
+        it('naming the same checkout again changes nothing', async () => {
+          const store = installSlotStore();
+          const a = await first();
+          const res = await executeCheckout({ ...cardRequest, scheduledFor: SLOT, replacesOrderId: SESSION_ID, replacesAccessToken: a.accessToken }, { now: NOW_OPEN });
+          expect(res.ok && res.data.kind).toBe('card');
+          expect(store.doc('2026-10-06')!.places).toEqual([{ orderId: SESSION_ID, slot: SLOT, heldUntil: '2026-10-05T10:20:00.000Z' }]);
+          expect(retrievePaymentIntentSnapshot).not.toHaveBeenCalled();
+        });
+
+        it('an earlier order for now has no place, so Stripe is not asked', async () => {
+          const store = installSlotStore();
+          const a = await first({});
+          const res = await second({ replacesOrderId: SESSION_ID, replacesAccessToken: a.accessToken });
+          expect(res.ok).toBe(true);
+          expect(store.doc('2026-10-06')!.places).toEqual([HOLD2]);
+          expect(retrievePaymentIntentSnapshot).not.toHaveBeenCalled();
+        });
+
+        it('replacesOrderId and its token come together and well formed', async () => {
+          const bad: Partial<CheckoutRequestDto>[] = [
+            { replacesOrderId: SESSION_ID },
+            { replacesAccessToken: 'tok' },
+            { replacesOrderId: 'o1', replacesAccessToken: 'tok' },
+            { replacesOrderId: SESSION_ID, replacesAccessToken: '' },
+            { replacesOrderId: SESSION_ID, replacesAccessToken: 'x'.repeat(65) },
+          ];
+          for (const extra of bad) {
+            (findShopById as any).mockClear();
+            const res = await second(extra);
+            expect(res).toEqual({ ok: false, code: 'INVALID_INPUT', error: REPLACES_ORDER_ERROR });
+            expect(findShopById).not.toHaveBeenCalled();
+          }
+        });
       });
     });
 
