@@ -90,6 +90,15 @@ describe('a switched-off or out-of-hours category on the storefront', () => {
     ]);
   });
 
+  it('a deleted category, and a deleted or off-menu dish in a closed category, never reach the storefront', () => {
+    const late = { ...LUNCH, startTime: '17:00', endTime: '22:00' };
+    const gone = catalog(withCategory('drinks', { isDeleted: true, schedule: late }), products);
+    expect(gone.categories.map((c) => c.id)).toEqual(['pasta']);
+    const hidden = [{ ...P_COLA, isDeleted: true }, { ...P_SALAD, categoryIds: ['drinks'], isAvailable: false }];
+    const out = catalog(withCategory('drinks', { schedule: late }), [P_PASTA, ...hidden]);
+    expect(out.categories.find((c) => c.id === 'drinks')!.products).toEqual([]);
+  });
+
   it('a dish also in a live category is available now under a later category too', () => {
     const late = { ...LUNCH, startTime: '17:00', endTime: '22:00' };
     const both = { ...P_COLA, categoryIds: ['drinks', 'pasta'] };
@@ -149,6 +158,18 @@ describe('pricing without judging times', () => {
     expect(priceBasket({ ...args, categories: cats, checkTimes: false }).lines[0].status).toBe('ok');
     expect(price(cats, [{ productId: 'p2', quantity: 1 }], products).lines[0].status).toBe('unavailable');
     expect(priceBasket({ ...args, categories: withCategory('drinks', { isAvailable: false }), checkTimes: false }).lines[0].status).toBe('unavailable');
+  });
+
+  it('a window is read in shop time across the autumn clock change (Berlin, Sunday 25 October 2026)', () => {
+    const sun = { daysOfWeek: [0], startTime: '08:00', endTime: '12:00' };
+    const cat = { ...CATEGORIES[1], schedule: sun };
+    const item = { productId: 'p2', quantity: 1 };
+    const m = new Map([['p2', P_COLA]]);
+    const at = (iso: string) => lineServedAt(item, m, [cat], TZ, new Date(iso));
+    expect(at('2026-10-25T06:59:00Z')).toBe(false); // 07:59 after the change (UTC+1)
+    expect(at('2026-10-25T07:00:00Z')).toBe(true); // 08:00
+    expect(at('2026-10-25T10:59:00Z')).toBe(true); // 11:59
+    expect(at('2026-10-25T11:00:00Z')).toBe(false); // 12:00, end exclusive
   });
 
   it('a line is served when its category is inside its times, combo picks included', () => {

@@ -733,6 +733,14 @@ describe('executeCheckout card placement', () => {
       expect(later.ok).toBe(true);
     });
 
+    it("checkout still refuses a scheduled time outside a dish's own schedule", async () => {
+      const P_LUNCH = { ...P_PASTA, schedule: { startDate: '2026-10-01', startTime: '11:00', endTime: '15:00' } };
+      (findProductById as any).mockImplementation(async (id: string) => (id === 'p1' ? P_LUNCH : id === 'p2' ? P_COLA : null));
+      const evening = await executeCheckout({ ...cardRequest, scheduledFor: '2026-10-06T16:00:00.000Z' }, { now: NOW_OPEN });
+      expect(evening).toEqual({ ok: false, code: 'CONFLICT', error: BASKET_CHANGED_ERROR });
+      expect(createPaymentIntent).not.toHaveBeenCalled();
+    });
+
     describe('capacity', () => {
       beforeEach(() => (findShopById as any).mockResolvedValue(capped(1)));
       const HOLD = { orderId: SESSION_ID, slot: SLOT, heldUntil: '2026-10-05T10:20:00.000Z' };
@@ -864,6 +872,29 @@ describe('executeCheckout card placement', () => {
           expect(releaseAuthorization).not.toHaveBeenCalled();
           expect(deleteCheckoutSession).not.toHaveBeenCalled();
           expect(store.doc('2026-10-06')!.places).toEqual([{ orderId: SESSION_ID, slot: SLOT, heldUntil: '2026-10-05T10:20:00.000Z' }]);
+        });
+
+        it.each(['processing', 'succeeded'])('an earlier payment that is %s keeps its place and is never cancelled', async (status) => {
+          const store = installSlotStore();
+          const a = await first();
+          (deleteCheckoutSession as any).mockClear();
+          (retrievePaymentIntentSnapshot as any).mockResolvedValue({ id: 'pi_1', status, amountCents: 1400, currency: 'eur', sessionId: SESSION_ID, authorizedAtMs: 1 });
+          const res = await second({ replacesOrderId: SESSION_ID, replacesAccessToken: a.accessToken });
+          expect(res).toEqual(SLOT_GONE);
+          expect(releaseAuthorization).not.toHaveBeenCalled();
+          expect(deleteCheckoutSession).not.toHaveBeenCalled();
+          expect(store.doc('2026-10-06')!.places).toEqual([{ orderId: SESSION_ID, slot: SLOT, heldUntil: '2026-10-05T10:20:00.000Z' }]);
+        });
+
+        it('a failing cancel keeps the old session and place, and the new checkout still gets its hold when there is room', async () => {
+          const store = installSlotStore();
+          const a = await first();
+          (deleteCheckoutSession as any).mockClear();
+          (releaseAuthorization as any).mockRejectedValue(new Error('stripe down'));
+          const res = await second({ replacesOrderId: SESSION_ID, replacesAccessToken: a.accessToken });
+          expect(deleteCheckoutSession).not.toHaveBeenCalled();
+          expect(res).toEqual(SLOT_GONE); // capacity 1 is still held by the old, un-cancelled checkout
+          expect(store.doc('2026-10-06')!.places.map((x: any) => x.orderId)).toEqual([SESSION_ID]);
         });
 
         it('an already cancelled earlier payment frees the place without cancelling again', async () => {
