@@ -35,6 +35,7 @@ import {
   ORDER_LIMIT_REACHED_ERROR,
   PAYMENT_METHOD_ERROR,
   SCHEDULE_NOT_FOR_TABLES_ERROR,
+  REPLACES_ORDER_ERROR,
   SCHEDULED_FOR_ERROR,
   SHOP_CLOSED_ERROR,
   SLOT_UNAVAILABLE_ERROR,
@@ -55,7 +56,7 @@ import { lastOrdersLeadMinutes } from '../../../domain/order/kitchenTiming';
 import { isBookableSlot, parseSlotStart } from '../../../domain/order/scheduling';
 import { periodKeyFor } from '../../../domain/usage/usagePeriod';
 import { normaliseTableLabel } from '../../../domain/order/table';
-import { generateAccessToken, IDEMPOTENCY_KEY_PATTERN, orderIdForIdempotencyKey } from '../../../domain/order/orderIds';
+import { generateAccessToken, IDEMPOTENCY_KEY_PATTERN, ORDER_ID_PATTERN, orderIdForIdempotencyKey } from '../../../domain/order/orderIds';
 import { generateOrderRef } from '../../../domain/order/orderRef';
 import { offeredPaymentMethods } from '../../../domain/order/paymentMethods';
 import {
@@ -72,6 +73,7 @@ import { resolveDiscount } from '../../promotion/resolveDiscount';
 import { loadOrderLimitStatus } from '../../usage/orderLimitStatus';
 import { holdSlotPlace, releaseSlotPlace } from '../_shared/slotPlaces';
 import { loadPricingContext } from '../_shared/loadPricingContext';
+import { retireReplacedCheckout } from './retireReplacedCheckout';
 import { basketProductIds, priceBasket, validateBasketItems } from '../_shared/priceBasket';
 import { TaxRateMissingError } from '../../../domain/reference/ReferenceLists';
 import { taxRateMissingResult } from '../_shared/taxRateMissing';
@@ -194,6 +196,16 @@ export async function executeCheckout(
     scheduledFor = parseSlotStart(request.scheduledFor);
     if (!scheduledFor) return { ok: false, code: 'INVALID_INPUT', error: SCHEDULED_FOR_ERROR };
     if (mode === 'dine_in') return { ok: false, code: 'INVALID_INPUT', error: SCHEDULE_NOT_FOR_TABLES_ERROR };
+  }
+  const replacesOrderId = request.replacesOrderId ?? null;
+  const replacesAccessToken = request.replacesAccessToken ?? null;
+  if (replacesOrderId !== null || replacesAccessToken !== null) {
+    if (
+      typeof replacesOrderId !== 'string' || !ORDER_ID_PATTERN.test(replacesOrderId) ||
+      typeof replacesAccessToken !== 'string' || replacesAccessToken.length === 0 || replacesAccessToken.length > 64
+    ) {
+      return { ok: false, code: 'INVALID_INPUT', error: REPLACES_ORDER_ERROR };
+    }
   }
 
   try {
@@ -357,6 +369,11 @@ export async function executeCheckout(
 
     if (addressRequired(totalCents) && !customerAddress) {
       return { ok: false, code: 'INVALID_INPUT', error: ADDRESS_REQUIRED_ERROR };
+    }
+
+    // --- The diner's own earlier checkout in this visit gives its place back first (only while still unpaid) ---
+    if (replacesOrderId && replacesAccessToken) {
+      await retireReplacedCheckout({ shop, replacesOrderId, replacesAccessToken, newSessionId: sessionId, now });
     }
 
     // --- An order for later holds its place last, so no other refusal leaves a hold behind ---
