@@ -81,11 +81,12 @@ export async function deleteShop(shopId: string): Promise<void> {
   }
 }
 
+/** Every non-deleted shop, newest first. No cap: fetchAll follows continuation tokens. */
 export async function findAllShops(): Promise<Shop[]> {
   try {
     const querySpec = {
       query:
-        'SELECT TOP 20 * FROM c WHERE c.isDeleted = false ORDER BY c.createdAt DESC',
+        'SELECT * FROM c WHERE c.isDeleted = false ORDER BY c.createdAt DESC',
       parameters: [],
     };
 
@@ -98,10 +99,10 @@ export async function findAllShops(): Promise<Shop[]> {
   }
 }
 
-/** Superadmin listing: like findAllShops but deleted shops are included. */
+/** Superadmin listing: every shop, deleted ones included, newest first. */
 export async function findAllShopsIncludingDeleted(): Promise<Shop[]> {
   const { resources } = await shopContainer.items
-    .query<Shop>({ query: 'SELECT TOP 20 * FROM c ORDER BY c.createdAt DESC', parameters: [] })
+    .query<Shop>({ query: 'SELECT * FROM c ORDER BY c.createdAt DESC', parameters: [] })
     .fetchAll();
   return resources || [];
 }

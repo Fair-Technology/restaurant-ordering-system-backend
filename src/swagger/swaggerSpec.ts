@@ -16,7 +16,7 @@ export const swaggerSpec = {
   paths: {
     '/shops': {
       get: {
-        summary: 'Get all shops',
+        summary: 'Get all shops (superadmin only; deleted included)',
         operationId: 'getShops',
         tags: ['Shops'],
         responses: {
@@ -101,6 +101,25 @@ export const swaggerSpec = {
             },
           },
           '403': { $ref: '#/components/responses/Forbidden' },
+          '500': { $ref: '#/components/responses/InternalError' },
+        },
+      },
+    },
+    '/shops/public': {
+      get: {
+        summary: 'List the shops shown on the diner home page (not deleted, not offline; public fields only)',
+        operationId: 'listPublicShops',
+        tags: ['Shops'],
+        security: [],
+        responses: {
+          '200': {
+            description: 'Listed shops, sorted by name',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/PublicShopListResponse' },
+              },
+            },
+          },
           '500': { $ref: '#/components/responses/InternalError' },
         },
       },
@@ -1517,6 +1536,34 @@ export const swaggerSpec = {
             example: '#C2410C',
           },
         },
+      },
+      PublicShopSummary: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' },
+          slug: { type: 'string' },
+          name: { type: 'string' },
+          address: {
+            type: 'object',
+            properties: {
+              city: { type: 'string', nullable: true },
+              postcode: { type: 'string', nullable: true },
+            },
+            required: ['city', 'postcode'],
+          },
+          branding: { $ref: '#/components/schemas/ShopBranding' },
+          openingHours: { type: 'object', additionalProperties: true, description: 'Weekly opening hours keyed by day (mon..sun); days may be missing' },
+          timezone: { type: 'string', example: 'Europe/Berlin' },
+          ordersPaused: { type: 'boolean', description: 'Owner has stopped taking new orders; the menu stays visible' },
+        },
+        required: ['id', 'slug', 'name', 'address', 'branding', 'openingHours', 'timezone', 'ordersPaused'],
+      },
+      PublicShopListResponse: {
+        type: 'object',
+        properties: {
+          shops: { type: 'array', items: { $ref: '#/components/schemas/PublicShopSummary' } },
+        },
+        required: ['shops'],
       },
       GetAllShopsResponse: {
         type: 'object',
