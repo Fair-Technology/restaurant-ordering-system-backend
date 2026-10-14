@@ -79,6 +79,24 @@ describe('executeGetPublicShops', () => {
     });
   });
 
+  it('a shop with no opening hours reads as an empty object', async () => {
+    mockFind.mockResolvedValue([{ ...CARD_SHOP, openingHours: undefined } as any]);
+    const res: any = await executeGetPublicShops();
+    expect(res.data.shops[0].openingHours).toStrictEqual({});
+  });
+
+  it('blank or whitespace-only city and postcode read as null', async () => {
+    mockFind.mockResolvedValue([{ ...CARD_SHOP, address: { city: '   ', postcode: '' } } as any]);
+    const res: any = await executeGetPublicShops();
+    expect(res.data.shops[0].address).toStrictEqual({ city: null, postcode: null });
+  });
+
+  it('branding showHero false is kept', async () => {
+    mockFind.mockResolvedValue([{ ...CARD_SHOP, branding: { logoUrl: null, heroImageUrl: null, accentColor: null, showHero: false } } as any]);
+    const res: any = await executeGetPublicShops();
+    expect(res.data.shops[0].branding.showHero).toBe(false);
+  });
+
   it('sorted by name', async () => {
     mockFind.mockResolvedValue(['Zur Post', 'Ma Pasta', 'alte Mühle'].map((name, i) => ({ ...CARD_SHOP, id: String(i), name })));
     const res: any = await executeGetPublicShops();

@@ -36,4 +36,11 @@ describe('getPublicShops function', () => {
     const res = await m.options.handler({});
     expect(res.status).toBe(500);
   });
+
+  it('an unexpected throw is a 500 with a generic body', async () => {
+    m.execute.mockResolvedValue(null) // makes mapResultToHttp throw;
+    const res = await m.options.handler({});
+    expect(res.status).toBe(500);
+    expect(res.jsonBody).toEqual({ error: 'Internal server error' });
+  });
 });
