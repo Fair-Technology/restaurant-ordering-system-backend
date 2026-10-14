@@ -1053,7 +1053,7 @@ export const swaggerSpec = {
         summary: 'Get customer-facing catalog for a shop',
         operationId: 'getCatalog',
         description:
-          'Returns categories with their currently purchasable products. Products are filtered by isAvailable and the product schedule evaluated against the shop timezone. No authentication required. Returns 403 if the shop is currently paused.',
+          'Returns every switched-on category with its purchasable products. Categories outside their times right now are included with availableNow false and their schedule. Dishes outside their own schedule are left out. No authentication required. Returns 403 if the shop is currently paused.',
         tags: ['Catalog'],
         security: [],
         parameters: [
@@ -2430,6 +2430,7 @@ export const swaggerSpec = {
             allOf: [{ $ref: '#/components/schemas/CatalogLabel' }],
             description: 'Spiciness, labelled in the response language; null if not spicy',
           },
+          availableNow: { type: 'boolean', description: 'One of its categories is inside its times right now' },
           createdAt: { type: 'string', format: 'date-time' },
           updatedAt: { type: 'string', format: 'date-time' },
         },
@@ -2449,6 +2450,17 @@ export const swaggerSpec = {
           name: { type: 'string', description: 'Category name' },
           sortOrder: { type: 'number', description: 'Display sort order' },
           icon: { type: 'string', nullable: true, description: 'Lucide icon name' },
+          availableNow: { type: 'boolean', description: 'Inside its times right now; false = shown under Other times' },
+          schedule: {
+            type: 'object',
+            nullable: true,
+            description: 'Weekly times in the shop time zone; null = always',
+            properties: {
+              daysOfWeek: { type: 'array', items: { type: 'integer', minimum: 0, maximum: 6 } },
+              startTime: { type: 'string', example: '11:30' },
+              endTime: { type: 'string', example: '14:30' },
+            },
+          },
           products: {
             type: 'array',
             items: { $ref: '#/components/schemas/CatalogProductDto' },
@@ -2612,6 +2624,17 @@ export const swaggerSpec = {
           loyaltyOptIn: {
             type: 'boolean',
             description: 'The diner asked to receive loyalty vouchers by email.',
+          },
+          replacesOrderId: {
+            type: 'string',
+            pattern: '^[0-9a-f]{32}$',
+            description:
+              "Optional: orderId of this diner's earlier checkout in the same visit; if still unpaid its slot place is freed and its payment cancelled. Needs replacesAccessToken.",
+          },
+          replacesAccessToken: {
+            type: 'string',
+            maxLength: 64,
+            description: 'The accessToken returned with that earlier checkout; proves it is the same diner.',
           },
         },
       },
