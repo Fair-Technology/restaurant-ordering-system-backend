@@ -48,7 +48,7 @@ export async function executeCreatePlan(
 
     // Keys must be unique, ignoring case and surrounding spaces
     const internalKey = request.internalKey.trim();
-    if (allPlans.some((p) => p.internalKey.trim().toLowerCase() === internalKey.toLowerCase())) {
+    if (allPlans.some((p) => (p.internalKey ?? '').trim().toLowerCase() === internalKey.toLowerCase())) {
       return { ok: false, code: 'CONFLICT', error: `A plan with key '${internalKey}' already exists.` };
     }
 
