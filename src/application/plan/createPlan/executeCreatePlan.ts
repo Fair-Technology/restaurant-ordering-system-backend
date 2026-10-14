@@ -44,9 +44,16 @@ export async function executeCreatePlan(
       return { ok: false, code: 'FORBIDDEN', error: 'Superadmin access required' };
     }
 
+    const allPlans = await findAllPlans();
+
+    // Keys must be unique, ignoring case and surrounding spaces
+    const internalKey = request.internalKey.trim();
+    if (allPlans.some((p) => p.internalKey.trim().toLowerCase() === internalKey.toLowerCase())) {
+      return { ok: false, code: 'CONFLICT', error: `A plan with key '${internalKey}' already exists.` };
+    }
+
     // Enforce only one default plan
     if (request.isDefault) {
-      const allPlans = await findAllPlans();
       const existingDefault = allPlans.find((p) => p.isDefault);
       if (existingDefault) {
         return { ok: false, code: 'INVALID_INPUT', error: 'A default plan already exists. Update the existing default plan first.' };
@@ -57,7 +64,7 @@ export async function executeCreatePlan(
     const plan: Plan = {
       id: crypto.randomUUID(),
       name: request.name.trim(),
-      internalKey: request.internalKey.trim(),
+      internalKey,
       isDefault: request.isDefault ?? false,
       isVisible: request.isVisible ?? true,
       sortOrder,
