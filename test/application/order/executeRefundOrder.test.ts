@@ -266,6 +266,19 @@ describe('executeRefundOrder', () => {
     expect(m.createRefund).not.toHaveBeenCalled();
   });
 
+  it('items of a refund Stripe failed can be ticked again', async () => {
+    setup({
+      ...two,
+      payment: { ...two.payment, status: 'paid' },
+      refunds: [
+        priorRefund(350, { lines: [{ lineIndex: 1, quantity: 1, grossCents: 350, taxRateBasisPoints: 1900 }] }),
+        { ...priorRefund(-350), id: 'v', reversesIndex: 0 },
+      ],
+    });
+    const res = await executeRefundOrder({ ...ids, items: [{ lineIndex: 1, quantity: 2 }], reason: 'x' }, http, { now });
+    expect(res.ok).toBe(true);
+  });
+
   it('refuses items and an amount together, or neither', async () => {
     setup(two);
     const both = await executeRefundOrder(

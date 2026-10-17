@@ -249,6 +249,38 @@ describe('releaseClosedOrderPayment', () => {
     expect(listed).not.toHaveBeenCalled();
   });
 
+  it('a refund of ours that Stripe failed is not recorded as given back', async () => {
+    const store = storeOf({ ...REJECTED_ORDER, payment: { ...REJECTED_ORDER.payment, status: 'paid' } });
+    listed.mockResolvedValue([s('re_f', 1050, { status: 'canceled', fromApp: true })]);
+    await releaseClosedOrderPayment('o1', CARD_SHOP, now);
+    expect(store.current.refunds!.map((r) => r.stripeRefundId)).toEqual(['re_1']);
+    expect(store.current.payment.status).toBe('refunded');
+  });
+
+  it('a refund of ours already on the order is not recorded twice', async () => {
+    const store = storeOf({
+      ...REJECTED_ORDER,
+      payment: { ...REJECTED_ORDER.payment, status: 'partially_refunded' },
+      refunds: [
+        { id: 'auto-refund-re_a', amountCents: 300, reason: 'order_declined', at: 'x', actor: { type: 'system' }, stripeRefundId: 're_a' },
+      ],
+    });
+    listed.mockResolvedValue([s('re_a', 300, { fromApp: true })]);
+    await releaseClosedOrderPayment('o1', CARD_SHOP, now);
+    expect(store.current.refunds!.map((r) => r.stripeRefundId)).toEqual(['re_a', 're_1']);
+    expect(createRefund).toHaveBeenCalledWith(expect.objectContaining({ amountCents: 750 }));
+  });
+
+  it('the reason names whether the order was declined or cancelled', async () => {
+    const a = storeOf({ ...REJECTED_ORDER, payment: { ...REJECTED_ORDER.payment, status: 'paid' } });
+    await releaseClosedOrderPayment('o1', CARD_SHOP, now);
+    expect(a.current.refunds![0].reason).toBe('order_declined');
+    const b = storeOf({ ...REJECTED_ORDER, state: 'CANCELLED', payment: { ...REJECTED_ORDER.payment, status: 'paid' } });
+    await releaseClosedOrderPayment('o1', CARD_SHOP, now);
+    expect(b.current.refunds![0].reason).toBe('order_cancelled');
+    expect(b.current.state).toBe('CANCELLED');
+  });
+
   it('nothing on an old pay-at-collection order', async () => {
     storeOf({ ...LEGACY_CASH_ORDER, state: 'REJECTED' });
     const res = await releaseClosedOrderPayment('o1', CARD_SHOP, now);

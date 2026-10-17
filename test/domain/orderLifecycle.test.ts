@@ -194,6 +194,13 @@ describe('endIfFullyRefunded', () => {
     expect(endIfFullyRefunded(done, nowIso, { type: 'system' })).toBe(done);
   });
 
+  it('a full refund never changes an order that is not in play', () => {
+    for (const state of ['PLACED', 'REJECTED', 'CANCELLED', 'COMPLETED', 'REFUNDED'] as const) {
+      const o = refunded({ ...ACCEPTED_CARD_ORDER, state });
+      expect(endIfFullyRefunded(o, nowIso, { type: 'system' })).toBe(o);
+    }
+  });
+
   it('staff cannot move a refunded order on', () => {
     const res = applyTransition({ ...ACCEPTED_CARD_ORDER, state: 'REFUNDED' }, 'READY', {
       now: new Date(nowIso),

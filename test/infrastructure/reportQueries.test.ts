@@ -5,7 +5,7 @@ vi.mock('../../src/infrastructure/cosmos/cosmosClient', () => ({
 }));
 
 import { orderContainer } from '../../src/infrastructure/cosmos/cosmosClient';
-import { countWaitingOrders, findReportRows, REPORT_ROW_SELECT } from '../../src/infrastructure/cosmos/order/CosmosOrderRepository';
+import { countWaitingOrders, findOrdersAwaitingRelease, findOrdersMissingInvoice, findReportRows, REPORT_ROW_SELECT } from '../../src/infrastructure/cosmos/order/CosmosOrderRepository';
 
 const query = orderContainer.items.query as unknown as ReturnType<typeof vi.fn>;
 
@@ -51,6 +51,20 @@ describe('report queries', () => {
     expect(query.mock.calls[0][0].query).toContain(
       "c.state = 'PLACED' AND (NOT IS_DEFINED(c.scheduledFor) OR IS_DEFINED(c.queuedAt))",
     );
+  });
+
+  it('the release query takes part-refunded orders and skips those with a reversal', async () => {
+    query.mockReturnValueOnce({ fetchAll: async () => ({ resources: [] }) });
+    await findOrdersAwaitingRelease();
+    const q = query.mock.calls[0][0].query as string;
+    expect(q).toContain("ARRAY_CONTAINS(['authorized', 'paid', 'partially_refunded'], c.payment.status)");
+    expect(q).toContain('NOT EXISTS(SELECT VALUE r FROM r IN c.refunds WHERE IS_DEFINED(r.reversesIndex))');
+  });
+
+  it('the missing-invoice query includes ended (refunded) orders', async () => {
+    query.mockReturnValueOnce({ fetchAll: async () => ({ resources: [] }) });
+    await findOrdersMissingInvoice('2026-10-01T00:00:00.000Z');
+    expect(query.mock.calls[0][0].query).toContain("['ACCEPTED', 'READY', 'OUT_FOR_DELIVERY', 'COMPLETED', 'REFUNDED']");
   });
 
   it('selects which refund a reversal cancels', () => {

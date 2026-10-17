@@ -231,6 +231,51 @@ describe('executeRecordStripeRefunds', () => {
       await expect(executeRecordStripeRefunds(input)).rejects.toThrow('not recorded by the app yet');
     });
 
+    it('a failed refund that is not ours, or is already on the order, does not make Stripe retry', async () => {
+      setup(paid);
+      m.listPaymentRefunds.mockResolvedValue([s('re_x', 300, { status: 'failed', fromApp: false })]);
+      await expect(executeRecordStripeRefunds(input)).resolves.toBe('nothing_new');
+      setup(rec);
+      m.listPaymentRefunds.mockResolvedValue([s('re_d1', 300, { status: 'failed', fromApp: true })]);
+      await expect(executeRecordStripeRefunds(input)).resolves.toBe('recorded');
+    });
+
+    it('the restaurant is told once per failed refund, naming that refund', async () => {
+      const two = {
+        ...rec,
+        refunds: [
+          ...rec.refunds,
+          { id: 'stripe-re_d2', amountCents: 200, reason: 'Stripe dashboard', at: '2026-10-05T12:01:00.000Z', actor: { type: 'system' as const }, stripeRefundId: 're_d2' },
+        ],
+      };
+      setup(two);
+      m.listPaymentRefunds.mockResolvedValue([s('re_d1', 300, { status: 'failed' }), s('re_d2', 200, { status: 'canceled' })]);
+      await expect(executeRecordStripeRefunds(input)).resolves.toBe('recorded');
+      expect(m.sendEmail).toHaveBeenCalledTimes(2);
+      const texts = m.sendEmail.mock.calls.map((c: any[]) => c[0].text as string);
+      expect(texts[0]).toContain('3,00');
+      expect(texts[1]).toContain('2,00');
+    });
+
+    it('a new dashboard refund recorded alongside a failure is not announced as a failure', async () => {
+      setup(rec);
+      m.listPaymentRefunds.mockResolvedValue([s('re_d1', 300, { status: 'failed' }), s('re_d3', 100)]);
+      await expect(executeRecordStripeRefunds(input)).resolves.toBe('recorded');
+      expect(m.sendEmail).toHaveBeenCalledTimes(1);
+    });
+
+    it('a status that keeps changing is looked at no more than three times', async () => {
+      let n = 0;
+      m.store = orderStore(paid);
+      m.findOrderByStripePaymentIntentId.mockResolvedValue(paid);
+      m.listPaymentRefunds.mockImplementation(async () => {
+        n++;
+        return [s(`re_${n}`, 10, { createdAtIso: `2026-10-05T12:0${n}:00.000Z` })];
+      });
+      await expect(executeRecordStripeRefunds(input)).resolves.toBe('recorded');
+      expect(m.listPaymentRefunds).toHaveBeenCalledTimes(3);
+    });
+
     it('...but not forever', async () => {
       setup(paid);
       m.listPaymentRefunds.mockResolvedValue([
