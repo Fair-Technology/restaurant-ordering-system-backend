@@ -12,7 +12,6 @@ import { createOrder, findOrderById } from '../../../infrastructure/cosmos/order
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { releaseAuthorization } from '../../../infrastructure/stripe/stripeClient';
 import { acceptPlacedOrder } from '../_shared/acceptPlacedOrder';
-import { isOrdersScreenWatched } from '../_shared/ordersScreen';
 import { releaseClosedOrderPayment } from '../_shared/releasePayment';
 import { fixSlotPlace } from '../_shared/slotPlaces';
 import { notifyCustomer } from '../notifications/notifyOrder';
@@ -23,7 +22,6 @@ export type PaymentAuthorizedOutcome = 'created' | 'declined_shop_unavailable' |
 /**
  * Stripe says the diner's card money is reserved: the order now comes into being (placed, reserved).
  * With auto-accept on it is accepted right away; if the payment service is down it waits for the timer.
- * Auto-accept only while an orders screen was seen in the last 3 minutes; otherwise the order waits for staff.
  * The shop is re-checked now: if it stopped taking orders meanwhile, the order is created already declined and the hold released.
  * A reservation with no checkout left (the diner idled for over an hour) is released and no order is made.
  */
@@ -62,7 +60,7 @@ export async function executeHandlePaymentAuthorized(input: {
     now,
     inLiveQueue,
   });
-  const refusal = shopRefusalForPaidCheckout(shop, session);
+  const refusal = shopRefusalForPaidCheckout(shop, session, now);
   let toWrite = order;
   if (refusal) {
     const declined = applyTransition(order, 'REJECTED', { now, actor: { type: 'system' }, reason: 'shop_unavailable' });
@@ -90,7 +88,7 @@ export async function executeHandlePaymentAuthorized(input: {
   if (order.scheduledFor) await fixSlotPlace({ shop, orderId: order.id, slot: order.scheduledFor, now });
 
   // Auto-accepted orders get one email (the acceptance); a received email would arrive a second before it.
-  const autoAccepts = autoAcceptsOrder(shop, order) && (await isOrdersScreenWatched(shop.id, now));
+  const autoAccepts = autoAcceptsOrder(shop, order);
   let sendReceived = !autoAccepts;
   if (autoAccepts) {
     try {

@@ -1,13 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+vi.mock('../../../src/application/order/_shared/missedOrders', () => ({
+  recordMissedOrder: vi.fn(async () => null),
+  resetMissedOrderStreak: vi.fn(async () => undefined),
+}));
 vi.mock('../../../src/infrastructure/cosmos/usage/CosmosSlotPlacesRepository', () => ({
   findSlotPlacesWithEtag: vi.fn(async () => null),
   createSlotPlaces: vi.fn(async () => 'ok'),
   replaceSlotPlacesIfMatch: vi.fn(async () => 'ok'),
-}));
-vi.mock('../../../src/application/order/_shared/ordersScreen', () => ({
-  isOrdersScreenWatched: vi.fn(async () => true),
-  loadOrdersScreenLastSeen: vi.fn(async () => null),
 }));
 vi.mock('../../../src/infrastructure/cosmos/shop/CosmosShopRepository', () => ({ findShopById: vi.fn() }));
 vi.mock('../../../src/infrastructure/cosmos/order/CosmosOrderRepository', () => ({
@@ -38,6 +38,7 @@ vi.mock('../../../src/infrastructure/email/emailSender', () => ({
   emailTransportName: () => 'log',
 }));
 
+import { recordMissedOrder, resetMissedOrderStreak } from '../../../src/application/order/_shared/missedOrders';
 import { executeProcessOrderTimers } from '../../../src/application/order/timers/executeProcessOrderTimers';
 import {
   findOrderWithEtag,
@@ -50,7 +51,6 @@ import {
 import { buildInvoice } from '../../../src/domain/invoice/invoice';
 import { findInvoiceById } from '../../../src/infrastructure/cosmos/invoice/CosmosInvoiceRepository';
 import { findInvoicedOrdersWithRefunds } from '../../../src/infrastructure/cosmos/order/CosmosOrderRepository';
-import { isOrdersScreenWatched } from '../../../src/application/order/_shared/ordersScreen';
 import { findShopById } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
 import { sendEmail } from '../../../src/infrastructure/email/emailSender';
 import { capturePaymentIntent, releaseAuthorization } from '../../../src/infrastructure/stripe/stripeClient';
@@ -84,7 +84,7 @@ const placedAt = (iso: string, rejectIso: string) => ({
   history: [{ from: null, to: 'PLACED', at: iso, actor: { type: 'customer' } }],
 });
 
-const NO_EXTRAS = { autoAccepted: 0, queued: 0, released: 0, invoicesIssued: 0, correctionsIssued: 0 };
+const NO_EXTRAS = { autoAccepted: 0, autoPaused: 0, queued: 0, released: 0, invoicesIssued: 0, correctionsIssued: 0 };
 
 function storedOrder(order = PLACED_CARD_ORDER) {
   const store = orderStore(order);
@@ -98,7 +98,6 @@ const MANUAL_SCHEDULED = { ...SCHEDULED_SHOP, orderSettings: { scheduledOrders: 
 describe('executeProcessOrderTimers', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (isOrdersScreenWatched as any).mockResolvedValue(true);
     (findShopById as any).mockResolvedValue(CARD_SHOP);
     (findPlacedOrdersCreatedBefore as any).mockResolvedValue([PLACED_CARD_ORDER]);
     (findOrdersInState as any).mockResolvedValue([]);
@@ -133,61 +132,46 @@ describe('executeProcessOrderTimers', () => {
     expect(res.autoAccepted).toBe(0);
   });
 
-  it('an auto-accept shop with no orders screen open does not take the money', async () => {
+  it('auto-accept takes the money with no orders screen open', async () => {
     (findShopById as any).mockResolvedValue(DEFAULT_SHOP);
-    (isOrdersScreenWatched as any).mockResolvedValue(false);
     const store = storedOrder();
     const res = await executeProcessOrderTimers({ now: new Date('2026-10-05T10:01:00Z') });
-    expect(capturePaymentIntent).not.toHaveBeenCalled();
-    expect(store.current.state).toBe('PLACED');
-    expect(res.autoAccepted).toBe(0);
-    expect(isOrdersScreenWatched).toHaveBeenCalledWith('shop-1', new Date('2026-10-05T10:01:00Z'));
-  });
-
-  it('an unwatched auto-accept order is escalated at three minutes', async () => {
-    (findShopById as any).mockResolvedValue(DEFAULT_SHOP);
-    (isOrdersScreenWatched as any).mockResolvedValue(false);
-    const res = await executeProcessOrderTimers({ now: new Date('2026-10-05T10:03:00Z') });
-    expect(res).toEqual({ escalated: 1, autoRejected: 0, autoCompleted: 0, ...NO_EXTRAS });
-    expect(sendEmail).toHaveBeenCalledWith(
-      expect.objectContaining({ subject: 'Bestellung AB3-K7P wartet seit 3 Minuten auf Annahme' }),
-    );
-  });
-
-  it('an unwatched auto-accept order is declined at the timeout and the card released', async () => {
-    (findShopById as any).mockResolvedValue(DEFAULT_SHOP);
-    (isOrdersScreenWatched as any).mockResolvedValue(false);
-    const store = storedOrder();
-    const res = await executeProcessOrderTimers({ now: new Date('2026-10-05T10:10:00Z') });
-    expect(store.current.state).toBe('REJECTED');
-    expect(store.current.history.at(-1)).toMatchObject({ reason: 'no_response' });
-    expect(releaseAuthorization).toHaveBeenCalledWith(expect.objectContaining({ idempotencyKey: 'release-o1' }));
-    expect(res.autoRejected).toBe(1);
-  });
-
-  it('an order held while nobody watched is auto-accepted once a board is open again', async () => {
-    (findShopById as any).mockResolvedValue(DEFAULT_SHOP);
-    const store = storedOrder();
-    (isOrdersScreenWatched as any).mockResolvedValue(false);
-    await executeProcessOrderTimers({ now: new Date('2026-10-05T10:01:00Z') });
-    expect(store.current.state).toBe('PLACED');
-    (isOrdersScreenWatched as any).mockResolvedValue(true);
-    const res = await executeProcessOrderTimers({ now: new Date('2026-10-05T10:02:00Z') });
+    expect(capturePaymentIntent).toHaveBeenCalledTimes(1);
     expect(store.current.state).toBe('ACCEPTED');
     expect(res.autoAccepted).toBe(1);
   });
 
-  it('a restaurant accepting by hand never checks for an orders screen', async () => {
-    await executeProcessOrderTimers({ now: new Date('2026-10-05T10:01:00Z') });
-    expect(isOrdersScreenWatched).not.toHaveBeenCalled();
+  it('a timed-out order counts as missed', async () => {
+    const now = new Date('2026-10-05T10:10:00Z');
+    await executeProcessOrderTimers({ now });
+    expect(recordMissedOrder).toHaveBeenCalledTimes(1);
+    expect(recordMissedOrder).toHaveBeenCalledWith(CARD_SHOP, now);
   });
 
-  it('checks the orders screen once per shop per run', async () => {
+  it('an escalation alone is not a miss', async () => {
+    await executeProcessOrderTimers({ now: new Date('2026-10-05T10:03:00Z') });
+    expect(recordMissedOrder).not.toHaveBeenCalled();
+  });
+
+  it('once a miss pauses the shop, later orders in the same run see the pause', async () => {
+    const o2 = { ...PLACED_CARD_ORDER, id: 'o2' };
+    const stores: Record<string, ReturnType<typeof orderStore>> = { o1: orderStore(PLACED_CARD_ORDER), o2: orderStore(o2) };
+    (findPlacedOrdersCreatedBefore as any).mockResolvedValue([PLACED_CARD_ORDER, o2]);
+    (findOrderWithEtag as any).mockImplementation((id: string) => stores[id].findOrderWithEtag());
+    (replaceOrderIfMatch as any).mockImplementation((o: any, etag: string) => stores[o.id].replaceOrderIfMatch(o, etag));
+    (recordMissedOrder as any).mockResolvedValueOnce({ ...CARD_SHOP, ordersPaused: true });
+    const res = await executeProcessOrderTimers({ now: new Date('2026-10-05T10:10:00Z') });
+    expect(recordMissedOrder).toHaveBeenCalledTimes(2);
+    expect((recordMissedOrder as any).mock.calls[1][0].ordersPaused).toBe(true);
+    expect(findShopById).toHaveBeenCalledTimes(1);
+    expect(res.autoPaused).toBe(1);
+  });
+
+  it('an auto-accepted order resets the count', async () => {
     (findShopById as any).mockResolvedValue(DEFAULT_SHOP);
-    (isOrdersScreenWatched as any).mockResolvedValue(false);
-    (findPlacedOrdersCreatedBefore as any).mockResolvedValue([PLACED_CARD_ORDER, { ...PLACED_CARD_ORDER, id: 'o2' }]);
+    storedOrder();
     await executeProcessOrderTimers({ now: new Date('2026-10-05T10:01:00Z') });
-    expect(isOrdersScreenWatched).toHaveBeenCalledTimes(1);
+    expect(resetMissedOrderStreak).toHaveBeenCalledWith('shop-1', new Date('2026-10-05T10:01:00Z'));
   });
 
   it('a paused shop still auto-accepts an order placed before the pause', async () => {

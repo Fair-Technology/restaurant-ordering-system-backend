@@ -1,12 +1,10 @@
 import type { HttpRequest } from '@azure/functions';
-import { autoAcceptsAt, busyStateOf, effectivePrepByMode } from '../../../domain/order/kitchenTiming';
-import { isWatchedAt } from '../../../domain/order/ordersScreen';
+import { busyStateOf, effectivePrepByMode } from '../../../domain/order/kitchenTiming';
 import { isOpenAtSlot, isUpcoming } from '../../../domain/order/scheduling';
 import { slotCapacityOf } from '../../../domain/order/slotCapacity';
-import { isShopOffline } from '../../../domain/shop/Shop';
+import { ordersPauseFieldsOf } from '../../../domain/shop/ordersPause';
 import { findOrdersByShopIdAndStates } from '../../../infrastructure/cosmos/order/CosmosOrderRepository';
 import type { ApplicationResult } from '../../_shared/types';
-import { loadOrdersScreenLastSeen } from '../_shared/ordersScreen';
 import { loadSlotsTaken } from '../_shared/slotPlaces';
 import { toOrderDto } from '../_shared/toOrderDto';
 import type { OrderQueueDto } from './dtos';
@@ -22,7 +20,6 @@ export async function executeGetOrderQueue(
     const loaded = await loadShopForOrderAction(request.shopId, httpRequest);
     if (!loaded.ok) return loaded;
     const now = options.now ?? new Date();
-    const lastSeenAt = await loadOrdersScreenLastSeen(loaded.shop.id);
     const all = await findOrdersByShopIdAndStates(loaded.shop.id, ['PLACED', 'ACCEPTED', 'READY', 'OUT_FOR_DELIVERY']);
     const live = all.filter((o) => !isUpcoming(o, loaded.shop, now));
     const upcoming = all
@@ -44,11 +41,7 @@ export async function executeGetOrderQueue(
           outsideHours: !isOpenAtSlot(loaded.shop, o.fulfilmentMode, new Date(o.scheduledFor!)),
         })),
         capacity,
-        ordersScreen: {
-          lastSeenAt,
-          watched: isWatchedAt(lastSeenAt, now),
-          autoAcceptOn: autoAcceptsAt(loaded.shop, now) && !isShopOffline(loaded.shop),
-        },
+        ordersPause: ordersPauseFieldsOf(loaded.shop, now),
       },
     };
   } catch {
