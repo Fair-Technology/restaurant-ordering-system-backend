@@ -4,7 +4,7 @@ import { escalationRecipients } from '../../../domain/order/orderSettings';
 import type { LoyaltyVoucherDoc } from '../../../domain/promotion/promotions';
 import type { Shop } from '../../../domain/shop/Shop';
 import { EmailAttachment, sendEmail } from '../../../infrastructure/email/emailSender';
-import { AttachedDocument, buildLoyaltyVoucherEmail, buildOrderEmail, OrderEmailKind } from './emailTemplates';
+import { AttachedDocument, buildAutoPausedEmail, buildLoyaltyVoucherEmail, buildOrderEmail, OrderEmailKind } from './emailTemplates';
 
 export function customerOrderUrl(shop: Pick<Shop, 'slug'>, order: Pick<Order, 'id' | 'customerAccessToken'>): string {
   const base = process.env.STOREFRONT_BASE_URL ?? 'http://localhost:5175';
@@ -63,6 +63,22 @@ export async function notifyRestaurantEscalation(order: Order, shop: Shop): Prom
     await sendEmail({ to, ...content, replyTo: null, tag: 'order_escalation' });
   } catch {
     console.error('[email:error]', 'order_escalation');
+  }
+}
+
+function adminShopStatusUrl(shop: Pick<Shop, 'id'>): string {
+  return `${process.env.ADMIN_APP_URL ?? 'http://localhost:5173'}/shops/${shop.id}/settings#shop-status`;
+}
+
+/** Emails the restaurant that missed orders paused ordering automatically. Never throws. */
+export async function notifyRestaurantAutoPaused(shop: Shop, missedOrders: number): Promise<void> {
+  try {
+    const to = escalationRecipients(shop);
+    if (to.length === 0) return;
+    const content = buildAutoPausedEmail(shop, missedOrders, adminShopStatusUrl(shop));
+    await sendEmail({ to, ...content, replyTo: null, tag: 'orders_auto_paused' });
+  } catch {
+    console.error('[email:error]', 'orders_auto_paused');
   }
 }
 

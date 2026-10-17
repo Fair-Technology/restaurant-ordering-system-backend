@@ -178,6 +178,12 @@ describe('executeCheckout paused and offline', () => {
     expect(findProductById).not.toHaveBeenCalled();
   });
 
+  it('a timed pause still in force refuses', async () => {
+    (findShopById as any).mockResolvedValue({ ...CARD_SHOP, ordersPaused: true, ordersPausedUntil: '2026-10-05T10:30:00.000Z' });
+    const res = await executeCheckout(baseRequest, { now: NOW_OPEN });
+    expect(res).toEqual({ ok: false, code: 'ORDERS_PAUSED', error: 'This shop has paused new orders for now' });
+  });
+
   it('refuses a shop the platform took offline', async () => {
     (findShopById as any).mockResolvedValue({ ...CARD_SHOP, offlineBySuperadmin: true });
     const res = await executeCheckout(baseRequest);
@@ -211,6 +217,12 @@ describe('executeCheckout card placement', () => {
     (findProductById as any).mockImplementation(async (id: string) => (id === 'p1' ? P_PASTA : id === 'p2' ? P_COLA : null));
     (findOrderById as any).mockResolvedValue(null);
     (findCheckoutSessionById as any).mockResolvedValue(null);
+  });
+
+  it('an expired timed pause no longer blocks checkout', async () => {
+    (findShopById as any).mockResolvedValue({ ...CARD_SHOP, ordersPaused: true, ordersPausedUntil: '2026-10-05T09:30:00.000Z' });
+    const res = await executeCheckout(cardRequest, { now: NOW_OPEN });
+    expect(res.ok).toBe(true);
   });
 
   it('starts a card payment and returns the order link', async () => {

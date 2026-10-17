@@ -1,3 +1,4 @@
+import type { OrdersPauseDuration } from '../../../domain/shop/ordersPause';
 import { ShopBranding } from '../../../domain/shop/Shop';
 import { MenuLanguage } from '../../../domain/reference/ReferenceLists';
 
@@ -7,6 +8,7 @@ export interface UpdateShopRequestDto {
   menuLanguages?: MenuLanguage[];
   pausedMessage?: string;
   ordersPaused?: boolean;
+  ordersPausedFor?: OrdersPauseDuration; // only together with ordersPaused: true; absent = until switched back
   ordersPausedMessage?: string;
   minOrderAmountCents?: number;
   address?: {

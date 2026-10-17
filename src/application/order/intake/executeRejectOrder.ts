@@ -4,6 +4,7 @@ import { ORDER_CHANGED_ERROR, REJECT_REASON_ERROR } from '../../../domain/order/
 import { applyTransition } from '../../../domain/order/orderLifecycle';
 import { hasFreshCaptureClaim } from '../../../domain/order/payment';
 import type { ApplicationResult } from '../../_shared/types';
+import { resetMissedOrderStreak } from '../_shared/missedOrders';
 import { releaseClosedOrderPayment } from '../_shared/releasePayment';
 import { notifyCustomer } from '../notifications/notifyOrder';
 import { shopActorToOrderActor, transitionOrder } from '../_shared/transitionOrder';
@@ -48,6 +49,7 @@ export async function executeRejectOrder(
       },
     });
     if (!moved.ok) return moved;
+    await resetMissedOrderStreak(shop.id, now); // a person answered, so the shop is being watched
 
     const released = await releaseClosedOrderPayment(moved.order.id, shop, now);
     const order = released.order ?? moved.order;

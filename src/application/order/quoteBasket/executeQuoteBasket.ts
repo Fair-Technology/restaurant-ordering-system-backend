@@ -1,4 +1,5 @@
 import { menuLanguagesOf, resolveMenuLanguage } from '../../../domain/menu/menuLanguage';
+import { isOrdersPausedAt } from '../../../domain/shop/ordersPause';
 import { orderableModesFor } from '../../../domain/order/fulfilment';
 import { chargesTotalCents, deliveryFeeCharge, findDeliveryZone, hoursForMode } from '../../../domain/order/delivery';
 import { applyDiscount } from '../../../domain/order/discount';
@@ -58,7 +59,7 @@ export async function executeQuoteBasket(
         error: shop.pausedMessage ? shop.pausedMessage : 'This shop is not currently accepting orders',
       };
     }
-    if (shop.ordersPaused === true) {
+    if (isOrdersPausedAt(shop, now)) {
       return {
         ok: false,
         code: 'ORDERS_PAUSED',

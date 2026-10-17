@@ -1,4 +1,5 @@
 import { EMAIL_PATTERN } from '../../../domain/legal/impressum';
+import { isOrdersPausedAt } from '../../../domain/shop/ordersPause';
 import { LEGAL_PACK_INCOMPLETE_ERROR, isLegalPackComplete } from '../../../domain/legal/legalReadiness';
 import { legalOf } from '../../../domain/legal/legalTexts';
 import { menuLanguagesOf, resolveMenuLanguage, resolvePageLanguage } from '../../../domain/menu/menuLanguage';
@@ -225,7 +226,7 @@ export async function executeCheckout(
           : 'This shop is not currently accepting orders',
       };
     }
-    if (shop.ordersPaused === true) {
+    if (isOrdersPausedAt(shop, now)) {
       return {
         ok: false,
         code: 'ORDERS_PAUSED',

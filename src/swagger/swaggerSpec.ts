@@ -259,6 +259,44 @@ export const swaggerSpec = {
         },
       },
     },
+    '/shops/{shopId}/missed-orders-pause': {
+      put: {
+        summary: 'Set how many unanswered orders in a row pause the shop automatically (superadmin only)',
+        description:
+          'Orders the timer declines because nobody answered them count in a row; when the count reaches this limit the shop is paused until the owner switches it back and the owner is emailed. 0 switches it off; a shop with no value uses 3.',
+        operationId: 'setMissedOrdersPauseLimit',
+        tags: ['Shops'],
+        parameters: [
+          { name: 'shopId', in: 'path', required: true, schema: { type: 'string' }, description: 'Shop ID' },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['limit'],
+                properties: { limit: { type: 'integer', minimum: 0, maximum: 10, description: '0 = off' } },
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Updated',
+            content: {
+              'application/json': {
+                schema: { type: 'object', properties: { missedOrdersPauseLimit: { type: 'integer' } } },
+              },
+            },
+          },
+          '400': { $ref: '#/components/responses/BadRequest' },
+          '403': { $ref: '#/components/responses/Forbidden' },
+          '404': { $ref: '#/components/responses/NotFound' },
+          '500': { $ref: '#/components/responses/InternalError' },
+        },
+      },
+    },
     '/shops/{shopId}/superadmin-offline': {
       post: {
         summary: 'Take a shop offline as the platform, or lift it (superadmin only)',
@@ -1554,7 +1592,7 @@ export const swaggerSpec = {
           branding: { $ref: '#/components/schemas/ShopBranding' },
           openingHours: { type: 'object', additionalProperties: true, description: 'Weekly opening hours keyed by day (mon..sun); days may be missing' },
           timezone: { type: 'string', example: 'Europe/Berlin' },
-          ordersPaused: { type: 'boolean', description: 'Owner has stopped taking new orders; the menu stays visible' },
+          ordersPaused: { type: 'boolean', description: 'Owner has stopped taking new orders; the menu stays visible. In force now (an expired timed pause reads false)' },
         },
         required: ['id', 'slug', 'name', 'address', 'branding', 'openingHours', 'timezone', 'ordersPaused'],
       },
@@ -1672,7 +1710,12 @@ export const swaggerSpec = {
             type: 'string',
             description: 'Message when shop is paused',
           },
-          ordersPaused: { type: 'boolean', description: 'Owner pauses new orders; the menu stays visible' },
+          ordersPaused: { type: 'boolean', description: 'Owner pauses new orders; the menu stays visible. In force now (an expired timed pause reads false)' },
+          ordersPausedFor: {
+            type: 'string',
+            enum: ['minutes_30', 'rest_of_day', 'until_switched_back'],
+            description: 'With ordersPaused: true. rest_of_day ends at 04:00 local; absent = until switched back',
+          },
           ordersPausedMessage: {
             type: 'string',
             maxLength: 280,
@@ -1733,7 +1776,14 @@ export const swaggerSpec = {
             type: 'string',
             description: 'Message shown when shop is paused',
           },
-          ordersPaused: { type: 'boolean', description: 'Owner has paused new orders; menu still visible' },
+          ordersPaused: { type: 'boolean', description: 'Owner has paused new orders; menu still visible. In force now (an expired timed pause reads false)' },
+          ordersPausedUntil: { type: 'string', format: 'date-time', nullable: true },
+          ordersAutoPaused: {
+            type: 'object',
+            nullable: true,
+            properties: { missedOrders: { type: 'integer' }, at: { type: 'string', format: 'date-time' } },
+          },
+          missedOrdersPauseLimit: { type: 'integer', minimum: 0, maximum: 10, description: 'Superadmin list only; 0 = off' },
           ordersPausedMessage: { type: 'string', description: 'Message shown while orders are paused' },
           isOffline: { type: 'boolean', description: 'isPaused or offlineBySuperadmin: show no menu' },
           offlineBySuperadmin: { type: 'boolean', description: 'Platform took the shop offline (not on the public read)' },

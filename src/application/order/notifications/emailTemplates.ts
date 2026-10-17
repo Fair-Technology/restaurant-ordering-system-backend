@@ -107,6 +107,28 @@ function buildEscalationEmail(order: Order, shop: Shop, adminOrdersUrl: string):
   ]);
 }
 
+/** The owner is told (in the shop's own language) that missed orders paused ordering automatically. */
+export function buildAutoPausedEmail(shop: Shop, missedOrders: number, shopStatusUrl: string): OrderEmailContent {
+  const de = menuLanguagesOf(shop)[0] === 'de';
+  const n = missedOrders;
+  const subject = de
+    ? n === 1
+      ? 'Bestellungen pausiert: 1 Bestellung nicht rechtzeitig angenommen'
+      : `Bestellungen pausiert: ${n} Bestellungen in Folge nicht rechtzeitig angenommen`
+    : n === 1
+      ? 'Orders paused: 1 order was not accepted in time'
+      : `Orders paused: ${n} orders in a row were not accepted in time`;
+  return render(subject, [
+    {
+      type: 'p',
+      text: de
+        ? `${shop.name}: ${n === 1 ? 'Eine Bestellung wurde' : `${n} Bestellungen in Folge wurden`} abgelehnt, weil niemand sie rechtzeitig angenommen hat. Wir haben neue Bestellungen deshalb pausiert. Gäste sehen weiterhin Ihre Speisekarte, können aber nicht bestellen, bis Sie Bestellungen wieder einschalten.`
+        : `${shop.name}: ${n === 1 ? 'An order was' : `${n} orders in a row were`} declined because nobody accepted ${n === 1 ? 'it' : 'them'} in time, so we have paused new orders. Diners still see your menu but cannot order until you switch ordering back on.`,
+    },
+    { type: 'p', text: `${de ? 'Zum Shop-Status' : 'Open shop status'}: ${shopStatusUrl}` },
+  ]);
+}
+
 /** The restaurant is told (in its own language) that giving the diner's money back failed. */
 function buildReleaseFailedEmail(order: Order, shop: Shop, adminOrdersUrl: string): OrderEmailContent {
   const lang = menuLanguagesOf(shop)[0];

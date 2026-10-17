@@ -1,5 +1,6 @@
 import type { FulfilmentMode, StaffRejectReason } from '../../../domain/order/Order';
 import type { BusyState } from '../../../domain/order/kitchenTiming';
+import type { OrdersPauseFields } from '../../../domain/shop/ordersPause';
 import type { OrderDto } from '../getOrdersByShop/dtos';
 
 export type UpcomingOrderDto = OrderDto & { outsideHours: boolean }; // the restaurant is closed at the booked time (as of this read)
@@ -7,12 +8,6 @@ export type UpcomingOrderDto = OrderDto & { outsideHours: boolean }; // the rest
 export interface SlotCapacityDto {
   perSlot: number; // the limit per quarter hour
   taken: Record<string, number>; // live places per ISO slot start, over the days of the listed upcoming orders
-}
-
-export interface OrdersScreenDto {
-  lastSeenAt: string | null; // last ping from any open board; null = never
-  watched: boolean; // a board was seen in the last 3 minutes
-  autoAcceptOn: boolean; // auto-accept is in force right now (on, and the restaurant is not offline)
 }
 
 export interface OrderQueueDto {
@@ -23,7 +18,7 @@ export interface OrderQueueDto {
   orders: OrderDto[]; // live orders only: booked orders not yet due are under `upcoming`
   upcoming: UpcomingOrderDto[]; // booked orders not yet due, soonest first
   capacity: SlotCapacityDto | null; // null = no limit in force
-  ordersScreen: OrdersScreenDto;
+  ordersPause: OrdersPauseFields; // the pause as in force now, so the board notices an automatic pause
 }
 
 export interface AcceptOrderBody {

@@ -27,10 +27,6 @@ vi.mock('../../../src/infrastructure/email/emailSender', () => ({
   sendEmail: vi.fn(async () => undefined),
   emailTransportName: () => 'log',
 }));
-vi.mock('../../../src/application/order/_shared/ordersScreen', () => ({
-  isOrdersScreenWatched: vi.fn(async () => true),
-  loadOrdersScreenLastSeen: vi.fn(async () => null),
-}));
 vi.mock('../../../src/domain/order/orderRef', () => ({ generateOrderRef: () => 'AB3-K7P' }));
 
 import { executeHandlePaymentAuthorized } from '../../../src/application/order/handlePaymentAuthorized/executeHandlePaymentAuthorized';
@@ -40,7 +36,6 @@ import {
   findCheckoutSessionById,
 } from '../../../src/infrastructure/cosmos/order/CosmosCheckoutSessionRepository';
 import { createOrder, findOrderById, findOrderWithEtag, replaceOrderIfMatch } from '../../../src/infrastructure/cosmos/order/CosmosOrderRepository';
-import { isOrdersScreenWatched } from '../../../src/application/order/_shared/ordersScreen';
 import { findShopById } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
 import { sendEmail } from '../../../src/infrastructure/email/emailSender';
 import { releaseAuthorization } from '../../../src/infrastructure/stripe/stripeClient';
@@ -73,7 +68,6 @@ const input = { sessionId: 'sess-1', paymentIntentId: 'pi_1', connectAccountId: 
 describe('executeHandlePaymentAuthorized', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (isOrdersScreenWatched as any).mockResolvedValue(true);
     (findCheckoutSessionById as any).mockResolvedValue(session);
     (findOrderById as any).mockResolvedValue(null);
     (findShopById as any).mockResolvedValue(manualShop);
@@ -106,20 +100,6 @@ describe('executeHandlePaymentAuthorized', () => {
       now: NOW_OPEN,
     });
     expect(sendEmail).not.toHaveBeenCalled(); // the acceptance email is the only one
-  });
-
-  it('with auto-accept on but no orders screen open, the order waits and the diner is told it was received', async () => {
-    (findShopById as any).mockResolvedValue(CARD_SHOP);
-    (isOrdersScreenWatched as any).mockResolvedValue(false);
-    expect(await executeHandlePaymentAuthorized(input)).toBe('created');
-    expect(acceptPlacedOrder).not.toHaveBeenCalled();
-    expect(sendEmail).toHaveBeenCalledWith(expect.objectContaining({ tag: 'order_received' }));
-    expect(isOrdersScreenWatched).toHaveBeenCalledWith('shop-1', NOW_OPEN);
-  });
-
-  it('a restaurant accepting by hand never checks for an orders screen', async () => {
-    await executeHandlePaymentAuthorized(input);
-    expect(isOrdersScreenWatched).not.toHaveBeenCalled();
   });
 
   it('inside the automatic hours the order is accepted at once', async () => {
@@ -245,7 +225,6 @@ describe('a shop that stopped taking orders after checkout (audit row 3)', () =>
   let store: ReturnType<typeof orderStore>;
   beforeEach(() => {
     vi.clearAllMocks();
-    (isOrdersScreenWatched as any).mockResolvedValue(true);
     (findCheckoutSessionById as any).mockResolvedValue(session);
     (findOrderById as any).mockResolvedValue(null);
     (findShopById as any).mockResolvedValue(manualShop);
@@ -276,6 +255,12 @@ describe('a shop that stopped taking orders after checkout (audit row 3)', () =>
     expect(sendEmail).toHaveBeenCalledTimes(1);
     expect(sendEmail).toHaveBeenCalledWith(expect.objectContaining({ tag: 'order_rejected' }));
     expect(deleteCheckoutSession).toHaveBeenCalledWith('sess-1');
+  });
+
+  it('an expired pause no longer declines a paid order', async () => {
+    (findShopById as any).mockResolvedValue({ ...CARD_SHOP, ordersPaused: true, ordersPausedUntil: '2026-10-05T09:59:00.000Z' });
+    expect(await executeHandlePaymentAuthorized(input)).toBe('created');
+    expect(acceptPlacedOrder).toHaveBeenCalled();
   });
 
   it('an owner-offline shop declines the same way', async () => {

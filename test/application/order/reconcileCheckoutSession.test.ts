@@ -9,7 +9,6 @@ vi.mock('../../../src/application/order/_shared/acceptPlacedOrder', () => ({ acc
 vi.mock('../../../src/infrastructure/stripe/stripeClient', () => ({ releaseAuthorization: vi.fn(async () => 'canceled'), createRefund: vi.fn(), findLiveRefund: vi.fn(async () => null), retrievePaymentIntentSnapshot: vi.fn() }));
 vi.mock('../../../src/infrastructure/cosmos/usage/CosmosSlotPlacesRepository', () => ({ findSlotPlacesWithEtag: vi.fn(async () => null), createSlotPlaces: vi.fn(async () => 'ok'), replaceSlotPlacesIfMatch: vi.fn(async () => 'ok') }));
 vi.mock('../../../src/infrastructure/email/emailSender', () => ({ sendEmail: vi.fn(async () => undefined), emailTransportName: () => 'log' }));
-vi.mock('../../../src/application/order/_shared/ordersScreen', () => ({ isOrdersScreenWatched: vi.fn(async () => true), loadOrdersScreenLastSeen: vi.fn(async () => null) }));
 vi.mock('../../../src/domain/order/orderRef', () => ({ generateOrderRef: () => 'AB3-K7P' }));
 
 import { acceptPlacedOrder } from '../../../src/application/order/_shared/acceptPlacedOrder';

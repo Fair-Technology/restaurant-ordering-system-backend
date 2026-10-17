@@ -1,3 +1,4 @@
+import { isOrdersPausedAt } from '../shop/ordersPause';
 import type { Shop } from '../shop/Shop';
 import type { CheckoutSession } from './CheckoutSession';
 import { hoursForMode } from './delivery';
@@ -12,12 +13,13 @@ export type ShopUnavailableCause = 'offline_by_superadmin' | 'offline' | 'orders
  * (offline, paused, closed), but "closed" is judged at the moment the diner started paying, not at webhook time.
  */
 export function shopRefusalForPaidCheckout(
-  shop: Pick<Shop, 'isPaused' | 'offlineBySuperadmin' | 'ordersPaused' | 'openingHours' | 'closures' | 'timezone' | 'orderSettings' | 'busyMode'>,
+  shop: Pick<Shop, 'isPaused' | 'offlineBySuperadmin' | 'ordersPaused' | 'ordersPausedUntil' | 'openingHours' | 'closures' | 'timezone' | 'orderSettings' | 'busyMode'>,
   session: Pick<CheckoutSession, 'createdAt' | 'scheduledFor' | 'fulfilmentMode'>,
+  now: Date = new Date(),
 ): ShopUnavailableCause | null {
   if (shop.offlineBySuperadmin === true) return 'offline_by_superadmin';
   if (shop.isPaused === true) return 'offline';
-  if (shop.ordersPaused === true) return 'orders_paused';
+  if (isOrdersPausedAt(shop, now)) return 'orders_paused';
   const mode = session.fulfilmentMode;
   if (session.scheduledFor) return slotWithinHours(shop, mode, new Date(session.scheduledFor)) ? null : 'closed';
   return isOpenForAsapOrder(hoursForMode(shop, mode), shop.closures, shop.timezone, new Date(session.createdAt), lastOrdersLeadMinutes(shop, mode))

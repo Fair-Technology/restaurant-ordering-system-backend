@@ -1,13 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+vi.mock('../../../src/application/order/_shared/missedOrders', () => ({
+  recordMissedOrder: vi.fn(async () => null),
+  resetMissedOrderStreak: vi.fn(async () => undefined),
+}));
 vi.mock('../../../src/infrastructure/cosmos/usage/CosmosSlotPlacesRepository', () => ({
   findSlotPlacesWithEtag: vi.fn(async () => null),
   createSlotPlaces: vi.fn(async () => 'ok'),
   replaceSlotPlacesIfMatch: vi.fn(async () => 'ok'),
-}));
-vi.mock('../../../src/infrastructure/cosmos/usage/CosmosOrdersScreenRepository', () => ({
-  findOrdersScreenDoc: vi.fn(async () => null),
-  upsertOrdersScreenDoc: vi.fn(async () => undefined),
 }));
 vi.mock('../../../src/application/_shared/shopAccess', () => ({ authorizeShopAction: vi.fn() }));
 vi.mock('../../../src/infrastructure/cosmos/shop/CosmosShopRepository', () => ({ findShopById: vi.fn() }));
@@ -55,7 +55,6 @@ import {
   findOrdersByShopIdAndStates,
   replaceOrderIfMatch,
 } from '../../../src/infrastructure/cosmos/order/CosmosOrderRepository';
-import { findOrdersScreenDoc } from '../../../src/infrastructure/cosmos/usage/CosmosOrdersScreenRepository';
 import { findShopById } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
 import { incrementAcceptedOrders } from '../../../src/infrastructure/cosmos/usage/CosmosUsageRepository';
 import { notifyOrderLimitThresholds } from '../../../src/application/usage/orderLimitWarnings';
@@ -110,12 +109,13 @@ function storedOrder(order = PLACED_CARD_ORDER) {
   return store;
 }
 
+import { resetMissedOrderStreak } from '../../../src/application/order/_shared/missedOrders';
+
 describe('kitchen intake', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     (authorizeShopAction as any).mockResolvedValue(STAFF_ACCESS);
     (findShopById as any).mockResolvedValue(CARD_SHOP);
-    (findOrdersScreenDoc as any).mockResolvedValue(null);
     storedOrder();
   });
 
@@ -338,36 +338,38 @@ describe('kitchen intake', () => {
     expect('paymentMethod' in res.data.orders[0]).toBe(false);
   });
 
-  it('the queue reports auto-accept held when no orders screen has been seen', async () => {
-    (findOrdersByShopIdAndStates as any).mockResolvedValue([]);
-    const res = await executeGetOrderQueue({ shopId: 'shop-1' }, http, { now });
-    expect(res.ok && res.data.ordersScreen).toEqual({ lastSeenAt: null, watched: false, autoAcceptOn: true });
+  it('staff accepting resets the missed-order count', async () => {
+    storedOrder();
+    await executeAcceptOrder(ids, http, { now });
+    expect(resetMissedOrderStreak).toHaveBeenCalledWith('shop-1', now);
   });
 
-  it('a board seen two minutes ago counts as watched', async () => {
-    (findOrdersByShopIdAndStates as any).mockResolvedValue([]);
-    (findOrdersScreenDoc as any).mockResolvedValue({
-      id: 'orders_screen_shop-1',
-      kind: 'orders_screen',
-      shopId: 'shop-1',
-      lastSeenAt: '2026-10-05T10:03:00.000Z',
-    });
-    const res = await executeGetOrderQueue({ shopId: 'shop-1' }, http, { now });
-    expect(res.ok && res.data.ordersScreen).toEqual({ lastSeenAt: '2026-10-05T10:03:00.000Z', watched: true, autoAcceptOn: true });
+  it('staff declining resets the missed-order count', async () => {
+    storedOrder();
+    await executeRejectOrder({ ...ids, reason: 'too_busy' }, http, { now });
+    expect(resetMissedOrderStreak).toHaveBeenCalledWith('shop-1', now);
   });
 
-  it('a restaurant accepting by hand is not told auto-accept is on', async () => {
+  it('the board reports a timed pause', async () => {
     (findOrdersByShopIdAndStates as any).mockResolvedValue([]);
-    (findShopById as any).mockResolvedValue({ ...CARD_SHOP, orderSettings: { autoAccept: false } });
+    (findShopById as any).mockResolvedValue({ ...CARD_SHOP, ordersPaused: true, ordersPausedUntil: '2026-10-05T10:30:00.000Z' });
     const res = await executeGetOrderQueue({ shopId: 'shop-1' }, http, { now });
-    expect(res.ok && res.data.ordersScreen.autoAcceptOn).toBe(false);
+    expect(res.ok && res.data.ordersPause).toEqual({ ordersPaused: true, ordersPausedUntil: '2026-10-05T10:30:00.000Z', ordersAutoPaused: null });
   });
 
-  it('an offline restaurant is not told auto-accept is on', async () => {
+  it('an expired pause reads as taking orders', async () => {
     (findOrdersByShopIdAndStates as any).mockResolvedValue([]);
-    (findShopById as any).mockResolvedValue({ ...CARD_SHOP, isPaused: true });
+    (findShopById as any).mockResolvedValue({ ...CARD_SHOP, ordersPaused: true, ordersPausedUntil: '2026-10-05T10:00:00.000Z' });
     const res = await executeGetOrderQueue({ shopId: 'shop-1' }, http, { now });
-    expect(res.ok && res.data.ordersScreen.autoAcceptOn).toBe(false);
+    expect(res.ok && res.data.ordersPause).toEqual({ ordersPaused: false, ordersPausedUntil: null, ordersAutoPaused: null });
+  });
+
+  it('an automatic pause names the missed orders', async () => {
+    (findOrdersByShopIdAndStates as any).mockResolvedValue([]);
+    const pause = { ordersPaused: true, ordersPausedUntil: null, ordersAutoPaused: { missedOrders: 3, at: '2026-10-05T09:50:00.000Z' } };
+    (findShopById as any).mockResolvedValue({ ...CARD_SHOP, ...pause });
+    const res = await executeGetOrderQueue({ shopId: 'shop-1' }, http, { now });
+    expect(res.ok && res.data.ordersPause).toEqual(pause);
   });
 
   it('staff accepts with the busy estimate', async () => {

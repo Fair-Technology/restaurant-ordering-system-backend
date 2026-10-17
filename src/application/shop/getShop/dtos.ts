@@ -1,3 +1,4 @@
+import type { OrdersAutoPaused } from '../../../domain/shop/ordersPause';
 import { ShopBranding, ShopPermission, ShopRoleKey } from '../../../domain/shop/Shop';
 import { OrderSettings } from '../../../domain/order/orderSettings';
 import { MenuLanguage } from '../../../domain/reference/ReferenceLists';
@@ -14,7 +15,9 @@ export interface GetShopResultDto {
   deletedAt?: string;
   isPaused: boolean;
   pausedMessage?: string;
-  ordersPaused: boolean;
+  ordersPaused: boolean; // in force now (an expired timed pause reads false)
+  ordersPausedUntil: string | null; // end of a timed pause; null = until switched back
+  ordersAutoPaused: OrdersAutoPaused | null; // set when missed orders paused the shop
   ordersPausedMessage?: string;
   isOffline: boolean; // isPaused || offlineBySuperadmin
   offlineBySuperadmin: boolean;

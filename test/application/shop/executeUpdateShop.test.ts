@@ -18,11 +18,16 @@ vi.mock('../../../src/infrastructure/cosmos/system/CosmosPlatformLegalIdentityRe
   const { COMPLETE_IDENTITY } = await import('../../fixtures/legal');
   return { getPlatformLegalIdentity: vi.fn(async () => COMPLETE_IDENTITY) };
 });
+vi.mock('../../../src/application/order/_shared/missedOrders', () => ({
+  recordMissedOrder: vi.fn(async () => null),
+  resetMissedOrderStreak: vi.fn(async () => undefined),
+}));
 vi.mock('../../../src/application/_shared/auditHelpers', () => ({
   logAudit: vi.fn(),
   diffFields: vi.fn(() => []),
 }));
 
+import { resetMissedOrderStreak } from '../../../src/application/order/_shared/missedOrders';
 import { logAudit } from '../../../src/application/_shared/auditHelpers';
 import { authorizeShopAction } from '../../../src/application/_shared/shopAccess';
 import { findShopById, updateShop } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
@@ -324,5 +329,62 @@ describe('executeUpdateShop pausing orders', () => {
     const result = await executeUpdateShop({ shopId: 'shop-1', isPaused: false } as any, {} as any);
     expect(result).toMatchObject({ ok: false, code: 'SHOP_OFFLINE_BY_SUPERADMIN' });
     expect(updateShop).not.toHaveBeenCalled();
+  });
+});
+
+describe('executeUpdateShop pause durations', () => {
+  const berlin = (o: any = {}) => makeShop({ isPaused: false, timezone: 'Europe/Berlin', ...o });
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (authorizeShopAction as any).mockResolvedValue(ownerAccess);
+    (findShopById as any).mockResolvedValue(berlin());
+    (updateShop as any).mockImplementation(async (s: any) => s);
+  });
+
+  it('30 minutes stores the end time and starts the count again', async () => {
+    const now = new Date('2026-10-17T12:00:00Z');
+    const res = await executeUpdateShop({ shopId: 'shop-1', ordersPaused: true, ordersPausedFor: 'minutes_30' }, {} as any, { now });
+    expect(res.ok).toBe(true);
+    expect(updateShop).toHaveBeenCalledWith(
+      expect.objectContaining({ ordersPaused: true, ordersPausedUntil: '2026-10-17T12:30:00.000Z', ordersAutoPaused: null }),
+    );
+    expect(resetMissedOrderStreak).toHaveBeenCalledWith('shop-1', now);
+  });
+
+  it('rest of today ends at 04:00 local', async () => {
+    await executeUpdateShop({ shopId: 'shop-1', ordersPaused: true, ordersPausedFor: 'rest_of_day' }, {} as any, {
+      now: new Date('2026-10-17T20:00:00Z'),
+    });
+    expect(updateShop).toHaveBeenCalledWith(expect.objectContaining({ ordersPausedUntil: '2026-10-18T02:00:00.000Z' }));
+  });
+
+  it('no duration (older admin) pauses until switched back', async () => {
+    await executeUpdateShop({ shopId: 'shop-1', ordersPaused: true }, {} as any, { now: new Date('2026-10-17T12:00:00Z') });
+    expect(updateShop).toHaveBeenCalledWith(expect.objectContaining({ ordersPaused: true, ordersPausedUntil: null }));
+  });
+
+  it('switching off clears the end time and the automatic mark', async () => {
+    (findShopById as any).mockResolvedValue(
+      berlin({ ordersPaused: true, ordersPausedUntil: '2026-10-17T12:30:00.000Z', ordersAutoPaused: { missedOrders: 3, at: 'x' } }),
+    );
+    await executeUpdateShop({ shopId: 'shop-1', ordersPaused: false }, {} as any, { now: new Date('2026-10-17T12:10:00Z') });
+    expect(updateShop).toHaveBeenCalledWith(
+      expect.objectContaining({ ordersPaused: false, ordersPausedUntil: null, ordersAutoPaused: null }),
+    );
+  });
+
+  it.each([
+    [{ ordersPausedFor: 'minutes_30' }],
+    [{ ordersPaused: false, ordersPausedFor: 'minutes_30' }],
+    [{ ordersPaused: true, ordersPausedFor: '1h' }],
+  ])('a duration needs ordersPaused: true (%j)', async (body) => {
+    const res = await executeUpdateShop({ shopId: 'shop-1', ...body } as any, {} as any);
+    expect(res).toMatchObject({ ok: false, code: 'INVALID_INPUT' });
+    expect(updateShop).not.toHaveBeenCalled();
+  });
+
+  it('saving only the message leaves the count alone', async () => {
+    await executeUpdateShop({ shopId: 'shop-1', ordersPausedMessage: 'x' }, {} as any);
+    expect(resetMissedOrderStreak).not.toHaveBeenCalled();
   });
 });

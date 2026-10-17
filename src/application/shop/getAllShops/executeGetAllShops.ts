@@ -1,3 +1,4 @@
+import { missedOrdersPauseLimitOf, ordersPauseFieldsOf } from '../../../domain/shop/ordersPause';
 import { isShopOffline } from '../../../domain/shop/Shop';
 import { HttpRequest } from '@azure/functions';
 import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
@@ -28,7 +29,8 @@ export async function executeGetAllShops(
       deletedAt: shop.deletedAt,
       isPaused: shop.isPaused,
       pausedMessage: shop.pausedMessage,
-      ordersPaused: shop.ordersPaused === true,
+      ...ordersPauseFieldsOf(shop, new Date()),
+      missedOrdersPauseLimit: missedOrdersPauseLimitOf(shop),
       ordersPausedMessage: shop.ordersPausedMessage,
       isOffline: isShopOffline(shop),
       offlineBySuperadmin: shop.offlineBySuperadmin === true,

@@ -59,6 +59,9 @@ export interface Shop {
   // Owner temporarily stops taking NEW orders; the menu stays visible. Absent on older shops = false.
   ordersPaused?: boolean;
   ordersPausedMessage?: string;
+  ordersPausedUntil?: string | null; // ISO end of a timed pause; null/absent = until switched back
+  ordersAutoPaused?: { missedOrders: number; at: string } | null; // set by the missed-orders auto-pause; cleared by any owner pause write
+  missedOrdersPauseLimit?: number; // superadmin: 0 = off, 1-10; absent = 3
   // Platform (superadmin) took the shop offline. The owner cannot switch it back online. Absent = false.
   offlineBySuperadmin?: boolean;
   offlineBySuperadminReason?: string; // internal note, never shown to the public
