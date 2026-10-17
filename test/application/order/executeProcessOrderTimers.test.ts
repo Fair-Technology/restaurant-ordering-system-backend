@@ -31,6 +31,7 @@ vi.mock('../../../src/infrastructure/stripe/stripeClient', () => ({
   capturePaymentIntent: vi.fn(async () => undefined),
   releaseAuthorization: vi.fn(async () => 'canceled'),
   createRefund: vi.fn(async () => ({ id: 're_1' })),
+  listPaymentRefunds: vi.fn(async () => []),
   isRetryableStripeError: (e: any) => ['StripeConnectionError', 'StripeAPIError', 'StripeRateLimitError'].includes(e?.type),
 }));
 vi.mock('../../../src/infrastructure/email/emailSender', () => ({
@@ -48,8 +49,8 @@ import {
   findPlacedOrdersCreatedBefore,
   replaceOrderIfMatch,
 } from '../../../src/infrastructure/cosmos/order/CosmosOrderRepository';
-import { buildInvoice } from '../../../src/domain/invoice/invoice';
-import { findInvoiceById } from '../../../src/infrastructure/cosmos/invoice/CosmosInvoiceRepository';
+import { buildCorrection, buildInvoice } from '../../../src/domain/invoice/invoice';
+import { commitInvoice, findInvoiceById } from '../../../src/infrastructure/cosmos/invoice/CosmosInvoiceRepository';
 import { findInvoicedOrdersWithRefunds } from '../../../src/infrastructure/cosmos/order/CosmosOrderRepository';
 import { findShopById } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
 import { sendEmail } from '../../../src/infrastructure/email/emailSender';
@@ -430,6 +431,60 @@ describe('executeProcessOrderTimers', () => {
     );
     expect(sendEmail).toHaveBeenCalledTimes(1);
     expect((sendEmail as any).mock.calls[0][0].attachments[0].name).toMatch(/^Stornorechnung-R-2026-/);
+  });
+
+  it('a reversal gets its own correction and no diner email', async () => {
+    const order = {
+      ...ACCEPTED_CARD_ORDER,
+      state: 'COMPLETED' as const,
+      invoiceNumber: 'R-2026-00001',
+      payment: { ...ACCEPTED_CARD_ORDER.payment, status: 'paid' as const },
+      refunds: [
+        {
+          id: 'stripe-re_d1', amountCents: 300, reason: 'Stripe dashboard', at: '2026-10-05T12:00:00.000Z',
+          actor: { type: 'system' as const }, stripeRefundId: 're_d1', correctionNumber: 'R-2026-00002', correctionKind: 'correction' as const,
+        },
+        {
+          id: 'reversal-re_d1', amountCents: -300, reason: 'stripe_refund_failed', at: '2026-10-05T13:00:00.000Z',
+          actor: { type: 'system' as const }, stripeRefundId: 're_d1', reversesIndex: 0,
+        },
+      ],
+    };
+    const now = new Date('2026-10-06T10:00:00Z');
+    const original = buildInvoice({ order, shop: CARD_SHOP, number: 'R-2026-00001', now: new Date('2026-10-05T10:05:00Z') });
+    const first = buildCorrection({
+      original, refunds: [{ amountCents: 300 }], index: 0, refundId: 'stripe-re_d1', number: 'R-2026-00002', now: new Date('2026-10-05T12:01:00Z'),
+    });
+    (findInvoiceById as any).mockImplementation(async (_s: string, id: string) =>
+      id === 'o1' ? original : id === 'o1-c1' ? first : null,
+    );
+    (findPlacedOrdersCreatedBefore as any).mockResolvedValue([]);
+    (findInvoicedOrdersWithRefunds as any).mockResolvedValue([order]);
+    storedOrder(order);
+    const res = await executeProcessOrderTimers({ now });
+    expect(res.correctionsIssued).toBe(1);
+    expect(commitInvoice).toHaveBeenCalledWith(
+      expect.anything(),
+      null,
+      expect.objectContaining({
+        id: 'o1-c2',
+        documentType: 'correction',
+        totalCents: 300,
+        reverses: { number: 'R-2026-00002', issuedAt: '2026-10-05T12:01:00.000Z', documentType: 'correction' },
+      }),
+    );
+    expect(sendEmail).not.toHaveBeenCalled();
+  });
+
+  it('a refunded order still gets its invoice, without the accepted email', async () => {
+    const order = { ...ACCEPTED_CARD_ORDER, state: 'REFUNDED' as const, payment: { ...ACCEPTED_CARD_ORDER.payment, status: 'refunded' as const } };
+    (findPlacedOrdersCreatedBefore as any).mockResolvedValue([]);
+    (findOrdersMissingInvoice as any).mockResolvedValue([order]);
+    const store = storedOrder(order);
+    const res = await executeProcessOrderTimers({ now: new Date('2026-10-06T10:00:00Z') });
+    expect(res.invoicesIssued).toBe(1);
+    expect(store.current.invoiceNumber).toBe('R-2026-00001');
+    expect(sendEmail).not.toHaveBeenCalled();
   });
 
   describe('scheduled orders', () => {

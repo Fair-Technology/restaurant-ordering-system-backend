@@ -133,12 +133,45 @@ describe('executeRefundOrder', () => {
     const res = await executeRefundOrder({ ...ids, amountCents: 1050, reason: 'Alles falsch' }, http, { now });
     expect(res.ok).toBe(true);
     expect((m.store.current as Order).payment.status).toBe('refunded');
+    expect((m.store.current as Order).state).toBe('COMPLETED');
     expect(m.commitInvoice).toHaveBeenCalledWith(
       expect.anything(),
       'c-1',
       expect.objectContaining({ documentType: 'cancellation' }),
     );
     expect(m.sendEmail.mock.calls[0][0].attachments[0].name).toBe('Stornorechnung-R-2026-00002.pdf');
+  });
+
+  it('a full refund of an order being prepared ends it', async () => {
+    setup({ ...ACCEPTED_CARD_ORDER, invoiceNumber: 'R-2026-00001' });
+    const res = await executeRefundOrder({ ...ids, amountCents: 1050, reason: 'Alles falsch' }, http, { now });
+    expect(res.ok).toBe(true);
+    const stored = m.store.current as Order;
+    expect(stored.state).toBe('REFUNDED');
+    expect(stored.history.at(-1)).toEqual({ from: 'ACCEPTED', to: 'REFUNDED', at: now.toISOString(), actor: { type: 'staff', id: 'm1' } });
+    if (res.ok) expect(res.data.state).toBe('REFUNDED');
+  });
+
+  it('a partial refund leaves it on the board', async () => {
+    setup({ ...ACCEPTED_CARD_ORDER, invoiceNumber: 'R-2026-00001' });
+    await executeRefundOrder({ ...ids, amountCents: 300, reason: 'Pizza kalt' }, http, { now });
+    expect((m.store.current as Order).state).toBe('ACCEPTED');
+  });
+
+  it('an ended order can be refunded again after Stripe failed the refund', async () => {
+    setup({
+      ...ACCEPTED_CARD_ORDER,
+      state: 'REFUNDED',
+      invoiceNumber: 'R-2026-00001',
+      payment: { ...ACCEPTED_CARD_ORDER.payment, status: 'paid' },
+      refunds: [priorRefund(1050, { correctionNumber: 'R-2026-00002' }), { ...priorRefund(-1050), id: 'v', reversesIndex: 0 }],
+    });
+    const res = await executeRefundOrder({ ...ids, amountCents: 1050, reason: 'Nochmal' }, http, { now });
+    expect(res.ok).toBe(true);
+    expect(m.createRefund).toHaveBeenCalledWith(expect.objectContaining({ idempotencyKey: 'refund-o1-2-1050' }));
+    const stored = m.store.current as Order;
+    expect(stored.state).toBe('REFUNDED');
+    expect(stored.payment.status).toBe('refunded');
   });
 
   it('refunding the rest after a partial refund is a correction, not a Stornorechnung', async () => {
@@ -231,6 +264,19 @@ describe('executeRefundOrder', () => {
     const res = await executeRefundOrder({ ...ids, items: [{ lineIndex: 1, quantity: 2 }], reason: 'x' }, http, { now });
     expect(res).toEqual({ ok: false, code: 'INVALID_INPUT', error: 'Only 1 of line 2 can still be refunded' });
     expect(m.createRefund).not.toHaveBeenCalled();
+  });
+
+  it('items of a refund Stripe failed can be ticked again', async () => {
+    setup({
+      ...two,
+      payment: { ...two.payment, status: 'paid' },
+      refunds: [
+        priorRefund(350, { lines: [{ lineIndex: 1, quantity: 1, grossCents: 350, taxRateBasisPoints: 1900 }] }),
+        { ...priorRefund(-350), id: 'v', reversesIndex: 0 },
+      ],
+    });
+    const res = await executeRefundOrder({ ...ids, items: [{ lineIndex: 1, quantity: 2 }], reason: 'x' }, http, { now });
+    expect(res.ok).toBe(true);
   });
 
   it('refuses items and an amount together, or neither', async () => {

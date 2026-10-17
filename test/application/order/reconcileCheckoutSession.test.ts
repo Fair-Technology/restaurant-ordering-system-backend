@@ -6,7 +6,7 @@ vi.mock('../../../src/infrastructure/cosmos/order/CosmosCheckoutSessionRepositor
 vi.mock('../../../src/infrastructure/cosmos/order/CosmosOrderRepository', () => ({ createOrder: vi.fn(), findOrderById: vi.fn(), findOrderWithEtag: vi.fn(), replaceOrderIfMatch: vi.fn() }));
 vi.mock('../../../src/infrastructure/cosmos/shop/CosmosShopRepository', () => ({ findShopById: vi.fn() }));
 vi.mock('../../../src/application/order/_shared/acceptPlacedOrder', () => ({ acceptPlacedOrder: vi.fn() }));
-vi.mock('../../../src/infrastructure/stripe/stripeClient', () => ({ releaseAuthorization: vi.fn(async () => 'canceled'), createRefund: vi.fn(), findLiveRefund: vi.fn(async () => null), retrievePaymentIntentSnapshot: vi.fn() }));
+vi.mock('../../../src/infrastructure/stripe/stripeClient', () => ({ releaseAuthorization: vi.fn(async () => 'canceled'), createRefund: vi.fn(), listPaymentRefunds: vi.fn(async () => []), findLiveRefund: vi.fn(async () => null), retrievePaymentIntentSnapshot: vi.fn() }));
 vi.mock('../../../src/infrastructure/cosmos/usage/CosmosSlotPlacesRepository', () => ({ findSlotPlacesWithEtag: vi.fn(async () => null), createSlotPlaces: vi.fn(async () => 'ok'), replaceSlotPlacesIfMatch: vi.fn(async () => 'ok') }));
 vi.mock('../../../src/infrastructure/email/emailSender', () => ({ sendEmail: vi.fn(async () => undefined), emailTransportName: () => 'log' }));
 vi.mock('../../../src/domain/order/orderRef', () => ({ generateOrderRef: () => 'AB3-K7P' }));

@@ -1,11 +1,12 @@
 import { chargedCents, type Order } from '../../../domain/order/Order';
-import { needsPaymentRelease } from '../../../domain/order/payment';
+import { isLiveStripeRefund, unrecordedExternalRefunds, withExternalRefunds } from '../../../domain/order/externalRefunds';
+import { needsPaymentRelease, paymentStatusOfRefunds } from '../../../domain/order/payment';
 import type { Shop } from '../../../domain/shop/Shop';
 import {
   findOrderWithEtag,
   replaceOrderIfMatch,
 } from '../../../infrastructure/cosmos/order/CosmosOrderRepository';
-import { createRefund, findLiveRefund, releaseAuthorization } from '../../../infrastructure/stripe/stripeClient';
+import { createRefund, listPaymentRefunds, releaseAuthorization } from '../../../infrastructure/stripe/stripeClient';
 import { releaseSlotPlace } from './slotPlaces';
 import { notifyRestaurantReleaseFailed } from '../notifications/notifyOrder';
 
@@ -32,7 +33,7 @@ async function writeOrder(orderId: string, change: (current: Order) => Order): P
 
 /**
  * Gives a declined or cancelled order's money back: an unspent card reservation is cancelled for free;
- * money that was already taken is refunded in full. The result (or the failure) is written to the order.
+ * money that was already taken is refunded, except what Stripe already shows as refunded. The result (or the failure) is written to the order.
  * A failure is recorded and the restaurant emailed once; the timer retries every 15 minutes. Never throws.
  * Also frees the order's place in its quarter hour.
  */
@@ -78,32 +79,49 @@ export async function releaseClosedOrderPayment(
         return { ...rest, payment: { ...current.payment, status: 'canceled' }, updatedAt: now.toISOString() };
       });
     } else {
-      // A new key could refund twice if an earlier try got through, so Stripe is asked first.
-      const refund =
-        (attempts > 0 ? await findLiveRefund({ connectAccountId, paymentIntentId }) : null) ??
-        (await createRefund({
-          connectAccountId,
-          paymentIntentId,
-          orderId: order.id,
-          amountCents: chargedCents(order),
-          idempotencyKey: `auto-refund-${order.id}${keySuffix}`,
-        }));
+      // What is still ours to give back comes from Stripe's own refund list, so nothing is ever refunded twice
+      // (a dashboard refund, or an earlier try of ours that got through, is already in that list).
+      const listed = await listPaymentRefunds({ connectAccountId, paymentIntentId });
+      const liveCents = listed.filter(isLiveStripeRefund).reduce((sum, r) => sum + r.amountCents, 0);
+      const remaining = chargedCents(order) - liveCents;
+      // The key names Stripe's refund count (failed ones included) and the amount, so a failed earlier
+      // refund is never replayed under its old key.
+      const created =
+        remaining > 0
+          ? await createRefund({
+              connectAccountId,
+              paymentIntentId,
+              orderId: order.id,
+              amountCents: remaining,
+              idempotencyKey: `auto-refund-${order.id}-${listed.length}-${remaining}${keySuffix}`,
+            })
+          : null;
+      const ours = [
+        ...listed.filter((r) => r.fromApp && isLiveStripeRefund(r)).map((r) => ({ id: r.id, amountCents: r.amountCents })),
+        ...(created ? [{ id: created.id, amountCents: remaining }] : []),
+      ];
       recorded = await writeOrder(order.id, (current) => {
-        const { releaseFailure: _cleared, ...rest } = current;
+        const { releaseFailure: _cleared, ...rest } = withExternalRefunds(
+          current,
+          unrecordedExternalRefunds(current, listed),
+          now.toISOString(),
+        );
+        const known = new Set((rest.refunds ?? []).map((r) => r.stripeRefundId));
+        const added = ours
+          .filter((r, i, all) => !known.has(r.id) && all.findIndex((x) => x.id === r.id) === i)
+          .map((r) => ({
+            id: `auto-refund-${r.id}`,
+            amountCents: r.amountCents,
+            reason: current.state === 'CANCELLED' ? 'order_cancelled' : 'order_declined',
+            at: now.toISOString(),
+            actor: { type: 'system' } as const,
+            stripeRefundId: r.id,
+          }));
+        const refunds = [...(rest.refunds ?? []), ...added];
         return {
           ...rest,
-          payment: { ...current.payment, status: 'refunded' },
-          refunds: [
-            ...(current.refunds ?? []),
-            {
-              id: `auto-refund-${current.id}`,
-              amountCents: chargedCents(current),
-              reason: current.state === 'CANCELLED' ? 'order_cancelled' : 'order_declined',
-              at: now.toISOString(),
-              actor: { type: 'system' },
-              stripeRefundId: refund.id,
-            },
-          ],
+          refunds,
+          payment: { ...rest.payment, status: paymentStatusOfRefunds({ ...rest, refunds }) },
           updatedAt: now.toISOString(),
         };
       });

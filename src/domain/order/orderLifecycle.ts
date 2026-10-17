@@ -18,7 +18,22 @@ const EDGES: Record<StoredOrderState, StoredOrderState[]> = {
   COMPLETED: [],
   REJECTED: [],
   CANCELLED: [],
+  REFUNDED: [],
 };
+
+/** States in which a full refund ends the order (it is not handed over yet). */
+export const REFUND_ENDS_STATES: readonly StoredOrderState[] = ['ACCEPTED', 'READY', 'OUT_FOR_DELIVERY'];
+
+/** Moves an in-play order to REFUNDED when its payment is fully refunded; otherwise returns `order` itself. */
+export function endIfFullyRefunded(order: Order, nowIso: string, actor: OrderActor): Order {
+  if (order.payment.status !== 'refunded' || !REFUND_ENDS_STATES.includes(order.state)) return order;
+  return {
+    ...order,
+    state: 'REFUNDED',
+    updatedAt: nowIso,
+    history: [...order.history, { from: order.state, to: 'REFUNDED', at: nowIso, actor }],
+  };
+}
 
 export function deriveDisplayState(
   order: Pick<Order, 'state' | 'readyAt' | 'prepMinutes'>,

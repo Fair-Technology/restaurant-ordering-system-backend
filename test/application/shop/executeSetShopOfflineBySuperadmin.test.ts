@@ -12,7 +12,7 @@ vi.mock('../../../src/infrastructure/cosmos/order/CosmosOrderRepository', () => 
 vi.mock('../../../src/infrastructure/cosmos/usage/CosmosSlotPlacesRepository', () => ({
   findSlotPlacesWithEtag: vi.fn(async () => null), createSlotPlaces: vi.fn(async () => 'ok'), replaceSlotPlacesIfMatch: vi.fn(async () => 'ok') }));
 vi.mock('../../../src/infrastructure/stripe/stripeClient', () => ({
-  releaseAuthorization: vi.fn(async () => 'canceled'), createRefund: vi.fn(), findLiveRefund: vi.fn(async () => null) }));
+  releaseAuthorization: vi.fn(async () => 'canceled'), createRefund: vi.fn(), listPaymentRefunds: vi.fn(async () => []), findLiveRefund: vi.fn(async () => null) }));
 vi.mock('../../../src/infrastructure/email/emailSender', () => ({ sendEmail: vi.fn(async () => undefined), emailTransportName: () => 'log' }));
 
 import { findUserById } from '../../../src/infrastructure/cosmos/user/CosmosUserRepository';

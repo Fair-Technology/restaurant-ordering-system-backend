@@ -59,11 +59,13 @@ export function toOrderDto(order: Order, now: Date): OrderDto {
     rejectionNote: order.rejectionNote ?? null,
     customerAddress: order.customerAddress ?? null,
     refundedCents: refundedCents(order),
-    refunds: (order.refunds ?? []).map((r) => ({
+    refunds: (order.refunds ?? []).map((r, i) => ({
       amountCents: r.amountCents,
       reason: r.reason,
       at: r.at,
       lines: (r.lines ?? []).map((l) => ({ lineIndex: l.lineIndex, quantity: l.quantity })),
+      reversal: r.reversesIndex !== undefined,
+      reversed: (order.refunds ?? []).some((x) => x.reversesIndex === i),
     })),
     releaseFailure: order.releaseFailure ? { at: order.releaseFailure.at, message: order.releaseFailure.message } : null,
     documents: documentsOf(order),

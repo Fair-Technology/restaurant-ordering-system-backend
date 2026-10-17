@@ -8,7 +8,8 @@ export type OrderState =
   | 'OUT_FOR_DELIVERY'
   | 'COMPLETED'
   | 'REJECTED'
-  | 'CANCELLED';
+  | 'CANCELLED'
+  | 'REFUNDED';
 
 /** Stored states an order can still change from. Booked (scheduled) orders wait in PLACED, so they count too. */
 export const OPEN_ORDER_STATES: readonly StoredOrderState[] = ['PLACED', 'ACCEPTED', 'READY', 'OUT_FOR_DELIVERY'];
@@ -108,6 +109,8 @@ export interface OrderRefund {
   at: string; // ISO
   actor: OrderActor;
   stripeRefundId: string;
+  /** Only on a reversal: index in `refunds` of the refund Stripe reported failed/canceled; amountCents = -that refund's amountCents. */
+  reversesIndex?: number;
   lines?: RefundLine[]; // present only for item refunds; absent = free amount
   correctionNumber?: string;
   correctionKind?: CorrectionKind;

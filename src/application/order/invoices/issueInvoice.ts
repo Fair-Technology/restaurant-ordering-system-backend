@@ -34,7 +34,7 @@ export function needsInvoice(
   return (
     o.payment.method === 'card' &&
     ['paid', 'partially_refunded', 'refunded'].includes(o.payment.status) &&
-    ['ACCEPTED', 'READY', 'OUT_FOR_DELIVERY', 'COMPLETED'].includes(o.state) &&
+    ['ACCEPTED', 'READY', 'OUT_FOR_DELIVERY', 'COMPLETED', 'REFUNDED'].includes(o.state) &&
     !!o.acceptedAt &&
     !o.invoiceNumber
   );
@@ -125,16 +125,23 @@ export async function issueCorrectionForRefund(
   const refund = refunds[refundIndex];
   const docId = `${order.id}-c${refundIndex + 1}`;
   const existing = await findInvoiceById(shop.id, docId);
+  let reverses: InvoiceDoc['reverses'];
+  if (!existing && refund.reversesIndex !== undefined) {
+    const reversed = await findInvoiceById(shop.id, `${order.id}-c${refund.reversesIndex + 1}`);
+    if (!reversed) throw new Error(`Correction ${refund.reversesIndex + 1} of ${order.id} is missing`);
+    reverses = { number: reversed.number, issuedAt: reversed.issuedAt, documentType: reversed.documentType };
+  }
   const doc =
     existing ??
     (await commitNext(shop, now, (number) =>
       buildCorrection({
         original,
-        refunds: refunds.map((r) => ({ amountCents: r.amountCents, lines: r.lines })),
+        refunds: refunds.map((r) => ({ amountCents: r.amountCents, lines: r.lines, reversesIndex: r.reversesIndex })),
         index: refundIndex,
         refundId: refund.id,
         number,
         now,
+        reverses,
       }),
     ));
   const kind = doc.documentType === 'cancellation' ? 'cancellation' : 'correction';

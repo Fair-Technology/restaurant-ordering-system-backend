@@ -141,6 +141,22 @@ describe('issueCorrectionForRefund', () => {
     );
   });
 
+  it('a reversal whose reversed correction document is missing throws, to be retried', async () => {
+    const order = {
+      ...ACCEPTED_CARD_ORDER,
+      invoiceNumber: 'R-2026-00001',
+      refunds: [
+        { id: 'r1', amountCents: 300, reason: 'x', at: 'x', actor: { type: 'system' }, stripeRefundId: 're_1', correctionNumber: 'R-2026-00002', correctionKind: 'correction' },
+        { id: 'v1', amountCents: -300, reason: 'stripe_refund_failed', at: 'x', actor: { type: 'system' }, stripeRefundId: 're_1', reversesIndex: 0 },
+      ],
+    } as typeof ACCEPTED_CARD_ORDER;
+    m.store = orderStore(order);
+    const original = buildInvoice({ order, shop: CARD_SHOP, number: 'R-2026-00001', now });
+    m.findInvoiceById.mockImplementation(async (_s: string, id: string) => (id === 'o1' ? original : null));
+    await expect(issueCorrectionForRefund(order, 1, CARD_SHOP, now)).rejects.toThrow('Correction 1 of o1 is missing');
+    expect(m.commitInvoice).not.toHaveBeenCalled();
+  });
+
   it('no invoice, no correction', async () => {
     const order = {
       ...ACCEPTED_CARD_ORDER,

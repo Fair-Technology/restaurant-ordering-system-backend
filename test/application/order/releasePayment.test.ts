@@ -17,7 +17,7 @@ vi.mock('../../../src/infrastructure/stripe/stripeClient', () => ({
   capturePaymentIntent: vi.fn(async () => undefined),
   releaseAuthorization: vi.fn(async () => 'canceled'),
   createRefund: vi.fn(async () => ({ id: 're_1' })),
-  findLiveRefund: vi.fn(async () => null),
+  listPaymentRefunds: vi.fn(async () => []),
   isRetryableStripeError: (e: any) => ['StripeConnectionError', 'StripeAPIError', 'StripeRateLimitError'].includes(e?.type),
 }));
 
@@ -29,12 +29,23 @@ import {
   replaceOrderIfMatch,
 } from '../../../src/infrastructure/cosmos/order/CosmosOrderRepository';
 import { sendEmail } from '../../../src/infrastructure/email/emailSender';
-import { createRefund, findLiveRefund, releaseAuthorization } from '../../../src/infrastructure/stripe/stripeClient';
+import { createRefund, listPaymentRefunds, releaseAuthorization } from '../../../src/infrastructure/stripe/stripeClient';
 import type { Order } from '../../../src/domain/order/Order';
+import type { StripeRefundSummary } from '../../../src/domain/order/externalRefunds';
 import { CARD_SHOP, FEE_CHARGE, LEGACY_CASH_ORDER, orderStore, PLACED_CARD_ORDER } from '../../fixtures/orders';
 
 const now = new Date('2026-10-05T10:05:00Z');
 const REJECTED_ORDER: Order = { ...PLACED_CARD_ORDER, state: 'REJECTED' };
+const s = (id: string, amountCents: number, extra: Partial<StripeRefundSummary> = {}): StripeRefundSummary => ({
+  id,
+  amountCents,
+  currency: 'eur',
+  status: 'succeeded',
+  createdAtIso: '2026-10-05T10:00:00.000Z',
+  fromApp: false,
+  ...extra,
+});
+const listed = listPaymentRefunds as unknown as ReturnType<typeof vi.fn>;
 
 function storeOf(order: Order) {
   const store = orderStore(order);
@@ -47,6 +58,7 @@ describe('releaseClosedOrderPayment', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     (releaseAuthorization as any).mockResolvedValue('canceled');
+    listed.mockResolvedValue([]);
   });
 
   it('declining releases the hold for free', async () => {
@@ -89,11 +101,11 @@ describe('releaseClosedOrderPayment', () => {
       paymentIntentId: 'pi_1',
       orderId: 'o1',
       amountCents: 1050,
-      idempotencyKey: 'auto-refund-o1',
+      idempotencyKey: 'auto-refund-o1-0-1050',
     });
     expect(store.current.payment.status).toBe('refunded');
     expect(store.current.refunds).toEqual([
-      expect.objectContaining({ amountCents: 1050, stripeRefundId: 're_1', actor: { type: 'system' } }),
+      expect.objectContaining({ id: 'auto-refund-re_1', amountCents: 1050, stripeRefundId: 're_1', actor: { type: 'system' } }),
     ]);
     expect(res.outcome).toBe('refunded');
   });
@@ -148,29 +160,125 @@ describe('releaseClosedOrderPayment', () => {
     expect(releaseAuthorization).toHaveBeenCalledWith(expect.objectContaining({ idempotencyKey: 'release-o1-2' }));
   });
 
-  it('a refund retried under a new key never refunds twice', async () => {
-    const paid = { ...REJECTED_ORDER, payment: { ...REJECTED_ORDER.payment, status: 'paid' as const } };
+  it('an earlier try that got through is recorded, not repeated', async () => {
     const failure = { at: '2026-10-05T10:00:00.000Z', message: 'x', notifiedAt: '2026-10-05T10:00:00.000Z', attempts: 1 };
-
-    // Stripe already holds the refund from the earlier try: it is recorded, not made again.
-    const first = storeOf({ ...paid, releaseFailure: failure });
-    (findLiveRefund as any).mockResolvedValueOnce({ id: 're_earlier' });
+    const store = storeOf({ ...REJECTED_ORDER, payment: { ...REJECTED_ORDER.payment, status: 'paid' }, releaseFailure: failure });
+    listed.mockResolvedValue([s('re_earlier', 1050, { fromApp: true })]);
     const res = await releaseClosedOrderPayment('o1', CARD_SHOP, now);
     expect(createRefund).not.toHaveBeenCalled();
+    expect(store.current.refunds).toEqual([
+      expect.objectContaining({ id: 'auto-refund-re_earlier', stripeRefundId: 're_earlier', amountCents: 1050 }),
+    ]);
+    expect(store.current.payment.status).toBe('refunded');
     expect(res.outcome).toBe('refunded');
-    expect(first.current.refunds?.[0]).toEqual(expect.objectContaining({ stripeRefundId: 're_earlier' }));
-
-    // Nothing there yet: it is made under a key of its own.
-    storeOf({ ...paid, releaseFailure: failure });
-    await releaseClosedOrderPayment('o1', CARD_SHOP, now);
-    expect(createRefund).toHaveBeenCalledWith(expect.objectContaining({ idempotencyKey: 'auto-refund-o1-1' }));
   });
 
-  it('the first refund try asks nothing and uses the plain key', async () => {
+  it('a retry after a failure uses its own key', async () => {
+    const failure = { at: '2026-10-05T10:00:00.000Z', message: 'x', notifiedAt: '2026-10-05T10:00:00.000Z', attempts: 1 };
+    storeOf({ ...REJECTED_ORDER, payment: { ...REJECTED_ORDER.payment, status: 'paid' }, releaseFailure: failure });
+    await releaseClosedOrderPayment('o1', CARD_SHOP, now);
+    expect(createRefund).toHaveBeenCalledWith(expect.objectContaining({ idempotencyKey: 'auto-refund-o1-0-1050-1' }));
+  });
+
+  it("the first refund try uses a key naming Stripe's count and the amount", async () => {
     storeOf({ ...REJECTED_ORDER, payment: { ...REJECTED_ORDER.payment, status: 'paid' } });
     await releaseClosedOrderPayment('o1', CARD_SHOP, now);
-    expect(findLiveRefund).not.toHaveBeenCalled();
-    expect(createRefund).toHaveBeenCalledWith(expect.objectContaining({ idempotencyKey: 'auto-refund-o1' }));
+    expect(createRefund).toHaveBeenCalledWith(expect.objectContaining({ idempotencyKey: 'auto-refund-o1-0-1050' }));
+  });
+
+  it('a partly refunded declined order gets the rest back', async () => {
+    const store = storeOf({
+      ...REJECTED_ORDER,
+      payment: { ...REJECTED_ORDER.payment, status: 'partially_refunded' },
+      refunds: [
+        { id: 'stripe-re_d1', amountCents: 300, reason: 'Stripe dashboard', at: '2026-10-05T10:00:00.000Z', actor: { type: 'system' }, stripeRefundId: 're_d1' },
+      ],
+    });
+    listed.mockResolvedValue([s('re_d1', 300)]);
+    const res = await releaseClosedOrderPayment('o1', CARD_SHOP, now);
+    expect(createRefund).toHaveBeenCalledWith({
+      connectAccountId: 'acct_1',
+      paymentIntentId: 'pi_1',
+      orderId: 'o1',
+      amountCents: 750,
+      idempotencyKey: 'auto-refund-o1-1-750',
+    });
+    expect(store.current.refunds!.map((r) => r.id)).toEqual(['stripe-re_d1', 'auto-refund-re_1']);
+    expect(store.current.payment.status).toBe('refunded');
+    expect(res.outcome).toBe('refunded');
+  });
+
+  it('a dashboard refund not yet recorded is counted, not refunded twice', async () => {
+    const store = storeOf({ ...REJECTED_ORDER, payment: { ...REJECTED_ORDER.payment, status: 'paid' } });
+    listed.mockResolvedValue([s('re_d1', 300)]);
+    await releaseClosedOrderPayment('o1', CARD_SHOP, now);
+    expect(createRefund).toHaveBeenCalledWith(expect.objectContaining({ amountCents: 750 }));
+    expect(store.current.refunds!.map((r) => r.id)).toEqual(['stripe-re_d1', 'auto-refund-re_1']);
+    expect(store.current.refunds![0].reason).toBe('Stripe dashboard');
+  });
+
+  it('nothing is refunded when the dashboard already gave everything back', async () => {
+    const store = storeOf({ ...REJECTED_ORDER, payment: { ...REJECTED_ORDER.payment, status: 'paid' } });
+    listed.mockResolvedValue([s('re_d1', 1050)]);
+    await releaseClosedOrderPayment('o1', CARD_SHOP, now);
+    expect(createRefund).not.toHaveBeenCalled();
+    expect(store.current.refunds!.map((r) => r.id)).toEqual(['stripe-re_d1']);
+    expect(store.current.payment.status).toBe('refunded');
+  });
+
+  it('a failed earlier refund does not count', async () => {
+    storeOf({ ...REJECTED_ORDER, payment: { ...REJECTED_ORDER.payment, status: 'paid' } });
+    listed.mockResolvedValue([s('re_f', 1050, { status: 'failed', fromApp: true })]);
+    await releaseClosedOrderPayment('o1', CARD_SHOP, now);
+    expect(createRefund).toHaveBeenCalledWith(
+      expect.objectContaining({ amountCents: 1050, idempotencyKey: 'auto-refund-o1-1-1050' }),
+    );
+  });
+
+  it('no automatic retry once Stripe failed our refund', async () => {
+    storeOf({
+      ...REJECTED_ORDER,
+      payment: { ...REJECTED_ORDER.payment, status: 'paid' },
+      refunds: [
+        { id: 'auto-refund-re_a', amountCents: 1050, reason: 'order_declined', at: 'x', actor: { type: 'system' }, stripeRefundId: 're_a' },
+        { id: 'reversal-re_a', amountCents: -1050, reason: 'stripe_refund_failed', at: 'x', actor: { type: 'system' }, stripeRefundId: 're_a', reversesIndex: 0 },
+      ],
+    });
+    const res = await releaseClosedOrderPayment('o1', CARD_SHOP, now);
+    expect(res.outcome).toBe('not_needed');
+    expect(listed).not.toHaveBeenCalled();
+  });
+
+  it('a refund of ours that Stripe failed is not recorded as given back', async () => {
+    const store = storeOf({ ...REJECTED_ORDER, payment: { ...REJECTED_ORDER.payment, status: 'paid' } });
+    listed.mockResolvedValue([s('re_f', 1050, { status: 'canceled', fromApp: true })]);
+    await releaseClosedOrderPayment('o1', CARD_SHOP, now);
+    expect(store.current.refunds!.map((r) => r.stripeRefundId)).toEqual(['re_1']);
+    expect(store.current.payment.status).toBe('refunded');
+  });
+
+  it('a refund of ours already on the order is not recorded twice', async () => {
+    const store = storeOf({
+      ...REJECTED_ORDER,
+      payment: { ...REJECTED_ORDER.payment, status: 'partially_refunded' },
+      refunds: [
+        { id: 'auto-refund-re_a', amountCents: 300, reason: 'order_declined', at: 'x', actor: { type: 'system' }, stripeRefundId: 're_a' },
+      ],
+    });
+    listed.mockResolvedValue([s('re_a', 300, { fromApp: true })]);
+    await releaseClosedOrderPayment('o1', CARD_SHOP, now);
+    expect(store.current.refunds!.map((r) => r.stripeRefundId)).toEqual(['re_a', 're_1']);
+    expect(createRefund).toHaveBeenCalledWith(expect.objectContaining({ amountCents: 750 }));
+  });
+
+  it('the reason names whether the order was declined or cancelled', async () => {
+    const a = storeOf({ ...REJECTED_ORDER, payment: { ...REJECTED_ORDER.payment, status: 'paid' } });
+    await releaseClosedOrderPayment('o1', CARD_SHOP, now);
+    expect(a.current.refunds![0].reason).toBe('order_declined');
+    const b = storeOf({ ...REJECTED_ORDER, state: 'CANCELLED', payment: { ...REJECTED_ORDER.payment, status: 'paid' } });
+    await releaseClosedOrderPayment('o1', CARD_SHOP, now);
+    expect(b.current.refunds![0].reason).toBe('order_cancelled');
+    expect(b.current.state).toBe('CANCELLED');
   });
 
   it('nothing on an old pay-at-collection order', async () => {

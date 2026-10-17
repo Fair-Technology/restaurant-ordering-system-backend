@@ -14,4 +14,19 @@ describe('toOrderDto combos', () => {
   it('a dish line has no combo', () => {
     expect(toOrderDto(ACCEPTED_CARD_ORDER, NOW_OPEN).items[0].combo).toBeNull();
   });
+
+  it('marks a failed refund and its reversal', () => {
+    const dto = toOrderDto(
+      {
+        ...ACCEPTED_CARD_ORDER,
+        refunds: [
+          { id: 'a', amountCents: 300, reason: 'x', at: 'x', actor: { type: 'system' }, stripeRefundId: 're_1' },
+          { id: 'v', amountCents: -300, reason: 'stripe_refund_failed', at: 'x', actor: { type: 'system' }, stripeRefundId: 're_1', reversesIndex: 0 },
+        ],
+      },
+      NOW_OPEN,
+    );
+    expect(dto.refunds.map((r) => [r.reversal, r.reversed])).toEqual([[false, true], [true, false]]);
+    expect(dto.refundedCents).toBe(0);
+  });
 });

@@ -17,6 +17,7 @@ vi.mock('../../../src/infrastructure/cosmos/shop/CosmosShopRepository', () => ({
 vi.mock('../../../src/infrastructure/stripe/stripeClient', () => ({
   releaseAuthorization: vi.fn(async () => 'canceled'),
   createRefund: vi.fn(async () => ({ id: 're_1' })),
+  listPaymentRefunds: vi.fn(async () => []),
   findLiveRefund: vi.fn(async () => null),
 }));
 vi.mock('../../../src/infrastructure/email/emailSender', () => ({

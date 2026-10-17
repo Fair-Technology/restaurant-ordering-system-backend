@@ -2,7 +2,7 @@ import { buildImpressumLines } from '../../../domain/legal/impressum';
 import { legalOf } from '../../../domain/legal/legalTexts';
 import { menuLanguagesOf } from '../../../domain/menu/menuLanguage';
 import { chargedCents, type Order, type RejectReason } from '../../../domain/order/Order';
-import { displayPaymentStatus, isCaptured } from '../../../domain/order/payment';
+import { displayPaymentStatus, isCaptured, refundedCents } from '../../../domain/order/payment';
 import type { MenuLanguage } from '../../../domain/reference/ReferenceLists';
 import type { LoyaltyVoucherDoc } from '../../../domain/promotion/promotions';
 import type { Shop } from '../../../domain/shop/Shop';
@@ -16,7 +16,8 @@ export type OrderEmailKind =
   | 'order_cancelled'
   | 'order_escalation'
   | 'order_refunded'
-  | 'payment_release_failed';
+  | 'payment_release_failed'
+  | 'refund_failed';
 
 /** A PDF attached to the email (the invoice or a correction); the text points to it. */
 export interface AttachedDocument {
@@ -150,6 +151,26 @@ function buildReleaseFailedEmail(order: Order, shop: Shop, adminOrdersUrl: strin
   );
 }
 
+/** The restaurant is told (in its own language) that Stripe did not carry out a refund; `refunds.at(-1)` is the reversal. */
+function buildRefundFailedEmail(order: Order, shop: Shop, adminOrdersUrl: string): OrderEmailContent {
+  const lang = menuLanguagesOf(shop)[0];
+  const de = lang === 'de';
+  const money = formatters(lang, order.currency, shop.timezone).money(-((order.refunds ?? []).at(-1)?.amountCents ?? 0));
+  const ref = order.orderRef;
+  return render(
+    de ? `Erstattung für Bestellung ${ref} wurde nicht ausgeführt` : `Refund for order ${ref} was not carried out`,
+    [
+      {
+        type: 'p',
+        text: de
+          ? `Stripe hat die Erstattung von ${money} für Bestellung ${ref} nicht ausgeführt. Das Geld ist nicht beim Gast angekommen. Wir haben die Erstattung in der Bestellung zurückgenommen und eine Rechnungskorrektur dazu erstellt. Bitte erstatten Sie den Betrag erneut oder klären Sie es direkt mit dem Gast.`
+          : `Stripe did not carry out the refund of ${money} for order ${ref}. The money did not reach the guest. We have taken the refund off the order and issued a correction invoice for it. Please refund it again or settle it with the guest directly.`,
+      },
+      { type: 'p', text: `${de ? 'Zu den Bestellungen' : 'Open orders'}: ${adminOrdersUrl}` },
+    ],
+  );
+}
+
 function formatters(lang: MenuLanguage, currency: string, timeZone: string) {
   const locale = lang === 'de' ? 'de-DE' : 'en-GB';
   const money = new Intl.NumberFormat(locale, { style: 'currency', currency });
@@ -177,6 +198,7 @@ export function buildOrderEmail(input: {
   const { kind, order, shop } = input;
   if (kind === 'order_escalation') return buildEscalationEmail(order, shop, input.adminOrdersUrl);
   if (kind === 'payment_release_failed') return buildReleaseFailedEmail(order, shop, input.adminOrdersUrl);
+  if (kind === 'refund_failed') return buildRefundFailedEmail(order, shop, input.adminOrdersUrl);
 
   const lang = order.language ?? menuLanguagesOf(shop)[0];
   const de = lang === 'de';
@@ -189,7 +211,7 @@ export function buildOrderEmail(input: {
   const dineIn = order.fulfilmentMode === 'dine_in';
   const delivery = order.fulfilmentMode === 'delivery';
 
-  const subjects: Record<Exclude<OrderEmailKind, 'order_escalation' | 'payment_release_failed'>, Bilingual> = {
+  const subjects: Record<Exclude<OrderEmailKind, 'order_escalation' | 'payment_release_failed' | 'refund_failed'>, Bilingual> = {
     order_received: when
       ? { de: `${name}: Bestellung ${ref} für ${when} eingegangen`, en: `${name}: order ${ref} for ${when} received` }
       : { de: `${name}: Bestellung ${ref} eingegangen`, en: `${name}: order ${ref} received` },
@@ -255,9 +277,10 @@ export function buildOrderEmail(input: {
       break;
     case 'order_refunded': {
       const last = f.money((order.refunds ?? []).at(-1)?.amountCents ?? 0);
+      const closes = order.state === 'REFUNDED' && refundedCents(order) >= chargedCents(order);
       kindLine = de
-        ? `Wir haben Ihnen ${last} erstattet. Die Gutschrift kann je nach Bank einige Tage dauern.`
-        : `We have refunded ${last} to you. It can take a few days to appear, depending on your bank.`;
+        ? `Wir haben Ihnen ${last} erstattet. Die Gutschrift kann je nach Bank einige Tage dauern.${closes ? ' Die Bestellung ist damit beendet.' : ''}`
+        : `We have refunded ${last} to you. It can take a few days to appear, depending on your bank.${closes ? ' This closes your order.' : ''}`;
       break;
     }
   }

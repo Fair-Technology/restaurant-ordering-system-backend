@@ -16,6 +16,7 @@ vi.mock('../../../src/application/order/_shared/acceptPlacedOrder', () => ({ acc
 vi.mock('../../../src/infrastructure/stripe/stripeClient', () => ({
   releaseAuthorization: vi.fn(async () => 'canceled'),
   createRefund: vi.fn(),
+  listPaymentRefunds: vi.fn(async () => []),
   findLiveRefund: vi.fn(async () => null),
 }));
 vi.mock('../../../src/infrastructure/cosmos/usage/CosmosSlotPlacesRepository', () => ({

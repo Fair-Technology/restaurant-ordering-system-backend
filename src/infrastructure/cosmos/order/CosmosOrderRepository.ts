@@ -163,7 +163,7 @@ export async function findOrdersInState(state: StoredOrderState): Promise<Order[
 export async function findOrdersAwaitingRelease(): Promise<Order[]> {
   const querySpec = {
     query:
-      "SELECT * FROM c WHERE c.payment.method = 'card' AND ARRAY_CONTAINS(['REJECTED', 'CANCELLED'], c.state) AND ARRAY_CONTAINS(['authorized', 'paid'], c.payment.status)",
+      "SELECT * FROM c WHERE c.payment.method = 'card' AND ARRAY_CONTAINS(['REJECTED', 'CANCELLED'], c.state) AND ARRAY_CONTAINS(['authorized', 'paid', 'partially_refunded'], c.payment.status) AND NOT EXISTS(SELECT VALUE r FROM r IN c.refunds WHERE IS_DEFINED(r.reversesIndex))",
   };
   const { resources } = await orderContainer.items.query<Order>(querySpec).fetchAll();
   return resources;
@@ -173,7 +173,7 @@ export async function findOrdersAwaitingRelease(): Promise<Order[]> {
 export async function findOrdersMissingInvoice(sinceIso: string): Promise<Order[]> {
   const querySpec = {
     query:
-      "SELECT * FROM c WHERE c.payment.method = 'card' AND ARRAY_CONTAINS(['ACCEPTED', 'READY', 'OUT_FOR_DELIVERY', 'COMPLETED'], c.state) AND c.acceptedAt >= @since AND NOT IS_DEFINED(c.invoiceNumber)",
+      "SELECT * FROM c WHERE c.payment.method = 'card' AND ARRAY_CONTAINS(['ACCEPTED', 'READY', 'OUT_FOR_DELIVERY', 'COMPLETED', 'REFUNDED'], c.state) AND c.acceptedAt >= @since AND NOT IS_DEFINED(c.invoiceNumber)",
     parameters: [{ name: '@since', value: sinceIso }],
   };
   const { resources } = await orderContainer.items.query<Order>(querySpec).fetchAll();
@@ -257,7 +257,7 @@ export const REPORT_ROW_SELECT =
   'SELECT c.id, c.createdAt, c.acceptedAt, c.scheduledFor, c.fulfilmentMode, c.payment, c.subtotalCents, c.totalCents, ' +
   'c.charges, c.discount.cents AS discountCents, c.taxBreakdown, ' +
   'ARRAY(SELECT i.productId, i.productName, i.quantity, i.unitPriceCents, i.lineTotalCents, i.taxRateBasisPoints, i.taxCents, i.discountCents, i.combo FROM i IN c.items) AS items, ' +
-  'ARRAY(SELECT r.amountCents, r.at, r.lines FROM r IN c.refunds) AS refunds ' +
+  'ARRAY(SELECT r.amountCents, r.at, r.lines, r.reversesIndex FROM r IN c.refunds) AS refunds ' +
   'FROM c';
 
 /** Orders of this shop accepted in the window, plus orders refunded in the window (they may repeat). */

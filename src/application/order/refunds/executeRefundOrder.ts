@@ -10,6 +10,7 @@ import {
   REFUND_REASON_ERROR,
   REFUND_STATE_ERROR,
 } from '../../../domain/order/orderErrors';
+import { endIfFullyRefunded } from '../../../domain/order/orderLifecycle';
 import { buildTaxBreakdown } from '../../../domain/order/tax';
 import {
   isCaptured,
@@ -70,7 +71,7 @@ export async function executeRefundOrder(
       return { ok: false, code: 'CONFLICT', error: REFUND_STATE_ERROR };
     }
 
-    const prior = (o.refunds ?? []).map((r) => ({ amountCents: r.amountCents, lines: r.lines }));
+    const prior = (o.refunds ?? []).map((r) => ({ amountCents: r.amountCents, lines: r.lines, reversesIndex: r.reversesIndex }));
     const base = baseByRate(o.taxBreakdown ?? buildTaxBreakdown(o.items));
 
     let amount: number;
@@ -130,23 +131,27 @@ export async function executeRefundOrder(
           }
           return {
             ok: true,
-            order: {
-              ...current,
-              payment: { ...current.payment, status: paymentStatusAfterRefund(current, amount) },
-              refunds: [
-                ...(current.refunds ?? []),
-                {
-                  id: randomUUID(),
-                  amountCents: amount,
-                  reason,
-                  at: now.toISOString(),
-                  actor: shopActorToOrderActor(access.actor),
-                  stripeRefundId,
-                  ...(lines ? { lines } : {}),
-                },
-              ],
-              updatedAt: now.toISOString(),
-            },
+            order: endIfFullyRefunded(
+              {
+                ...current,
+                payment: { ...current.payment, status: paymentStatusAfterRefund(current, amount) },
+                refunds: [
+                  ...(current.refunds ?? []),
+                  {
+                    id: randomUUID(),
+                    amountCents: amount,
+                    reason,
+                    at: now.toISOString(),
+                    actor: shopActorToOrderActor(access.actor),
+                    stripeRefundId,
+                    ...(lines ? { lines } : {}),
+                  },
+                ],
+                updatedAt: now.toISOString(),
+              },
+              now.toISOString(),
+              shopActorToOrderActor(access.actor),
+            ),
           };
         },
       });
