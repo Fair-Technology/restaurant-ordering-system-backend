@@ -76,4 +76,19 @@ describe('stripeConnectWebhook', () => {
     const res = await call();
     expect(res.status).toBe(500);
   });
+
+  it.each(['refund.failed', 'refund.updated', 'charge.refund.updated'])('%s goes to the refund sync', async (type) => {
+    m.constructEvent.mockReturnValue({ type, account: 'acct_1', data: { object: { id: 're_1', payment_intent: 'pi_1' } } });
+    m.record.mockResolvedValue('recorded');
+    const res = await call();
+    expect(res.status).toBe(200);
+    expect(m.record).toHaveBeenCalledWith({ paymentIntentId: 'pi_1', connectAccountId: 'acct_1' });
+  });
+
+  it('a refund without a payment is ignored', async () => {
+    m.constructEvent.mockReturnValue({ type: 'refund.failed', account: 'acct_1', data: { object: { id: 're_1', payment_intent: null } } });
+    const res = await call();
+    expect(res.status).toBe(200);
+    expect(m.record).not.toHaveBeenCalled();
+  });
 });

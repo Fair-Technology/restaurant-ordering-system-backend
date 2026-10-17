@@ -67,6 +67,8 @@ export type OrderDto = {
     reason: string;
     at: string;
     lines: Array<{ lineIndex: number; quantity: number }>;
+    reversal: boolean; // this entry cancels an earlier refund
+    reversed: boolean; // a later entry cancels this one
   }>;
   releaseFailure: { at: string; message: string } | null;
   documents: OrderDocumentDto[];

@@ -70,6 +70,17 @@ app.http('stripeConnectWebhook', {
           await executeRecordStripeRefunds({ paymentIntentId, connectAccountId: event.account ?? null });
           break;
         }
+        case 'refund.failed':
+        case 'refund.updated':
+        case 'charge.refund.updated': {
+          // A refund changed status (failed, cancelled in the dashboard, pending to succeeded). The sync reverses failed ones.
+          const refund = event.data.object as Stripe.Refund;
+          const paymentIntentId =
+            typeof refund.payment_intent === 'string' ? refund.payment_intent : refund.payment_intent?.id;
+          if (!paymentIntentId) break;
+          await executeRecordStripeRefunds({ paymentIntentId, connectAccountId: event.account ?? null });
+          break;
+        }
         case 'account.updated': {
           const account = event.data.object as Stripe.Account;
           const shop = await findShopByStripeConnectAccountId(account.id);

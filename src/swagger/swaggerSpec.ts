@@ -2767,13 +2767,13 @@ export const swaggerSpec = {
           orderRef: { type: 'string', example: 'AB3-K7P' },
           state: {
             type: 'string',
-            enum: ['PLACED', 'ACCEPTED', 'READY', 'OUT_FOR_DELIVERY', 'COMPLETED', 'REJECTED', 'CANCELLED'],
+            enum: ['PLACED', 'ACCEPTED', 'READY', 'OUT_FOR_DELIVERY', 'COMPLETED', 'REJECTED', 'CANCELLED', 'REFUNDED'],
             description: 'Stored lifecycle state',
             example: 'ACCEPTED',
           },
           displayState: {
             type: 'string',
-            enum: ['PLACED', 'ACCEPTED', 'IN_PREPARATION', 'READY', 'OUT_FOR_DELIVERY', 'COMPLETED', 'REJECTED', 'CANCELLED'],
+            enum: ['PLACED', 'ACCEPTED', 'IN_PREPARATION', 'READY', 'OUT_FOR_DELIVERY', 'COMPLETED', 'REJECTED', 'CANCELLED', 'REFUNDED'],
             description: 'Derived state shown to users (IN_PREPARATION is never stored)',
             example: 'IN_PREPARATION',
           },
@@ -2812,11 +2812,11 @@ export const swaggerSpec = {
           from: {
             type: 'string',
             nullable: true,
-            enum: ['PLACED', 'ACCEPTED', 'READY', 'OUT_FOR_DELIVERY', 'COMPLETED', 'REJECTED', 'CANCELLED'],
+            enum: ['PLACED', 'ACCEPTED', 'READY', 'OUT_FOR_DELIVERY', 'COMPLETED', 'REJECTED', 'CANCELLED', 'REFUNDED'],
           },
           to: {
             type: 'string',
-            enum: ['PLACED', 'ACCEPTED', 'READY', 'OUT_FOR_DELIVERY', 'COMPLETED', 'REJECTED', 'CANCELLED'],
+            enum: ['PLACED', 'ACCEPTED', 'READY', 'OUT_FOR_DELIVERY', 'COMPLETED', 'REJECTED', 'CANCELLED', 'REFUNDED'],
           },
           at: { type: 'string', format: 'date-time' },
           actor: {
@@ -2874,12 +2874,12 @@ export const swaggerSpec = {
           orderRef: { type: 'string', example: 'AB3-K7P' },
           state: {
             type: 'string',
-            enum: ['PLACED', 'ACCEPTED', 'READY', 'OUT_FOR_DELIVERY', 'COMPLETED', 'REJECTED', 'CANCELLED'],
+            enum: ['PLACED', 'ACCEPTED', 'READY', 'OUT_FOR_DELIVERY', 'COMPLETED', 'REJECTED', 'CANCELLED', 'REFUNDED'],
             example: 'ACCEPTED',
           },
           displayState: {
             type: 'string',
-            enum: ['PLACED', 'ACCEPTED', 'IN_PREPARATION', 'READY', 'OUT_FOR_DELIVERY', 'COMPLETED', 'REJECTED', 'CANCELLED'],
+            enum: ['PLACED', 'ACCEPTED', 'IN_PREPARATION', 'READY', 'OUT_FOR_DELIVERY', 'COMPLETED', 'REJECTED', 'CANCELLED', 'REFUNDED'],
             example: 'IN_PREPARATION',
           },
           fulfilmentMode: {
