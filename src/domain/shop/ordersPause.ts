@@ -1,4 +1,3 @@
-import { serviceDateOf } from '../order/kitchenTiming';
 import type { Shop } from './Shop';
 
 export type OrdersPauseDuration = 'minutes_30' | 'rest_of_day' | 'until_switched_back';
@@ -26,14 +25,23 @@ export function isOrdersPausedAt(shop: Pick<Shop, 'ordersPaused' | 'ordersPaused
   return !Number.isFinite(end) || now.getTime() < end;
 }
 
-/** When a pause started now ends: null = until switched back; rest_of_day = the next service-day rollover (04:00 local). */
+/** True when it is exactly 04:00 on the wall clock in the zone at this instant. */
+function isFourAmLocal(at: Date, timeZone: string): boolean {
+  const parts = new Intl.DateTimeFormat('en-GB', { timeZone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(at);
+  const get = (type: string) => parts.find((p) => p.type === type)?.value;
+  return get('hour') === '04' && get('minute') === '00';
+}
+
+/**
+ * When a pause started now ends: null = until switched back; rest_of_day = the next true 04:00 on the shop's wall clock,
+ * strictly after now (so at exactly 04:00 it runs to the next day's 04:00), also on clock-change nights.
+ */
 export function ordersPauseEndAt(duration: OrdersPauseDuration, timeZone: string, now: Date): string | null {
   if (duration === 'until_switched_back') return null;
   if (duration === 'minutes_30') return new Date(now.getTime() + 30 * 60_000).toISOString();
-  const today = serviceDateOf(now, timeZone);
   let t = Math.floor(now.getTime() / QUARTER_MS) * QUARTER_MS + QUARTER_MS;
-  for (let i = 0; i < 4 * 30; i++, t += QUARTER_MS) {
-    if (serviceDateOf(new Date(t), timeZone) !== today) return new Date(t).toISOString();
+  for (let i = 0; i < 4 * 49; i++, t += QUARTER_MS) {
+    if (isFourAmLocal(new Date(t), timeZone)) return new Date(t).toISOString();
   }
   return new Date(now.getTime() + 24 * 3_600_000).toISOString(); // unreachable for real zones
 }

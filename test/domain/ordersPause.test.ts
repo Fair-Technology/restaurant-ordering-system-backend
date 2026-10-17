@@ -45,8 +45,15 @@ describe('ordersPauseEndAt', () => {
   it('at 04:00 a new day has begun', () => {
     expect(ordersPauseEndAt('rest_of_day', B, d('2026-10-18T02:00:00Z'))).toBe('2026-10-19T02:00:00.000Z');
   });
-  it('the night the clocks go back', () => {
-    expect(ordersPauseEndAt('rest_of_day', B, d('2026-10-24T20:00:00Z'))).toBe('2026-10-25T02:00:00.000Z');
+  it('the night the clocks go back: 04:00 is CET, so 03:00Z', () => {
+    expect(ordersPauseEndAt('rest_of_day', B, d('2026-10-24T20:00:00Z'))).toBe('2026-10-25T03:00:00.000Z');
+    expect(ordersPauseEndAt('rest_of_day', B, d('2026-10-24T21:30:00Z'))).toBe('2026-10-25T03:00:00.000Z');
+  });
+  it('the night the clocks go forward: 04:00 is CEST, so 02:00Z', () => {
+    expect(ordersPauseEndAt('rest_of_day', B, d('2026-03-28T22:30:00Z'))).toBe('2026-03-29T02:00:00.000Z');
+  });
+  it('Sydney when daylight saving starts', () => {
+    expect(ordersPauseEndAt('rest_of_day', 'Australia/Sydney', d('2026-10-03T12:00:00Z'))).toBe('2026-10-03T17:00:00.000Z');
   });
   it('a quarter-hour zone', () => {
     expect(ordersPauseEndAt('rest_of_day', 'Asia/Kathmandu', d('2026-10-17T10:00:00Z'))).toBe('2026-10-17T22:15:00.000Z');
