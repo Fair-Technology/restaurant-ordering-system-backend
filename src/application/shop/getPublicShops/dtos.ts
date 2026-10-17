@@ -15,7 +15,7 @@ export interface PublicShopSummaryDto {
   branding: PublicShopBrandingDto | null;
   openingHours: Partial<Shop['openingHours']>; // absent → {}
   timezone: string;
-  ordersPaused: boolean; // stored absent → false
+  ordersPaused: boolean; // in force now (an expired timed pause reads false)
 }
 
 export interface GetPublicShopsResultDto {

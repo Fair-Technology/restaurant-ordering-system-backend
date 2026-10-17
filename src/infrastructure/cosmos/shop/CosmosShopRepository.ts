@@ -159,7 +159,9 @@ export async function findOwnedShopIds(userId: string): Promise<string[]> {
 /** Sets top-level fields without rewriting the rest of the shop, so two people saving different things don't undo each other. */
 export async function patchShopFields(
   shopId: string,
-  fields: Partial<Pick<Shop, 'busyMode' | 'updatedAt'>>,
+  fields: Partial<
+    Pick<Shop, 'busyMode' | 'updatedAt' | 'ordersPaused' | 'ordersPausedUntil' | 'ordersAutoPaused' | 'missedOrdersPauseLimit'>
+  >,
 ): Promise<void> {
   const ops: PatchOperation[] = Object.entries(fields).map(([key, value]) => ({
     op: 'set',

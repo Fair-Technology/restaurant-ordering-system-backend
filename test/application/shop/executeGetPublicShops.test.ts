@@ -48,6 +48,12 @@ describe('executeGetPublicShops', () => {
     }
   });
 
+  it('an expired pause lists the shop as taking orders', async () => {
+    mockFind.mockResolvedValue([{ ...CARD_SHOP, id: 'op', ordersPaused: true, ordersPausedUntil: '2026-10-05T09:00:00.000Z' }]);
+    const res: any = await executeGetPublicShops({ now: new Date('2026-10-05T10:00:00Z') });
+    expect(res.data.shops[0].ordersPaused).toBe(false);
+  });
+
   it('leaves out deleted, owner-offline and platform-offline shops', async () => {
     mockFind.mockResolvedValue([
       { ...CARD_SHOP, id: 'ok' },

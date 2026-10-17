@@ -10,6 +10,8 @@ import { UpdateShopRequestDto, UpdateShopResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 import { diffFields, logAudit } from '../../_shared/auditHelpers';
 import { ORDERS_PAUSED_MESSAGE_MAX_LENGTH, Shop, stripeReady } from '../../../domain/shop/Shop';
+import { ORDERS_PAUSE_DURATIONS, ordersPauseEndAt } from '../../../domain/shop/ordersPause';
+import { resetMissedOrderStreak } from '../../order/_shared/missedOrders';
 import { validateAccentColor } from '../../_shared/contrast';
 import { GO_LIVE_STRIPE_ERROR, GO_LIVE_TAX_ID_ERROR } from '../../../domain/order/orderErrors';
 import { menuLanguagesOf, validateMenuLanguagesChange } from '../../../domain/menu/menuLanguage';
@@ -118,7 +120,9 @@ function validateBranding(branding: unknown): string | null {
 export async function executeUpdateShop(
   request: UpdateShopRequestDto,
   httpRequest: HttpRequest,
+  options: { now?: Date } = {},
 ): Promise<ApplicationResult<UpdateShopResultDto>> {
+  const now = options.now ?? new Date();
   // Validate input
   if (
     !request.shopId ||
@@ -134,6 +138,14 @@ export async function executeUpdateShop(
 
   if (request.ordersPaused !== undefined && typeof request.ordersPaused !== 'boolean') {
     return { ok: false, code: 'INVALID_INPUT', error: 'ordersPaused must be a boolean' };
+  }
+  if (request.ordersPausedFor !== undefined) {
+    if (!(ORDERS_PAUSE_DURATIONS as readonly unknown[]).includes(request.ordersPausedFor)) {
+      return { ok: false, code: 'INVALID_INPUT', error: 'ordersPausedFor must be one of minutes_30, rest_of_day, until_switched_back' };
+    }
+    if (request.ordersPaused !== true) {
+      return { ok: false, code: 'INVALID_INPUT', error: 'ordersPausedFor needs ordersPaused: true' };
+    }
   }
   let ordersPausedMessage: string | undefined;
   if (request.ordersPausedMessage !== undefined) {
@@ -214,7 +226,13 @@ export async function executeUpdateShop(
       ...(request.pausedMessage !== undefined && {
         pausedMessage: request.pausedMessage,
       }),
-      ...(request.ordersPaused !== undefined && { ordersPaused: request.ordersPaused }),
+      ...(request.ordersPaused !== undefined && {
+        ordersPaused: request.ordersPaused,
+        ordersPausedUntil: request.ordersPaused
+          ? ordersPauseEndAt(request.ordersPausedFor ?? 'until_switched_back', shop.timezone, now)
+          : null,
+        ordersAutoPaused: null,
+      }),
       ...(request.ordersPausedMessage !== undefined && { ordersPausedMessage }),
       ...(request.minOrderAmountCents !== undefined && {
         minOrderAmountCents: request.minOrderAmountCents,
@@ -225,7 +243,7 @@ export async function executeUpdateShop(
       ...(request.branding !== undefined && { branding: request.branding }),
       ...(request.openingHours !== undefined && { openingHours: request.openingHours }),
       ...(nextLanguages && { menuLanguages: nextLanguages }),
-      updatedAt: new Date().toISOString(),
+      updatedAt: now.toISOString(),
     };
 
     const result = await updateShopInRepo(updatedShop);
@@ -233,7 +251,7 @@ export async function executeUpdateShop(
     const changes = diffFields(
       shop as unknown as Record<string, unknown>,
       updatedShop as unknown as Record<string, unknown>,
-      ['isPaused', 'pausedMessage', 'ordersPaused', 'ordersPausedMessage', 'minOrderAmountCents', 'currency', 'timezone'],
+      ['isPaused', 'pausedMessage', 'ordersPaused', 'ordersPausedUntil', 'ordersPausedMessage', 'minOrderAmountCents', 'currency', 'timezone'],
       ['openingHours', 'branding', 'address', 'menuLanguages'],
     );
     // Switching the banner on or off is its own readable line, besides the generic branding entry.
@@ -249,6 +267,8 @@ export async function executeUpdateShop(
       entityName: result.name,
       changes,
     });
+    // The owner acted on the pause (on or off), so the missed-order count starts again.
+    if (request.ordersPaused !== undefined) await resetMissedOrderStreak(shop.id, now);
 
     const resultDto: UpdateShopResultDto = {
       id: result.id,

@@ -22,6 +22,12 @@ describe('shopRefusalForPaidCheckout', () => {
     expect(shopRefusalForPaidCheckout({ ...CARD_SHOP, isPaused: true, offlineBySuperadmin: true }, S)).toBe('offline_by_superadmin');
   });
 
+  it('an expired pause is no refusal', () => {
+    const paused = { ...CARD_SHOP, ordersPaused: true, ordersPausedUntil: '2026-10-05T09:59:30.000Z' };
+    expect(shopRefusalForPaidCheckout(paused, S, new Date('2026-10-05T10:00:00Z'))).toBeNull();
+    expect(shopRefusalForPaidCheckout(paused, S, new Date('2026-10-05T09:59:00Z'))).toBe('orders_paused');
+  });
+
   it('a holiday closure over checkout time refuses', () => {
     expect(shopRefusalForPaidCheckout({ ...CARD_SHOP, closures: [closure] }, S)).toBe('closed');
   });

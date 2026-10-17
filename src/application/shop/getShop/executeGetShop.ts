@@ -1,3 +1,4 @@
+import { ordersPauseFieldsOf } from '../../../domain/shop/ordersPause';
 import { isShopOffline } from '../../../domain/shop/Shop';
 import { orderSettingsOf } from '../../../domain/order/orderSettings';
 import { HttpRequest } from '@azure/functions';
@@ -61,7 +62,7 @@ export async function executeGetShop(
       deletedAt: shop.deletedAt,
       isPaused: shop.isPaused,
       pausedMessage: shop.pausedMessage,
-      ordersPaused: shop.ordersPaused === true,
+      ...ordersPauseFieldsOf(shop, new Date()),
       ordersPausedMessage: shop.ordersPausedMessage,
       isOffline: isShopOffline(shop),
       offlineBySuperadmin: shop.offlineBySuperadmin === true,

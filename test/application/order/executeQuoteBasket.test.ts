@@ -116,6 +116,18 @@ describe('executeQuoteBasket', () => {
     expect(res).toEqual({ ok: false, code: 'ORDERS_PAUSED', error: 'Kitchen is full' });
   });
 
+  it('a pause that ended exactly now quotes normally', async () => {
+    (findShopById as any).mockResolvedValue({ ...CARD_SHOP, ordersPaused: true, ordersPausedUntil: '2026-10-05T10:00:00.000Z' });
+    const res = await executeQuoteBasket(request, { now: NOW_OPEN });
+    expect(res.ok).toBe(true);
+  });
+
+  it('a pause ending a millisecond later still refuses', async () => {
+    (findShopById as any).mockResolvedValue({ ...CARD_SHOP, ordersPaused: true, ordersPausedUntil: '2026-10-05T10:00:00.001Z' });
+    const res = await executeQuoteBasket(request, { now: NOW_OPEN });
+    expect(res).toEqual({ ok: false, code: 'ORDERS_PAUSED', error: 'This shop has paused new orders for now' });
+  });
+
   it('quotes a table order when dine-in is on', async () => {
     (findShopById as any).mockResolvedValue(DINE_IN_SHOP);
     const res = await executeQuoteBasket({ ...request, fulfilmentMode: 'dine_in' as const }, { now: NOW_OPEN });

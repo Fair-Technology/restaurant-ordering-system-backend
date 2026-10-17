@@ -1,3 +1,4 @@
+import type { OrdersAutoPaused } from '../../../domain/shop/ordersPause';
 import { ShopBranding } from '../../../domain/shop/Shop';
 
 export interface GetAllShopsRequestDto {
@@ -12,7 +13,10 @@ export interface ShopSummaryDto {
   deletedAt?: string;
   isPaused: boolean;
   pausedMessage?: string;
-  ordersPaused: boolean;
+  ordersPaused: boolean; // in force now (an expired timed pause reads false)
+  ordersPausedUntil: string | null; // end of a timed pause; null = until switched back
+  ordersAutoPaused: OrdersAutoPaused | null;
+  missedOrdersPauseLimit: number; // 0 = auto-pause off; default 3
   ordersPausedMessage?: string;
   isOffline: boolean; // isPaused || offlineBySuperadmin
   offlineBySuperadmin: boolean;

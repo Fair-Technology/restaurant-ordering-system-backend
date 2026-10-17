@@ -29,6 +29,14 @@ describe('executeGetShopBySlug', () => {
     expect(res.ok && res.data.orderLimitReached).toBe(false);
   });
 
+  it('a timed pause reaches the shop page with its end time', async () => {
+    (findShopBySlug as any).mockResolvedValue({ ...CARD_SHOP, ordersPaused: true, ordersPausedUntil: '2026-10-05T10:30:00.000Z' });
+    const during = await executeGetShopBySlug({ slug: 'mapasta' }, { now: new Date('2026-10-05T10:00:00Z') });
+    expect(during.ok && during.data).toMatchObject({ ordersPaused: true, ordersPausedUntil: '2026-10-05T10:30:00.000Z' });
+    const after = await executeGetShopBySlug({ slug: 'mapasta' }, { now: new Date('2026-10-05T10:30:00Z') });
+    expect(after.ok && after.data).toMatchObject({ ordersPaused: false, ordersPausedUntil: null });
+  });
+
   it('offers dine-in only when switched on', async () => {
     (findShopBySlug as any).mockResolvedValue(CARD_SHOP);
     const off = await executeGetShopBySlug({ slug: 'mapasta' });

@@ -13,7 +13,8 @@ export interface GetShopBySlugResultDto {
   isDeleted: boolean;
   isPaused: boolean;
   pausedMessage?: string;
-  ordersPaused: boolean;
+  ordersPaused: boolean; // in force now (an expired timed pause reads false)
+  ordersPausedUntil: string | null; // end of a timed pause; null = until switched back
   ordersPausedMessage?: string;
   isOffline: boolean; // isPaused || offlineBySuperadmin
   orderAcceptanceMode: string;
