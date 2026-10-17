@@ -219,7 +219,7 @@ export async function executeProcessOrderTimers(input: { now: Date }): Promise<O
       const doc = await issueInvoiceForOrder(o, shop, now);
       result.invoicesIssued++;
       // A document that already existed was emailed (or tried) when it was made.
-      if (existed) continue;
+      if (existed || o.state === 'REFUNDED') continue; // an ended order gets no "accepted" email; the refund email follows
       const pdf = await renderInvoicePdf(doc);
       await emailLateDocument(
         o.id,
@@ -254,6 +254,7 @@ export async function executeProcessOrderTimers(input: { now: Date }): Promise<O
         if (!doc) continue;
         result.correctionsIssued++;
         if (existed) continue;
+        if (refunds[i].reversesIndex !== undefined) continue; // a reversal is never emailed to the diner
         const pdf = await renderInvoicePdf(doc);
         const refundId = refunds[i].id;
         await emailLateDocument(
