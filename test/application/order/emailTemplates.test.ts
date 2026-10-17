@@ -70,6 +70,31 @@ describe('order emails', () => {
     expect(mail.subject).toBe('Ma Pasta: Erstattung für Bestellung AB3-K7P');
     expect(mail.text).toContain('Wir haben Ihnen 3,00 € erstattet.');
     expect(mail.text).toContain('Ihre Rechnungskorrektur R-2026-00002 finden Sie im Anhang.');
+    expect(mail.text).not.toContain('beendet');
+  });
+
+  it('a refund that ends the order says so', () => {
+    const mail = build('order_refunded', {
+      ...ACCEPTED_CARD_ORDER,
+      state: 'REFUNDED',
+      refunds: [{ id: 'r1', amountCents: 1050, reason: 'x', at: 'x', actor: { type: 'system' }, stripeRefundId: 're_1' }],
+    });
+    expect(mail.text).toContain(
+      'Wir haben Ihnen 10,50 € erstattet. Die Gutschrift kann je nach Bank einige Tage dauern. Die Bestellung ist damit beendet.',
+    );
+  });
+
+  it('tells the restaurant a refund was not carried out', () => {
+    const mail = build('refund_failed', {
+      ...ACCEPTED_CARD_ORDER,
+      refunds: [
+        { id: 'a', amountCents: 300, reason: 'x', at: 'x', actor: { type: 'system' }, stripeRefundId: 're_1' },
+        { id: 'v', amountCents: -300, reason: 'stripe_refund_failed', at: 'x', actor: { type: 'system' }, stripeRefundId: 're_1', reversesIndex: 0 },
+      ],
+    });
+    expect(mail.subject).toBe('Erstattung für Bestellung AB3-K7P wurde nicht ausgeführt');
+    expect(mail.text).toContain('Stripe hat die Erstattung von 3,00 € für Bestellung AB3-K7P nicht ausgeführt.');
+    expect(mail.text).toContain(adminOrdersUrl);
   });
 
   it('old pay-at-collection orders get no money sentence', () => {

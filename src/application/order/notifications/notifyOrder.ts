@@ -21,7 +21,7 @@ function adminOrdersUrl(shop: Pick<Shop, 'id'>): string {
 
 /** Emails the diner about their order. Never throws: a mail problem must not undo an order. */
 export async function notifyCustomer(
-  kind: Exclude<OrderEmailKind, 'order_escalation' | 'payment_release_failed'>,
+  kind: Exclude<OrderEmailKind, 'order_escalation' | 'payment_release_failed' | 'refund_failed'>,
   order: Order,
   shop: Shop,
   options: { attachments?: EmailAttachment[]; attachedDocument?: AttachedDocument } = {},
@@ -97,6 +97,24 @@ export async function notifyRestaurantReleaseFailed(order: Order, shop: Shop): P
     await sendEmail({ to, ...content, replyTo: null, tag: 'payment_release_failed' });
   } catch {
     console.error('[email:error]', 'payment_release_failed');
+  }
+}
+
+/** Emails the restaurant that Stripe did not carry out a refund; `order.refunds.at(-1)` must be the reversal. Never throws. */
+export async function notifyRestaurantRefundFailed(order: Order, shop: Shop): Promise<void> {
+  try {
+    const to = escalationRecipients(shop);
+    if (to.length === 0) return;
+    const content = buildOrderEmail({
+      kind: 'refund_failed',
+      order,
+      shop,
+      customerOrderUrl: customerOrderUrl(shop, order),
+      adminOrdersUrl: adminOrdersUrl(shop),
+    });
+    await sendEmail({ to, ...content, replyTo: null, tag: 'refund_failed' });
+  } catch {
+    console.error('[email:error]', 'refund_failed');
   }
 }
 
