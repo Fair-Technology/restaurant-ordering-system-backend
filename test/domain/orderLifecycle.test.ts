@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { applyTransition, deriveDisplayState } from '../../src/domain/order/orderLifecycle';
+import { applyTransition, deriveDisplayState, endIfFullyRefunded } from '../../src/domain/order/orderLifecycle';
 import { Order } from '../../src/domain/order/Order';
+import { ACCEPTED_CARD_ORDER } from '../fixtures/orders';
 
 function makeOrder(overrides: Partial<Order> = {}): Order {
   return {
@@ -169,5 +170,35 @@ describe('deriveDisplayState', () => {
   it('terminal states display as stored', () => {
     const order = makeOrder({ state: 'READY' });
     expect(deriveDisplayState(order, new Date('2026-09-25T12:00:00Z'))).toBe('READY');
+  });
+});
+
+describe('endIfFullyRefunded', () => {
+  const nowIso = '2026-10-05T12:00:00.000Z';
+  const refunded = (o: Order): Order => ({ ...o, payment: { ...o.payment, status: 'refunded' } });
+
+  it('a full refund ends an order in play', () => {
+    const res = endIfFullyRefunded(refunded(ACCEPTED_CARD_ORDER), nowIso, { type: 'system' });
+    expect(res.state).toBe('REFUNDED');
+    expect(res.history.at(-1)).toEqual({ from: 'ACCEPTED', to: 'REFUNDED', at: nowIso, actor: { type: 'system' } });
+    expect(endIfFullyRefunded(refunded({ ...ACCEPTED_CARD_ORDER, state: 'READY' }), nowIso, { type: 'system' }).state).toBe('REFUNDED');
+    expect(
+      endIfFullyRefunded(refunded({ ...ACCEPTED_CARD_ORDER, state: 'OUT_FOR_DELIVERY', fulfilmentMode: 'delivery' }), nowIso, { type: 'system' }).state,
+    ).toBe('REFUNDED');
+  });
+
+  it('a partial refund or a finished order is left alone', () => {
+    const partial = { ...ACCEPTED_CARD_ORDER, payment: { ...ACCEPTED_CARD_ORDER.payment, status: 'partially_refunded' as const } };
+    expect(endIfFullyRefunded(partial, nowIso, { type: 'system' })).toBe(partial);
+    const done = refunded({ ...ACCEPTED_CARD_ORDER, state: 'COMPLETED' });
+    expect(endIfFullyRefunded(done, nowIso, { type: 'system' })).toBe(done);
+  });
+
+  it('staff cannot move a refunded order on', () => {
+    const res = applyTransition({ ...ACCEPTED_CARD_ORDER, state: 'REFUNDED' }, 'READY', {
+      now: new Date(nowIso),
+      actor: { type: 'system' },
+    });
+    expect(res).toEqual({ ok: false, error: 'Cannot move from REFUNDED to READY' });
   });
 });

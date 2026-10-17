@@ -68,6 +68,12 @@ describe('executeEraseCustomer', () => {
     expect(replaceOrder).not.toHaveBeenCalled();
   });
 
+  it('a fully refunded order does not block erasure', async () => {
+    (findOrdersByShopIdAndCustomerEmail as any).mockResolvedValue([o1, { ...o2, state: 'REFUNDED' }]);
+    const r = await executeEraseCustomer({ shopId: 'shop-1', email: 'anna@example.com', now }, {} as any);
+    expect(r).toEqual({ ok: true, data: { anonymisedOrderCount: 2 } });
+  });
+
   it('skips orders that are already anonymised', async () => {
     (findOrdersByShopIdAndCustomerEmail as any).mockResolvedValue([
       { ...o1, customerName: 'Deleted customer', customerEmail: '', anonymisedAt: '2026-10-04T00:00:00Z' },

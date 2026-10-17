@@ -1,6 +1,6 @@
 import { Order, StoredOrderState } from '../order/Order';
 
-export const CLOSED_ORDER_STATES: readonly StoredOrderState[] = ['COMPLETED', 'REJECTED', 'CANCELLED'];
+export const CLOSED_ORDER_STATES: readonly StoredOrderState[] = ['COMPLETED', 'REJECTED', 'CANCELLED', 'REFUNDED'];
 export const ANONYMISED_CUSTOMER_NAME = 'Deleted customer';
 
 /** Strips the diner's personal data; the order itself stays for the restaurant's tax records. */
