@@ -4,6 +4,7 @@ import {
   hasFreshCaptureClaim,
   isDueForReleaseRetry,
   needsPaymentRelease,
+  paymentStatusOfRefunds,
   paymentStatusAfterRefund,
   refundableCents,
   refundedCents,
@@ -52,6 +53,29 @@ describe('order payment rules', () => {
     expect(needsPaymentRelease(withState('REJECTED', 'refunded'))).toBe(false);
     expect(needsPaymentRelease(withState('ACCEPTED', 'authorized'))).toBe(false);
     expect(needsPaymentRelease({ ...LEGACY_CASH_ORDER, state: 'REJECTED' })).toBe(false);
+    expect(needsPaymentRelease(withState('REJECTED', 'partially_refunded'))).toBe(true);
+    expect(
+      needsPaymentRelease({
+        ...withState('CANCELLED', 'paid'),
+        refunds: [
+          { id: 'a', amountCents: 1050, reason: 'x', at: 'x', actor: { type: 'system' }, stripeRefundId: 're_a' },
+          { id: 'v', amountCents: -1050, reason: 'stripe_refund_failed', at: 'x', actor: { type: 'system' }, stripeRefundId: 're_a', reversesIndex: 0 },
+        ],
+      }),
+    ).toBe(false);
+  });
+
+  it('payment status from the refunds', () => {
+    const r = (amountCents: number, reversesIndex?: number) => ({
+      id: 'x', amountCents, reason: 'x', at: 'x', actor: { type: 'system' as const }, stripeRefundId: 're',
+      ...(reversesIndex === undefined ? {} : { reversesIndex }),
+    });
+    const st = (refunds: ReturnType<typeof r>[]) => paymentStatusOfRefunds({ ...ACCEPTED_CARD_ORDER, refunds });
+    expect(st([])).toBe('paid');
+    expect(st([r(300)])).toBe('partially_refunded');
+    expect(st([r(1050)])).toBe('refunded');
+    expect(st([r(1050), r(-1050, 0)])).toBe('paid');
+    expect(st([r(300), r(750), r(-750, 1)])).toBe('partially_refunded');
   });
 
   it('retries a failed release after 15 minutes', () => {

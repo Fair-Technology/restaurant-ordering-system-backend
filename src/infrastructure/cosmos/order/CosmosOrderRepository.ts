@@ -163,7 +163,7 @@ export async function findOrdersInState(state: StoredOrderState): Promise<Order[
 export async function findOrdersAwaitingRelease(): Promise<Order[]> {
   const querySpec = {
     query:
-      "SELECT * FROM c WHERE c.payment.method = 'card' AND ARRAY_CONTAINS(['REJECTED', 'CANCELLED'], c.state) AND ARRAY_CONTAINS(['authorized', 'paid'], c.payment.status)",
+      "SELECT * FROM c WHERE c.payment.method = 'card' AND ARRAY_CONTAINS(['REJECTED', 'CANCELLED'], c.state) AND ARRAY_CONTAINS(['authorized', 'paid', 'partially_refunded'], c.payment.status) AND NOT EXISTS(SELECT VALUE r FROM r IN c.refunds WHERE IS_DEFINED(r.reversesIndex))",
   };
   const { resources } = await orderContainer.items.query<Order>(querySpec).fetchAll();
   return resources;

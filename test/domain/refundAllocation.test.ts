@@ -151,3 +151,28 @@ describe('refunding a combo', () => {
     ]);
   });
 });
+
+describe('reversed refunds', () => {
+  const base = [
+    { rateBasisPoints: 700, grossCents: 1050 },
+    { rateBasisPoints: 1900, grossCents: 700 },
+  ];
+  const cola = { lineIndex: 1, quantity: 2, grossCents: 700, taxRateBasisPoints: 1900 };
+
+  it('a reversed item refund gives its rate back to later free amounts', () => {
+    const refunds = [{ amountCents: 700, lines: [cola] }, { amountCents: -700, reversesIndex: 0 }, { amountCents: 350 }];
+    expect(refundPartsByRate(base, refunds, 2)).toEqual([
+      { rateBasisPoints: 700, grossCents: 210 },
+      { rateBasisPoints: 1900, grossCents: 140 },
+    ]);
+  });
+
+  it("a reversal's parts are the reversed refund's, negated", () => {
+    const refunds = [{ amountCents: 700, lines: [cola] }, { amountCents: -700, reversesIndex: 0 }];
+    expect(refundPartsByRate(base, refunds, 1)).toEqual([{ rateBasisPoints: 1900, grossCents: -700 }]);
+  });
+
+  it('reversed item refunds free their quantities again', () => {
+    expect(refundedQuantities(2, [{ amountCents: 700, lines: [cola] }, { amountCents: -700, reversesIndex: 0 }])).toEqual([0, 0]);
+  });
+});

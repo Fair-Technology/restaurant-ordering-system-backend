@@ -11,6 +11,7 @@ export interface RateAmount {
 export interface RefundShape {
   amountCents: number;
   lines?: ReadonlyArray<RefundLine>;
+  reversesIndex?: number; // only on a reversal: the refund it cancels
 }
 
 function byRateAsc(a: RateAmount, b: RateAmount): number {
@@ -78,7 +79,12 @@ export function refundPartsByRate(
   let parts: RateAmount[] = [];
   for (let k = 0; k <= index && k < refunds.length; k++) {
     const refund = refunds[k];
-    parts = refund.lines ? linePartsByRate(refund.lines) : allocateByRate(asAmounts(remaining), refund.amountCents);
+    parts =
+      refund.reversesIndex !== undefined
+        ? refundPartsByRate(base, refunds, refund.reversesIndex).map((p) => ({ ...p, grossCents: -p.grossCents }))
+        : refund.lines
+          ? linePartsByRate(refund.lines)
+          : allocateByRate(asAmounts(remaining), refund.amountCents);
     if (k < index) subtract(remaining, parts);
   }
   return parts;
@@ -94,7 +100,9 @@ export function remainingByRate(base: ReadonlyArray<RateAmount>, refunds: Readon
 /** Per order line, how many units earlier item refunds have already covered. */
 export function refundedQuantities(lineCount: number, refunds: ReadonlyArray<RefundShape>): number[] {
   const out = new Array<number>(lineCount).fill(0);
-  for (const refund of refunds) {
+  const voided = new Set(refunds.flatMap((r) => (r.reversesIndex !== undefined ? [r.reversesIndex] : [])));
+  for (const [k, refund] of refunds.entries()) {
+    if (voided.has(k) || refund.reversesIndex !== undefined) continue;
     for (const l of refund.lines ?? []) {
       if (l.lineIndex >= 0 && l.lineIndex < lineCount) out[l.lineIndex] += l.quantity;
     }

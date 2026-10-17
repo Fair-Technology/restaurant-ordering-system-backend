@@ -2,7 +2,7 @@ import { chargedCents, type DisplayPaymentStatus, type Order, type PaymentStatus
 import { REFUND_AMOUNT_ERROR } from './orderErrors';
 
 /** States in which staff may refund money that was already taken. */
-export const MANUAL_REFUND_STATES: readonly StoredOrderState[] = ['ACCEPTED', 'READY', 'OUT_FOR_DELIVERY', 'COMPLETED'];
+export const MANUAL_REFUND_STATES: readonly StoredOrderState[] = ['ACCEPTED', 'READY', 'OUT_FOR_DELIVERY', 'COMPLETED', 'REFUNDED'];
 export const RELEASE_RETRY_MINUTES = 15;
 export const CAPTURE_CLAIM_MINUTES = 2;
 
@@ -28,6 +28,20 @@ export function refundableCents(o: Pick<Order, 'subtotalCents' | 'totalCents' | 
   return Math.max(0, chargedCents(o) - refundedCents(o));
 }
 
+/** Payment status worked out from the refunds alone (reversals count negatively). */
+export function paymentStatusOfRefunds(
+  o: Pick<Order, 'subtotalCents' | 'totalCents' | 'refunds'>,
+): 'paid' | 'partially_refunded' | 'refunded' {
+  const refunded = refundedCents(o);
+  if (refunded >= chargedCents(o)) return 'refunded';
+  return refunded > 0 ? 'partially_refunded' : 'paid';
+}
+
+/** Stripe failed or cancelled at least one refund, so the order holds a reversal entry. */
+export function hasRefundReversal(o: Pick<Order, 'refunds'>): boolean {
+  return (o.refunds ?? []).some((r) => r.reversesIndex !== undefined);
+}
+
 /** `amountCents` is the refund about to be added; `o.refunds` are the earlier ones. */
 export function paymentStatusAfterRefund(
   o: Pick<Order, 'subtotalCents' | 'totalCents' | 'refunds'>,
@@ -47,14 +61,16 @@ export function validateRefundAmount(
 }
 
 /** A declined or cancelled order whose card reservation (or money) is still with us. */
-export function needsPaymentRelease(o: Pick<Order, 'state' | 'payment'>): boolean {
+export function needsPaymentRelease(o: Pick<Order, 'state' | 'payment' | 'refunds'>): boolean {
   if (o.state !== 'REJECTED' && o.state !== 'CANCELLED') return false;
+  // Refunding again to a card that just failed a refund would loop; the restaurant is emailed instead.
+  if (hasRefundReversal(o)) return false;
   const status = displayPaymentStatus(o);
-  return (status === 'authorized' || status === 'paid') && !!o.payment.stripePaymentIntentId;
+  return (status === 'authorized' || status === 'paid' || status === 'partially_refunded') && !!o.payment.stripePaymentIntentId;
 }
 
 export function isDueForReleaseRetry(
-  o: Pick<Order, 'state' | 'payment' | 'releaseFailure'>,
+  o: Pick<Order, 'state' | 'payment' | 'releaseFailure' | 'refunds'>,
   now: Date,
 ): boolean {
   if (!needsPaymentRelease(o)) return false;
