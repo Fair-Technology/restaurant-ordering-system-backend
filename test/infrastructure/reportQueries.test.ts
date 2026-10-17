@@ -52,4 +52,8 @@ describe('report queries', () => {
       "c.state = 'PLACED' AND (NOT IS_DEFINED(c.scheduledFor) OR IS_DEFINED(c.queuedAt))",
     );
   });
+
+  it('selects which refund a reversal cancels', () => {
+    expect(REPORT_ROW_SELECT).toContain('r.lines, r.reversesIndex FROM r IN c.refunds');
+  });
 });

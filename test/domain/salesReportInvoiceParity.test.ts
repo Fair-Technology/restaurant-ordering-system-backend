@@ -5,7 +5,7 @@ import { refundTaxParts } from '../../src/domain/report/salesReport';
 import { ACCEPTED_DELIVERY_ORDER, ACCEPTED_TWO_LINE_ORDER, CARD_SHOP, DISCOUNTED_ORDER } from '../fixtures/orders';
 
 // The report's VAT for a refund must equal, to the cent, the negated breakdown of the correction invoice for that refund.
-type Shape = { amountCents: number; lines?: RefundLine[] };
+type Shape = { amountCents: number; lines?: RefundLine[]; reversesIndex?: number };
 
 function check(order: Order, refunds: Shape[]): void {
   const original = buildInvoice({ order, shop: CARD_SHOP, number: 'R-2026-00001', now: new Date('2026-10-05T10:05:00Z') });
@@ -41,5 +41,13 @@ describe('report refund VAT equals the correction invoice', () => {
       check(o, [{ amountCents: lines[0].grossCents, lines: [lines[0]] }]);
       check(o, [{ amountCents: lines[1].grossCents, lines: [lines[1]] }, { amountCents: 99 }]);
     }
+  });
+
+  it('a refund, its reversal and a refund after it', () => {
+    check(ACCEPTED_TWO_LINE_ORDER, [
+      { amountCents: 700, lines: [{ lineIndex: 1, quantity: 2, grossCents: 700, taxRateBasisPoints: 1900 }] },
+      { amountCents: -700, reversesIndex: 0 },
+      { amountCents: 350 },
+    ]);
   });
 });

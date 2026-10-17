@@ -575,3 +575,51 @@ describe('combos', () => {
     expect(c.totalCents).toBe(-1200);
   });
 });
+
+describe('reversal corrections', () => {
+  const rev = (documentType: 'correction' | 'cancellation') => ({
+    number: 'R-2026-00002',
+    issuedAt: '2026-10-05T10:05:00.000Z',
+    documentType,
+  });
+  const reverse = (refunds: Array<{ amountCents: number; lines?: any[]; reversesIndex?: number }>, index: number, documentType: 'correction' | 'cancellation' = 'correction') =>
+    buildCorrection({
+      original: two(),
+      refunds,
+      index,
+      refundId: 'v1',
+      number: 'R-2026-00003',
+      now,
+      reverses: rev(documentType),
+    });
+
+  it('a failed item refund is reversed with the item at plus', () => {
+    const c = reverse([{ amountCents: 350, lines: [colaLine] }, { amountCents: -350, reversesIndex: 0 }], 1);
+    expect(c.id).toBe('o1-c2');
+    expect(c.documentType).toBe('correction');
+    expect(c.lines).toEqual([
+      { name: 'Cola', quantity: 1, unitPriceCents: 350, lineTotalCents: 350, taxRateBasisPoints: 1900, taxCents: 56 },
+    ]);
+    expect(c.taxBreakdown).toEqual([{ rateBasisPoints: 1900, grossCents: 350, taxCents: 56 }]);
+    expect(c.totalCents).toBe(350);
+    expect(text(c)).toContain('Hebt Rechnungskorrektur R-2026-00002 vom 05.10.2026 auf – die Erstattung wurde von Stripe nicht ausgeführt.');
+  });
+
+  it('reversing a Stornorechnung restores every line', () => {
+    const c = reverse([{ amountCents: 1400 }, { amountCents: -1400, reversesIndex: 0 }], 1, 'cancellation');
+    expect(c.lines).toEqual(two().lines);
+    expect(c.totalCents).toBe(1400);
+    expect(text(c)).toContain('Hebt Stornorechnung R-2026-00002');
+  });
+
+  it('a reversed free amount mirrors its split', () => {
+    const c = reverse([{ amountCents: 350 }, { amountCents: -350, reversesIndex: 0 }], 1);
+    expect(c.lines.map((l) => l.lineTotalCents)).toEqual([263, 87]);
+  });
+
+  it('a reversal before its refund is refused', () => {
+    expect(() => reverse([{ amountCents: 350 }, { amountCents: -350, reversesIndex: 1 }], 1)).toThrow(
+      'A reversal must follow the refund it reverses',
+    );
+  });
+});

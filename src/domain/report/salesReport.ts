@@ -32,6 +32,7 @@ export interface ReportRefundRow {
   amountCents: number;
   at: string;
   lines?: RefundLine[];
+  reversesIndex?: number; // only on a reversal: the refund it cancels
 }
 
 /** One order, as the report query selects it: no diner name, email, phone, address or notes. */
@@ -146,6 +147,9 @@ export function refundTaxParts(
 ): TaxBreakdownEntry[] {
   const refunds = o.refunds ?? [];
   const r = refunds[k];
+  if (r.reversesIndex !== undefined) {
+    return refundTaxParts(o, r.reversesIndex).map((e) => ({ ...e, grossCents: -e.grossCents, taxCents: -e.taxCents }));
+  }
   const base = o.taxBreakdown ?? buildTaxBreakdown(o.items);
   if (k === 0 && r.amountCents === chargedCents(o)) {
     return base.map((e) => ({ rateBasisPoints: e.rateBasisPoints, grossCents: e.grossCents, taxCents: e.taxCents }));
@@ -171,7 +175,7 @@ export function refundTaxParts(
       );
     }
   } else {
-    const shapes = refunds.map((x) => ({ amountCents: x.amountCents, lines: x.lines }));
+    const shapes = refunds.map((x) => ({ amountCents: x.amountCents, lines: x.lines, reversesIndex: x.reversesIndex }));
     for (const p of refundPartsByRate(baseByRate(base), shapes, k)) {
       add(p.rateBasisPoints, p.grossCents, extractVatCents(p.grossCents, p.rateBasisPoints));
     }

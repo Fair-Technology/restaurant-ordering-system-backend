@@ -76,6 +76,8 @@ export interface InvoiceDoc {
   fulfilmentMode: FulfilmentMode;
   language: MenuLanguage;
   corrects: { number: string; issuedAt: string } | null;
+  /** Only on a correction that cancels an earlier correction because Stripe did not carry out that refund. */
+  reverses?: { number: string; issuedAt: string; documentType: InvoiceDocumentType };
   refundId: string | null;
 }
 
@@ -233,9 +235,33 @@ export function buildCorrection(input: {
   refundId: string;
   number: string;
   now: Date;
+  reverses?: InvoiceDoc['reverses'];
 }): InvoiceDoc {
   const { original, refunds, index, refundId, number, now } = input;
   const refund = refunds[index];
+  if (refund.reversesIndex !== undefined) {
+    // A reversal mirrors the correction it cancels, every sign flipped.
+    const j = refund.reversesIndex;
+    if (j < 0 || j >= index) throw new Error('A reversal must follow the refund it reverses');
+    const mirrored = buildCorrection({ original, refunds, index: j, refundId, number, now });
+    return {
+      ...mirrored,
+      id: `${original.id}-c${index + 1}`,
+      documentType: 'correction',
+      number,
+      issuedAt: now.toISOString(),
+      refundId,
+      lines: mirrored.lines.map((l) => ({
+        ...l,
+        unitPriceCents: -l.unitPriceCents,
+        lineTotalCents: -l.lineTotalCents,
+        taxCents: -l.taxCents,
+      })),
+      taxBreakdown: mirrored.taxBreakdown.map((e) => ({ ...e, grossCents: -e.grossCents, taxCents: -e.taxCents })),
+      totalCents: -refund.amountCents,
+      ...(input.reverses ? { reverses: input.reverses } : {}),
+    };
+  }
   const de = original.language === 'de';
   const full = index === 0 && refund.amountCents === original.totalCents;
   let documentType: InvoiceDocumentType;
@@ -399,6 +425,13 @@ export function invoiceTextLines(inv: InvoiceDoc): InvoiceText {
       de
         ? `Bezieht sich auf Rechnung ${inv.corrects.number} vom ${date(inv.corrects.issuedAt)}`
         : `Relates to invoice ${inv.corrects.number} of ${date(inv.corrects.issuedAt)}`,
+    );
+  }
+  if (inv.reverses) {
+    meta.push(
+      de
+        ? `Hebt ${invoiceTitle(inv.reverses.documentType, 'de')} ${inv.reverses.number} vom ${date(inv.reverses.issuedAt)} auf – die Erstattung wurde von Stripe nicht ausgeführt.`
+        : `Reverses ${invoiceTitle(inv.reverses.documentType, 'en').toLowerCase()} ${inv.reverses.number} of ${date(inv.reverses.issuedAt)} – Stripe did not carry out the refund.`,
     );
   }
 
