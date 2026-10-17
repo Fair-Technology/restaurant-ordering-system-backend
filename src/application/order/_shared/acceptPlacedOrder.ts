@@ -30,6 +30,7 @@ import { issueInvoiceForOrder, needsInvoice } from '../invoices/issueInvoice';
 import { issueLoyaltyVoucher } from '../loyalty/issueLoyaltyVoucher';
 import { notifyCustomer } from '../notifications/notifyOrder';
 import type { AttachedDocument } from '../notifications/emailTemplates';
+import { resetMissedOrderStreak } from './missedOrders';
 import { releaseClosedOrderPayment } from './releasePayment';
 import { transitionOrder } from './transitionOrder';
 
@@ -202,6 +203,7 @@ export async function acceptPlacedOrder(input: {
     // The order is accepted; a usage counter miss is repaired by reconcileShopUsage.
     console.error('[usage:error] could not count accepted order');
   }
+  await resetMissedOrderStreak(shop.id, now); // an answered order starts the missed-order count again
   // Option (c): an order for now takes a place in the quarter hour it is ready; the limit never turns it away.
   if (!moved.order.scheduledFor && moved.order.readyAt && slotCapacityOf(shop) !== null) {
     await fixSlotPlace({ shop, orderId, slot: slotStartOf(new Date(moved.order.readyAt)), now });
