@@ -72,7 +72,8 @@ export async function executeCreateSubscriptionCheckout(
         mode: 'subscription',
         line_items: [{ price: stripePriceId, quantity: 1 }],
         metadata: { shopId, planId, billingInterval },
-        ...(sub?.billingCustomerId ? { customer: sub.billingCustomerId } : { customer_creation: 'always' }),
+        // Subscription mode always creates a customer; Stripe rejects `customer_creation` outside payment mode.
+        ...(sub?.billingCustomerId ? { customer: sub.billingCustomerId } : {}),
         success_url: `${subscriptionUrl}?payment=success&session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${subscriptionUrl}?payment=cancelled`,
       });
