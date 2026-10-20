@@ -40,6 +40,11 @@ describe('applyBillingEvent', () => {
     const next = applyBillingEvent({ ...MAX, currentPeriodEnd: '2026-11-20T00:00:00.000Z' }, updated({ periodEnd: '2027-10-20T00:00:00.000Z' }), ctx);
     expect(next.scheduledChange ?? null).toBeNull();
   });
+  it('a pending downgrade not sitting on the old period end is left where it is', () => {
+    const elsewhere = { ...pendingSub, scheduledChange: { ...pendingSub.scheduledChange, effectiveAt: '2026-12-31T00:00:00.000Z' } };
+    const next = applyBillingEvent(elsewhere, updated({ periodEnd: '2027-10-20T00:00:00.000Z' }), ctx);
+    expect(next.scheduledChange?.effectiveAt).toBe('2026-12-31T00:00:00.000Z');
+  });
   it('a renewal at the due date does not push the pending downgrade forward', () => {
     const due = { now: new Date('2026-11-20T00:00:01Z'), defaultPlanId: 'plan-basic' };
     const next = applyBillingEvent(pendingSub, updated({ periodEnd: '2026-12-20T00:00:00.000Z', mapped: { planId: 'plan-pro', billingInterval: 'yearly' } }), due);
