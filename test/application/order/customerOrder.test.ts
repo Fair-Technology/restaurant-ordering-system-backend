@@ -41,7 +41,7 @@ import { findShopById } from '../../../src/infrastructure/cosmos/shop/CosmosShop
 import { sendEmail } from '../../../src/infrastructure/email/emailSender';
 import { CANNOT_CANCEL_ERROR, ORDER_NOT_FOUND_ERROR, PAYMENT_CONFIRMING_ERROR } from '../../../src/domain/order/orderErrors';
 import { releaseAuthorization } from '../../../src/infrastructure/stripe/stripeClient';
-import { CARD_SHOP, DELIVERY_ADDRESS, DISCOUNTED_ORDER, orderStore, PLACED_CARD_ORDER, PLACED_DELIVERY_ORDER, PLACED_TABLE_ORDER, SCHEDULED_ORDER, SLOT_1800 } from '../../fixtures/orders';
+import { ACCEPTED_CARD_ORDER, CARD_SHOP, DELIVERY_ADDRESS, DISCOUNTED_ORDER, orderStore, PLACED_CARD_ORDER, PLACED_DELIVERY_ORDER, PLACED_TABLE_ORDER, SCHEDULED_ORDER, SLOT_1800 } from '../../fixtures/orders';
 
 const TOKEN = 'T'.repeat(32);
 const now = new Date('2026-10-05T10:05:00Z');
@@ -60,6 +60,31 @@ describe('customer order page', () => {
     (findShopById as any).mockResolvedValue(CARD_SHOP);
     (reconcileCheckoutSession as any).mockResolvedValue('not_paid');
     stored();
+  });
+
+  const full = { id: 'r1', amountCents: 1050, reason: 'Pizza kalt', at: '2026-10-05T10:30:00.000Z', actor: { type: 'staff' as const, id: 'm1' }, stripeRefundId: 're_1' };
+  const rev = { id: 'reversal-re_1', amountCents: -1050, reason: 'stripe_refund_failed', at: '2026-10-05T10:40:00.000Z', actor: { type: 'system' as const }, stripeRefundId: 're_1', reversesIndex: 0 };
+
+  it('the diner is told when a refund did not go through', async () => {
+    stored({ ...ACCEPTED_CARD_ORDER, refunds: [full, rev] });
+    const res = await executeGetCustomerOrder({ orderId: 'o1', token: TOKEN }, { now });
+    expect(res.ok && res.data).toMatchObject({ state: 'ACCEPTED', paymentStatus: 'paid', refundedCents: 0, refundFailed: true });
+  });
+
+  it('a refund made again after a failure is not shown as failed', async () => {
+    stored({
+      ...ACCEPTED_CARD_ORDER,
+      payment: { ...ACCEPTED_CARD_ORDER.payment, status: 'partially_refunded' },
+      refunds: [full, rev, { ...full, id: 'r3', amountCents: 300, stripeRefundId: 're_3' }],
+    });
+    const res = await executeGetCustomerOrder({ orderId: 'o1', token: TOKEN }, { now });
+    expect(res.ok && res.data).toMatchObject({ refundFailed: false, refundedCents: 300 });
+  });
+
+  it('an order still marked refunded after a failure says the refund failed', async () => {
+    stored({ ...ACCEPTED_CARD_ORDER, state: 'REFUNDED', refunds: [full, rev] });
+    const res = await executeGetCustomerOrder({ orderId: 'o1', token: TOKEN }, { now });
+    expect(res.ok && res.data).toMatchObject({ state: 'REFUNDED', refundFailed: true });
   });
 
   it('a shop-unavailable decline keeps its reason for the diner', async () => {
@@ -86,6 +111,7 @@ describe('customer order page', () => {
       rejectionReason: null,
       paymentStatus: 'authorized',
       refundedCents: 0,
+      refundFailed: false,
       documents: [],
     });
   });

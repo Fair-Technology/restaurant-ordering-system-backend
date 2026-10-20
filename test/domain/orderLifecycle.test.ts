@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { applyTransition, deriveDisplayState, endIfFullyRefunded } from '../../src/domain/order/orderLifecycle';
+import { applyTransition, deriveDisplayState, endIfFullyRefunded, reopenIfNoLongerRefunded } from '../../src/domain/order/orderLifecycle';
 import { Order } from '../../src/domain/order/Order';
 import { ACCEPTED_CARD_ORDER } from '../fixtures/orders';
 
@@ -207,5 +207,58 @@ describe('endIfFullyRefunded', () => {
       actor: { type: 'system' },
     });
     expect(res).toEqual({ ok: false, error: 'Cannot move from REFUNDED to READY' });
+  });
+});
+
+describe('reopenIfNoLongerRefunded', () => {
+  const nowIso = '2026-10-05T13:00:00.000Z';
+  const sys = { type: 'system' } as const;
+  const endedFrom = (
+    from: 'ACCEPTED' | 'READY' | 'OUT_FOR_DELIVERY',
+    status: 'paid' | 'partially_refunded' | 'refunded' = 'paid',
+  ): Order => ({
+    ...ACCEPTED_CARD_ORDER,
+    state: 'REFUNDED',
+    fulfilmentMode: from === 'OUT_FOR_DELIVERY' ? 'delivery' : 'collection',
+    payment: { ...ACCEPTED_CARD_ORDER.payment, status },
+    history: [...ACCEPTED_CARD_ORDER.history, { from, to: 'REFUNDED', at: '2026-10-05T12:00:00.000Z', actor: { type: 'staff', id: 'm1' } }],
+  });
+
+  it('a refunded order that is no longer fully refunded goes back to where it was', () => {
+    const o = endedFrom('ACCEPTED');
+    const res = reopenIfNoLongerRefunded(o, nowIso, sys);
+    expect(res.state).toBe('ACCEPTED');
+    expect(res.history.at(-1)).toEqual({ from: 'REFUNDED', to: 'ACCEPTED', at: nowIso, actor: { type: 'system' } });
+    expect(res.history).toHaveLength(o.history.length + 1);
+    expect(res.updatedAt).toBe(nowIso);
+    expect(reopenIfNoLongerRefunded(endedFrom('READY'), nowIso, sys).state).toBe('READY');
+    expect(reopenIfNoLongerRefunded(endedFrom('OUT_FOR_DELIVERY'), nowIso, sys).state).toBe('OUT_FOR_DELIVERY');
+    expect(reopenIfNoLongerRefunded(endedFrom('ACCEPTED', 'partially_refunded'), nowIso, sys).state).toBe('ACCEPTED');
+  });
+
+  it('the latest ending counts', () => {
+    const o: Order = {
+      ...endedFrom('ACCEPTED'),
+      history: [
+        ...endedFrom('ACCEPTED').history,
+        { from: 'REFUNDED', to: 'ACCEPTED', at: '2026-10-05T12:10:00.000Z', actor: sys },
+        { from: 'ACCEPTED', to: 'READY', at: '2026-10-05T12:20:00.000Z', actor: { type: 'staff', id: 'm1' } },
+        { from: 'READY', to: 'REFUNDED', at: '2026-10-05T12:30:00.000Z', actor: { type: 'staff', id: 'm1' } },
+      ],
+    };
+    expect(reopenIfNoLongerRefunded(o, nowIso, sys).state).toBe('READY');
+  });
+
+  it('a fully refunded, unended or unexplained order is left alone', () => {
+    const cases: Order[] = [
+      endedFrom('ACCEPTED', 'refunded'),
+      { ...ACCEPTED_CARD_ORDER },
+      { ...endedFrom('ACCEPTED'), history: ACCEPTED_CARD_ORDER.history },
+      {
+        ...endedFrom('ACCEPTED'),
+        history: [...ACCEPTED_CARD_ORDER.history, { from: 'COMPLETED', to: 'REFUNDED', at: '2026-10-05T12:00:00.000Z', actor: sys }],
+      },
+    ];
+    for (const o of cases) expect(reopenIfNoLongerRefunded(o, nowIso, sys)).toBe(o);
   });
 });

@@ -20,6 +20,7 @@ const UNCHANGED = 'unchanged';
  * and reverses refunds Stripe later reports failed or cancelled (emailing the restaurant). Lists Stripe again
  * after each write (up to 3 rounds) so a status change that raced the write is caught.
  * The correction invoice and email come from the every-minute order timer.
+ * A full refund that fails puts the ended order back on the board.
  * Throws when Stripe should retry: order not captured yet, or the write kept losing races
  * (and whatever the Stripe list call throws).
  */
