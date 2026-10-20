@@ -5,7 +5,7 @@ import {
   findSubscriptionByShopId,
   upsertSubscription,
 } from '../../../infrastructure/cosmos/subscription/CosmosSubscriptionRepository';
-import { isStripeCardError } from '../../../infrastructure/stripe/billingEventParsing';
+import { isStripeCardError, subscriptionPeriod } from '../../../infrastructure/stripe/billingEventParsing';
 import { UPGRADE_DECLINED_ERROR, downgradeBlockedStaffError } from '../../../domain/order/orderErrors';
 import { toAuditActor } from '../../_shared/shopAccess';
 import { ApplicationResult } from '../../_shared/types';
@@ -100,8 +100,9 @@ export async function executeCreateSubscriptionCheckout(
 
     // A higher plan, or the same plan on the other interval: charged the difference now, effective at once.
     if (target.sortOrder >= current.sortOrder) {
+      let updated: unknown;
       try {
-        await stripe.subscriptions.update(sub.billingSubscriptionId, {
+        updated = await stripe.subscriptions.update(sub.billingSubscriptionId, {
           items: [{ id: itemId, price: stripePriceId }],
           proration_behavior: 'always_invoice',
           payment_behavior: 'error_if_incomplete',
@@ -110,8 +111,12 @@ export async function executeCreateSubscriptionCheckout(
         if (isStripeCardError(err)) return { ok: false, code: 'CONFLICT', error: UPGRADE_DECLINED_ERROR };
         throw err;
       }
+      // The upgrade may start a new billing period (e.g. monthly to yearly); keep the stored dates in step with Stripe.
+      const newPeriod = subscriptionPeriod(updated);
       await upsertSubscription({
         ...sub,
+        currentPeriodStart: newPeriod.start ?? sub.currentPeriodStart,
+        currentPeriodEnd: newPeriod.end ?? sub.currentPeriodEnd,
         planId: target.id,
         billingInterval,
         planSource: 'billing',
@@ -139,7 +144,7 @@ export async function executeCreateSubscriptionCheckout(
       items: [{ id: itemId, price: stripePriceId }],
       proration_behavior: 'none',
     });
-    const effectiveAt = sub.currentPeriodEnd ?? now.toISOString();
+    const effectiveAt = subscriptionPeriod(stripeSubscription).end ?? sub.currentPeriodEnd ?? now.toISOString();
     await upsertSubscription({
       ...sub,
       scheduledChange: { planId: target.id, billingInterval, effectiveAt },

@@ -24,8 +24,19 @@ export function applyBillingEvent(
   const overrideOn = isOverrideActive(local, ctx.now);
   switch (event.kind) {
     case 'subscription.updated': {
+      // A pending downgrade lands when the paid period ends. If Stripe moved that end (a new yearly period
+      // after an upgrade), the pending change moves with it. Only while it still sits on the old end and hasn't come due.
+      const pendingChange = local.scheduledChange;
+      const periodMoved =
+        pendingChange &&
+        event.periodEnd &&
+        event.periodEnd !== local.currentPeriodEnd &&
+        pendingChange.effectiveAt === local.currentPeriodEnd &&
+        ctx.now.getTime() < Date.parse(pendingChange.effectiveAt);
+      const base: ShopSubscription =
+        periodMoved && pendingChange ? { ...local, scheduledChange: { ...pendingChange, effectiveAt: event.periodEnd as string } } : local;
       let next: ShopSubscription = {
-        ...local,
+        ...base,
         currentPeriodStart: event.periodStart ?? local.currentPeriodStart,
         currentPeriodEnd: event.periodEnd ?? local.currentPeriodEnd,
         cancelAtPeriodEnd: event.cancelAtPeriodEnd,
@@ -37,7 +48,7 @@ export function applyBillingEvent(
         next = { ...next, status: 'past_due', paymentFailedAt: local.paymentFailedAt ?? at };
       }
       if (event.mapped) {
-        const pending = local.scheduledChange;
+        const pending = base.scheduledChange;
         if (overrideOn) {
           next = { ...next, planBeforeOverride: event.mapped.planId };
         } else if (pending && pending.planId === event.mapped.planId && ctx.now.getTime() < Date.parse(pending.effectiveAt)) {

@@ -130,6 +130,29 @@ describe('changing plan', () => {
     expect(upsertSubscription).toHaveBeenCalledWith(expect.objectContaining({ planId: 'plan-max', scheduledChange: null }));
   });
 
+  it('an upgrade stores the new billing period Stripe returns', async () => {
+    (findSubscriptionByShopId as any).mockResolvedValue(paidOn('plan-pro'));
+    stripeMock.subscriptions.update.mockResolvedValueOnce({
+      items: { data: [{ current_period_start: Date.parse('2026-10-20T00:00:00Z') / 1000, current_period_end: Date.parse('2027-10-20T00:00:00Z') / 1000 }] },
+    } as never);
+    await call({ planId: 'plan-max', billingInterval: 'yearly' });
+    expect(upsertSubscription).toHaveBeenCalledWith(
+      expect.objectContaining({ currentPeriodStart: '2026-10-20T00:00:00.000Z', currentPeriodEnd: '2027-10-20T00:00:00.000Z' }),
+    );
+  });
+
+  it('a downgrade uses Stripe\'s period end, not a stale stored one (Ma Pasta)', async () => {
+    (findSubscriptionByShopId as any).mockResolvedValue({ ...paidOn('plan-max'), currentPeriodEnd: '2026-11-20T00:00:00.000Z' });
+    stripeMock.subscriptions.retrieve.mockResolvedValueOnce({
+      items: { data: [{ id: 'si_1', current_period_end: Date.parse('2027-10-20T00:00:00Z') / 1000 }] },
+    } as never);
+    const res = await call({ planId: 'plan-pro', billingInterval: 'yearly' });
+    expect(res).toEqual({ ok: true, data: { kind: 'scheduled', planId: 'plan-pro', effectiveAt: '2027-10-20T00:00:00.000Z' } });
+    expect(upsertSubscription).toHaveBeenCalledWith(
+      expect.objectContaining({ scheduledChange: expect.objectContaining({ effectiveAt: '2027-10-20T00:00:00.000Z' }) }),
+    );
+  });
+
   it('a declined upgrade leaves the plan alone', async () => {
     (findSubscriptionByShopId as any).mockResolvedValue(paidOn('plan-pro'));
     stripeMock.subscriptions.update.mockRejectedValueOnce({ type: 'StripeCardError' } as never);

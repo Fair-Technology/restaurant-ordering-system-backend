@@ -22,6 +22,31 @@ const updated = (over: Partial<Extract<BillingEvent, { kind: 'subscription.updat
 });
 
 describe('applyBillingEvent', () => {
+  const pendingSub = {
+    ...MAX,
+    currentPeriodEnd: '2026-11-20T00:00:00.000Z',
+    scheduledChange: { planId: 'plan-pro', billingInterval: 'yearly' as const, effectiveAt: '2026-11-20T00:00:00.000Z' },
+  };
+  it('a moved period end carries a pending downgrade date with it', () => {
+    const next = applyBillingEvent(pendingSub, updated({ periodEnd: '2027-10-20T00:00:00.000Z' }), ctx);
+    expect(next.currentPeriodEnd).toBe('2027-10-20T00:00:00.000Z');
+    expect(next.scheduledChange?.effectiveAt).toBe('2027-10-20T00:00:00.000Z');
+  });
+  it('an unmoved period end leaves a pending downgrade alone', () => {
+    const next = applyBillingEvent(pendingSub, updated({ periodEnd: '2026-11-20T00:00:00.000Z' }), ctx);
+    expect(next.scheduledChange?.effectiveAt).toBe('2026-11-20T00:00:00.000Z');
+  });
+  it('without a pending downgrade nothing is added', () => {
+    const next = applyBillingEvent({ ...MAX, currentPeriodEnd: '2026-11-20T00:00:00.000Z' }, updated({ periodEnd: '2027-10-20T00:00:00.000Z' }), ctx);
+    expect(next.scheduledChange ?? null).toBeNull();
+  });
+  it('a renewal at the due date does not push the pending downgrade forward', () => {
+    const due = { now: new Date('2026-11-20T00:00:01Z'), defaultPlanId: 'plan-basic' };
+    const next = applyBillingEvent(pendingSub, updated({ periodEnd: '2026-12-20T00:00:00.000Z', mapped: { planId: 'plan-pro', billingInterval: 'yearly' } }), due);
+    expect(next.planId).toBe('plan-pro');
+    expect(next.scheduledChange).toBeNull();
+  });
+
   it('an upgrade event moves the plan', () => {
     const next = applyBillingEvent(PRO, updated({ mapped: { planId: 'plan-max', billingInterval: 'monthly' } }), ctx);
     expect(next.planId).toBe('plan-max');
