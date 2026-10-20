@@ -2,7 +2,7 @@ import { legalOf } from '../../../domain/legal/legalTexts';
 import { menuLanguagesOf } from '../../../domain/menu/menuLanguage';
 import { chargedCents, deliveryFeeCentsOf, Order, REJECT_REASON_CODES, RejectReason } from '../../../domain/order/Order';
 import { deriveDisplayState } from '../../../domain/order/orderLifecycle';
-import { displayPaymentStatus, refundedCents } from '../../../domain/order/payment';
+import { displayPaymentStatus, lastRefundFailed, refundedCents } from '../../../domain/order/payment';
 import type { Shop } from '../../../domain/shop/Shop';
 import { documentsOf } from '../invoices/issueInvoice';
 import type { CustomerOrderDto } from './dtos';
@@ -32,6 +32,7 @@ export function toCustomerOrderDto(order: Order, shop: Shop, now: Date): Custome
     scheduledFor: order.scheduledFor ?? null,
     paymentStatus: displayPaymentStatus(order),
     refundedCents: refundedCents(order),
+    refundFailed: lastRefundFailed(order),
     documents: documentsOf(order),
     readyAt: order.readyAt ?? null,
     items: order.items.map((i) => ({

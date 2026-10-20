@@ -1,5 +1,5 @@
 import type { Order, OrderRefund } from './Order';
-import { endIfFullyRefunded } from './orderLifecycle';
+import { endIfFullyRefunded, reopenIfNoLongerRefunded } from './orderLifecycle';
 import { paymentStatusAfterRefund, paymentStatusOfRefunds } from './payment';
 
 export const STRIPE_DASHBOARD_REFUND_REASON = 'Stripe dashboard';
@@ -96,6 +96,7 @@ export function refundsToReverse(
 
 /**
  * withExternalRefunds, then appends one reversal per refund Stripe now reports failed/canceled.
+ * An order a full refund had ended goes back to the state it ended from when it is no longer fully refunded.
  * Returns `order` itself (same reference) when nothing changes.
  */
 export function withStripeRefundSync(order: Order, stripeRefunds: ReadonlyArray<StripeRefundSummary>, nowIso: string): Order {
@@ -113,10 +114,9 @@ export function withStripeRefundSync(order: Order, stripeRefunds: ReadonlyArray<
     reversesIndex: index,
   }));
   const refunds = [...existing, ...added];
-  return {
-    ...next,
-    refunds,
-    payment: { ...next.payment, status: paymentStatusOfRefunds({ ...next, refunds }) },
-    updatedAt: nowIso,
-  };
+  return reopenIfNoLongerRefunded(
+    { ...next, refunds, payment: { ...next.payment, status: paymentStatusOfRefunds({ ...next, refunds }) }, updatedAt: nowIso },
+    nowIso,
+    { type: 'system' },
+  );
 }

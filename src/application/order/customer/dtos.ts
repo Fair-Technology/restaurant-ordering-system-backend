@@ -29,6 +29,7 @@ export interface CustomerOrderDto {
   scheduledFor: string | null; // the booked time; null = as soon as possible
   paymentStatus: DisplayPaymentStatus;
   refundedCents: number;
+  refundFailed: boolean; // the newest refund entry is a reversal and the money is not fully back
   documents: OrderDocumentDto[];
   readyAt: string | null;
   items: Array<{

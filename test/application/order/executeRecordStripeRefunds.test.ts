@@ -180,6 +180,25 @@ describe('executeRecordStripeRefunds', () => {
       );
     });
 
+    it('a full refund Stripe fails puts the ended order back on the board', async () => {
+      setup({
+        ...paid,
+        state: 'REFUNDED',
+        payment: { ...paid.payment, status: 'refunded' },
+        refunds: [{ id: 'stripe-re_d1', amountCents: 1050, reason: 'Stripe dashboard', at: '2026-10-05T12:00:00.000Z', actor: { type: 'system' }, stripeRefundId: 're_d1' }],
+        history: [...paid.history, { from: 'ACCEPTED', to: 'REFUNDED', at: '2026-10-05T12:01:00.000Z', actor: { type: 'system' } }],
+      });
+      m.listPaymentRefunds.mockResolvedValue([s('re_d1', 1050, { status: 'failed' })]);
+      await expect(executeRecordStripeRefunds(input)).resolves.toBe('recorded');
+      expect(m.store.current.state).toBe('ACCEPTED');
+      expect(m.store.current.history.at(-1)).toEqual({ from: 'REFUNDED', to: 'ACCEPTED', at: '2026-10-05T12:05:00.000Z', actor: { type: 'system' } });
+      expect(m.store.current.payment.status).toBe('paid');
+      expect(m.sendEmail).toHaveBeenCalledTimes(1);
+      expect(m.logAudit).toHaveBeenCalledWith(
+        expect.objectContaining({ changes: [{ field: 'refundedCents', from: 1050, to: 0 }] }),
+      );
+    });
+
     it('the failure delivered again changes nothing', async () => {
       setup(rec);
       m.listPaymentRefunds.mockResolvedValue([s('re_d1', 300, { status: 'failed' })]);

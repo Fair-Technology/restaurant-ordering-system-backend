@@ -35,6 +35,20 @@ export function endIfFullyRefunded(order: Order, nowIso: string, actor: OrderAct
   };
 }
 
+/** Puts a REFUNDED order that is no longer fully refunded back in the state it ended from; otherwise returns `order` itself. */
+export function reopenIfNoLongerRefunded(order: Order, nowIso: string, actor: OrderActor): Order {
+  if (order.state !== 'REFUNDED' || order.payment.status === 'refunded') return order;
+  const ending = [...order.history].reverse().find((h) => h.to === 'REFUNDED');
+  const back = ending?.from;
+  if (!back || !REFUND_ENDS_STATES.includes(back)) return order;
+  return {
+    ...order,
+    state: back,
+    updatedAt: nowIso,
+    history: [...order.history, { from: 'REFUNDED', to: back, at: nowIso, actor }],
+  };
+}
+
 export function deriveDisplayState(
   order: Pick<Order, 'state' | 'readyAt' | 'prepMinutes'>,
   now: Date,

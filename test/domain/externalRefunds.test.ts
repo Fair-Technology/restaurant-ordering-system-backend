@@ -5,6 +5,7 @@ import {
   withStripeRefundSync,
   type StripeRefundSummary,
 } from '../../src/domain/order/externalRefunds';
+import type { Order } from '../../src/domain/order/Order';
 import { ACCEPTED_CARD_ORDER } from '../fixtures/orders';
 
 const AT = '2026-10-05T12:00:00.000Z';
@@ -135,16 +136,50 @@ describe('refund endings and reversals', () => {
     expect(withStripeRefundSync(partial, [s('re_d1', 300)], nowIso)).toBe(partial);
   });
 
-  it('a fully refunded ended order stays ended after a reversal', () => {
-    const ended = {
-      ...ACCEPTED_CARD_ORDER,
-      state: 'REFUNDED' as const,
-      payment: { ...ACCEPTED_CARD_ORDER.payment, status: 'refunded' as const },
-      refunds: [{ ...R, amountCents: 1050 }],
-    };
+  const ended: Order = {
+    ...ACCEPTED_CARD_ORDER,
+    state: 'REFUNDED',
+    payment: { ...ACCEPTED_CARD_ORDER.payment, status: 'refunded' },
+    refunds: [{ ...R, amountCents: 1050 }],
+    history: [...ACCEPTED_CARD_ORDER.history, { from: 'ACCEPTED', to: 'REFUNDED', at: AT, actor: { type: 'system' } }],
+  };
+
+  it('a full refund Stripe fails puts the ended order back where it was', () => {
     const res = withStripeRefundSync(ended, [s('re_d1', 1050, { status: 'failed' })], nowIso);
-    expect(res.state).toBe('REFUNDED');
+    expect(res.state).toBe('ACCEPTED');
     expect(res.payment.status).toBe('paid');
+    expect(res.history.at(-1)).toEqual({ from: 'REFUNDED', to: 'ACCEPTED', at: nowIso, actor: { type: 'system' } });
+    expect(withStripeRefundSync(res, [s('re_d1', 1050, { status: 'failed' })], nowIso)).toBe(res);
+  });
+
+  it('a reversal of one of two refunds reopens it partly refunded', () => {
+    const two: Order = {
+      ...ended,
+      refunds: [
+        { ...R, id: 'stripe-re_a', stripeRefundId: 're_a', amountCents: 500 },
+        { ...R, id: 'stripe-re_b', stripeRefundId: 're_b', amountCents: 550 },
+      ],
+    };
+    const res = withStripeRefundSync(two, [s('re_a', 500), s('re_b', 550, { status: 'failed' })], nowIso);
+    expect(res.state).toBe('ACCEPTED');
+    expect(res.payment.status).toBe('partially_refunded');
+    expect(res.refunds?.[2].reversesIndex).toBe(1);
+  });
+
+  it('an ended order with no failed refund stays ended', () => {
+    expect(withStripeRefundSync(ended, [s('re_d1', 1050)], nowIso)).toBe(ended);
+  });
+
+  it('an order stuck refunded from before this fix is not reopened by a later sync', () => {
+    const stuck: Order = {
+      ...ended,
+      payment: { ...ended.payment, status: 'paid' },
+      refunds: [
+        { ...R, amountCents: 1050 },
+        { id: 'reversal-re_d1', amountCents: -1050, reason: 'stripe_refund_failed', at: AT, actor: { type: 'system' }, stripeRefundId: 're_d1', reversesIndex: 0 },
+      ],
+    };
+    expect(withStripeRefundSync(stuck, [s('re_d1', 1050, { status: 'failed' })], nowIso)).toBe(stuck);
   });
 
   it('a dashboard refund that failed before we saw it is ignored', () => {

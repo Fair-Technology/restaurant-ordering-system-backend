@@ -42,6 +42,11 @@ export function hasRefundReversal(o: Pick<Order, 'refunds'>): boolean {
   return (o.refunds ?? []).some((r) => r.reversesIndex !== undefined);
 }
 
+/** The newest refund entry is a reversal (Stripe failed/cancelled it) and the money is not fully back with the diner. */
+export function lastRefundFailed(o: Pick<Order, 'refunds' | 'payment'>): boolean {
+  return (o.refunds ?? []).at(-1)?.reversesIndex !== undefined && o.payment.status !== 'refunded';
+}
+
 /** `amountCents` is the refund about to be added; `o.refunds` are the earlier ones. */
 export function paymentStatusAfterRefund(
   o: Pick<Order, 'subtotalCents' | 'totalCents' | 'refunds'>,
