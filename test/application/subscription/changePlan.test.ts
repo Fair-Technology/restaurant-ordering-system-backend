@@ -103,6 +103,22 @@ describe('changing plan', () => {
     expect(arg.success_url.endsWith('session_id={CHECKOUT_SESSION_ID}')).toBe(true);
   });
 
+  it('a free restaurant\'s Checkout uses only options Stripe allows in subscription mode', async () => {
+    await call({ planId: 'plan-pro', billingInterval: 'monthly' });
+    const arg = (stripeMock.checkout.sessions.create.mock.calls[0] as any)[0];
+    expect(arg.mode).toBe('subscription');
+    expect(arg).not.toHaveProperty('customer_creation');
+    expect(arg).not.toHaveProperty('customer');
+  });
+
+  it('a restaurant that already has a billing customer reuses it in Checkout', async () => {
+    (findSubscriptionByShopId as any).mockResolvedValue({ ...defaultSubscription('shop-1', 'plan-basic', 'x'), billingCustomerId: 'cus_1' });
+    await call({ planId: 'plan-pro', billingInterval: 'monthly' });
+    const arg = (stripeMock.checkout.sessions.create.mock.calls[0] as any)[0];
+    expect(arg.customer).toBe('cus_1');
+    expect(arg).not.toHaveProperty('customer_creation');
+  });
+
   it('an upgrade is applied at once', async () => {
     (findSubscriptionByShopId as any).mockResolvedValue(paidOn('plan-pro'));
     const res = await call({ planId: 'plan-max', billingInterval: 'monthly' });
