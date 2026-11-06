@@ -1,7 +1,11 @@
-# Docs for the Azure Web Apps Deploy action: https://github.com/azure/functions-action
-# More GitHub Actions for Azure: https://github.com/Azure/actions
+# Builds one artifact per commit, tests it and deploys it to the dev Function App.
+# Production is never built here: promote.yml ships this same artifact.
+#
+#   push to dev -> npm ci, build, test -> artifact -> deploy to restaurant-ordering-system-dev
+#
+# To go live:  git tag v0.1.0 && git push origin v0.1.0
 
-name: Build and deploy Node.js project to Azure Function App - restaurant-ordering-system-dev
+name: Build, test and deploy (dev)
 
 on:
   push:
@@ -10,14 +14,19 @@ on:
   workflow_dispatch:
 
 env:
-  AZURE_FUNCTIONAPP_PACKAGE_PATH: '.' # set this to the path to your web app project, defaults to the repository root
-  NODE_VERSION: '22.x' # set this to the node version to use (supports 8.x, 10.x, 12.x)
+  NODE_VERSION: '22.x'
+  ARTIFACT_NAME: app-${{ github.sha }}
+
+concurrency:
+  group: pipeline-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   build:
+    name: Build and test
     runs-on: ubuntu-latest
     permissions:
-      contents: read #This is required for actions/checkout
+      contents: read
 
     steps:
       - name: 'Checkout GitHub Action'
@@ -38,18 +47,24 @@ jobs:
       - name: Test (vitest)
         run: npm test
 
+      - name: Drop dev dependencies from the package
+        run: npm prune --omit=dev
+
       - name: Zip artifact for deployment
-        run: zip release.zip ./* -r
+        run: zip -r release.zip . -x '.git/*' '.github/*' 'release.zip'
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
-          name: node-app
+          name: ${{ env.ARTIFACT_NAME }}
           path: release.zip
+          retention-days: 90
 
-  deploy:
-    runs-on: ubuntu-latest
+  deploy_dev:
+    name: Deploy to dev
     needs: build
+    runs-on: ubuntu-latest
+    environment: dev
     permissions:
       id-token: write #This is required for requesting the JWT
       contents: read #This is required for actions/checkout
@@ -58,12 +73,17 @@ jobs:
       - name: Download artifact from build job
         uses: actions/download-artifact@v4
         with:
-          name: node-app
+          name: ${{ env.ARTIFACT_NAME }}
 
       - name: Unzip artifact for deployment
         run: |
-          unzip release.zip
+          unzip -o release.zip -d ./app
           rm release.zip
+
+      - name: Sanity check the artifact
+        run: |
+          test -f app/host.json
+          test -f app/dist/index.js
 
       - name: Login to Azure
         uses: azure/login@v2
@@ -78,4 +98,4 @@ jobs:
         with:
           app-name: 'restaurant-ordering-system-dev'
           slot-name: 'Production'
-          package: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
+          package: './app'
