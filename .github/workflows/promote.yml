@@ -1,0 +1,89 @@
+# Promotes an artifact that dev already built and tested. No install, no compile,
+# no test run: production receives the same bytes that ran on dev.
+#
+# Usage:
+#   git tag v0.1.0 && git push origin v0.1.0      # promote whatever dev built at that commit
+#   or Actions -> "Promote artifact to production" -> Run workflow, with a dev run ID
+#
+# The artifact is found by commit SHA, so the tag must point at a commit that has
+# already been built and deployed by the dev workflow.
+
+name: Promote artifact to production
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: 'Dev workflow run ID to promote (blank = newest successful dev run for the selected ref)'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  actions: read # required to read an artifact from another workflow run
+
+jobs:
+  promote:
+    name: Deploy promoted artifact to production
+    runs-on: ubuntu-latest
+    environment: production # required reviewer / approval rule lives here
+
+    steps:
+      - name: Find the dev run that built this commit
+        id: source
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          RUN_ID="${{ inputs.run_id }}"
+          if [ -z "$RUN_ID" ]; then
+            RUN_ID=$(gh run list \
+              --workflow dev_restaurant-ordering-system-dev.yml \
+              --commit "$GITHUB_SHA" \
+              --status success \
+              --limit 1 \
+              --json databaseId \
+              --jq '.[0].databaseId')
+          fi
+          if [ -z "$RUN_ID" ] || [ "$RUN_ID" = "null" ]; then
+            echo "::error::No successful dev run found for $GITHUB_SHA. Deploy this commit to dev first, or pass run_id explicitly."
+            exit 1
+          fi
+          echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
+          echo "Promoting artifact app-$GITHUB_SHA from dev run $RUN_ID"
+
+      - name: Download the dev-built artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: app-${{ github.sha }}
+          run-id: ${{ steps.source.outputs.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Unzip artifact for deployment
+        run: |
+          unzip -o release.zip -d ./app
+          rm release.zip
+
+      - name: Sanity check the artifact
+        run: |
+          test -f app/host.json
+          test -f app/dist/index.js
+
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_BEEC627B99984754AD43CBB5AD3590BA }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_E3B53BD11FE1494D90BAA19A4A68F5EE }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_645AB6FC82AE4C8AB953C683B793C84F }}
+
+      - name: 'Run Azure Functions Action'
+        uses: Azure/functions-action@v1
+        id: fa
+        with:
+          app-name: 'restaurant-ordering-system'
+          slot-name: 'Production'
+          package: './app'
