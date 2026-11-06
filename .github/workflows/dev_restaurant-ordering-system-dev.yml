@@ -64,7 +64,9 @@ jobs:
     name: Deploy to dev
     needs: build
     runs-on: ubuntu-latest
-    environment: dev
+    # No `environment:` here on purpose: an environment-based OIDC subject
+    # (...:environment:dev) does not match this app's federated identity credential,
+    # which is registered for the branch subject (...:ref:refs/heads/dev).
     permissions:
       id-token: write #This is required for requesting the JWT
       contents: read #This is required for actions/checkout
