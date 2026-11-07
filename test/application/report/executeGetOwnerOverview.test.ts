@@ -43,7 +43,7 @@ async function overview() {
 describe('executeGetOwnerOverview', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(authenticate).mockResolvedValue({ kind: 'entra', userId: 'u1' } as never);
+    vi.mocked(authenticate).mockResolvedValue({ kind: 'entra', userId: 'u1', issuer: 'customer', roles: [] } as never);
     vi.mocked(findOwnedShopIds).mockResolvedValue(['shop-1', 'shop-2']);
     vi.mocked(findShopById).mockImplementation(async (id: string) => (id === 'shop-1' ? CARD_SHOP : { ...BISTRO }));
     vi.mocked(findReportRows).mockImplementation(async (id: string) => ({
