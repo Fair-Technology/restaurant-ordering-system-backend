@@ -23,32 +23,32 @@ function makeDeps(isSuperadmin: boolean, findStaff?: ShopAccessDeps['findStaff']
 
 describe('resolveShopAccess', () => {
   it('owner gets everything', async () => {
-    const principal: Principal = { kind: 'entra', userId: 'u-owner' };
+    const principal: Principal = { kind: 'entra', userId: 'u-owner', issuer: 'customer', roles: [] };
     const access = await resolveShopAccess(principal, shop, makeDeps(false));
     expect(access?.actor).toEqual({ actorType: 'owner', actorId: 'u-owner', role: 'owner' });
     expect(access?.permissions).toHaveLength(8);
   });
 
   it('inactive owner is refused', async () => {
-    const principal: Principal = { kind: 'entra', userId: 'u-old' };
+    const principal: Principal = { kind: 'entra', userId: 'u-old', issuer: 'customer', roles: [] };
     const access = await resolveShopAccess(principal, shop, makeDeps(false));
     expect(access).toBeNull();
   });
 
   it('stranger is refused', async () => {
-    const principal: Principal = { kind: 'entra', userId: 'u-stranger' };
+    const principal: Principal = { kind: 'entra', userId: 'u-stranger', issuer: 'customer', roles: [] };
     const access = await resolveShopAccess(principal, shop, makeDeps(false));
     expect(access).toBeNull();
   });
 
   it('superadmin allowed when opted in', async () => {
-    const principal: Principal = { kind: 'entra', userId: 'u-admin' };
+    const principal: Principal = { kind: 'entra', userId: 'u-admin', issuer: 'customer', roles: [] };
     const access = await resolveShopAccess(principal, shop, makeDeps(true), { allowSuperadmin: true });
     expect(access?.actor.actorType).toBe('superadmin');
   });
 
   it('superadmin refused when not opted in', async () => {
-    const principal: Principal = { kind: 'entra', userId: 'u-admin' };
+    const principal: Principal = { kind: 'entra', userId: 'u-admin', issuer: 'customer', roles: [] };
     const access = await resolveShopAccess(principal, shop, makeDeps(true));
     expect(access).toBeNull();
   });
@@ -115,7 +115,7 @@ describe('resolveShopAccess (staff)', () => {
 
   it('a deleted shop is closed to its owner and staff, open only to a superadmin where allowed', async () => {
     const deleted = { ...shop, isDeleted: true } as unknown as Shop;
-    const owner: Principal = { kind: 'entra', userId: 'u-owner' };
+    const owner: Principal = { kind: 'entra', userId: 'u-owner', issuer: 'customer', roles: [] };
     expect(await resolveShopAccess(owner, deleted, makeDeps(false))).toBeNull();
     expect(await resolveShopAccess(owner, deleted, makeDeps(true))).toBeNull();
     const sa = await resolveShopAccess(owner, deleted, makeDeps(true), { allowSuperadmin: true });
