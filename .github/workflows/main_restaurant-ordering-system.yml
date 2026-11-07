@@ -1,7 +1,7 @@
 # Builds one artifact per commit, tests it and deploys it to the dev Function App.
 # Production is never built here: promote.yml ships this same artifact.
 #
-#   push to dev -> npm ci, build, test -> artifact -> deploy to restaurant-ordering-system-dev
+#   push to main -> npm ci, build, test -> artifact -> deploy to restaurant-ordering-system-dev
 #
 # To go live:  git tag v0.1.0 && git push origin v0.1.0
 
@@ -10,10 +10,10 @@ name: Build, test and deploy (dev)
 on:
   push:
     branches:
-      - dev
+      - main
   pull_request:
     branches:
-      - dev
+      - main
   workflow_dispatch:
 
 env:
@@ -69,7 +69,7 @@ jobs:
   deploy_dev:
     name: Deploy to dev
     needs: build
-    if: github.event_name == 'push' # a pull request must never deploy
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     # No `environment:` here on purpose: an environment-based OIDC subject
     # (...:environment:dev) does not match this app's federated identity credential,
