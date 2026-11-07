@@ -1,6 +1,4 @@
 import { HttpRequest } from '@azure/functions';
-import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
-import { findUserById } from '../../../infrastructure/cosmos/user/CosmosUserRepository';
 import {
   getReferenceLists,
   saveReferenceLists,
@@ -11,6 +9,7 @@ import { ApplicationResult } from '../../_shared/types';
 import { ReferenceListsResultDto } from '../dtos';
 import { toReferenceListsDto } from '../toReferenceListsDto';
 import { validateReferenceListsUpdate } from './validateReferenceListsUpdate';
+import { verifySuperAdminToken } from '../../../infrastructure/auth/superAdminAuthHelpers';
 
 const COUNTRY_CODE_PATTERN = /^[A-Za-z]{2}$/;
 
@@ -24,9 +23,8 @@ export async function executeUpdateReferenceLists(
   const cc = input.countryCode.toUpperCase();
 
   try {
-    const userId = await getUserIdFromAuth(httpRequest);
-    const user = await findUserById(userId);
-    if (user?.systemRole !== 'superadmin') {
+    const adminId = await verifySuperAdminToken(httpRequest);
+    if (!adminId) {
       return { ok: false, code: 'FORBIDDEN', error: 'Superadmin access required' };
     }
 
@@ -42,7 +40,7 @@ export async function executeUpdateReferenceLists(
       countryCode: cc,
       ...valid,
       updatedAt: now.toISOString(),
-      updatedBy: userId,
+      updatedBy: adminId,
     };
     await saveReferenceLists(doc);
 
@@ -55,7 +53,7 @@ export async function executeUpdateReferenceLists(
     await logAudit({
       shopId: 'platform',
       actorType: 'superadmin',
-      actorId: userId,
+      actorId: adminId,
       action: 'reference_lists.update',
       entityType: 'reference_lists',
       entityId: doc.id,

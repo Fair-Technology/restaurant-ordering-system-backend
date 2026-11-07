@@ -18,6 +18,9 @@ export type Principal =
     }
   | { kind: 'staff'; staffId: string; shopId: string; role: StaffRole };
 
+/** An identity verified from an Entra token (as opposed to a shop staff token). */
+export type EntraPrincipal = Extract<Principal, { kind: 'entra' }>;
+
 /** App roles defined on the platform API registration (restaurant-ordering-api-workforce). */
 export const PLATFORM_OWNER_ROLE = 'Platform.Owner';
 export const PLATFORM_SUPPORT_ROLE = 'Platform.Support';

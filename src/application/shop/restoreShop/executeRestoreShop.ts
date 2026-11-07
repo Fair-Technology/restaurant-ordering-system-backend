@@ -1,9 +1,8 @@
 import { HttpRequest } from '@azure/functions';
-import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
-import { findUserById } from '../../../infrastructure/cosmos/user/CosmosUserRepository';
 import { findShopById, findShopBySlug, updateShop } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { logAudit } from '../../_shared/auditHelpers';
 import { ApplicationResult } from '../../_shared/types';
+import { verifySuperAdminToken } from '../../../infrastructure/auth/superAdminAuthHelpers';
 
 /** Superadmin only. Brings a deleted shop back; billing is NOT restarted (the shop stays on the free plan). */
 export async function executeRestoreShop(
@@ -15,9 +14,8 @@ export async function executeRestoreShop(
   }
 
   try {
-    const userId = await getUserIdFromAuth(httpRequest);
-    const user = await findUserById(userId);
-    if (user?.systemRole !== 'superadmin') {
+    const adminId = await verifySuperAdminToken(httpRequest);
+    if (!adminId) {
       return { ok: false, code: 'FORBIDDEN', error: 'Superadmin access required' };
     }
 
@@ -36,7 +34,7 @@ export async function executeRestoreShop(
     await logAudit({
       shopId: shop.id,
       actorType: 'superadmin',
-      actorId: userId,
+      actorId: adminId,
       action: 'shop.restore',
       entityType: 'shop',
       entityId: shop.id,

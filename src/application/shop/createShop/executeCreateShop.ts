@@ -4,7 +4,8 @@ import {
   findShopBySlug,
   findOwnedShopIds,
 } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
-import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
+import { getPrincipalFromAuth } from '../../../infrastructure/auth/authHelpers';
+import { isSuperAdminPrincipal } from '../../../infrastructure/auth/superAdminAuthHelpers';
 import { findUserById } from '../../../infrastructure/cosmos/user/CosmosUserRepository';
 import { getSystemConfig } from '../../../infrastructure/cosmos/system/CosmosSystemConfigRepository';
 import { CreateShopRequestDto, CreateShopResultDto } from './dtos';
@@ -180,11 +181,13 @@ export async function executeCreateShop(
   }
 
   try {
-    const userId = await getUserIdFromAuth(httpRequest);
+    const principal = await getPrincipalFromAuth(httpRequest);
+    const userId = principal.userId;
+    const isSuperadmin = await isSuperAdminPrincipal(principal);
 
-    // Enforce per-user shop limit
+    // Enforce per-user shop limit (platform staff are exempt)
     const userProfile = await findUserById(userId);
-    if (userProfile?.systemRole !== 'superadmin') {
+    if (!isSuperadmin) {
       let config = { maxShopsDefault: 3 };
       try {
         config = await getSystemConfig();

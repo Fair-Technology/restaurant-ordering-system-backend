@@ -1,6 +1,4 @@
 import { HttpRequest } from '@azure/functions';
-import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
-import { findUserById } from '../../../infrastructure/cosmos/user/CosmosUserRepository';
 import { findSubscriptionByShopId, upsertSubscription } from '../../../infrastructure/cosmos/subscription/CosmosSubscriptionRepository';
 import { findDefaultPlan } from '../../../infrastructure/cosmos/plan/CosmosPlanRepository';
 import { defaultSubscription } from '../../../domain/subscription/ShopSubscription';
@@ -9,6 +7,7 @@ import { logAudit } from '../../_shared/auditHelpers';
 import { PLAN_LIMIT_KEYS } from '../../_shared/planLimitKeys';
 import { ApplicationResult } from '../../_shared/types';
 import { LimitOverrideResultDto, SetLimitOverrideRequestDto } from './dtos';
+import { verifySuperAdminToken } from '../../../infrastructure/auth/superAdminAuthHelpers';
 
 const LIMIT_KEYS: string[] = Object.values(PLAN_LIMIT_KEYS);
 
@@ -39,9 +38,8 @@ export async function executeSetLimitOverride(
   }
 
   try {
-    const userId = await getUserIdFromAuth(httpRequest);
-    const user = await findUserById(userId);
-    if (user?.systemRole !== 'superadmin') {
+    const adminId = await verifySuperAdminToken(httpRequest);
+    if (!adminId) {
       return { ok: false, code: 'FORBIDDEN', error: 'Superadmin access required' };
     }
 
@@ -59,14 +57,14 @@ export async function executeSetLimitOverride(
 
     const result = await upsertSubscription({
       ...current,
-      limitOverride: { limits, reason: request.reason.trim(), expiresAt: request.expiresAt ?? null, setBy: userId, setAt: nowIso },
+      limitOverride: { limits, reason: request.reason.trim(), expiresAt: request.expiresAt ?? null, setBy: adminId, setAt: nowIso },
       updatedAt: nowIso,
     });
 
     await logAudit({
       shopId,
       actorType: 'superadmin',
-      actorId: userId,
+      actorId: adminId,
       action: 'subscription.limit_override',
       entityType: 'subscription',
       entityId: shopId,

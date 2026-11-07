@@ -1,10 +1,9 @@
 import { HttpRequest } from '@azure/functions';
 import { MAX_MISSED_ORDERS_PAUSE_LIMIT, missedOrdersPauseLimitOf } from '../../../domain/shop/ordersPause';
-import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
 import { findShopById, patchShopFields } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
-import { findUserById } from '../../../infrastructure/cosmos/user/CosmosUserRepository';
 import { logAudit } from '../../_shared/auditHelpers';
 import { ApplicationResult } from '../../_shared/types';
+import { verifySuperAdminToken } from '../../../infrastructure/auth/superAdminAuthHelpers';
 
 /**
  * Superadmin only. Sets how many unanswered orders in a row pause a shop automatically (0 = off, 1-10).
@@ -25,9 +24,8 @@ export async function executeSetMissedOrdersPauseLimit(
 
   const now = options.now ?? new Date();
   try {
-    const userId = await getUserIdFromAuth(httpRequest);
-    const user = await findUserById(userId);
-    if (user?.systemRole !== 'superadmin') {
+    const adminId = await verifySuperAdminToken(httpRequest);
+    if (!adminId) {
       return { ok: false, code: 'FORBIDDEN', error: 'Superadmin access required' };
     }
 
@@ -39,7 +37,7 @@ export async function executeSetMissedOrdersPauseLimit(
     await logAudit({
       shopId: shop.id,
       actorType: 'superadmin',
-      actorId: userId,
+      actorId: adminId,
       action: 'shop.missed_orders_pause_limit',
       entityType: 'shop',
       entityId: shop.id,

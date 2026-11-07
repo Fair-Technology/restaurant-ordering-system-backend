@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('../../../src/infrastructure/auth/authHelpers', () => ({ getUserIdFromAuth: vi.fn(async () => 'u1') }));
-vi.mock('../../../src/infrastructure/cosmos/user/CosmosUserRepository', () => ({ findUserById: vi.fn() }));
+vi.mock('../../../src/infrastructure/auth/superAdminAuthHelpers', () => ({ verifySuperAdminToken: vi.fn(async () => 'u1') }));
 vi.mock('../../../src/infrastructure/cosmos/shop/CosmosShopRepository', () => ({
   findShopById: vi.fn(),
   patchShopFields: vi.fn(async () => undefined),
@@ -11,14 +10,14 @@ vi.mock('../../../src/application/_shared/auditHelpers', () => ({ logAudit: vi.f
 import { logAudit } from '../../../src/application/_shared/auditHelpers';
 import { executeSetMissedOrdersPauseLimit } from '../../../src/application/shop/setMissedOrdersPauseLimit/executeSetMissedOrdersPauseLimit';
 import { findShopById, patchShopFields } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
-import { findUserById } from '../../../src/infrastructure/cosmos/user/CosmosUserRepository';
+import { verifySuperAdminToken } from '../../../src/infrastructure/auth/superAdminAuthHelpers';
 
 const now = new Date('2026-10-17T12:00:00Z');
 
 describe('executeSetMissedOrdersPauseLimit', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (findUserById as any).mockResolvedValue({ systemRole: 'superadmin' });
+    (verifySuperAdminToken as any).mockResolvedValue('u1');
     (findShopById as any).mockResolvedValue({ id: 'shop-1', name: 'Pizzeria' });
   });
 
@@ -44,7 +43,7 @@ describe('executeSetMissedOrdersPauseLimit', () => {
   });
 
   it('refuses a non-superadmin', async () => {
-    (findUserById as any).mockResolvedValue({ systemRole: 'user' });
+    (verifySuperAdminToken as any).mockResolvedValueOnce(null);
     const r = await executeSetMissedOrdersPauseLimit({ shopId: 'shop-1', limit: 2 }, {} as any, { now });
     expect(r).toMatchObject({ ok: false, code: 'FORBIDDEN' });
     expect(patchShopFields).not.toHaveBeenCalled();

@@ -1,10 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { HttpRequest } from '@azure/functions';
 
-vi.mock('../../../src/infrastructure/auth/authHelpers', () => ({ getUserIdFromAuth: vi.fn(async () => 'sa-1') }));
-vi.mock('../../../src/infrastructure/cosmos/user/CosmosUserRepository', () => ({
-  findUserById: vi.fn(async () => ({ systemRole: 'superadmin' })),
-}));
+vi.mock('../../../src/infrastructure/auth/superAdminAuthHelpers', () => ({ verifySuperAdminToken: vi.fn(async () => 'sa-1') }));
 vi.mock('../../../src/infrastructure/cosmos/subscription/CosmosSubscriptionRepository', () => ({
   findSubscriptionByShopId: vi.fn(),
   upsertSubscription: vi.fn(async (s: unknown) => s),
@@ -15,7 +12,6 @@ vi.mock('../../../src/infrastructure/cosmos/plan/CosmosPlanRepository', () => ({
 }));
 vi.mock('../../../src/application/_shared/auditHelpers', () => ({ logAudit: vi.fn(async () => undefined) }));
 
-import { findUserById } from '../../../src/infrastructure/cosmos/user/CosmosUserRepository';
 import {
   findSubscriptionByShopId,
   upsertSubscription,
@@ -24,6 +20,7 @@ import { logAudit } from '../../../src/application/_shared/auditHelpers';
 import { executeSetLimitOverride } from '../../../src/application/subscription/limitOverride/executeSetLimitOverride';
 import { executeClearLimitOverride } from '../../../src/application/subscription/limitOverride/executeClearLimitOverride';
 import { defaultSubscription } from '../../../src/domain/subscription/ShopSubscription';
+import { verifySuperAdminToken } from '../../../src/infrastructure/auth/superAdminAuthHelpers';
 
 const http = {} as HttpRequest;
 const ok = { limits: [{ key: 'ORDERS_PER_MONTH', value: 100 }], reason: 'Opening week' };
@@ -35,7 +32,7 @@ describe('limit override', () => {
   });
 
   it('only a superadmin may override limits', async () => {
-    (findUserById as any).mockResolvedValueOnce({ systemRole: 'user' });
+    (verifySuperAdminToken as any).mockResolvedValueOnce(null);
     const res = await executeSetLimitOverride('shop-1', ok, http);
     expect(res).toMatchObject({ ok: false, code: 'FORBIDDEN' });
   });

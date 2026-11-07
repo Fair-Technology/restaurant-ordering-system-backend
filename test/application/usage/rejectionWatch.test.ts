@@ -1,21 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { HttpRequest } from '@azure/functions';
 
-vi.mock('../../../src/infrastructure/auth/authHelpers', () => ({ getUserIdFromAuth: vi.fn(async () => 'sa-1') }));
-vi.mock('../../../src/infrastructure/cosmos/user/CosmosUserRepository', () => ({
-  findUserById: vi.fn(async () => ({ systemRole: 'superadmin' })),
-}));
+vi.mock('../../../src/infrastructure/auth/superAdminAuthHelpers', () => ({ verifySuperAdminToken: vi.fn(async () => 'sa-1') }));
 vi.mock('../../../src/infrastructure/cosmos/shop/CosmosShopRepository', () => ({ findAllShops: vi.fn() }));
 vi.mock('../../../src/infrastructure/cosmos/order/CosmosOrderRepository', () => ({ findOrdersForRejectionStats: vi.fn() }));
 vi.mock('../../../src/application/usage/orderLimitStatus', () => ({
   loadOrderLimitStatus: vi.fn(async () => ({ periodKey: '2026-10', acceptedOrderCount: 0, limit: 30, warningLevel: 0, limitReached: false })),
 }));
 
-import { findUserById } from '../../../src/infrastructure/cosmos/user/CosmosUserRepository';
 import { findAllShops } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
 import { findOrdersForRejectionStats } from '../../../src/infrastructure/cosmos/order/CosmosOrderRepository';
 import { executeGetRejectionWatch } from '../../../src/application/usage/rejectionWatch/executeGetRejectionWatch';
 import { CARD_SHOP } from '../../fixtures/orders';
+import { verifySuperAdminToken } from '../../../src/infrastructure/auth/superAdminAuthHelpers';
 
 const http = {} as HttpRequest;
 const recent = new Date(Date.now() - 86_400_000).toISOString();
@@ -49,7 +46,7 @@ describe('executeGetRejectionWatch', () => {
   });
 
   it('only a superadmin may see it', async () => {
-    (findUserById as any).mockResolvedValueOnce({ systemRole: 'user' });
+    (verifySuperAdminToken as any).mockResolvedValueOnce(null);
     expect(await executeGetRejectionWatch(http)).toMatchObject({ ok: false, code: 'FORBIDDEN' });
   });
 });

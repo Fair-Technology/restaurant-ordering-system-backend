@@ -1,11 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('../../../src/infrastructure/auth/authHelpers', () => ({
-  getUserIdFromAuth: vi.fn(async () => 'u1'),
-}));
-vi.mock('../../../src/infrastructure/cosmos/user/CosmosUserRepository', () => ({
-  findUserById: vi.fn(),
-}));
+vi.mock('../../../src/infrastructure/auth/superAdminAuthHelpers', () => ({ verifySuperAdminToken: vi.fn(async () => 'u1') }));
 vi.mock('../../../src/infrastructure/cosmos/reference/CosmosReferenceListsRepository', () => ({
   getReferenceLists: vi.fn(),
   saveReferenceLists: vi.fn(),
@@ -15,7 +10,6 @@ vi.mock('../../../src/application/_shared/auditHelpers', () => ({
   diffFields: vi.fn(() => []),
 }));
 
-import { findUserById } from '../../../src/infrastructure/cosmos/user/CosmosUserRepository';
 import {
   getReferenceLists,
   saveReferenceLists,
@@ -23,6 +17,7 @@ import {
 import { logAudit } from '../../../src/application/_shared/auditHelpers';
 import { executeUpdateReferenceLists } from '../../../src/application/reference/updateReferenceLists/executeUpdateReferenceLists';
 import { DE_REFERENCE_LISTS } from '../../../src/domain/reference/ReferenceLists';
+import { verifySuperAdminToken } from '../../../src/infrastructure/auth/superAdminAuthHelpers';
 
 function nextFromDe() {
   return structuredClone({
@@ -42,7 +37,7 @@ describe('executeUpdateReferenceLists', () => {
   });
 
   it('refuses a non-superadmin', async () => {
-    (findUserById as any).mockResolvedValue({ id: 'u1', systemRole: 'user' });
+    (verifySuperAdminToken as any).mockResolvedValueOnce(null);
 
     const result = await executeUpdateReferenceLists({ countryCode: 'DE', body: {} }, {} as any);
 
@@ -51,7 +46,7 @@ describe('executeUpdateReferenceLists', () => {
   });
 
   it('lets a superadmin save and audits the change', async () => {
-    (findUserById as any).mockResolvedValue({ id: 'u1', systemRole: 'superadmin' });
+    (verifySuperAdminToken as any).mockResolvedValue('u1');
 
     const result = await executeUpdateReferenceLists(
       { countryCode: 'de', body: nextFromDe() },

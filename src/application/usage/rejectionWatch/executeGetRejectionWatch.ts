@@ -1,18 +1,16 @@
 import { HttpRequest } from '@azure/functions';
-import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
-import { findUserById } from '../../../infrastructure/cosmos/user/CosmosUserRepository';
 import { findAllShops } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { findOrdersForRejectionStats } from '../../../infrastructure/cosmos/order/CosmosOrderRepository';
 import { REJECTION_WINDOW_DAYS, rejectionStats } from '../../../domain/usage/rejectionStats';
 import { ApplicationResult } from '../../_shared/types';
 import { loadOrderLimitStatus } from '../orderLimitStatus';
 import { RejectionWatchDto, RejectionWatchRowDto } from './dtos';
+import { verifySuperAdminToken } from '../../../infrastructure/auth/superAdminAuthHelpers';
 
 export async function executeGetRejectionWatch(httpRequest: HttpRequest): Promise<ApplicationResult<RejectionWatchDto>> {
   try {
-    const userId = await getUserIdFromAuth(httpRequest);
-    const user = await findUserById(userId);
-    if (user?.systemRole !== 'superadmin') {
+    const adminId = await verifySuperAdminToken(httpRequest);
+    if (!adminId) {
       return { ok: false, code: 'FORBIDDEN', error: 'Superadmin access required' };
     }
 

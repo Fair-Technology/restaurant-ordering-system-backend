@@ -1,6 +1,4 @@
 import { HttpRequest } from '@azure/functions';
-import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
-import { findUserById } from '../../../infrastructure/cosmos/user/CosmosUserRepository';
 import { findSubscriptionByShopId, upsertSubscription } from '../../../infrastructure/cosmos/subscription/CosmosSubscriptionRepository';
 import { findPlanById, findDefaultPlan } from '../../../infrastructure/cosmos/plan/CosmosPlanRepository';
 import { logAudit } from '../../_shared/auditHelpers';
@@ -8,6 +6,7 @@ import { ApplicationResult } from '../../_shared/types';
 import { OverrideShopSubscriptionRequestDto, OverrideShopSubscriptionResultDto } from './dtos';
 import { ShopSubscription, defaultSubscription } from '../../../domain/subscription/ShopSubscription';
 import { FALLBACK_DEFAULT_PLAN_ID } from '../../../domain/subscription/entitlements';
+import { verifySuperAdminToken } from '../../../infrastructure/auth/superAdminAuthHelpers';
 
 export async function executeOverrideShopSubscription(
   shopId: string,
@@ -27,9 +26,8 @@ export async function executeOverrideShopSubscription(
   }
 
   try {
-    const userId = await getUserIdFromAuth(httpRequest);
-    const user = await findUserById(userId);
-    if (user?.systemRole !== 'superadmin') {
+    const adminId = await verifySuperAdminToken(httpRequest);
+    if (!adminId) {
       return { ok: false, code: 'FORBIDDEN', error: 'Superadmin access required' };
     }
 
@@ -52,7 +50,7 @@ export async function executeOverrideShopSubscription(
       status: plan.isDefault ? 'free' : 'active',
       planSource: 'superadmin_override',
       planBeforeOverride: current.planSource === 'superadmin_override' ? (current.planBeforeOverride ?? null) : current.planId,
-      overriddenBy: userId,
+      overriddenBy: adminId,
       overrideReason: request.overrideReason.trim(),
       overrideExpiresAt: request.overrideExpiresAt ?? null,
       updatedAt: now,
@@ -63,7 +61,7 @@ export async function executeOverrideShopSubscription(
     await logAudit({
       shopId,
       actorType: 'superadmin',
-      actorId: userId,
+      actorId: adminId,
       action: 'subscription.override',
       entityType: 'subscription',
       entityId: shopId,

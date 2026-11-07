@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('../../../src/infrastructure/auth/authHelpers', () => ({
-  getUserIdFromAuth: vi.fn(async () => 'u1'),
+  getPrincipalFromAuth: vi.fn(async () => ({ kind: 'entra', userId: 'u1', issuer: 'customer', roles: [] })),
 }));
-vi.mock('../../../src/infrastructure/cosmos/user/CosmosUserRepository', () => ({
-  findUserById: vi.fn(),
+vi.mock('../../../src/infrastructure/auth/superAdminAuthHelpers', () => ({
+  isSuperAdminPrincipal: vi.fn(async () => false),
 }));
 vi.mock('../../../src/infrastructure/cosmos/plan/CosmosPlanRepository', () => ({
   findPlanById: vi.fn(),
@@ -13,8 +13,8 @@ vi.mock('../../../src/infrastructure/cosmos/plan/CosmosPlanPricingRepository', (
   findPricingByPlan: vi.fn(),
 }));
 
-import { getUserIdFromAuth } from '../../../src/infrastructure/auth/authHelpers';
-import { findUserById } from '../../../src/infrastructure/cosmos/user/CosmosUserRepository';
+import { getPrincipalFromAuth } from '../../../src/infrastructure/auth/authHelpers';
+import { isSuperAdminPrincipal } from '../../../src/infrastructure/auth/superAdminAuthHelpers';
 import { findPlanById } from '../../../src/infrastructure/cosmos/plan/CosmosPlanRepository';
 import { findPricingByPlan } from '../../../src/infrastructure/cosmos/plan/CosmosPlanPricingRepository';
 import { executeGetPlanPricing } from '../../../src/application/plan/getPlanPricing/executeGetPlanPricing';
@@ -24,14 +24,15 @@ const ROWS = [
   { id: 'b', planId: 'p', currency: 'USD', isActive: false, billingPriceIdMonthly: 'price_m2', billingPriceIdYearly: 'price_y2' },
 ];
 
+// The gate now decides from the verified identity, so these tests drive it directly.
 const asUser = (systemRole: string) =>
-  vi.mocked(findUserById).mockResolvedValue({ id: 'u1', systemRole } as any);
+  vi.mocked(isSuperAdminPrincipal).mockResolvedValue(systemRole === 'superadmin');
 const withPlan = (isVisible: boolean) =>
   vi.mocked(findPlanById).mockResolvedValue({ id: 'p', isVisible } as any);
 
 describe('executeGetPlanPricing', () => {
   beforeEach(() => {
-    vi.mocked(getUserIdFromAuth).mockResolvedValue('u1');
+    vi.mocked(getPrincipalFromAuth).mockResolvedValue({ kind: 'entra', userId: 'u1', issuer: 'customer', roles: [] } as any);
     vi.mocked(findPricingByPlan).mockResolvedValue(ROWS as any);
   });
 
@@ -70,7 +71,7 @@ describe('executeGetPlanPricing', () => {
   });
 
   it('unauthenticated gets FORBIDDEN', async () => {
-    vi.mocked(getUserIdFromAuth).mockRejectedValue(new Error('Authentication required'));
+    vi.mocked(getPrincipalFromAuth).mockRejectedValue(new Error('Authentication required'));
     const r = await executeGetPlanPricing('p', {} as any);
     expect(r).toMatchObject({ ok: false, code: 'FORBIDDEN' });
   });

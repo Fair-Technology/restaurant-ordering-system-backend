@@ -1,19 +1,17 @@
 import { HttpRequest } from '@azure/functions';
-import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
-import { findUserById } from '../../../infrastructure/cosmos/user/CosmosUserRepository';
 import { findPlanById } from '../../../infrastructure/cosmos/plan/CosmosPlanRepository';
 import { findPricingByPlan } from '../../../infrastructure/cosmos/plan/CosmosPlanPricingRepository';
 import { ApplicationResult } from '../../_shared/types';
 import { GetPlanResultDto } from './dtos';
+import { verifySuperAdminToken } from '../../../infrastructure/auth/superAdminAuthHelpers';
 
 export async function executeGetPlan(
   planId: string,
   httpRequest: HttpRequest,
 ): Promise<ApplicationResult<GetPlanResultDto>> {
   try {
-    const userId = await getUserIdFromAuth(httpRequest);
-    const user = await findUserById(userId);
-    if (user?.systemRole !== 'superadmin') {
+    const adminId = await verifySuperAdminToken(httpRequest);
+    if (!adminId) {
       return { ok: false, code: 'FORBIDDEN', error: 'Superadmin access required' };
     }
 

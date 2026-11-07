@@ -1,6 +1,4 @@
 import { HttpRequest } from '@azure/functions';
-import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
-import { findUserById } from '../../../infrastructure/cosmos/user/CosmosUserRepository';
 import { findUsageByShopId, upsertUsage } from '../../../infrastructure/cosmos/usage/CosmosUsageRepository';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { countOrdersInUsagePeriod } from '../../../infrastructure/cosmos/order/CosmosOrderRepository';
@@ -9,6 +7,7 @@ import { ReconcileShopUsageResultDto } from './dtos';
 import { ShopUsage } from '../../../domain/usage/ShopUsage';
 import { periodKeyFor } from '../../../domain/usage/usagePeriod';
 import { toShopUsageDto } from '../shopUsageDto';
+import { verifySuperAdminToken } from '../../../infrastructure/auth/superAdminAuthHelpers';
 
 export async function executeReconcileShopUsage(
   shopId: string,
@@ -19,9 +18,8 @@ export async function executeReconcileShopUsage(
   }
 
   try {
-    const userId = await getUserIdFromAuth(httpRequest);
-    const user = await findUserById(userId);
-    if (user?.systemRole !== 'superadmin') {
+    const adminId = await verifySuperAdminToken(httpRequest);
+    if (!adminId) {
       return { ok: false, code: 'FORBIDDEN', error: 'Superadmin access required' };
     }
 

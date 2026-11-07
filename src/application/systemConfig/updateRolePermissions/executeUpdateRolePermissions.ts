@@ -1,6 +1,4 @@
 import { HttpRequest } from '@azure/functions';
-import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
-import { findUserById } from '../../../infrastructure/cosmos/user/CosmosUserRepository';
 import {
   getRolePermissions,
   saveRolePermissions,
@@ -10,6 +8,7 @@ import { RolePermissionsDoc } from '../../../domain/system/RolePermissions';
 import { diffFields, logAudit } from '../../_shared/auditHelpers';
 import { ApplicationResult } from '../../_shared/types';
 import { UpdateRolePermissionsRequestDto, RolePermissionsResultDto } from './dtos';
+import { verifySuperAdminToken } from '../../../infrastructure/auth/superAdminAuthHelpers';
 
 function validatePermissionList(value: unknown, field: string): ShopPermission[] | string {
   if (!Array.isArray(value)) {
@@ -37,9 +36,8 @@ export async function executeUpdateRolePermissions(
   }
 
   try {
-    const userId = await getUserIdFromAuth(httpRequest);
-    const user = await findUserById(userId);
-    if (user?.systemRole !== 'superadmin') {
+    const adminId = await verifySuperAdminToken(httpRequest);
+    if (!adminId) {
       return { ok: false, code: 'FORBIDDEN', error: 'Superadmin access required' };
     }
 
@@ -50,7 +48,7 @@ export async function executeUpdateRolePermissions(
       manager,
       staff,
       updatedAt: now,
-      updatedBy: userId,
+      updatedBy: adminId,
     };
 
     const saved = await saveRolePermissions(next);
@@ -64,7 +62,7 @@ export async function executeUpdateRolePermissions(
     await logAudit({
       shopId: 'platform',
       actorType: 'superadmin',
-      actorId: userId,
+      actorId: adminId,
       action: 'role_permissions.update',
       entityType: 'role_permissions',
       entityId: 'role_permissions',
