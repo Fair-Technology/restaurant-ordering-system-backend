@@ -1,4 +1,4 @@
-import { jwtVerify, createRemoteJWKSet } from 'jose';
+import { jwtVerify, createRemoteJWKSet, decodeJwt } from 'jose';
 
 export type IssuerKind = 'customer' | 'platform';
 
@@ -106,6 +106,25 @@ export async function verifyEntraToken(token: string): Promise<VerifiedEntraToke
     }
   }
 
-  console.error('[auth] no trusted issuer accepted the token:', lastError?.code, lastError?.message);
+  // Say what the token actually claimed. An issuer/audience mismatch is the usual
+  // cause - a v1.0 access token carries https://sts.windows.net/<tenant>/ as its
+  // issuer and an api:// audience, where a v2.0 token carries
+  // https://login.microsoftonline.com/<tenant>/v2.0 and a bare client id - and
+  // printing the claims turns that from guesswork into a one-line diagnosis.
+  let received: string;
+  try {
+    const claims = decodeJwt(token);
+    received = `iss=${claims['iss']} aud=${claims['aud']} ver=${claims['ver']}`;
+  } catch {
+    received = '(token not decodable)';
+  }
+
+  console.error(
+    '[auth] no trusted issuer accepted the token:',
+    `expected ${candidates.map((c) => `${c.issuer} with audience ${c.audience}`).join(' | ')};`,
+    `received ${received};`,
+    lastError?.code,
+    lastError?.message,
+  );
   throw new Error('Authentication required');
 }
