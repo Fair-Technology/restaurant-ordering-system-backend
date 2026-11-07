@@ -54,6 +54,43 @@ VITE_MSAL_API_SCOPE  = api://<API app id>/access_as_user
 > rather than failing loudly. Skipping this once shipped a bundle that paired the new
 > client ID with the old tenant, which cannot sign in at all.
 
+## The API app must issue v2.0 tokens
+
+`api.requestedAccessTokenVersion` on the API app registration must be **2**. App
+registrations created with `az ad app create` leave it `null`, which means the API is
+handed **v1.0** access tokens: issuer `https://sts.windows.net/<tenant>/` and audience
+`api://<app id>`. This API trusts the v2.0 form (`https://login.microsoftonline.com/<tenant>/v2.0`,
+audience = bare app id) and rejects v1.0 ones — deliberately, because accepting both forms
+means trusting every future tenant's `sts.windows.net` URL as well.
+
+Check and fix:
+
+```bash
+az rest --method GET --url "https://graph.microsoft.com/v1.0/applications/<object id>?\$select=api" \
+  --query api.requestedAccessTokenVersion -o tsv      # must print 2
+
+az rest --method PATCH --url "https://graph.microsoft.com/v1.0/applications/<object id>" \
+  --headers "Content-Type=application/json" --body '{"api":{"requestedAccessTokenVersion":2}}'
+```
+
+Changing it does not invalidate an existing session: the signer keeps sending the token it
+already has until it expires. Sign out and back in to pick up the new one.
+
+**Diagnosing a rejected token.** The API logs one line when it turns a token down, and it
+names the actual cause:
+
+```
+[auth] no trusted issuer accepted the token: expected <issuer> with audience <id>; received iss=… aud=… ver=…; <jose error>
+```
+
+Read it from Application Insights:
+
+```bash
+az rest --method POST --url "https://management.azure.com/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.Insights/components/<app>/api/query?api-version=2020-02-02" \
+  --headers "Content-Type=application/json" \
+  --body '{"query":"traces | where message contains \"[auth]\" | order by timestamp desc | take 10"}'
+```
+
 ## Granting and revoking console access
 
 Authorisation is an app role assignment in Entra, not a row in our database, so
