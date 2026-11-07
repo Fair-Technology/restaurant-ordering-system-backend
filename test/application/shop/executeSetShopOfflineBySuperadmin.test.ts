@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('../../../src/infrastructure/auth/authHelpers', () => ({ getUserIdFromAuth: vi.fn(async () => 'u1') }));
-vi.mock('../../../src/infrastructure/cosmos/user/CosmosUserRepository', () => ({ findUserById: vi.fn() }));
+vi.mock('../../../src/infrastructure/auth/superAdminAuthHelpers', () => ({ verifySuperAdminToken: vi.fn(async () => 'u1') }));
 vi.mock('../../../src/infrastructure/cosmos/shop/CosmosShopRepository', () => ({
   findShopById: vi.fn(),
   updateShop: vi.fn(async (s: any) => s),
@@ -15,7 +14,6 @@ vi.mock('../../../src/infrastructure/stripe/stripeClient', () => ({
   releaseAuthorization: vi.fn(async () => 'canceled'), createRefund: vi.fn(), listPaymentRefunds: vi.fn(async () => []), findLiveRefund: vi.fn(async () => null) }));
 vi.mock('../../../src/infrastructure/email/emailSender', () => ({ sendEmail: vi.fn(async () => undefined), emailTransportName: () => 'log' }));
 
-import { findUserById } from '../../../src/infrastructure/cosmos/user/CosmosUserRepository';
 import { findShopById, updateShop } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
 import { logAudit } from '../../../src/application/_shared/auditHelpers';
 import { executeSetShopOfflineBySuperadmin } from '../../../src/application/shop/setShopOfflineBySuperadmin/executeSetShopOfflineBySuperadmin';
@@ -24,11 +22,12 @@ import { releaseAuthorization } from '../../../src/infrastructure/stripe/stripeC
 import { sendEmail } from '../../../src/infrastructure/email/emailSender';
 import { CARD_SHOP, orderStore, PLACED_CARD_ORDER, SCHEDULED_ORDER } from '../../fixtures/orders';
 import { mapResultToHttp } from '../../../src/functions/_shared/mapResultToHttp';
+import { verifySuperAdminToken } from '../../../src/infrastructure/auth/superAdminAuthHelpers';
 
 describe('executeSetShopOfflineBySuperadmin', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (findUserById as any).mockResolvedValue({ systemRole: 'superadmin' });
+    (verifySuperAdminToken as any).mockResolvedValue('u1');
     (findOrdersByShopIdAndStates as any).mockResolvedValue([]);
     (findShopById as any).mockResolvedValue({ id: 'shop-1', name: 'Pizzeria', isPaused: false });
   });
@@ -56,7 +55,7 @@ describe('executeSetShopOfflineBySuperadmin', () => {
   });
 
   it('refuses anyone who is not superadmin', async () => {
-    (findUserById as any).mockResolvedValue({ systemRole: 'user' });
+    (verifySuperAdminToken as any).mockResolvedValueOnce(null);
     const r = await executeSetShopOfflineBySuperadmin({ shopId: 'shop-1', offline: true }, {} as any);
     expect(r).toMatchObject({ ok: false, code: 'FORBIDDEN' });
     expect(updateShop).not.toHaveBeenCalled();

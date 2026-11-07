@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('../../../src/infrastructure/auth/authHelpers', () => ({ getUserIdFromAuth: vi.fn(async () => 'u1') }));
-vi.mock('../../../src/infrastructure/cosmos/user/CosmosUserRepository', () => ({ findUserById: vi.fn() }));
+vi.mock('../../../src/infrastructure/auth/superAdminAuthHelpers', () => ({ verifySuperAdminToken: vi.fn(async () => 'u1') }));
 vi.mock('../../../src/infrastructure/cosmos/shop/CosmosShopRepository', () => ({
   findShopById: vi.fn(),
   findShopBySlug: vi.fn(async () => null),
@@ -9,15 +8,15 @@ vi.mock('../../../src/infrastructure/cosmos/shop/CosmosShopRepository', () => ({
 }));
 vi.mock('../../../src/application/_shared/auditHelpers', () => ({ logAudit: vi.fn() }));
 
-import { findUserById } from '../../../src/infrastructure/cosmos/user/CosmosUserRepository';
 import { findShopById, findShopBySlug, updateShop } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
 import { logAudit } from '../../../src/application/_shared/auditHelpers';
 import { executeRestoreShop } from '../../../src/application/shop/restoreShop/executeRestoreShop';
+import { verifySuperAdminToken } from '../../../src/infrastructure/auth/superAdminAuthHelpers';
 
 describe('executeRestoreShop', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (findUserById as any).mockResolvedValue({ systemRole: 'superadmin' });
+    (verifySuperAdminToken as any).mockResolvedValue('u1');
     (findShopById as any).mockResolvedValue({
       id: 'shop-1', name: 'Pizzeria', isDeleted: true, deletedAt: '2026-10-11T00:00:00Z', deletedBy: 'owner-1',
     });
@@ -34,7 +33,7 @@ describe('executeRestoreShop', () => {
   });
 
   it('anyone else gets 403', async () => {
-    (findUserById as any).mockResolvedValue({ systemRole: 'user' });
+    (verifySuperAdminToken as any).mockResolvedValueOnce(null);
     const r = await executeRestoreShop({ shopId: 'shop-1' }, {} as any);
     expect(r).toMatchObject({ ok: false, code: 'FORBIDDEN' });
     expect(updateShop).not.toHaveBeenCalled();

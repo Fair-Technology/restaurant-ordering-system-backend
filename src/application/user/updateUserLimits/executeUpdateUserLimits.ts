@@ -1,11 +1,8 @@
 import { HttpRequest } from '@azure/functions';
-import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
-import {
-  findUserById,
-  patchUserLimits,
-} from '../../../infrastructure/cosmos/user/CosmosUserRepository';
+import { patchUserLimits } from '../../../infrastructure/cosmos/user/CosmosUserRepository';
 import { ApplicationResult } from '../../_shared/types';
 import { UpdateUserLimitsRequestDto, UpdateUserLimitsResultDto } from './dtos';
+import { verifySuperAdminToken } from '../../../infrastructure/auth/superAdminAuthHelpers';
 
 export async function executeUpdateUserLimits(
   targetUserId: string,
@@ -27,9 +24,8 @@ export async function executeUpdateUserLimits(
   }
 
   try {
-    const actorId = await getUserIdFromAuth(httpRequest);
-    const actor = await findUserById(actorId);
-    if (actor?.systemRole !== 'superadmin') {
+    const adminId = await verifySuperAdminToken(httpRequest);
+    if (!adminId) {
       return { ok: false, code: 'FORBIDDEN', error: 'Superadmin access required' };
     }
 

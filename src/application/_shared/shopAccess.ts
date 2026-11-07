@@ -3,7 +3,7 @@ import { ALL_SHOP_PERMISSIONS, Shop, ShopPermission } from '../../domain/shop/Sh
 import { RolePermissionsDoc, permissionsForRole } from '../../domain/system/RolePermissions';
 import { StaffAccount, StaffRole } from '../../domain/staff/StaffAccount';
 import { Principal, authenticate } from '../../infrastructure/auth/principal';
-import { findUserById } from '../../infrastructure/cosmos/user/CosmosUserRepository';
+import { isSuperAdminPrincipal } from '../../infrastructure/auth/superAdminAuthHelpers';
 import { getRolePermissions } from '../../infrastructure/cosmos/system/CosmosRolePermissionsRepository';
 import { findStaffAccountById } from '../../infrastructure/cosmos/staff/CosmosStaffAccountRepository';
 import { AuditEntry } from '../../domain/audit/AuditEntry';
@@ -20,13 +20,13 @@ export interface ShopAccess {
 }
 
 export interface ShopAccessDeps {
-  isSuperadmin(userId: string): Promise<boolean>;
+  isSuperadmin(principal: Principal): Promise<boolean>;
   rolePermissions(): Promise<Pick<RolePermissionsDoc, 'manager' | 'staff'>>;
   findStaff(shopId: string, staffId: string): Promise<StaffAccount | null>;
 }
 
 export const realDeps: ShopAccessDeps = {
-  isSuperadmin: async (userId) => (await findUserById(userId))?.systemRole === 'superadmin',
+  isSuperadmin: isSuperAdminPrincipal,
   rolePermissions: getRolePermissions,
   findStaff: findStaffAccountById,
 };
@@ -39,7 +39,7 @@ export async function resolveShopAccess(
 ): Promise<ShopAccess | null> {
   // A deleted shop is closed to everyone except a superadmin on an endpoint that allows one.
   if (shop.isDeleted) {
-    if (principal.kind === 'entra' && options.allowSuperadmin && (await deps.isSuperadmin(principal.userId))) {
+    if (principal.kind === 'entra' && options.allowSuperadmin && (await deps.isSuperadmin(principal))) {
       return {
         actor: { actorType: 'superadmin', actorId: principal.userId, role: null },
         permissions: [...ALL_SHOP_PERMISSIONS],
@@ -57,7 +57,7 @@ export async function resolveShopAccess(
         permissions: [...ALL_SHOP_PERMISSIONS],
       };
     }
-    if (options.allowSuperadmin && (await deps.isSuperadmin(principal.userId))) {
+    if (options.allowSuperadmin && (await deps.isSuperadmin(principal))) {
       return {
         actor: { actorType: 'superadmin', actorId: principal.userId, role: null },
         permissions: [...ALL_SHOP_PERMISSIONS],

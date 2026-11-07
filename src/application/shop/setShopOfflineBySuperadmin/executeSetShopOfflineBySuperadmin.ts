@@ -1,10 +1,9 @@
 import { HttpRequest } from '@azure/functions';
-import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
-import { findUserById } from '../../../infrastructure/cosmos/user/CosmosUserRepository';
 import { findShopById, updateShop } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { declineWaitingOrdersForShop } from '../../order/_shared/declineWaitingOrders';
 import { logAudit } from '../../_shared/auditHelpers';
 import { ApplicationResult } from '../../_shared/types';
+import { verifySuperAdminToken } from '../../../infrastructure/auth/superAdminAuthHelpers';
 
 const REASON_MAX_LENGTH = 500;
 
@@ -33,9 +32,8 @@ export async function executeSetShopOfflineBySuperadmin(
 
   const now = options.now ?? new Date();
   try {
-    const userId = await getUserIdFromAuth(httpRequest);
-    const user = await findUserById(userId);
-    if (user?.systemRole !== 'superadmin') {
+    const adminId = await verifySuperAdminToken(httpRequest);
+    if (!adminId) {
       return { ok: false, code: 'FORBIDDEN', error: 'Superadmin access required' };
     }
 
@@ -54,7 +52,7 @@ export async function executeSetShopOfflineBySuperadmin(
     await logAudit({
       shopId: shop.id,
       actorType: 'superadmin',
-      actorId: userId,
+      actorId: adminId,
       action: 'shop.offline_by_superadmin',
       entityType: 'shop',
       entityId: shop.id,

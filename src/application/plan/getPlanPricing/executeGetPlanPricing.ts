@@ -1,6 +1,6 @@
 import { HttpRequest } from '@azure/functions';
-import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
-import { findUserById } from '../../../infrastructure/cosmos/user/CosmosUserRepository';
+import { getPrincipalFromAuth } from '../../../infrastructure/auth/authHelpers';
+import { isSuperAdminPrincipal } from '../../../infrastructure/auth/superAdminAuthHelpers';
 import { findPlanById } from '../../../infrastructure/cosmos/plan/CosmosPlanRepository';
 import { findPricingByPlan } from '../../../infrastructure/cosmos/plan/CosmosPlanPricingRepository';
 import { ApplicationResult } from '../../_shared/types';
@@ -13,14 +13,14 @@ export async function executeGetPlanPricing(
   httpRequest: HttpRequest,
 ): Promise<ApplicationResult<GetPlanPricingResultDto>> {
   try {
-    const userId = await getUserIdFromAuth(httpRequest);
+    // Still mandatory: an anonymous caller must not reach the visible-plan path below.
+    const principal = await getPrincipalFromAuth(httpRequest);
 
     if (!planId || typeof planId !== 'string') {
       return { ok: false, code: 'INVALID_INPUT', error: 'planId is required' };
     }
 
-    const user = await findUserById(userId);
-    const isSuperadmin = user?.systemRole === 'superadmin';
+    const isSuperadmin = await isSuperAdminPrincipal(principal);
 
     const plan = await findPlanById(planId);
     if (!plan || (!isSuperadmin && plan.isVisible !== true)) {

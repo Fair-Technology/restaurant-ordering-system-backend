@@ -1,5 +1,5 @@
 import { HttpRequest } from '@azure/functions';
-import { authenticate, isPlatformAdmin } from './principal';
+import { authenticate, isPlatformAdmin, Principal } from './principal';
 import { findUserById } from '../cosmos/user/CosmosUserRepository';
 
 /**
@@ -20,20 +20,24 @@ import { findUserById } from '../cosmos/user/CosmosUserRepository';
 export async function verifySuperAdminToken(request: HttpRequest): Promise<string | null> {
   try {
     const principal = await authenticate(request);
-
-    if (principal.kind === 'entra' && isPlatformAdmin(principal)) {
-      return principal.userId;
-    }
-
-    if (principal.kind === 'entra' && principal.issuer === 'customer') {
-      const profile = await findUserById(principal.userId);
-      if (profile?.systemRole === 'superadmin') {
-        return principal.userId;
-      }
-    }
-
-    return null;
+    if (principal.kind !== 'entra') return null;
+    return (await isSuperAdminPrincipal(principal)) ? principal.userId : null;
   } catch {
     return null;
   }
+}
+
+/**
+ * The same decision, for callers that have already verified the identity and
+ * need the answer as a boolean rather than as an actor id - typically endpoints
+ * that are open to everyone but behave differently for platform staff.
+ */
+export async function isSuperAdminPrincipal(principal: Principal): Promise<boolean> {
+  if (principal.kind !== 'entra') return false;
+  if (isPlatformAdmin(principal)) return true;
+  // Platform identities never fall back to the legacy flag; customer identities still may.
+  if (principal.issuer === 'customer') {
+    return (await findUserById(principal.userId))?.systemRole === 'superadmin';
+  }
+  return false;
 }

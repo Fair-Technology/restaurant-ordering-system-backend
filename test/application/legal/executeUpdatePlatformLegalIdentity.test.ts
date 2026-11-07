@@ -1,11 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('../../../src/infrastructure/auth/authHelpers', () => ({
-  getUserIdFromAuth: vi.fn(async () => 'u1'),
-}));
-vi.mock('../../../src/infrastructure/cosmos/user/CosmosUserRepository', () => ({
-  findUserById: vi.fn(),
-}));
+vi.mock('../../../src/infrastructure/auth/superAdminAuthHelpers', () => ({ verifySuperAdminToken: vi.fn(async () => 'u1') }));
 vi.mock('../../../src/infrastructure/cosmos/system/CosmosPlatformLegalIdentityRepository', () => ({
   getPlatformLegalIdentity: vi.fn(),
   savePlatformLegalIdentity: vi.fn(),
@@ -15,7 +10,6 @@ vi.mock('../../../src/application/_shared/auditHelpers', () => ({
   diffFields: vi.fn(() => []),
 }));
 
-import { findUserById } from '../../../src/infrastructure/cosmos/user/CosmosUserRepository';
 import {
   getPlatformLegalIdentity,
   savePlatformLegalIdentity,
@@ -24,17 +18,18 @@ import { logAudit } from '../../../src/application/_shared/auditHelpers';
 import { DEFAULT_PLATFORM_LEGAL_IDENTITY } from '../../../src/domain/legal/PlatformLegalIdentity';
 import { executeUpdatePlatformLegalIdentity } from '../../../src/application/legal/updatePlatformLegalIdentity/executeUpdatePlatformLegalIdentity';
 import { COMPLETE_IDENTITY } from '../../fixtures/legal';
+import { verifySuperAdminToken } from '../../../src/infrastructure/auth/superAdminAuthHelpers';
 
 describe('executeUpdatePlatformLegalIdentity', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (findUserById as any).mockResolvedValue({ systemRole: 'superadmin' });
+    (verifySuperAdminToken as any).mockResolvedValue('u1');
     (getPlatformLegalIdentity as any).mockImplementation(async () => structuredClone(DEFAULT_PLATFORM_LEGAL_IDENTITY));
     (savePlatformLegalIdentity as any).mockImplementation(async (d: any) => d);
   });
 
   it('non-superadmin is refused', async () => {
-    (findUserById as any).mockResolvedValue({ systemRole: 'owner' });
+    (verifySuperAdminToken as any).mockResolvedValueOnce(null);
     const r = await executeUpdatePlatformLegalIdentity({ body: {} }, {} as any);
     expect(r).toEqual({ ok: false, code: 'FORBIDDEN', error: 'Superadmin access required' });
     expect(savePlatformLegalIdentity).not.toHaveBeenCalled();

@@ -1,11 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('../../../src/infrastructure/auth/authHelpers', () => ({
-  getUserIdFromAuth: vi.fn(async () => 'u1'),
-}));
-vi.mock('../../../src/infrastructure/cosmos/user/CosmosUserRepository', () => ({
-  findUserById: vi.fn(async () => ({ id: 'u1', systemRole: 'superadmin' })),
-}));
+vi.mock('../../../src/infrastructure/auth/superAdminAuthHelpers', () => ({ verifySuperAdminToken: vi.fn(async () => 'u1') }));
 vi.mock('../../../src/infrastructure/cosmos/plan/CosmosPlanRepository', () => ({
   findAllPlans: vi.fn(),
   createPlan: vi.fn(async (p: any) => p),
@@ -14,6 +9,7 @@ vi.mock('../../../src/infrastructure/cosmos/plan/CosmosPlanRepository', () => ({
 import { findAllPlans, createPlan } from '../../../src/infrastructure/cosmos/plan/CosmosPlanRepository';
 import { executeCreatePlan } from '../../../src/application/plan/createPlan/executeCreatePlan';
 import { mapResultToHttp } from '../../../src/functions/_shared/mapResultToHttp';
+import { verifySuperAdminToken } from '../../../src/infrastructure/auth/superAdminAuthHelpers';
 
 const EXISTING = [
   { id: 'plan-basic', internalKey: 'free', isDefault: true },

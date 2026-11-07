@@ -6,7 +6,10 @@ vi.mock('../../../src/infrastructure/cosmos/shop/CosmosShopRepository', () => ({
   findOwnedShopIds: vi.fn(async () => []),
 }));
 vi.mock('../../../src/infrastructure/auth/authHelpers', () => ({
-  getUserIdFromAuth: vi.fn(async () => 'user-1'),
+  getPrincipalFromAuth: vi.fn(async () => ({ kind: 'entra', userId: 'user-1', issuer: 'customer', roles: [] })),
+}));
+vi.mock('../../../src/infrastructure/auth/superAdminAuthHelpers', () => ({
+  isSuperAdminPrincipal: vi.fn(async () => false),
 }));
 vi.mock('../../../src/infrastructure/cosmos/user/CosmosUserRepository', () => ({
   findUserById: vi.fn(async () => ({ systemRole: 'owner', maxShops: null })),

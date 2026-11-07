@@ -1,18 +1,16 @@
 import { HttpRequest } from '@azure/functions';
-import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
-import { findUserById } from '../../../infrastructure/cosmos/user/CosmosUserRepository';
 import { getRolePermissions } from '../../../infrastructure/cosmos/system/CosmosRolePermissionsRepository';
 import { ALL_SHOP_PERMISSIONS } from '../../../domain/shop/Shop';
 import { ApplicationResult } from '../../_shared/types';
 import { RolePermissionsResultDto } from './dtos';
+import { verifySuperAdminToken } from '../../../infrastructure/auth/superAdminAuthHelpers';
 
 export async function executeGetRolePermissions(
   httpRequest: HttpRequest,
 ): Promise<ApplicationResult<RolePermissionsResultDto>> {
   try {
-    const userId = await getUserIdFromAuth(httpRequest);
-    const user = await findUserById(userId);
-    if (user?.systemRole !== 'superadmin') {
+    const adminId = await verifySuperAdminToken(httpRequest);
+    if (!adminId) {
       return { ok: false, code: 'FORBIDDEN', error: 'Superadmin access required' };
     }
 

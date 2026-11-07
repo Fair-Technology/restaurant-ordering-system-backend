@@ -1,6 +1,4 @@
 import { HttpRequest } from '@azure/functions';
-import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
-import { findUserById } from '../../../infrastructure/cosmos/user/CosmosUserRepository';
 import {
   getPlatformLegalIdentity,
   savePlatformLegalIdentity,
@@ -10,15 +8,15 @@ import { diffFields, logAudit } from '../../_shared/auditHelpers';
 import { ApplicationResult } from '../../_shared/types';
 import { PlatformLegalIdentityDto } from '../dtos';
 import { toPlatformLegalIdentityDto } from '../toPlatformLegalIdentityDto';
+import { verifySuperAdminToken } from '../../../infrastructure/auth/superAdminAuthHelpers';
 
 export async function executeUpdatePlatformLegalIdentity(
   input: { body: unknown; now?: Date },
   httpRequest: HttpRequest,
 ): Promise<ApplicationResult<PlatformLegalIdentityDto>> {
   try {
-    const userId = await getUserIdFromAuth(httpRequest);
-    const user = await findUserById(userId);
-    if (user?.systemRole !== 'superadmin') {
+    const adminId = await verifySuperAdminToken(httpRequest);
+    if (!adminId) {
       return { ok: false, code: 'FORBIDDEN', error: 'Superadmin access required' };
     }
 
@@ -33,14 +31,14 @@ export async function executeUpdatePlatformLegalIdentity(
       id: 'platform_legal_identity',
       ...valid,
       updatedAt: now.toISOString(),
-      updatedBy: userId,
+      updatedBy: adminId,
     };
     await savePlatformLegalIdentity(doc);
 
     await logAudit({
       shopId: 'platform',
       actorType: 'superadmin',
-      actorId: userId,
+      actorId: adminId,
       action: 'platform_legal_identity.update',
       entityType: 'platform_legal_identity',
       entityId: doc.id,

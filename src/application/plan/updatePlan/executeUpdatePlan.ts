@@ -1,10 +1,9 @@
 import { HttpRequest } from '@azure/functions';
-import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
-import { findUserById } from '../../../infrastructure/cosmos/user/CosmosUserRepository';
 import { findPlanById, updatePlan } from '../../../infrastructure/cosmos/plan/CosmosPlanRepository';
 import { ApplicationResult } from '../../_shared/types';
 import { UpdatePlanRequestDto, UpdatePlanResultDto } from './dtos';
 import { PLAN_LIMIT_KEYS } from '../../_shared/planLimitKeys';
+import { verifySuperAdminToken } from '../../../infrastructure/auth/superAdminAuthHelpers';
 
 const VALID_LIMIT_KEYS = new Set(Object.values(PLAN_LIMIT_KEYS));
 
@@ -39,9 +38,8 @@ export async function executeUpdatePlan(
   }
 
   try {
-    const userId = await getUserIdFromAuth(httpRequest);
-    const user = await findUserById(userId);
-    if (user?.systemRole !== 'superadmin') {
+    const adminId = await verifySuperAdminToken(httpRequest);
+    if (!adminId) {
       return { ok: false, code: 'FORBIDDEN', error: 'Superadmin access required' };
     }
 

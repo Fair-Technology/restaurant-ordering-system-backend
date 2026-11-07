@@ -1,11 +1,10 @@
 import { HttpRequest } from '@azure/functions';
-import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
-import { findUserById } from '../../../infrastructure/cosmos/user/CosmosUserRepository';
 import { findPlanById } from '../../../infrastructure/cosmos/plan/CosmosPlanRepository';
 import { findPricingByPlanAndCurrency, upsertPricing } from '../../../infrastructure/cosmos/plan/CosmosPlanPricingRepository';
 import { ApplicationResult } from '../../_shared/types';
 import { SetPlanPricingRequestDto, SetPlanPricingResultDto } from './dtos';
 import { PlanPricing } from '../../../domain/plan/PlanPricing';
+import { verifySuperAdminToken } from '../../../infrastructure/auth/superAdminAuthHelpers';
 
 const ISO4217_REGEX = /^[A-Z]{3}$/;
 
@@ -31,9 +30,8 @@ export async function executeSetPlanPricing(
   }
 
   try {
-    const userId = await getUserIdFromAuth(httpRequest);
-    const user = await findUserById(userId);
-    if (user?.systemRole !== 'superadmin') {
+    const adminId = await verifySuperAdminToken(httpRequest);
+    if (!adminId) {
       return { ok: false, code: 'FORBIDDEN', error: 'Superadmin access required' };
     }
 
