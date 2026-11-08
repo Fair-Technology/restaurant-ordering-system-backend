@@ -1,10 +1,10 @@
 export const swaggerSpec = {
   openapi: '3.0.0',
   info: {
-    title: 'Online Ordering System API',
+    title: 'Restaurant Ordering System API',
     version: '1.0.0',
     description:
-      'REST API for managing shops and products in an online ordering system',
+      'REST API for managing shops and products in the Restaurant Ordering System',
   },
   servers: [
     {

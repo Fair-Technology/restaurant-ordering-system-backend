@@ -1,7 +1,7 @@
 {
   "name": "restaurant-ordering-system-backend",
   "version": "1.0.0",
-  "description": "Azure Function App for Online Ordering System",
+  "description": "Azure Function App for the Restaurant Ordering System",
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc -p tsconfig.json",

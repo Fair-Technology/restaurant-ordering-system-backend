@@ -10,7 +10,7 @@ app.http('swaggerUi', {
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Online Ordering System API</title>
+  <title>Restaurant Ordering System API</title>
   <link rel="stylesheet" type="text/css" href="https://unpkg.com/swagger-ui-dist@5.9.0/swagger-ui.css" />
   <style>
     html {
