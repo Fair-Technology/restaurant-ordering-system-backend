@@ -8,11 +8,14 @@ describe('assertSeedTargetIsDev', () => {
     ).not.toThrow();
   });
 
-  it('refuses the old Australian database', () => {
+  it('refuses a database that is not the dev one', () => {
+    // Any non-dev host, deliberately a placeholder: the guard compares hostnames
+    // as strings and resolves nothing, so the fixture does not need to name a
+    // real database.
     expect(() =>
-      assertSeedTargetIsDev('https://online-ordering-system-db-dev.documents.azure.com:443/'),
+      assertSeedTargetIsDev('https://xyz.documents.azure.com:443/'),
     ).toThrow(
-      'Refusing to seed: online-ordering-system-db-dev.documents.azure.com is not the restaurant-ordering dev database',
+      'Refusing to seed: xyz.documents.azure.com is not the restaurant-ordering dev database',
     );
   });
 
