@@ -135,9 +135,17 @@ the dashboard comes in through `refund.failed` / `refund.updated`
 reversal, and the timer issues a correction invoice reversing the earlier one. Its signing secret is
 `STRIPE_CONNECT_WEBHOOK_SECRET`. Locally:
 
+```sh
+# --all-snapshot is required on CLI 1.55.8: a forward target without an event
+# selection exits with "must specify events to forward".
+stripe listen --forward-connect-to localhost:7071/api/webhooks/stripe-connect --all-snapshot
 ```
-stripe listen --forward-connect-to localhost:7071/api/webhooks/stripe-connect
-```
+
+The CLI prints its signing secret on startup ("Your webhook signing secret is
+whsec_…"). It must equal `STRIPE_CONNECT_WEBHOOK_SECRET` (and, for the
+subscription endpoint, `STRIPE_WEBHOOK_SECRET`) in `local.settings.json`, or every
+webhook is rejected with a signature error. The CLI's secret is stable across
+restarts.
 
 ## Two things to know
 
