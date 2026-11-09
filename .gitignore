@@ -146,3 +146,6 @@ __pycache__/
 __blobstorage__
 __queuestorage__
 __azurite_db*__.json
+
+# Claude Code local overrides (personal; never commit)
+.claude/settings.local.json
