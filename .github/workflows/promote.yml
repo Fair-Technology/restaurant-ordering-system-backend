@@ -7,6 +7,22 @@
 #
 # The artifact is found by commit SHA, so the tag must point at a commit that has
 # already been built and deployed by the dev workflow.
+#
+# Precondition — NOT yet met. Production is deliberately parked (see docs/platform-identity.md,
+# "Deployment identity"):
+#   * a production Function App must exist, and
+#   * the deployment identity must carry a federated credential for the OIDC subject
+#     `repo:Fair-Technology/restaurant-ordering-system-backend:environment:production`.
+#     This job sets `environment: production` (for its approval gate), which yields an
+#     *environment* subject. The identity's credentials today are branch-scoped
+#     (`ref:refs/heads/{dev,main}`), so they do not match it — the dev workflow omits
+#     `environment:` for exactly this reason.
+# Until both are true this workflow stops at "Login to Azure" with AADSTS700213. That is
+# expected, not a misconfiguration.
+#
+# NOTE: the login below used to reference AZUREAPPSERVICE_{CLIENTID,TENANTID,SUBSCRIPTIONID}_<GUID>.
+# Those secrets never existed, and the GUIDs name a client (`beec627b-…`) and tenant
+# (`e3b53bd1-…`) that are not in this account, so the step could never have authenticated.
 
 name: Promote artifact to production
 
@@ -76,9 +92,9 @@ jobs:
       - name: Login to Azure
         uses: azure/login@v2
         with:
-          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_BEEC627B99984754AD43CBB5AD3590BA }}
-          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_E3B53BD11FE1494D90BAA19A4A68F5EE }}
-          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_645AB6FC82AE4C8AB953C683B793C84F }}
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: 'Run Azure Functions Action'
         uses: Azure/functions-action@v1
