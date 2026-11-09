@@ -3,10 +3,8 @@ import { swaggerSpec } from '../../src/swagger/swaggerSpec';
 
 describe('swagger checkout delivery', () => {
   it('checkout request documents the delivery address', () => {
-    expect((swaggerSpec.components.schemas as any).CheckoutRequest.properties.deliveryAddress.required).toEqual([
-      'street',
-      'postcode',
-      'city',
-    ]);
+    const schemas = swaggerSpec.components.schemas;
+    const ref = schemas.CheckoutRequestDto.properties.deliveryAddress.$ref.split('/').pop();
+    expect(schemas[ref].required).toEqual(['street', 'postcode', 'city']);
   });
 });

@@ -2,15 +2,18 @@ import { describe, it, expect } from 'vitest';
 import { swaggerSpec } from '../../src/swagger/swaggerSpec';
 
 describe('option allergens in swagger', () => {
-  it('options document their allergens and additives', () => {
-    const schemas = (swaggerSpec as any).components.schemas;
-    for (const name of ['VariantOption', 'AddonOption']) {
-      const s = schemas[name];
-      expect(s.properties.allergenIds.items.type).toBe('string');
-      expect(s.properties.additiveIds.items.type).toBe('string');
-      expect(s.properties.allergens.items.$ref).toBe('#/components/schemas/CatalogLabel');
-      expect(s.properties.additives.items.required).toEqual(['id', 'code', 'label']);
-      expect(s.required).toEqual(['id', 'name', 'priceDelta', 'isAvailable']);
-    }
+  it('options document the allergen and additive ids they carry', () => {
+    const option = swaggerSpec.components.schemas.ProductOption;
+    expect(option.properties.allergenIds.items.type).toBe('string');
+    expect(option.properties.additiveIds.items.type).toBe('string');
+    expect(option.required).toEqual(['id', 'name', 'priceDelta', 'isAvailable']);
+  });
+
+  it('the catalog view resolves those ids to labels', () => {
+    const schemas = swaggerSpec.components.schemas;
+    const catalog = schemas.CatalogOptionDto;
+    expect(catalog.properties.allergens.items.$ref).toBe('#/components/schemas/CatalogLabelDto');
+    expect(catalog.properties.additives.items.$ref).toBe('#/components/schemas/CatalogAdditiveDto');
+    expect(schemas.CatalogAdditiveDto.required).toEqual(['id', 'code', 'label']);
   });
 });

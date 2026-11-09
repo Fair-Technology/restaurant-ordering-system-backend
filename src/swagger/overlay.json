@@ -1,0 +1,476 @@
+{
+  "info": {
+    "title": "Restaurant Ordering System API",
+    "version": "1.0.0",
+    "description": "REST API for managing shops and products in the Restaurant Ordering System"
+  },
+  "servers": [
+    {
+      "url": "/api",
+      "description": "API base"
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "securitySchemes": {
+    "bearerAuth": {
+      "type": "http",
+      "scheme": "bearer",
+      "bearerFormat": "JWT",
+      "description": "JWT Bearer token authentication"
+    }
+  },
+  "responses": {
+    "BadRequest": {
+      "description": "Bad request",
+      "content": {
+        "application/json": {
+          "schema": {
+            "$ref": "#/components/schemas/ErrorResponse"
+          }
+        }
+      }
+    },
+    "NotFound": {
+      "description": "Resource not found",
+      "content": {
+        "application/json": {
+          "schema": {
+            "$ref": "#/components/schemas/ErrorResponse"
+          }
+        }
+      }
+    },
+    "Forbidden": {
+      "description": "Forbidden - Authentication required or insufficient permissions",
+      "content": {
+        "application/json": {
+          "schema": {
+            "$ref": "#/components/schemas/ErrorResponse"
+          }
+        }
+      }
+    },
+    "InternalError": {
+      "description": "Internal server error",
+      "content": {
+        "application/json": {
+          "schema": {
+            "$ref": "#/components/schemas/ErrorResponse"
+          }
+        }
+      }
+    }
+  },
+  "operations": {
+    "GET /shops": {
+      "operationId": "getShops",
+      "summary": "Get all shops (superadmin only; deleted included)",
+      "tags": [
+        "Shops"
+      ],
+      "responseDescription": "List of all shops retrieved successfully"
+    },
+    "POST /shops": {
+      "operationId": "createShop",
+      "summary": "Create a new shop",
+      "tags": [
+        "Shops"
+      ],
+      "responseDescription": "Shop created successfully"
+    },
+    "GET /shops/slug/{slug}": {
+      "operationId": "getShopBySlug",
+      "summary": "Get shop by slug",
+      "tags": [
+        "Shops"
+      ],
+      "responseDescription": "Shop retrieved successfully"
+    },
+    "GET /shops/me": {
+      "operationId": "getMyShops",
+      "summary": "Get the authenticated user's shops",
+      "tags": [
+        "Shops"
+      ],
+      "responseDescription": "Shops where the user is an active owner member"
+    },
+    "GET /shops/public": {
+      "operationId": "listPublicShops",
+      "summary": "List the shops shown on the diner home page (not deleted, not offline; public fields only)",
+      "tags": [
+        "Shops"
+      ],
+      "responseDescription": "Listed shops, sorted by name"
+    },
+    "GET /shops/{shopId}": {
+      "operationId": "getShopById",
+      "summary": "Get shop by ID",
+      "tags": [
+        "Shops"
+      ],
+      "responseDescription": "Shop retrieved successfully"
+    },
+    "PATCH /shops/{shopId}": {
+      "operationId": "updateShop",
+      "summary": "Update shop",
+      "tags": [
+        "Shops"
+      ],
+      "responseDescription": "Shop updated successfully"
+    },
+    "DELETE /shops/{shopId}": {
+      "operationId": "deleteShop",
+      "summary": "Delete shop (soft delete)",
+      "description": "Owner (or superadmin) only. Hides the shop but keeps its orders and invoices. Refused with 409 code OPEN_ORDERS while any order is placed, accepted, ready or out for delivery (booked orders included). Cancels the subscription immediately; if that fails nothing is deleted. Deleted shops answer 404.",
+      "tags": [
+        "Shops"
+      ],
+      "responseDescription": "Shop deleted successfully"
+    },
+    "POST /shops/{shopId}/restore": {
+      "operationId": "restoreShop",
+      "summary": "Restore a deleted shop (superadmin only)",
+      "description": "Clears the delete. Does not restart the subscription.",
+      "tags": [
+        "Shops"
+      ],
+      "responseDescription": "Shop restored"
+    },
+    "PUT /shops/{shopId}/missed-orders-pause": {
+      "operationId": "setMissedOrdersPauseLimit",
+      "summary": "Set how many unanswered orders in a row pause the shop automatically (superadmin only)",
+      "description": "Orders the timer declines because nobody answered them count in a row; when the count reaches this limit the shop is paused until the owner switches it back and the owner is emailed. 0 switches it off; a shop with no value uses 3.",
+      "tags": [
+        "Shops"
+      ],
+      "responseDescription": "Updated"
+    },
+    "POST /shops/{shopId}/superadmin-offline": {
+      "operationId": "setShopOfflineBySuperadmin",
+      "summary": "Take a shop offline as the platform, or lift it (superadmin only)",
+      "description": "While set, the owner cannot switch the shop online (409 SHOP_OFFLINE_BY_SUPERADMIN on updateShop) and the storefront shows no menu. The owner isPaused flag is untouched.",
+      "tags": [
+        "Shops"
+      ],
+      "responseDescription": "Updated"
+    },
+    "GET /shops/{shopId}/categories": {
+      "operationId": "getCategoriesByShop",
+      "summary": "Get categories by shop",
+      "tags": [
+        "Categories"
+      ],
+      "responseDescription": "Categories retrieved successfully"
+    },
+    "POST /shops/{shopId}/categories": {
+      "operationId": "createCategory",
+      "summary": "Create a new category",
+      "tags": [
+        "Categories"
+      ],
+      "responseDescription": "Category created successfully"
+    },
+    "GET /shops/{shopId}/categories/{categoryId}": {
+      "operationId": "getCategoryById",
+      "summary": "Get category by ID",
+      "tags": [
+        "Categories"
+      ],
+      "responseDescription": "Category retrieved successfully"
+    },
+    "PATCH /shops/{shopId}/categories/{categoryId}": {
+      "operationId": "updateCategory",
+      "summary": "Update category",
+      "tags": [
+        "Categories"
+      ],
+      "responseDescription": "Category updated successfully"
+    },
+    "DELETE /shops/{shopId}/categories/{categoryId}": {
+      "operationId": "deleteCategory",
+      "summary": "Delete category (soft delete)",
+      "tags": [
+        "Categories"
+      ],
+      "responseDescription": "Category deleted successfully"
+    },
+    "POST /shops/{shopId}/categories/{categoryId}/apply-tax-class": {
+      "operationId": "applyCategoryTaxClass",
+      "summary": "Set every dish in the category to the category's tax class",
+      "description": "Bulk fix for a section whose dishes were taxed wrongly. Combos are skipped (taxed per dish inside). Dishes already on the class are left alone.",
+      "tags": [
+        "Categories"
+      ],
+      "responseDescription": "Applied"
+    },
+    "GET /products": {
+      "operationId": "getProductsByShop",
+      "summary": "Get products by shop",
+      "tags": [
+        "Products"
+      ],
+      "parameters": [
+        {
+          "name": "shopId",
+          "in": "query",
+          "required": true,
+          "schema": {
+            "type": "string"
+          },
+          "description": "Shop ID to filter products"
+        }
+      ],
+      "responseDescription": "Products retrieved successfully"
+    },
+    "POST /products": {
+      "operationId": "createProduct",
+      "summary": "Create a new product",
+      "tags": [
+        "Products"
+      ],
+      "responseDescription": "Product created successfully"
+    },
+    "GET /products/{productId}": {
+      "operationId": "getProductById",
+      "summary": "Get product by ID",
+      "tags": [
+        "Products"
+      ],
+      "parameters": [
+        {
+          "name": "shopId",
+          "in": "query",
+          "required": true,
+          "schema": {
+            "type": "string"
+          },
+          "description": "Shop ID (required for partition key)"
+        }
+      ],
+      "responseDescription": "Product retrieved successfully"
+    },
+    "PATCH /products/{productId}": {
+      "operationId": "updateProduct",
+      "summary": "Update product",
+      "description": "Sending an images array that would leave a dish which has photos with none is refused with 409 code PRODUCT_IMAGE_REQUIRED (body { error, code }); nothing is changed. To replace a photo, add the new one first (POST .../images), then remove the old one.",
+      "tags": [
+        "Products"
+      ],
+      "responseDescription": "Product updated successfully"
+    },
+    "DELETE /products/{productId}": {
+      "operationId": "deleteProduct",
+      "summary": "Delete product (soft delete)",
+      "tags": [
+        "Products"
+      ],
+      "parameters": [
+        {
+          "name": "shopId",
+          "in": "query",
+          "required": true,
+          "schema": {
+            "type": "string"
+          },
+          "description": "Shop ID (required for partition key)"
+        }
+      ],
+      "responseDescription": "Product deleted successfully"
+    },
+    "POST /shops/{shopId}/products/{productId}/images/upload-url": {
+      "operationId": "generateUploadUrl",
+      "summary": "Generate upload URL for product image",
+      "description": "Generates a short-lived SAS URL for uploading product images directly to Azure Blob Storage",
+      "tags": [
+        "Product Images"
+      ],
+      "responseDescription": "Upload URL generated successfully"
+    },
+    "POST /shops/{shopId}/products/{productId}/images": {
+      "operationId": "addProductImage",
+      "summary": "Add product image metadata",
+      "description": "Confirms image upload and saves metadata to the product after successful blob storage upload",
+      "tags": [
+        "Product Images"
+      ],
+      "responseDescription": "Product image added successfully"
+    },
+    "GET /shops/{shopId}/combos": {
+      "operationId": "getCombos",
+      "summary": "List combos",
+      "description": "The restaurant combos, sorted by name. Includes images and translations.",
+      "tags": [
+        "Combos"
+      ],
+      "responseDescription": "Combos"
+    },
+    "POST /shops/{shopId}/combos": {
+      "operationId": "createCombo",
+      "summary": "Create combo",
+      "description": "Adds a combo. Translations are optional. A combo photo is uploaded like a dish photo: POST /shops/{shopId}/products/{comboId}/images/upload-url, PUT the file (exactly 1200 x 900 px), then POST /shops/{shopId}/products/{comboId}/images. Updates with images omitted keep the existing photo.",
+      "tags": [
+        "Combos"
+      ]
+    },
+    "PUT /shops/{shopId}/combos/{comboId}": {
+      "operationId": "updateCombo",
+      "summary": "Replace combo",
+      "description": "Replaces the combo fields as a whole. Group ids sent back are kept. Translation fields left out keep their stored value. A combo photo is uploaded like a dish photo: POST /shops/{shopId}/products/{comboId}/images/upload-url, PUT the file (exactly 1200 x 900 px), then POST /shops/{shopId}/products/{comboId}/images. Updates with images omitted keep the existing photo.",
+      "tags": [
+        "Combos"
+      ],
+      "responseDescription": "Combo updated"
+    },
+    "POST /shops/{shopId}/logo/upload-url": {
+      "operationId": "generateShopLogoUploadUrl",
+      "summary": "Generate upload URL for shop logo",
+      "description": "Generates a short-lived SAS URL for uploading the shop logo directly to Azure Blob Storage",
+      "tags": [
+        "Shop Logo"
+      ],
+      "responseDescription": "Upload URL generated successfully"
+    },
+    "POST /shops/{shopId}/logo": {
+      "operationId": "setShopLogo",
+      "summary": "Set shop logo",
+      "description": "Registers the uploaded logo blob URL on the shop. Deletes the previous logo blob if one existed.",
+      "tags": [
+        "Shop Logo"
+      ],
+      "responseDescription": "Shop logo updated successfully"
+    },
+    "POST /shops/{shopId}/cover-image/upload-url": {
+      "operationId": "generateShopCoverImageUploadUrl",
+      "summary": "Generate upload URL for shop cover image",
+      "description": "Generates a short-lived SAS URL for uploading the shop cover image directly to Azure Blob Storage",
+      "tags": [
+        "Shop Cover Image"
+      ],
+      "responseDescription": "Upload URL generated successfully"
+    },
+    "POST /shops/{shopId}/cover-image": {
+      "operationId": "setShopCoverImage",
+      "summary": "Set shop cover image",
+      "description": "Registers the uploaded cover image on the shop (stored as branding.heroImageUrl). The URL must be the blob returned for this shop by the cover upload URL. Deletes the previous cover blob.",
+      "tags": [
+        "Shop Cover Image"
+      ],
+      "responseDescription": "Shop cover image updated successfully"
+    },
+    "DELETE /shops/{shopId}/cover-image": {
+      "operationId": "removeShopCoverImage",
+      "summary": "Remove shop cover image",
+      "description": "Clears the shop cover image (branding.heroImageUrl) and deletes the stored file. Succeeds without changes if no cover is set.",
+      "tags": [
+        "Shop Cover Image"
+      ],
+      "responseDescription": "Shop cover image removed successfully"
+    },
+    "GET /shops/{shopId}/catalog": {
+      "operationId": "getCatalog",
+      "summary": "Get customer-facing catalog for a shop",
+      "description": "Returns every switched-on category with its purchasable products. Categories outside their times right now are included with availableNow false and their schedule. Dishes outside their own schedule are left out. No authentication required. Returns 403 if the shop is currently paused.",
+      "tags": [
+        "Catalog"
+      ],
+      "parameters": [
+        {
+          "name": "lang",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "string"
+          },
+          "description": "Preferred menu language; falls back to the original"
+        }
+      ],
+      "responseDescription": "Catalog retrieved successfully"
+    },
+    "POST /orders": {
+      "operationId": "createOrder",
+      "summary": "Create an order and initiate payment",
+      "description": "Server recalculates the total from product prices, selected variants, and addons stored in the database. The client-submitted amount is never trusted. Returns a Stripe clientSecret for the frontend to call stripe.confirmPayment().",
+      "tags": [
+        "Orders"
+      ],
+      "responseDescription": "Order created and PaymentIntent initiated"
+    },
+    "POST /webhooks/stripe": {
+      "operationId": "stripeWebhook",
+      "summary": "Stripe webhook receiver",
+      "description": "Receives Stripe events (payment_intent.succeeded, payment_intent.payment_failed) and updates the order status. Signature is verified using STRIPE_WEBHOOK_SECRET.",
+      "tags": [
+        "Orders"
+      ],
+      "responseDescription": "Event received"
+    },
+    "GET /shops/{shopId}/orders": {
+      "operationId": "getOrdersByShop",
+      "summary": "List orders for a shop",
+      "tags": [
+        "Orders"
+      ],
+      "parameters": [
+        {
+          "name": "page",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "integer"
+          },
+          "description": "1-based page number (default: 1)"
+        },
+        {
+          "name": "pageSize",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "integer"
+          },
+          "description": "Number of orders per page (default: 20, max: 100)"
+        }
+      ],
+      "responseDescription": "Orders retrieved successfully"
+    },
+    "POST /shops/{shopId}/orders/{orderId}/refunds": {
+      "operationId": "refundOrder",
+      "summary": "Refund an accepted order",
+      "description": "Refunds money already taken for an accepted card order. Send either items (the ticked units, each refunded at its own VAT rate) or amountCents (a free amount, split across the VAT rates in proportion), never both. The reason is internal and never emailed. The diner gets a correction invoice (a cancellation invoice when the first refund covers everything) with the refund email. Needs the refund_orders permission.",
+      "tags": [
+        "Orders"
+      ],
+      "responseDescription": "Refund recorded; returns the updated order"
+    },
+    "GET /shops/{shopId}/orders/{orderId}/documents/{documentId}": {
+      "operationId": "getOrderDocument",
+      "summary": "Download an invoice or correction invoice (staff)",
+      "description": "documentId is the order id for the invoice, or the order id followed by -c1, -c2 and so on for correction invoices. A document of another order or restaurant is 404.",
+      "tags": [
+        "Orders"
+      ],
+      "responseDescription": "The PDF as base64"
+    },
+    "POST /customer-orders/{orderId}/documents/{documentId}": {
+      "operationId": "viewCustomerDocument",
+      "summary": "Download an invoice or correction invoice (diner)",
+      "description": "The diner proves access with the secret token from the order link. A document of another order is 404.",
+      "tags": [
+        "Orders"
+      ],
+      "responseDescription": "The PDF as base64"
+    },
+    "GET /orders/by-payment-intent/{paymentIntentId}": {
+      "operationId": "getOrderByPaymentIntent",
+      "summary": "Get order by Stripe payment intent ID",
+      "description": "Retrieves order details using the Stripe payment intent ID. The payment intent ID is available on the frontend from stripe.confirmPayment() result or by parsing the clientSecret (format: pi_xxx_secret_xxx). Returns 404 if the order has not yet been created (webhook not yet processed) \u2014 poll with back-off until a 200 is returned.",
+      "tags": [
+        "Orders"
+      ],
+      "responseDescription": "Order found"
+    }
+  }
+}

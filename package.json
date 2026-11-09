@@ -5,10 +5,12 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "prebuild": "node scripts/generate-openapi.js",
     "start": "npm run build && func start",
     "dev": "concurrently \"npm run build:watch\" \"nodemon --watch dist --exec \\\"npx kill-port 7071 && func start --port 7071\\\"\"",
     "build:watch": "tsc -w -p tsconfig.json",
     "start:dist": "func start --script-root dist --port 7073",
+    "openapi:generate": "node scripts/generate-openapi.js",
     "seed": "ts-node --transpile-only scripts/seed.ts",
     "smoke:order": "ts-node --transpile-only scripts/smoke-order.ts",
     "test": "vitest run"
@@ -24,7 +26,6 @@
     "axios": "^1.20.0",
     "image-size": "^2.0.4",
     "jose": "^6.2.12",
-    "openapi": "^1.0.0",
     "pdf-lib": "^1.17.1",
     "stripe": "^20.4.1",
     "subset-font": "^2.9.0"
@@ -35,6 +36,7 @@
     "concurrently": "^9.2.4",
     "kill-port": "^2.0.1",
     "nodemon": "^3.1.14",
+    "ts-json-schema-generator": "^2.9.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3",
     "unpdf": "^1.8.1",
