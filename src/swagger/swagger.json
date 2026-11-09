@@ -2141,7 +2141,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/BusyState_2"
+                  "$ref": "#/components/schemas/BusyState"
                 }
               }
             }
@@ -4242,7 +4242,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OrderDto_2"
+                  "$ref": "#/components/schemas/OrderDto"
                 }
               }
             }
@@ -4299,7 +4299,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OrderDto_2"
+                  "$ref": "#/components/schemas/OrderDto"
                 }
               }
             }
@@ -4356,7 +4356,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OrderDto_2"
+                  "$ref": "#/components/schemas/OrderDto"
                 }
               }
             }
@@ -4480,7 +4480,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OrderDto_2"
+                  "$ref": "#/components/schemas/OrderDto"
                 }
               }
             }
@@ -4549,7 +4549,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OrderDto_2"
+                  "$ref": "#/components/schemas/OrderDto"
                 }
               }
             }
@@ -4616,7 +4616,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OrderDto_2"
+                  "$ref": "#/components/schemas/OrderDto"
                 }
               }
             }
@@ -8736,7 +8736,7 @@
           "correction"
         ]
       },
-      "OrderDto_2": {
+      "OrderDto": {
         "type": "object",
         "properties": {
           "id": {
@@ -8990,7 +8990,7 @@
         ],
         "additionalProperties": false
       },
-      "BusyState_2": {
+      "BusyState": {
         "type": "object",
         "properties": {
           "active": {
@@ -10383,7 +10383,7 @@
         ],
         "additionalProperties": false
       },
-      "GenerateShopLogoUploadUrlRequestDto_2": {
+      "GenerateShopLogoUploadUrlRequestDto": {
         "type": "object",
         "properties": {
           "shopId": {
@@ -12925,7 +12925,7 @@
           "orders": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/OrderDto_2"
+              "$ref": "#/components/schemas/OrderDto"
             }
           },
           "total": {
@@ -13003,12 +13003,12 @@
             "additionalProperties": false
           },
           "busy": {
-            "$ref": "#/components/schemas/BusyState_2"
+            "$ref": "#/components/schemas/BusyState"
           },
           "orders": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/OrderDto_2"
+              "$ref": "#/components/schemas/OrderDto"
             }
           },
           "upcoming": {
@@ -15232,7 +15232,7 @@
         "additionalProperties": false
       },
       "GenerateShopCoverImageUploadUrlRequestDto": {
-        "$ref": "#/components/schemas/GenerateShopLogoUploadUrlRequestDto_2"
+        "$ref": "#/components/schemas/GenerateShopLogoUploadUrlRequestDto"
       },
       "GenerateShopLogoUploadUrlResultDto": {
         "type": "object",

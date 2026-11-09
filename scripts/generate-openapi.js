@@ -365,7 +365,11 @@ for (const [name, def] of Object.entries(definitionsPool)) {
 const nameMap = new Map();
 {
   const used = new Set();
-  for (const original of [...Object.keys(definitionsPool), ...Object.keys(rawSchemas)]) {
+  // A name can appear in BOTH lists (expose:'all' also puts every requested type into
+  // definitions). Iterating it twice renamed the second occurrence to `_2` and then
+  // overwrote the base mapping — publishing `OrderDto_2` and no `OrderDto` at all.
+  // Dedupe so each original is mapped exactly once.
+  for (const original of new Set([...Object.keys(definitionsPool), ...Object.keys(rawSchemas)])) {
     // A name that came from a type expression (Pick<Order,…>) is unusable as-is and
     // can run to hundreds of characters; bound it with a stable hash so generated
     // frontend type names stay sane.
