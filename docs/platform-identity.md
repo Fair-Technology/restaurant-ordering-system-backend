@@ -127,6 +127,38 @@ only place that answers this question; every platform endpoint calls it (via
 read/write split yet, so anything short of Owner/Support is refused rather than silently
 handed full access. Add that split before assigning the role.
 
+## Deployment identity (GitHub Actions → Azure)
+
+The pipelines do **not** use an app registration. Deployment runs as a
+**user-assigned managed identity** with federated credentials for GitHub's OIDC
+issuer (`https://token.actions.githubusercontent.com`) — which is why the deploy
+identity does not appear in `az ad app list`.
+
+| | |
+|---|---|
+| dev identity | `restaurant-ordering-system-id-dev` in `rg-restaurant-ordering-system-dev` |
+| client id | `e0261da3-ef39-4c00-bb1f-aab3a3706821` (the repo secret `AZURE_CLIENT_ID`) |
+| role | **Website Contributor**, scoped to the app `restaurant-ordering-system-dev` alone |
+| federated subjects | `repo:Fair-Technology/restaurant-ordering-system-backend:ref:refs/heads/{dev,main}`, plus their `repo:…@<owner-id>/…@<repo-id>` immutable forms |
+
+`AZURE_CLIENT_ID`, `AZURE_TENANT_ID` and `AZURE_SUBSCRIPTION_ID` are the only
+Azure secrets the backend repo holds (verified 2026-11-09).
+
+**Environment subjects are deliberately avoided.** The dev workflow sets no
+`environment:` because an environment-scoped OIDC subject (`…:environment:dev`)
+does not match a branch-scoped credential. `promote.yml` *does* set
+`environment: production` — it carries the required-reviewer approval gate — so
+promotion needs a credential the dev identity does not have. Until a production
+Function App exists **and** an identity carries
+`repo:Fair-Technology/restaurant-ordering-system-backend:environment:production`,
+`promote.yml` stops at "Login to Azure" with `AADSTS700213`. Production is
+deliberately parked: nothing has been created yet.
+
+Sibling products for reference: the invoice generator uses separate
+`…-id-prod` and `oidc-msi-prod` identities, and copyshop uses a dedicated
+`copyshop-api-github-oidc` app carrying both `environment:dev` and
+`environment:production` subjects.
+
 ## Tests
 
 - `test/infrastructure/trustedIssuers.test.ts` — issuer configuration
