@@ -68,6 +68,7 @@ import { findPromotions } from '../../../infrastructure/cosmos/promotion/CosmosP
 import { findOrderById } from '../../../infrastructure/cosmos/order/CosmosOrderRepository';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { createPaymentIntent, isStripeIdempotencyError } from '../../../infrastructure/stripe/stripeClient';
+import { logStripeFailure } from '../../../infrastructure/stripe/stripeErrorDiagnostics';
 import { isShopOffline } from '../../../domain/shop/Shop';
 import { ApplicationResult } from '../../_shared/types';
 import { resolveDiscount } from '../../promotion/resolveDiscount';
@@ -401,6 +402,7 @@ export async function executeCheckout(
         idempotencyKey: `checkout-${sessionId}`,
       });
     } catch (err: unknown) {
+      logStripeFailure('create_payment_intent', err, { sessionId, shopId: shop.id });
       // The card was never reserved, so the held place goes back at once.
       if (scheduledFor) await releaseSlotPlace({ shop, order: { id: sessionId, scheduledFor: scheduledFor.toISOString() }, now });
       // Same key, different payment details: the basket is no longer the one the first submit paid for.

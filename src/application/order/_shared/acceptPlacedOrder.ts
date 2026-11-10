@@ -23,6 +23,7 @@ import { incrementAcceptedOrders } from '../../../infrastructure/cosmos/usage/Co
 import type { EmailAttachment } from '../../../infrastructure/email/emailSender';
 import { renderInvoicePdf } from '../../../infrastructure/pdf/invoicePdf';
 import { capturePaymentIntent, isRetryableStripeError } from '../../../infrastructure/stripe/stripeClient';
+import { logStripeFailure } from '../../../infrastructure/stripe/stripeErrorDiagnostics';
 import type { ApplicationResult } from '../../_shared/types';
 import { notifyOrderLimitThresholds } from '../../usage/orderLimitWarnings';
 import { fixSlotPlace } from './slotPlaces';
@@ -148,6 +149,7 @@ export async function acceptPlacedOrder(input: {
         return { ok: false, code: 'CONFLICT', error: PAYMENT_SERVICE_UNAVAILABLE_ERROR };
       }
       console.error('[accept:error] payment refused', orderId);
+      logStripeFailure('capture', err, { orderId, paymentIntentId: paymentIntentId ?? undefined });
       const declined = await transitionOrder({
         orderId,
         shopId: shop.id,

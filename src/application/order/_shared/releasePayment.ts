@@ -7,6 +7,7 @@ import {
   replaceOrderIfMatch,
 } from '../../../infrastructure/cosmos/order/CosmosOrderRepository';
 import { createRefund, listPaymentRefunds, releaseAuthorization } from '../../../infrastructure/stripe/stripeClient';
+import { logStripeFailure } from '../../../infrastructure/stripe/stripeErrorDiagnostics';
 import { releaseSlotPlace } from './slotPlaces';
 import { notifyRestaurantReleaseFailed } from '../notifications/notifyOrder';
 
@@ -129,6 +130,7 @@ export async function releaseClosedOrderPayment(
     return { outcome: reservationOnly ? 'released' : 'refunded', order: recorded ?? order };
   } catch (err: unknown) {
     console.error('[release:error]', orderId);
+    logStripeFailure('release', err, { orderId });
     return recordFailure(orderId, shop, now, messageOf(err), order);
   }
 }

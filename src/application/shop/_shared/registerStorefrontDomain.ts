@@ -1,4 +1,5 @@
 import { ensurePaymentMethodDomain, storefrontDomainName } from '../../../infrastructure/stripe/stripeClient';
+import { logStripeFailure } from '../../../infrastructure/stripe/stripeErrorDiagnostics';
 
 /**
  * Registers the storefront's web domain on a restaurant's own Stripe account so Apple Pay and
@@ -11,6 +12,7 @@ export async function registerStorefrontDomain(connectedAccountId: string): Prom
   try {
     await ensurePaymentMethodDomain(domain, connectedAccountId);
   } catch (error: unknown) {
+    logStripeFailure('register_payment_method_domain', error, { account: connectedAccountId });
     console.warn(
       `Could not register ${domain} for wallets on ${connectedAccountId}: ${error instanceof Error ? error.message : 'unknown error'}`,
     );

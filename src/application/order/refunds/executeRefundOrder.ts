@@ -25,6 +25,7 @@ import { findOrderWithEtag } from '../../../infrastructure/cosmos/order/CosmosOr
 import type { EmailAttachment } from '../../../infrastructure/email/emailSender';
 import { renderInvoicePdf } from '../../../infrastructure/pdf/invoicePdf';
 import { createRefund } from '../../../infrastructure/stripe/stripeClient';
+import { logStripeFailure } from '../../../infrastructure/stripe/stripeErrorDiagnostics';
 import { logAudit } from '../../_shared/auditHelpers';
 import { authorizeShopAction, toAuditActor } from '../../_shared/shopAccess';
 import type { ApplicationResult } from '../../_shared/types';
@@ -114,6 +115,7 @@ export async function executeRefundOrder(
       });
       stripeRefundId = refund.id;
     } catch (err: unknown) {
+      logStripeFailure('refund', err, { orderId: o.id, paymentIntentId });
       const message = err instanceof Error ? err.message : 'unknown error';
       return { ok: false, code: 'INVALID_INPUT', error: `${REFUND_FAILED_PREFIX}${message}` };
     }

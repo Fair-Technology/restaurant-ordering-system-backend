@@ -228,6 +228,21 @@ describe('executeRefundOrder', () => {
     expect(m.sendEmail).not.toHaveBeenCalled();
   });
 
+  it('a refund refused for missing Stripe permissions is logged as permission_or_config, outcome unchanged', async () => {
+    setup(completed);
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    m.createRefund.mockRejectedValue(
+      Object.assign(new Error('restricted key'), { type: 'StripePermissionError', code: 'more_permissions_required', statusCode: 403, requestId: 'req_p' }),
+    );
+    const res = await executeRefundOrder({ ...ids, amountCents: 100, reason: 'x' }, http, { now });
+    expect(res).toMatchObject({ ok: false, code: 'INVALID_INPUT' });
+    const line = spy.mock.calls.map((c) => String(c[0])).find((l) => l.startsWith('[stripe:failure]'));
+    expect(line).toContain('op=refund');
+    expect(line).toContain('kind=permission_or_config');
+    expect(line).toContain('code=more_permissions_required');
+    spy.mockRestore();
+  });
+
   it('refunds ticked items at their own rate', async () => {
     setup(two);
     const res = await executeRefundOrder({ ...ids, items: [{ lineIndex: 1, quantity: 1 }], reason: 'Cola fehlte' }, http, { now });
