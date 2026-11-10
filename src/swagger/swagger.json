@@ -21,7 +21,7 @@
       "post": {
         "operationId": "cancelCustomerOrder",
         "tags": [
-          "Default"
+          "Orders"
         ],
         "security": [],
         "parameters": [
@@ -164,7 +164,7 @@
       "post": {
         "operationId": "viewCustomerOrder",
         "tags": [
-          "Default"
+          "Orders"
         ],
         "security": [],
         "parameters": [
@@ -230,7 +230,7 @@
       "get": {
         "operationId": "getDpaDocument",
         "tags": [
-          "Default"
+          "Legal"
         ],
         "security": [],
         "parameters": [
@@ -277,7 +277,7 @@
       "get": {
         "operationId": "getPlatformLegal",
         "tags": [
-          "Default"
+          "Legal"
         ],
         "security": [],
         "responses": {
@@ -418,7 +418,7 @@
       "post": {
         "operationId": "quoteBasket",
         "tags": [
-          "Default"
+          "Orders"
         ],
         "security": [],
         "requestBody": {
@@ -467,7 +467,7 @@
       "get": {
         "operationId": "getOwnerOverview",
         "tags": [
-          "Default"
+          "Reports"
         ],
         "security": [],
         "responses": {
@@ -506,7 +506,7 @@
       "post": {
         "operationId": "createPlan",
         "tags": [
-          "Default"
+          "Plans"
         ],
         "security": [],
         "requestBody": {
@@ -553,7 +553,7 @@
       "get": {
         "operationId": "getPlans",
         "tags": [
-          "Default"
+          "Plans"
         ],
         "security": [],
         "responses": {
@@ -592,7 +592,7 @@
       "get": {
         "operationId": "getPlan",
         "tags": [
-          "Default"
+          "Plans"
         ],
         "security": [],
         "parameters": [
@@ -639,7 +639,7 @@
       "patch": {
         "operationId": "updatePlan",
         "tags": [
-          "Default"
+          "Plans"
         ],
         "security": [],
         "parameters": [
@@ -698,7 +698,7 @@
       "get": {
         "operationId": "getPlanPricing",
         "tags": [
-          "Default"
+          "Plans"
         ],
         "security": [],
         "parameters": [
@@ -745,7 +745,7 @@
       "post": {
         "operationId": "setPlanPricing",
         "tags": [
-          "Default"
+          "Plans"
         ],
         "security": [],
         "parameters": [
@@ -804,7 +804,7 @@
       "get": {
         "operationId": "getSystemConfig",
         "tags": [
-          "Default"
+          "Platform"
         ],
         "security": [],
         "responses": {
@@ -841,7 +841,7 @@
       "patch": {
         "operationId": "updateSystemConfig",
         "tags": [
-          "Default"
+          "Platform"
         ],
         "security": [],
         "requestBody": {
@@ -890,7 +890,7 @@
       "get": {
         "operationId": "getPlatformLegalIdentity",
         "tags": [
-          "Default"
+          "Legal"
         ],
         "security": [],
         "responses": {
@@ -927,7 +927,7 @@
       "put": {
         "operationId": "updatePlatformLegalIdentity",
         "tags": [
-          "Default"
+          "Legal"
         ],
         "security": [],
         "requestBody": {
@@ -977,7 +977,7 @@
       "put": {
         "operationId": "updateReferenceLists",
         "tags": [
-          "Default"
+          "Reference Lists"
         ],
         "security": [],
         "parameters": [
@@ -1037,7 +1037,7 @@
       "get": {
         "operationId": "getRolePermissions",
         "tags": [
-          "Default"
+          "Platform"
         ],
         "security": [],
         "responses": {
@@ -1074,7 +1074,7 @@
       "put": {
         "operationId": "updateRolePermissions",
         "tags": [
-          "Default"
+          "Platform"
         ],
         "security": [],
         "requestBody": {
@@ -1123,7 +1123,7 @@
       "patch": {
         "operationId": "updateUserLimits",
         "tags": [
-          "Default"
+          "Platform"
         ],
         "security": [],
         "parameters": [
@@ -1557,7 +1557,7 @@
       "get": {
         "operationId": "getReferenceLists",
         "tags": [
-          "Default"
+          "Reference Lists"
         ],
         "security": [],
         "parameters": [
@@ -2055,7 +2055,7 @@
       "get": {
         "operationId": "getAuditEntries",
         "tags": [
-          "Default"
+          "Audit"
         ],
         "security": [],
         "parameters": [
@@ -2120,7 +2120,7 @@
       "put": {
         "operationId": "setBusyMode",
         "tags": [
-          "Default"
+          "Shops"
         ],
         "security": [],
         "parameters": [
@@ -3018,7 +3018,7 @@
       "post": {
         "operationId": "eraseCustomer",
         "tags": [
-          "Default"
+          "Data Privacy"
         ],
         "security": [],
         "parameters": [
@@ -3084,7 +3084,7 @@
       "get": {
         "operationId": "exportShopData",
         "tags": [
-          "Default"
+          "Data Privacy"
         ],
         "security": [],
         "parameters": [
@@ -3133,7 +3133,7 @@
       "post": {
         "operationId": "createDiscountCode",
         "tags": [
-          "Default"
+          "Promotions"
         ],
         "security": [],
         "parameters": [
@@ -3193,7 +3193,7 @@
       "patch": {
         "operationId": "setDiscountCodeActive",
         "tags": [
-          "Default"
+          "Promotions"
         ],
         "security": [],
         "parameters": [
@@ -3261,7 +3261,7 @@
       "post": {
         "operationId": "acceptDpa",
         "tags": [
-          "Default"
+          "Legal"
         ],
         "security": [],
         "parameters": [
@@ -3329,7 +3329,7 @@
       "get": {
         "operationId": "getGoLiveStatus",
         "tags": [
-          "Default"
+          "Shops"
         ],
         "security": [],
         "parameters": [
@@ -3378,7 +3378,7 @@
       "get": {
         "operationId": "getShopLegal",
         "tags": [
-          "Default"
+          "Legal"
         ],
         "security": [],
         "parameters": [
@@ -3425,7 +3425,7 @@
       "patch": {
         "operationId": "updateShopLegal",
         "tags": [
-          "Default"
+          "Legal"
         ],
         "security": [],
         "parameters": [
@@ -3629,7 +3629,7 @@
       "put": {
         "operationId": "updateLoyalty",
         "tags": [
-          "Default"
+          "Shops"
         ],
         "security": [],
         "parameters": [
@@ -3766,7 +3766,7 @@
       "delete": {
         "operationId": "rejectShopNameChange",
         "tags": [
-          "Default"
+          "Shops"
         ],
         "security": [],
         "parameters": [
@@ -3813,7 +3813,7 @@
       "post": {
         "operationId": "requestShopNameChange",
         "tags": [
-          "Default"
+          "Shops"
         ],
         "security": [],
         "parameters": [
@@ -3881,7 +3881,7 @@
       "post": {
         "operationId": "approveShopNameChange",
         "tags": [
-          "Default"
+          "Shops"
         ],
         "security": [],
         "parameters": [
@@ -3930,7 +3930,7 @@
       "get": {
         "operationId": "getOrderLimit",
         "tags": [
-          "Default"
+          "Usage"
         ],
         "security": [],
         "parameters": [
@@ -3979,7 +3979,7 @@
       "get": {
         "operationId": "getOrderQueue",
         "tags": [
-          "Default"
+          "Orders"
         ],
         "security": [],
         "parameters": [
@@ -4028,7 +4028,7 @@
       "put": {
         "operationId": "updateOrderSettings",
         "tags": [
-          "Default"
+          "Shops"
         ],
         "security": [],
         "parameters": [
@@ -4229,7 +4229,7 @@
       "post": {
         "operationId": "acceptOrder",
         "tags": [
-          "Default"
+          "Orders"
         ],
         "security": [],
         "parameters": [
@@ -4296,7 +4296,7 @@
       "post": {
         "operationId": "completeOrder",
         "tags": [
-          "Default"
+          "Orders"
         ],
         "security": [],
         "parameters": [
@@ -4353,7 +4353,7 @@
       "post": {
         "operationId": "dispatchOrder",
         "tags": [
-          "Default"
+          "Orders"
         ],
         "security": [],
         "parameters": [
@@ -4477,7 +4477,7 @@
       "post": {
         "operationId": "markOrderReady",
         "tags": [
-          "Default"
+          "Orders"
         ],
         "security": [],
         "parameters": [
@@ -4603,7 +4603,7 @@
       "post": {
         "operationId": "rejectOrder",
         "tags": [
-          "Default"
+          "Orders"
         ],
         "security": [],
         "parameters": [
@@ -4842,7 +4842,7 @@
       "get": {
         "operationId": "getPromotions",
         "tags": [
-          "Default"
+          "Promotions"
         ],
         "security": [],
         "parameters": [
@@ -4891,7 +4891,7 @@
       "get": {
         "operationId": "getSalesReport",
         "tags": [
-          "Default"
+          "Reports"
         ],
         "security": [],
         "parameters": [
@@ -5012,7 +5012,7 @@
       "post": {
         "operationId": "createStaff",
         "tags": [
-          "Default"
+          "Staff"
         ],
         "security": [],
         "parameters": [
@@ -5090,7 +5090,7 @@
       "get": {
         "operationId": "listStaff",
         "tags": [
-          "Default"
+          "Staff"
         ],
         "security": [],
         "parameters": [
@@ -5139,7 +5139,7 @@
       "delete": {
         "operationId": "deleteStaff",
         "tags": [
-          "Default"
+          "Staff"
         ],
         "security": [],
         "parameters": [
@@ -5194,7 +5194,7 @@
       "patch": {
         "operationId": "updateStaff",
         "tags": [
-          "Default"
+          "Staff"
         ],
         "security": [],
         "parameters": [
@@ -5274,7 +5274,7 @@
       "post": {
         "operationId": "resetStaffPassword",
         "tags": [
-          "Default"
+          "Staff"
         ],
         "security": [],
         "parameters": [
@@ -5350,7 +5350,7 @@
       "delete": {
         "operationId": "disconnectStripeAccount",
         "tags": [
-          "Default"
+          "Stripe"
         ],
         "security": [],
         "parameters": [
@@ -5399,7 +5399,7 @@
       "post": {
         "operationId": "createStripeAccountSession",
         "tags": [
-          "Default"
+          "Stripe"
         ],
         "security": [],
         "parameters": [
@@ -5468,7 +5468,7 @@
       "delete": {
         "operationId": "cancelShopSubscription",
         "tags": [
-          "Default"
+          "Subscriptions"
         ],
         "security": [],
         "parameters": [
@@ -5515,7 +5515,7 @@
       "get": {
         "operationId": "getShopSubscription",
         "tags": [
-          "Default"
+          "Subscriptions"
         ],
         "security": [],
         "parameters": [
@@ -5564,7 +5564,7 @@
       "post": {
         "operationId": "createSubscriptionCheckout",
         "tags": [
-          "Default"
+          "Subscriptions"
         ],
         "security": [],
         "parameters": [
@@ -5624,7 +5624,7 @@
       "post": {
         "operationId": "confirmSubscriptionCheckout",
         "tags": [
-          "Default"
+          "Subscriptions"
         ],
         "security": [],
         "parameters": [
@@ -5684,7 +5684,7 @@
       "delete": {
         "operationId": "clearLimitOverride",
         "tags": [
-          "Default"
+          "Subscriptions"
         ],
         "security": [],
         "parameters": [
@@ -5731,7 +5731,7 @@
       "put": {
         "operationId": "setLimitOverride",
         "tags": [
-          "Default"
+          "Subscriptions"
         ],
         "security": [],
         "parameters": [
@@ -5790,7 +5790,7 @@
       "post": {
         "operationId": "overrideShopSubscription",
         "tags": [
-          "Default"
+          "Subscriptions"
         ],
         "security": [],
         "parameters": [
@@ -5849,7 +5849,7 @@
       "post": {
         "operationId": "createBillingPortalSession",
         "tags": [
-          "Default"
+          "Subscriptions"
         ],
         "security": [],
         "parameters": [
@@ -5907,7 +5907,7 @@
       "post": {
         "operationId": "resumeShopSubscription",
         "tags": [
-          "Default"
+          "Subscriptions"
         ],
         "security": [],
         "parameters": [
@@ -5956,7 +5956,7 @@
       "post": {
         "operationId": "retrySubscriptionPayment",
         "tags": [
-          "Default"
+          "Subscriptions"
         ],
         "security": [],
         "parameters": [
@@ -6005,7 +6005,7 @@
       "delete": {
         "operationId": "cancelScheduledChange",
         "tags": [
-          "Default"
+          "Subscriptions"
         ],
         "security": [],
         "parameters": [
@@ -6139,7 +6139,7 @@
       "get": {
         "operationId": "getShopUsage",
         "tags": [
-          "Default"
+          "Usage"
         ],
         "security": [],
         "parameters": [
@@ -6188,7 +6188,7 @@
       "post": {
         "operationId": "reconcileShopUsage",
         "tags": [
-          "Default"
+          "Usage"
         ],
         "security": [],
         "parameters": [
@@ -6367,7 +6367,7 @@
       "get": {
         "operationId": "getPublicLegalPack",
         "tags": [
-          "Default"
+          "Legal"
         ],
         "security": [],
         "parameters": [
@@ -6422,7 +6422,7 @@
       "post": {
         "operationId": "staffLogin",
         "tags": [
-          "Default"
+          "Staff"
         ],
         "security": [],
         "requestBody": {
@@ -6471,7 +6471,7 @@
       "get": {
         "operationId": "getRejectionWatch",
         "tags": [
-          "Default"
+          "Usage"
         ],
         "security": [],
         "responses": {
@@ -6510,7 +6510,7 @@
       "get": {
         "operationId": "getMe",
         "tags": [
-          "Default"
+          "Users"
         ],
         "security": [],
         "responses": {
@@ -6605,7 +6605,7 @@
       "post": {
         "operationId": "stripeConnectWebhook",
         "tags": [
-          "Default"
+          "Webhooks"
         ],
         "security": [],
         "requestBody": {

@@ -503,15 +503,20 @@ const ERROR_SCHEMA = {
   },
 };
 
-const tagsByPrefix = [
-  ['/shops', 'Shops'], ['/products', 'Products'], ['/orders', 'Orders'],
-  ['/customer-orders', 'Orders'], ['/plans', 'Plans'], ['/staff', 'Staff'],
-  ['/platform', 'Platform'], ['/legal', 'Legal'], ['/reference-lists', 'ReferenceLists'],
-  ['/owner', 'Reports'], ['/webhooks', 'Webhooks'],
-];
-function tagFor(route, meta) {
-  if (meta.tags) return meta.tags;
-  for (const [prefix, tag] of tagsByPrefix) if (route.startsWith(prefix)) return [tag];
+/**
+ * Every operation's tag comes from src/swagger/overlay.json, one area per operation.
+ *
+ * The tag is not decoration: the generated frontend clients (RTK Query codegen with
+ * `tag: true`) turn it into cache tags, so a query provides its tag and a mutation
+ * invalidates it. A shared catch-all ("Default") made unrelated endpoints invalidate
+ * each other and hid the ones that should (approving a shop name change must refresh
+ * the shops list), which forced a hand-written override in rs-superadmin. So there is
+ * deliberately no fallback: an operation with no tag fails generation.
+ */
+const untagged = [];
+function tagFor(route, meta, key) {
+  if (Array.isArray(meta.tags) && meta.tags.length && !meta.tags.includes('Default')) return meta.tags;
+  untagged.push(key);
   return ['Default'];
 }
 
@@ -638,7 +643,7 @@ for (const r of rows.sort((a, b) => a.route.localeCompare(b.route) || a.name.loc
       // Keep the operationId the spec has always published: the frontends name their
       // generated hooks from it, so changing it renames hooks in three codebases.
       operationId: meta.operationId || r.name,
-      tags: tagFor(r.route, meta),
+      tags: tagFor(r.route, meta, key),
       // authLevel is part of the contract: an anonymous route must say so, or a reader
       // assumes the global bearer requirement applies to it.
       ...(r.authLevel === 'anonymous' ? { security: [] } : {}),
@@ -647,6 +652,12 @@ for (const r of rows.sort((a, b) => a.route.localeCompare(b.route) || a.name.loc
       responses: { ...responses, ...(meta.responses || {}) },
     };
   }
+}
+
+if (untagged.length) {
+  console.error(`✗ ${untagged.length} operation(s) have no tag in src/swagger/overlay.json (tags: [...] under operations):`);
+  for (const k of untagged) console.error(`    ${k}`);
+  process.exit(1);
 }
 
 // ── 6. Assemble ─────────────────────────────────────────────────────────────
