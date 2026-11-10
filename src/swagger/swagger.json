@@ -1469,8 +1469,12 @@
                     }
                   },
                   "spiceLevel": {
-                    "$ref": "#/components/schemas/SpiceLevel",
-                    "nullable": true
+                    "nullable": true,
+                    "allOf": [
+                      {
+                        "$ref": "#/components/schemas/SpiceLevel"
+                      }
+                    ]
                   },
                   "prepMinutes": {
                     "type": "number",
@@ -1502,8 +1506,12 @@
                     "type": "boolean"
                   },
                   "schedule": {
-                    "$ref": "#/components/schemas/ProductSchedule",
-                    "nullable": true
+                    "nullable": true,
+                    "allOf": [
+                      {
+                        "$ref": "#/components/schemas/ProductSchedule"
+                      }
+                    ]
                   }
                 },
                 "required": [
@@ -1851,8 +1859,12 @@
                     "additionalProperties": false
                   },
                   "branding": {
-                    "$ref": "#/components/schemas/ShopBranding",
-                    "nullable": true
+                    "nullable": true,
+                    "allOf": [
+                      {
+                        "$ref": "#/components/schemas/ShopBranding"
+                      }
+                    ]
                   },
                   "openingHours": {
                     "type": "object",
@@ -2521,8 +2533,12 @@
                     "type": "boolean"
                   },
                   "schedule": {
-                    "$ref": "#/components/schemas/CategorySchedule",
-                    "nullable": true
+                    "nullable": true,
+                    "allOf": [
+                      {
+                        "$ref": "#/components/schemas/CategorySchedule"
+                      }
+                    ]
                   }
                 }
               }
@@ -4062,8 +4078,12 @@
                     "type": "boolean"
                   },
                   "autoAcceptHours": {
-                    "$ref": "#/components/schemas/WeeklyHours",
-                    "nullable": true
+                    "nullable": true,
+                    "allOf": [
+                      {
+                        "$ref": "#/components/schemas/WeeklyHours"
+                      }
+                    ]
                   },
                   "lastOrdersMinutes": {
                     "type": "number",
@@ -4076,8 +4096,12 @@
                     "type": "boolean"
                   },
                   "deliveryHours": {
-                    "$ref": "#/components/schemas/WeeklyHours",
-                    "nullable": true
+                    "nullable": true,
+                    "allOf": [
+                      {
+                        "$ref": "#/components/schemas/WeeklyHours"
+                      }
+                    ]
                   },
                   "deliveryZones": {
                     "type": "array",
@@ -6874,8 +6898,12 @@
             "type": "boolean"
           },
           "schedule": {
-            "$ref": "#/components/schemas/CatalogCategoryScheduleDto",
-            "nullable": true
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CatalogCategoryScheduleDto"
+              }
+            ]
           },
           "products": {
             "type": "array",
@@ -7000,8 +7028,12 @@
             }
           },
           "spice": {
-            "$ref": "#/components/schemas/CatalogLabelDto",
-            "nullable": true
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CatalogLabelDto"
+              }
+            ]
           },
           "unavailableModes": {
             "type": "array",
@@ -7013,8 +7045,12 @@
             "type": "boolean"
           },
           "combo": {
-            "$ref": "#/components/schemas/CatalogComboDto",
-            "nullable": true
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CatalogComboDto"
+              }
+            ]
           },
           "createdAt": {
             "type": "string"
@@ -7244,8 +7280,12 @@
             "type": "boolean"
           },
           "schedule": {
-            "$ref": "#/components/schemas/CategorySchedule",
-            "nullable": true
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CategorySchedule"
+              }
+            ]
           },
           "isDeleted": {
             "type": "boolean"
@@ -7462,8 +7502,12 @@
             "type": "boolean"
           },
           "schedule": {
-            "$ref": "#/components/schemas/CategorySchedule",
-            "nullable": true
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CategorySchedule"
+              }
+            ]
           },
           "isDeleted": {
             "type": "boolean"
@@ -7556,8 +7600,12 @@
             }
           },
           "spiceLevel": {
-            "$ref": "#/components/schemas/SpiceLevel",
-            "nullable": true
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SpiceLevel"
+              }
+            ]
           },
           "prepMinutes": {
             "type": "number",
@@ -7574,12 +7622,20 @@
             "nullable": true
           },
           "schedule": {
-            "$ref": "#/components/schemas/ProductSchedule",
-            "nullable": true
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ProductSchedule"
+              }
+            ]
           },
           "combo": {
-            "$ref": "#/components/schemas/ProductCombo",
-            "nullable": true
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ProductCombo"
+              }
+            ]
           },
           "isAvailable": {
             "type": "boolean"
@@ -8435,8 +8491,12 @@
         "type": "object",
         "properties": {
           "from": {
-            "$ref": "#/components/schemas/StoredOrderState",
-            "nullable": true
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/StoredOrderState"
+              }
+            ]
           },
           "to": {
             "$ref": "#/components/schemas/StoredOrderState"
@@ -8795,8 +8855,12 @@
             "nullable": true
           },
           "deliveryAddress": {
-            "$ref": "#/components/schemas/DeliveryAddress",
-            "nullable": true
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DeliveryAddress"
+              }
+            ]
           },
           "discount": {
             "type": "object",
@@ -8869,8 +8933,12 @@
             "nullable": true
           },
           "customerAddress": {
-            "$ref": "#/components/schemas/CustomerAddress",
-            "nullable": true
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CustomerAddress"
+              }
+            ]
           },
           "refundedCents": {
             "type": "number"
@@ -9069,8 +9137,12 @@
             "nullable": true
           },
           "deliveryAddress": {
-            "$ref": "#/components/schemas/DeliveryAddress",
-            "nullable": true
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DeliveryAddress"
+              }
+            ]
           },
           "discount": {
             "type": "object",
@@ -9143,8 +9215,12 @@
             "nullable": true
           },
           "customerAddress": {
-            "$ref": "#/components/schemas/CustomerAddress",
-            "nullable": true
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CustomerAddress"
+              }
+            ]
           },
           "refundedCents": {
             "type": "number"
@@ -9294,8 +9370,12 @@
             "nullable": true
           },
           "ordersAutoPaused": {
-            "$ref": "#/components/schemas/OrdersAutoPaused",
-            "nullable": true
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/OrdersAutoPaused"
+              }
+            ]
           }
         },
         "required": [
@@ -9734,8 +9814,12 @@
             }
           },
           "spiceLevel": {
-            "$ref": "#/components/schemas/SpiceLevel",
-            "nullable": true
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SpiceLevel"
+              }
+            ]
           },
           "prepMinutes": {
             "type": "number",
@@ -9814,8 +9898,12 @@
             }
           },
           "schedule": {
-            "$ref": "#/components/schemas/ProductSchedule",
-            "nullable": true
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ProductSchedule"
+              }
+            ]
           },
           "isAvailable": {
             "type": "boolean"
@@ -10431,8 +10519,12 @@
             "nullable": true
           },
           "ordersAutoPaused": {
-            "$ref": "#/components/schemas/OrdersAutoPaused",
-            "nullable": true
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/OrdersAutoPaused"
+              }
+            ]
           },
           "missedOrdersPauseLimit": {
             "type": "number"
@@ -10657,8 +10749,12 @@
             }
           },
           "branding": {
-            "$ref": "#/components/schemas/ShopBranding",
-            "nullable": true
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ShopBranding"
+              }
+            ]
           },
           "pendingNameChange": {
             "type": "object",
@@ -10769,8 +10865,12 @@
             "additionalProperties": false
           },
           "branding": {
-            "$ref": "#/components/schemas/PublicShopBrandingDto",
-            "nullable": true
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PublicShopBrandingDto"
+              }
+            ]
           },
           "openingHours": {
             "type": "object",
@@ -10995,8 +11095,12 @@
             "type": "boolean"
           },
           "autoAcceptHours": {
-            "$ref": "#/components/schemas/WeeklyHours",
-            "nullable": true
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WeeklyHours"
+              }
+            ]
           },
           "prepMinutes": {
             "type": "object",
@@ -11029,8 +11133,12 @@
             "type": "boolean"
           },
           "deliveryHours": {
-            "$ref": "#/components/schemas/WeeklyHours",
-            "nullable": true
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WeeklyHours"
+              }
+            ]
           },
           "deliveryZones": {
             "type": "array",
@@ -11269,8 +11377,12 @@
             "type": "boolean"
           },
           "autoAcceptHours": {
-            "$ref": "#/components/schemas/WeeklyHours",
-            "nullable": true
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WeeklyHours"
+              }
+            ]
           },
           "lastOrdersMinutes": {
             "type": "number",
@@ -11283,8 +11395,12 @@
             "type": "boolean"
           },
           "deliveryHours": {
-            "$ref": "#/components/schemas/WeeklyHours",
-            "nullable": true
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WeeklyHours"
+              }
+            ]
           },
           "deliveryZones": {
             "type": "array",
@@ -11420,16 +11536,24 @@
             "nullable": true
           },
           "limitOverride": {
-            "$ref": "#/components/schemas/LimitOverride",
-            "nullable": true
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LimitOverride"
+              }
+            ]
           },
           "planBeforeOverride": {
             "type": "string",
             "nullable": true
           },
           "scheduledChange": {
-            "$ref": "#/components/schemas/ScheduledPlanChange",
-            "nullable": true
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ScheduledPlanChange"
+              }
+            ]
           },
           "paymentFailedAt": {
             "type": "string",
@@ -11795,8 +11919,12 @@
             "type": "boolean"
           },
           "schedule": {
-            "$ref": "#/components/schemas/CategorySchedule",
-            "nullable": true
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CategorySchedule"
+              }
+            ]
           },
           "isDeleted": {
             "type": "boolean"
@@ -11991,8 +12119,12 @@
             "type": "boolean"
           },
           "schedule": {
-            "$ref": "#/components/schemas/CategorySchedule",
-            "nullable": true
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CategorySchedule"
+              }
+            ]
           },
           "isDeleted": {
             "type": "boolean"
@@ -12064,8 +12196,12 @@
             "type": "boolean"
           },
           "schedule": {
-            "$ref": "#/components/schemas/CategorySchedule",
-            "nullable": true
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CategorySchedule"
+              }
+            ]
           },
           "isDeleted": {
             "type": "boolean"
@@ -12120,8 +12256,12 @@
             "type": "boolean"
           },
           "schedule": {
-            "$ref": "#/components/schemas/CategorySchedule",
-            "nullable": true
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CategorySchedule"
+              }
+            ]
           }
         },
         "required": [
@@ -12225,20 +12365,36 @@
         "type": "object",
         "properties": {
           "impressum": {
-            "$ref": "#/components/schemas/ImpressumFields",
-            "nullable": true
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ImpressumFields"
+              }
+            ]
           },
           "terms": {
-            "$ref": "#/components/schemas/LegalTextDto",
-            "nullable": true
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LegalTextDto"
+              }
+            ]
           },
           "withdrawal": {
-            "$ref": "#/components/schemas/LegalTextDto",
-            "nullable": true
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LegalTextDto"
+              }
+            ]
           },
           "privacyAddition": {
-            "$ref": "#/components/schemas/LegalTextDto",
-            "nullable": true
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LegalTextDto"
+              }
+            ]
           },
           "missingImpressumFields": {
             "type": "array",
@@ -12284,8 +12440,12 @@
                 "type": "boolean"
               },
               "accepted": {
-                "$ref": "#/components/schemas/DpaAcceptance",
-                "nullable": true
+                "nullable": true,
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/DpaAcceptance"
+                  }
+                ]
               }
             },
             "required": [
@@ -12538,8 +12698,12 @@
                 }
               },
               "impressum": {
-                "$ref": "#/components/schemas/ImpressumFields",
-                "nullable": true
+                "nullable": true,
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/ImpressumFields"
+                  }
+                ]
               },
               "terms": {
                 "type": "string",
@@ -12781,16 +12945,28 @@
             "nullable": true
           },
           "terms": {
-            "$ref": "#/components/schemas/LegalTextDto",
-            "nullable": true
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LegalTextDto"
+              }
+            ]
           },
           "withdrawal": {
-            "$ref": "#/components/schemas/LegalTextDto",
-            "nullable": true
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LegalTextDto"
+              }
+            ]
           },
           "privacyNotice": {
-            "$ref": "#/components/schemas/PrivacyNotice",
-            "nullable": true
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PrivacyNotice"
+              }
+            ]
           },
           "seller": {
             "type": "object",
@@ -13018,8 +13194,12 @@
             }
           },
           "capacity": {
-            "$ref": "#/components/schemas/SlotCapacityDto",
-            "nullable": true
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SlotCapacityDto"
+              }
+            ]
           },
           "ordersPause": {
             "$ref": "#/components/schemas/OrdersPauseFields"
@@ -13172,8 +13352,12 @@
             "nullable": true
           },
           "deliveryAddress": {
-            "$ref": "#/components/schemas/DeliveryAddress",
-            "nullable": true
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DeliveryAddress"
+              }
+            ]
           },
           "discount": {
             "type": "object",
@@ -13206,8 +13390,12 @@
             "type": "boolean"
           },
           "rejectionReason": {
-            "$ref": "#/components/schemas/RejectReason",
-            "nullable": true
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RejectReason"
+              }
+            ]
           }
         },
         "required": [
@@ -13562,8 +13750,12 @@
             "nullable": true
           },
           "discountProblem": {
-            "$ref": "#/components/schemas/DiscountProblem",
-            "nullable": true
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DiscountProblem"
+              }
+            ]
           },
           "discountMinSubtotalCents": {
             "type": "number",
@@ -13971,8 +14163,12 @@
             }
           },
           "spiceLevel": {
-            "$ref": "#/components/schemas/SpiceLevel",
-            "nullable": true
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SpiceLevel"
+              }
+            ]
           },
           "prepMinutes": {
             "type": "number",
@@ -14013,8 +14209,12 @@
             "type": "boolean"
           },
           "schedule": {
-            "$ref": "#/components/schemas/ProductSchedule",
-            "nullable": true
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ProductSchedule"
+              }
+            ]
           },
           "createdAt": {
             "type": "string"
@@ -14100,8 +14300,12 @@
             }
           },
           "spiceLevel": {
-            "$ref": "#/components/schemas/SpiceLevel",
-            "nullable": true
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SpiceLevel"
+              }
+            ]
           },
           "prepMinutes": {
             "type": "number",
@@ -14133,8 +14337,12 @@
             "type": "boolean"
           },
           "schedule": {
-            "$ref": "#/components/schemas/ProductSchedule",
-            "nullable": true
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ProductSchedule"
+              }
+            ]
           }
         },
         "required": [
@@ -14253,8 +14461,12 @@
             }
           },
           "spiceLevel": {
-            "$ref": "#/components/schemas/SpiceLevel",
-            "nullable": true
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SpiceLevel"
+              }
+            ]
           },
           "prepMinutes": {
             "type": "number",
@@ -14345,8 +14557,12 @@
             }
           },
           "schedule": {
-            "$ref": "#/components/schemas/ProductSchedule",
-            "nullable": true
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ProductSchedule"
+              }
+            ]
           }
         },
         "required": [
@@ -14438,8 +14654,12 @@
             }
           },
           "spiceLevel": {
-            "$ref": "#/components/schemas/SpiceLevel",
-            "nullable": true
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SpiceLevel"
+              }
+            ]
           },
           "prepMinutes": {
             "type": "number",
@@ -14480,8 +14700,12 @@
             "type": "boolean"
           },
           "schedule": {
-            "$ref": "#/components/schemas/ProductSchedule",
-            "nullable": true
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ProductSchedule"
+              }
+            ]
           },
           "createdAt": {
             "type": "string"
@@ -14570,8 +14794,12 @@
             }
           },
           "spiceLevel": {
-            "$ref": "#/components/schemas/SpiceLevel",
-            "nullable": true
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SpiceLevel"
+              }
+            ]
           },
           "prepMinutes": {
             "type": "number",
@@ -14603,8 +14831,12 @@
             "type": "boolean"
           },
           "schedule": {
-            "$ref": "#/components/schemas/ProductSchedule",
-            "nullable": true
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ProductSchedule"
+              }
+            ]
           }
         },
         "required": [
@@ -15130,8 +15362,12 @@
             }
           },
           "branding": {
-            "$ref": "#/components/schemas/ShopBranding",
-            "nullable": true
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ShopBranding"
+              }
+            ]
           },
           "menuLanguage": {
             "$ref": "#/components/schemas/MenuLanguage"
@@ -15382,8 +15618,12 @@
             "nullable": true
           },
           "ordersAutoPaused": {
-            "$ref": "#/components/schemas/OrdersAutoPaused",
-            "nullable": true
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/OrdersAutoPaused"
+              }
+            ]
           },
           "ordersPausedMessage": {
             "type": "string"
@@ -15632,8 +15872,12 @@
             }
           },
           "branding": {
-            "$ref": "#/components/schemas/ShopBranding",
-            "nullable": true
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ShopBranding"
+              }
+            ]
           },
           "pendingNameChange": {
             "type": "object",
@@ -15983,8 +16227,12 @@
             }
           },
           "branding": {
-            "$ref": "#/components/schemas/ShopBranding",
-            "nullable": true
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ShopBranding"
+              }
+            ]
           },
           "countryCode": {
             "type": "string"
@@ -16028,8 +16276,12 @@
                     }
                   },
                   "hours": {
-                    "$ref": "#/components/schemas/WeeklyHours",
-                    "nullable": true
+                    "nullable": true,
+                    "allOf": [
+                      {
+                        "$ref": "#/components/schemas/WeeklyHours"
+                      }
+                    ]
                   }
                 },
                 "required": [
@@ -16145,8 +16397,12 @@
             "type": "string"
           },
           "branding": {
-            "$ref": "#/components/schemas/ShopBranding",
-            "nullable": true
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ShopBranding"
+              }
+            ]
           }
         },
         "required": [
@@ -16267,8 +16523,12 @@
             "type": "string"
           },
           "branding": {
-            "$ref": "#/components/schemas/ShopBranding",
-            "nullable": true
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ShopBranding"
+              }
+            ]
           }
         },
         "required": [
@@ -16392,8 +16652,12 @@
             "additionalProperties": false
           },
           "branding": {
-            "$ref": "#/components/schemas/ShopBranding",
-            "nullable": true
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ShopBranding"
+              }
+            ]
           },
           "openingHours": {
             "type": "object",
@@ -16764,8 +17028,12 @@
             "$ref": "#/components/schemas/ShopSubscription"
           },
           "plan": {
-            "$ref": "#/components/schemas/Plan",
-            "nullable": true
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Plan"
+              }
+            ]
           },
           "entitlements": {
             "$ref": "#/components/schemas/Entitlements"
