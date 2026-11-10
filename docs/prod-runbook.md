@@ -632,8 +632,25 @@ Record the four `price_…` ids for §10. **Basic** is free and has no price.
 Nothing to configure per restaurant up front. Each restaurant onboards from the admin
 console (`createStripeAccountSession` → Stripe's embedded onboarding). Its live connected
 account must reach charges-enabled before its shop can go live. `account.updated` (above)
-keeps the shop's status current. Wallet domains (Apple Pay / Google Pay) are registered per
-connected account from `STOREFRONT_BASE_URL` automatically.
+keeps the shop's status current. Wallet domains (Apple Pay / Google Pay) are **not**
+registered automatically with a restricted key: see §7.6.
+
+### 7.6 Apple Pay / Google Pay cannot be registered with a restricted key
+
+Do not try to fix this with a permission toggle. Stripe refuses the `paymentMethodDomains`
+endpoints for restricted keys **by design**: *"the required permissions are not available for
+use by restricted keys"*. No Connect or platform permission grant changes that.
+
+- The code path is live: Connect onboarding → `registerStorefrontDomain`
+  (`src/application/shop/_shared/registerStorefrontDomain.ts`) → `ensurePaymentMethodDomain`
+  (`src/infrastructure/stripe/stripeClient.ts`).
+- It is best effort (try/catch, then `console.warn`) and never blocks onboarding. On a
+  restricted key it fails every time, and the log shows
+  `[stripe:failure] op=register_payment_method_domain kind=permission_or_config ...`. That is expected.
+- Effect: only wallet registration is lost. Cards, onboarding and the whole money path are unaffected.
+- To get wallets, either register the domain per connected account in the Stripe Dashboard
+  (payment method domain settings), or use an account (unrestricted) key for that one call, which
+  this project has chosen not to hold. Both are product decisions, not bug fixes.
 
 ---
 
@@ -861,6 +878,20 @@ az rest --method get --url "$U" --query "{enabled:properties.enabled,scope:prope
 `cloud_RoleName` must equal the app name, **`restaurant-ordering-system`**. Confirm it with
 `requests | take 1 | project cloud_RoleName` once traffic exists. A wrong value means the alert
 can never fire. Severity is 1 here (dev uses 2).
+
+### Telling a Stripe permission failure from a declined card
+
+Every failed Stripe call on the money paths (capture, release, refund, payment-intent creation)
+and the wallet registration logs one line, before the order is rejected or the refund reported:
+
+```
+[stripe:failure] op=capture kind=permission_or_config type=StripePermissionError rawType=invalid_request_error code=more_permissions_required status=403 requestId=req_... orderId=...
+```
+
+`kind=permission_or_config` means the key or account cannot do this: fix the setup (the key's
+Connect permissions), the diner did nothing wrong. `kind=card_decline` is a real decline (`declineCode`
+says why). `kind=transient` is an outage and is retried. Search App Insights traces for `[stripe:failure]`.
+A burst of `permission_or_config` after a key change means the new key is under-permissioned.
 
 ---
 

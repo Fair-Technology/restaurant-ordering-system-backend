@@ -196,6 +196,27 @@ describe('executeProcessOrderTimers', () => {
     expect(store.current.state).toBe('REJECTED');
   });
 
+  it('a capture refused for missing permissions still rejects the order, and the log says permission_or_config, not a decline', async () => {
+    (findShopById as any).mockResolvedValue(DEFAULT_SHOP);
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const lines = () => spy.mock.calls.map((c) => String(c[0])).filter((l) => l.startsWith('[stripe:failure]'));
+    (capturePaymentIntent as any).mockRejectedValue({ type: 'StripePermissionError', code: 'more_permissions_required', statusCode: 403, requestId: 'req_p' });
+    const store = storedOrder();
+    await executeProcessOrderTimers({ now: new Date('2026-10-05T10:01:00Z') });
+    expect(store.current.state).toBe('REJECTED');
+    expect(lines()[0]).toContain('kind=permission_or_config');
+    expect(lines()[0]).toContain('code=more_permissions_required');
+    expect(lines()[0]).toContain('requestId=req_p');
+    spy.mockClear();
+    (capturePaymentIntent as any).mockRejectedValue({ type: 'StripeCardError', code: 'card_declined', decline_code: 'insufficient_funds' });
+    const store2 = storedOrder();
+    await executeProcessOrderTimers({ now: new Date('2026-10-05T10:01:00Z') });
+    expect(store2.current.state).toBe('REJECTED');
+    expect(lines()[0]).toContain('kind=card_decline');
+    expect(lines()[0]).toContain('declineCode=insufficient_funds');
+    spy.mockRestore();
+  });
+
   it('an order placed inside the automatic hours is still accepted after they end', async () => {
     const order = placedAt('2026-10-05T15:59:00.000Z', '2026-10-05T16:09:00.000Z');
     (findShopById as any).mockResolvedValue(WINDOW_SHOP);
