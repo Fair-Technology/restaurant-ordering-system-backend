@@ -1,6 +1,6 @@
 import { HttpRequest } from '@azure/functions';
 import { getPrincipalFromAuth } from '../../../infrastructure/auth/authHelpers';
-import { isSuperAdminPrincipal } from '../../../infrastructure/auth/superAdminAuthHelpers';
+import { platformAccessLevel } from '../../../infrastructure/auth/principal';
 import { findUserById, upsertUser } from '../../../infrastructure/cosmos/user/CosmosUserRepository';
 import { ApplicationResult } from '../../_shared/types';
 import { GetMeResultDto } from './dtos';
@@ -19,7 +19,8 @@ export async function executeGetMe(
     // This is also the answer the superadmin console gates on - it asks "who am I"
     // and believes the reply, so the role has to come from the token here rather
     // than from a stored flag that platform staff will never have.
-    if (await isSuperAdminPrincipal(principal)) {
+    const platformAccess = platformAccessLevel(principal);
+    if (platformAccess) {
       const existing = await findUserById(principal.userId);
       return {
         ok: true,
@@ -28,6 +29,7 @@ export async function executeGetMe(
           email: principal.email ?? existing?.email,
           name: principal.name ?? existing?.name,
           systemRole: 'superadmin',
+          platformAccess,
           createdAt: existing?.createdAt ?? now,
           updatedAt: existing?.updatedAt ?? now,
         },

@@ -17465,6 +17465,13 @@
           "systemRole": {
             "$ref": "#/components/schemas/SystemRole"
           },
+          "platformAccess": {
+            "type": "string",
+            "enum": [
+              "read",
+              "write"
+            ]
+          },
           "createdAt": {
             "type": "string"
           },

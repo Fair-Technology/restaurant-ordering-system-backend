@@ -7,6 +7,7 @@ import { HttpRequest } from '@azure/functions';
 // test/infrastructure/platformAccess.test.ts.
 vi.mock('../../src/infrastructure/auth/superAdminAuthHelpers', () => ({
   verifySuperAdminToken: vi.fn(),
+  requirePlatform: vi.fn(),
 }));
 vi.mock('../../src/infrastructure/cosmos/shop/CosmosShopRepository', () => ({
   findAllShopsIncludingDeleted: vi.fn(async () => []),
@@ -21,7 +22,7 @@ vi.mock('../../src/infrastructure/cosmos/system/CosmosSystemConfigRepository', (
   upsertSystemConfig: vi.fn(async (c: { maxShopsDefault: number }) => c),
 }));
 
-import { verifySuperAdminToken } from '../../src/infrastructure/auth/superAdminAuthHelpers';
+import { requirePlatform, verifySuperAdminToken } from '../../src/infrastructure/auth/superAdminAuthHelpers';
 import { executeGetAllShops } from '../../src/application/shop/getAllShops/executeGetAllShops';
 import { executeGetPlan } from '../../src/application/plan/getPlan/executeGetPlan';
 import { executeUpdateSystemConfig } from '../../src/application/systemConfig/updateSystemConfig/executeUpdateSystemConfig';
@@ -29,13 +30,16 @@ import { executeUpdateSystemConfig } from '../../src/application/systemConfig/up
 const http = {} as HttpRequest;
 
 describe('platform endpoints route through the shared gate', () => {
-  beforeEach(() => vi.mocked(verifySuperAdminToken).mockReset());
+  beforeEach(() => {
+    vi.mocked(verifySuperAdminToken).mockReset();
+    vi.mocked(requirePlatform).mockReset();
+  });
 
   it.each([
     ['getAllShops', () => executeGetAllShops({} as never, http)],
     ['getPlan', () => executeGetPlan('p', http)],
   ])('%s is allowed for a platform operator', async (_name, call) => {
-    vi.mocked(verifySuperAdminToken).mockResolvedValue('staff-1');
+    vi.mocked(requirePlatform).mockResolvedValue('staff-1');
     const res = await call();
     expect(res.ok).toBe(true);
   });
@@ -44,7 +48,7 @@ describe('platform endpoints route through the shared gate', () => {
     ['getAllShops', () => executeGetAllShops({} as never, http)],
     ['getPlan', () => executeGetPlan('p', http)],
   ])('%s is refused when the gate returns no actor', async (_name, call) => {
-    vi.mocked(verifySuperAdminToken).mockResolvedValue(null);
+    vi.mocked(requirePlatform).mockResolvedValue(null);
     const res = await call();
     expect(res.ok).toBe(false);
     if (!res.ok) expect(res.code).toBe('FORBIDDEN');
@@ -62,5 +66,21 @@ describe('platform endpoints route through the shared gate', () => {
     vi.mocked(verifySuperAdminToken).mockResolvedValue('staff-1');
     const res = await executeUpdateSystemConfig({ maxShopsDefault: 3 } as never, http);
     expect(res.ok).toBe(true);
+  });
+
+  // The point of the split: reads ask for 'read', writes never do.
+  it('read endpoints ask the gate for read level', async () => {
+    vi.mocked(requirePlatform).mockResolvedValue('ro-1');
+    await executeGetAllShops({} as never, http);
+    await executeGetPlan('p', http);
+    expect(vi.mocked(requirePlatform).mock.calls.map((c) => c[1])).toEqual(['read', 'read']);
+  });
+
+  it('a write endpoint asks for write level and never accepts a read-level pass', async () => {
+    vi.mocked(requirePlatform).mockResolvedValue('ro-1'); // would let ReadOnly through if consulted
+    vi.mocked(verifySuperAdminToken).mockResolvedValue(null);
+    const res = await executeUpdateSystemConfig({ maxShopsDefault: 3 } as never, http);
+    expect(res).toMatchObject({ ok: false, code: 'FORBIDDEN' });
+    expect(requirePlatform).not.toHaveBeenCalled();
   });
 });

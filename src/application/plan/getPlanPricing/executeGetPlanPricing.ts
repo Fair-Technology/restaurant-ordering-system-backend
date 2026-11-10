@@ -1,6 +1,6 @@
 import { HttpRequest } from '@azure/functions';
 import { getPrincipalFromAuth } from '../../../infrastructure/auth/authHelpers';
-import { isSuperAdminPrincipal } from '../../../infrastructure/auth/superAdminAuthHelpers';
+import { platformAccessLevel } from '../../../infrastructure/auth/principal';
 import { findPlanById } from '../../../infrastructure/cosmos/plan/CosmosPlanRepository';
 import { findPricingByPlan } from '../../../infrastructure/cosmos/plan/CosmosPlanPricingRepository';
 import { ApplicationResult } from '../../_shared/types';
@@ -20,7 +20,8 @@ export async function executeGetPlanPricing(
       return { ok: false, code: 'INVALID_INPUT', error: 'planId is required' };
     }
 
-    const isSuperadmin = await isSuperAdminPrincipal(principal);
+    // Read-only operators see the same unfiltered view: this endpoint changes nothing.
+    const isSuperadmin = platformAccessLevel(principal) !== null;
 
     const plan = await findPlanById(planId);
     if (!plan || (!isSuperadmin && plan.isVisible !== true)) {

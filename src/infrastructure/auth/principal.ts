@@ -26,22 +26,37 @@ export const PLATFORM_OWNER_ROLE = 'Platform.Owner';
 export const PLATFORM_SUPPORT_ROLE = 'Platform.Support';
 export const PLATFORM_READONLY_ROLE = 'Platform.ReadOnly';
 
+/** What a platform operator may do: 'write' implies 'read'. */
+export type PlatformAccessLevel = 'read' | 'write';
+
 /**
- * Is this principal one of our own platform operators?
+ * The most a principal may do on the platform API, or null for none.
  *
  * Two conditions, both required: the token must come from the workforce tenant
  * (so a customer-store token can never claim platform access by adding a role),
- * and it must carry an owner/support role, which is only ever assigned by an
+ * and it must carry a platform role, which is only ever assigned by an
  * administrator through Entra.
  *
- * Platform.ReadOnly deliberately does NOT pass: the console has no per-endpoint
- * read/write split yet, so anything short of Owner/Support is denied rather than
- * silently handed full access.
+ * Owner/Support -> 'write'. ReadOnly -> 'read'. Anything else -> null.
+ * A principal holding both gets the higher level.
+ */
+export function platformAccessLevel(principal: Principal): PlatformAccessLevel | null {
+  if (principal.kind !== 'entra' || principal.issuer !== 'platform') return null;
+  const roles = principal.roles ?? [];
+  if (roles.includes(PLATFORM_OWNER_ROLE) || roles.includes(PLATFORM_SUPPORT_ROLE)) return 'write';
+  if (roles.includes(PLATFORM_READONLY_ROLE)) return 'read';
+  return null;
+}
+
+/**
+ * Is this principal a platform operator allowed to CHANGE things (Owner/Support)?
+ *
+ * Platform.ReadOnly does NOT pass: this is the write-level check, and the default for
+ * every caller that has not explicitly opted in to read-level access via
+ * `platformAccessLevel` / `requirePlatform(request, 'read')`.
  */
 export function isPlatformAdmin(principal: Principal): boolean {
-  if (principal.kind !== 'entra' || principal.issuer !== 'platform') return false;
-  const roles = principal.roles ?? [];
-  return roles.includes(PLATFORM_OWNER_ROLE) || roles.includes(PLATFORM_SUPPORT_ROLE);
+  return platformAccessLevel(principal) === 'write';
 }
 
 export async function authenticate(request: HttpRequest): Promise<Principal> {

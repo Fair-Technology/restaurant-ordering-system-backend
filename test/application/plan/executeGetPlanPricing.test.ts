@@ -3,9 +3,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 vi.mock('../../../src/infrastructure/auth/authHelpers', () => ({
   getPrincipalFromAuth: vi.fn(async () => ({ kind: 'entra', userId: 'u1', issuer: 'customer', roles: [] })),
 }));
-vi.mock('../../../src/infrastructure/auth/superAdminAuthHelpers', () => ({
-  isSuperAdminPrincipal: vi.fn(async () => false),
-}));
 vi.mock('../../../src/infrastructure/cosmos/plan/CosmosPlanRepository', () => ({
   findPlanById: vi.fn(),
 }));
@@ -14,7 +11,6 @@ vi.mock('../../../src/infrastructure/cosmos/plan/CosmosPlanPricingRepository', (
 }));
 
 import { getPrincipalFromAuth } from '../../../src/infrastructure/auth/authHelpers';
-import { isSuperAdminPrincipal } from '../../../src/infrastructure/auth/superAdminAuthHelpers';
 import { findPlanById } from '../../../src/infrastructure/cosmos/plan/CosmosPlanRepository';
 import { findPricingByPlan } from '../../../src/infrastructure/cosmos/plan/CosmosPlanPricingRepository';
 import { executeGetPlanPricing } from '../../../src/application/plan/getPlanPricing/executeGetPlanPricing';
@@ -24,9 +20,13 @@ const ROWS = [
   { id: 'b', planId: 'p', currency: 'USD', isActive: false, billingPriceIdMonthly: 'price_m2', billingPriceIdYearly: 'price_y2' },
 ];
 
-// The gate now decides from the verified identity, so these tests drive it directly.
+// The decision comes from the verified identity's platform role, so drive it with a real principal.
 const asUser = (systemRole: string) =>
-  vi.mocked(isSuperAdminPrincipal).mockResolvedValue(systemRole === 'superadmin');
+  vi.mocked(getPrincipalFromAuth).mockResolvedValue(
+    systemRole === 'superadmin'
+      ? ({ kind: 'entra', userId: 'sa', issuer: 'platform', roles: ['Platform.Owner'] } as any)
+      : ({ kind: 'entra', userId: 'u1', issuer: 'customer', roles: [] } as any),
+  );
 const withPlan = (isVisible: boolean) =>
   vi.mocked(findPlanById).mockResolvedValue({ id: 'p', isVisible } as any);
 
@@ -74,5 +74,18 @@ describe('executeGetPlanPricing', () => {
     vi.mocked(getPrincipalFromAuth).mockRejectedValue(new Error('Authentication required'));
     const r = await executeGetPlanPricing('p', {} as any);
     expect(r).toMatchObject({ ok: false, code: 'FORBIDDEN' });
+  });
+
+  it('a ReadOnly platform operator gets the unfiltered read view', async () => {
+    vi.mocked(getPrincipalFromAuth).mockResolvedValue({ kind: 'entra', userId: 'ro', issuer: 'platform', roles: ['Platform.ReadOnly'] } as any);
+    withPlan(false);
+    const res = await executeGetPlanPricing('p', {} as any);
+    expect(res.ok && res.data).toHaveLength(2);
+  });
+
+  it('a customer token claiming Platform.ReadOnly does not get the operator view', async () => {
+    vi.mocked(getPrincipalFromAuth).mockResolvedValue({ kind: 'entra', userId: 'x', issuer: 'customer', roles: ['Platform.ReadOnly'] } as any);
+    withPlan(false);
+    expect(await executeGetPlanPricing('p', {} as any)).toMatchObject({ ok: false, code: 'NOT_FOUND' });
   });
 });

@@ -4,7 +4,7 @@ import { HttpRequest } from '@azure/functions';
 import { findAllShopsIncludingDeleted } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { GetAllShopsRequestDto, GetAllShopsResultDto, ShopSummaryDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
-import { verifySuperAdminToken } from '../../../infrastructure/auth/superAdminAuthHelpers';
+import { requirePlatform } from '../../../infrastructure/auth/superAdminAuthHelpers';
 
 export async function executeGetAllShops(
   _request: GetAllShopsRequestDto,
@@ -12,7 +12,7 @@ export async function executeGetAllShops(
 ): Promise<ApplicationResult<GetAllShopsResultDto>> {
   try {
     // Superadmin only: the list includes deleted shops, so it must not be public.
-    const adminId = await verifySuperAdminToken(httpRequest);
+    const adminId = await requirePlatform(httpRequest, 'read');
     if (!adminId) {
       return { ok: false, code: 'FORBIDDEN', error: 'Superadmin access required' };
     }
