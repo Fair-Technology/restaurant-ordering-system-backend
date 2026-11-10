@@ -3,14 +3,14 @@ import { findPlanById } from '../../../infrastructure/cosmos/plan/CosmosPlanRepo
 import { findPricingByPlan } from '../../../infrastructure/cosmos/plan/CosmosPlanPricingRepository';
 import { ApplicationResult } from '../../_shared/types';
 import { GetPlanResultDto } from './dtos';
-import { verifySuperAdminToken } from '../../../infrastructure/auth/superAdminAuthHelpers';
+import { requirePlatform } from '../../../infrastructure/auth/superAdminAuthHelpers';
 
 export async function executeGetPlan(
   planId: string,
   httpRequest: HttpRequest,
 ): Promise<ApplicationResult<GetPlanResultDto>> {
   try {
-    const adminId = await verifySuperAdminToken(httpRequest);
+    const adminId = await requirePlatform(httpRequest, 'read');
     if (!adminId) {
       return { ok: false, code: 'FORBIDDEN', error: 'Superadmin access required' };
     }

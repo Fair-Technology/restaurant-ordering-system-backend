@@ -5,11 +5,11 @@ import { REJECTION_WINDOW_DAYS, rejectionStats } from '../../../domain/usage/rej
 import { ApplicationResult } from '../../_shared/types';
 import { loadOrderLimitStatus } from '../orderLimitStatus';
 import { RejectionWatchDto, RejectionWatchRowDto } from './dtos';
-import { verifySuperAdminToken } from '../../../infrastructure/auth/superAdminAuthHelpers';
+import { requirePlatform } from '../../../infrastructure/auth/superAdminAuthHelpers';
 
 export async function executeGetRejectionWatch(httpRequest: HttpRequest): Promise<ApplicationResult<RejectionWatchDto>> {
   try {
-    const adminId = await verifySuperAdminToken(httpRequest);
+    const adminId = await requirePlatform(httpRequest, 'read');
     if (!adminId) {
       return { ok: false, code: 'FORBIDDEN', error: 'Superadmin access required' };
     }

@@ -11,7 +11,7 @@ import { ShopUsage } from '../../../domain/usage/ShopUsage';
 import { REJECTION_WINDOW_DAYS, rejectionStats } from '../../../domain/usage/rejectionStats';
 import { periodKeyFor } from '../../../domain/usage/usagePeriod';
 import { toShopUsageDto } from '../shopUsageDto';
-import { verifySuperAdminToken } from '../../../infrastructure/auth/superAdminAuthHelpers';
+import { requirePlatform } from '../../../infrastructure/auth/superAdminAuthHelpers';
 
 export async function executeGetShopUsage(
   shopId: string,
@@ -22,7 +22,7 @@ export async function executeGetShopUsage(
   }
 
   try {
-    const adminId = await verifySuperAdminToken(httpRequest);
+    const adminId = await requirePlatform(httpRequest, 'read');
     if (!adminId) {
       return { ok: false, code: 'FORBIDDEN', error: 'Superadmin access required' };
     }

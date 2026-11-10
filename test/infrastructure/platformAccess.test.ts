@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { HttpRequest } from '@azure/functions';
 import {
   isPlatformAdmin,
+  platformAccessLevel,
   Principal,
   PLATFORM_OWNER_ROLE,
   PLATFORM_SUPPORT_ROLE,
@@ -18,7 +19,7 @@ vi.mock('../../src/infrastructure/cosmos/user/CosmosUserRepository', () => ({
 }));
 
 import { authenticate } from '../../src/infrastructure/auth/principal';
-import { verifySuperAdminToken } from '../../src/infrastructure/auth/superAdminAuthHelpers';
+import { requirePlatform, verifySuperAdminToken } from '../../src/infrastructure/auth/superAdminAuthHelpers';
 import { findUserById } from '../../src/infrastructure/cosmos/user/CosmosUserRepository';
 
 const request = {} as HttpRequest;
@@ -46,7 +47,7 @@ describe('isPlatformAdmin', () => {
     expect(isPlatformAdmin(platform([PLATFORM_SUPPORT_ROLE]))).toBe(true);
   });
 
-  it('denies ReadOnly, because the console has no per-endpoint read/write split yet', () => {
+  it('isPlatformAdmin is the write-level check, so ReadOnly is denied', () => {
     expect(isPlatformAdmin(platform([PLATFORM_READONLY_ROLE]))).toBe(false);
   });
 
@@ -81,11 +82,53 @@ describe('verifySuperAdminToken', () => {
     expect(findUserById).not.toHaveBeenCalled();
   });
 
-  it('denies a platform operator whose only role is ReadOnly', async () => {
+  it('denies a platform operator whose only role is ReadOnly the write-level gate', async () => {
     vi.mocked(authenticate).mockResolvedValue(platform([PLATFORM_READONLY_ROLE]));
 
     await expect(verifySuperAdminToken(request)).resolves.toBeNull();
+    await expect(requirePlatform(request, 'write')).resolves.toBeNull();
     expect(findUserById).not.toHaveBeenCalled();
+  });
+
+  describe('requirePlatform / platformAccessLevel', () => {
+    it.each([
+      [[PLATFORM_OWNER_ROLE], 'write'],
+      [[PLATFORM_SUPPORT_ROLE], 'write'],
+      [[PLATFORM_READONLY_ROLE], 'read'],
+      [[PLATFORM_READONLY_ROLE, PLATFORM_SUPPORT_ROLE], 'write'],
+      [[], null],
+      [['Other.Role'], null],
+    ])('roles %j -> level %s', (roles, level) => {
+      expect(platformAccessLevel(platform(roles as string[]))).toBe(level);
+    });
+
+    it('lets ReadOnly through at read level only', async () => {
+      vi.mocked(authenticate).mockResolvedValue(platform([PLATFORM_READONLY_ROLE]));
+      await expect(requirePlatform(request, 'read')).resolves.toBe('staff-1');
+      await expect(requirePlatform(request, 'write')).resolves.toBeNull();
+    });
+
+    it('lets Owner/Support through at both levels', async () => {
+      vi.mocked(authenticate).mockResolvedValue(platform([PLATFORM_OWNER_ROLE]));
+      await expect(requirePlatform(request, 'read')).resolves.toBe('staff-1');
+      await expect(requirePlatform(request, 'write')).resolves.toBe('staff-1');
+    });
+
+    it('refuses no-role and customer-tenant principals at read level', async () => {
+      vi.mocked(authenticate).mockResolvedValue(platform([]));
+      await expect(requirePlatform(request, 'read')).resolves.toBeNull();
+      vi.mocked(authenticate).mockResolvedValue({
+        kind: 'entra', userId: 'c', issuer: 'customer', roles: [PLATFORM_READONLY_ROLE],
+      } as never);
+      await expect(requirePlatform(request, 'read')).resolves.toBeNull();
+    });
+
+    it('refuses a shop-staff principal and a failed authentication', async () => {
+      vi.mocked(authenticate).mockResolvedValue({ kind: 'staff', staffId: 's', shopId: 'x', role: 'manager' } as never);
+      await expect(requirePlatform(request, 'read')).resolves.toBeNull();
+      vi.mocked(authenticate).mockRejectedValue(new Error('Authentication required'));
+      await expect(requirePlatform(request, 'read')).resolves.toBeNull();
+    });
   });
 
   // The legacy `systemRole: 'superadmin'` path was removed 2026-11-10, once the single row

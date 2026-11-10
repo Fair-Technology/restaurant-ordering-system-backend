@@ -3,13 +3,13 @@ import { getPlatformLegalIdentity } from '../../../infrastructure/cosmos/system/
 import { ApplicationResult } from '../../_shared/types';
 import { PlatformLegalIdentityDto } from '../dtos';
 import { toPlatformLegalIdentityDto } from '../toPlatformLegalIdentityDto';
-import { verifySuperAdminToken } from '../../../infrastructure/auth/superAdminAuthHelpers';
+import { requirePlatform } from '../../../infrastructure/auth/superAdminAuthHelpers';
 
 export async function executeGetPlatformLegalIdentity(
   httpRequest: HttpRequest,
 ): Promise<ApplicationResult<PlatformLegalIdentityDto>> {
   try {
-    const adminId = await verifySuperAdminToken(httpRequest);
+    const adminId = await requirePlatform(httpRequest, 'read');
     if (!adminId) {
       return { ok: false, code: 'FORBIDDEN', error: 'Superadmin access required' };
     }

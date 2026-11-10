@@ -3,13 +3,13 @@ import { getRolePermissions } from '../../../infrastructure/cosmos/system/Cosmos
 import { ALL_SHOP_PERMISSIONS } from '../../../domain/shop/Shop';
 import { ApplicationResult } from '../../_shared/types';
 import { RolePermissionsResultDto } from './dtos';
-import { verifySuperAdminToken } from '../../../infrastructure/auth/superAdminAuthHelpers';
+import { requirePlatform } from '../../../infrastructure/auth/superAdminAuthHelpers';
 
 export async function executeGetRolePermissions(
   httpRequest: HttpRequest,
 ): Promise<ApplicationResult<RolePermissionsResultDto>> {
   try {
-    const adminId = await verifySuperAdminToken(httpRequest);
+    const adminId = await requirePlatform(httpRequest, 'read');
     if (!adminId) {
       return { ok: false, code: 'FORBIDDEN', error: 'Superadmin access required' };
     }

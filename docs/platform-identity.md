@@ -113,27 +113,55 @@ az rest --method GET --url "https://graph.microsoft.com/v1.0/servicePrincipals/$
 
 ## The one way in
 
-`isSuperAdminPrincipal` in `src/infrastructure/auth/superAdminAuthHelpers.ts` is the
-only place that answers this question; every platform endpoint calls it (via
-`verifySuperAdminToken`, or directly when it has already authenticated the caller).
+`platformAccessLevel` in `src/infrastructure/auth/principal.ts` is the only place that maps
+a token to a platform capability; every platform endpoint reaches it through
+`requirePlatform(request, 'read' | 'write')` in `superAdminAuthHelpers.ts` (or
+`verifySuperAdminToken`, which is `requirePlatform(…, 'write')`).
 
-**Platform operators** — a token from the workforce tenant carrying `Platform.Owner`
-or `Platform.Support`. No database read.
+**Platform operators** — a token from the workforce tenant carrying a platform app role.
+No database read.
+
+| Role | Level | Reaches |
+| --- | --- | --- |
+| `Platform.Owner`, `Platform.Support` | `write` | every platform endpoint |
+| `Platform.ReadOnly` | `read` | only the handlers that call `requirePlatform(…, 'read')` |
+| none / other / customer-tenant token | — | nothing |
 
 The former second route — a `systemRole: 'superadmin'` flag on the users document,
 honoured for *customer* tokens — was **removed on 2026-11-10**. The single row carrying
 that flag (a disposable-mail test account) was deleted first, so no user lost access;
 `test/application/platformAccessEndpoints.test.ts` guards the workforce path.
 
-`Platform.ReadOnly` is defined but deliberately denied: the console has no per-endpoint
-read/write split yet, so anything short of Owner/Support is refused rather than silently
-handed full access. Add that split before assigning the role.
+### The read/write split
+
+**Write is the default.** `verifySuperAdminToken`, `isSuperAdminPrincipal` and
+`isPlatformAdmin` all mean "may change things" and refuse ReadOnly, so a new platform
+endpoint, and every shop-scoped path that lets platform staff act on a shop
+(`allowSuperadmin` in `shopAccess`, `createShop`), is closed to ReadOnly until someone
+opts it in. A handler opts in to read access only by calling `requirePlatform(request, 'read')`,
+and must change nothing when it does.
+
+Read-level handlers (the complete list): `getAllShops`, `getPlan`, `getPlanPricing`
+(operator view), `getShopUsage`, `getRejectionWatch`, `getSystemConfig`,
+`getRolePermissions`, `getPlatformLegalIdentity`, and `getMe` (which reports the level).
+Every other platform handler is write-level. Not opened to ReadOnly, on purpose: a
+platform operator reading one shop's own back-office data (categories, products, orders)
+through the shop-scoped routes.
+
+**`GET /me`** returns `systemRole: 'superadmin'` for any operator, and now also
+`platformAccess: 'read' | 'write'`, derived from the verified token. A client deciding
+whether to show write controls must use `platformAccess`; `systemRole` is true for both.
+The API enforces the split regardless of what the client shows.
+
+**Before assigning `Platform.ReadOnly`:** the superadmin console (`rs-superadmin`) must
+read `platformAccess` and hide/disable write controls; until it does, a ReadOnly user will
+see write buttons that the API answers with 403. Safe, but not tidy.
 
 *Residue, deliberately left:* `systemRole` still exists as a stored field (`SystemRole`
 type, `UserProfile`, `CosmosUserRepository`'s upsert preservation) and `executeGetMe`
 still returns `systemRole: 'superadmin'` as a **response** value for platform operators,
 which is what the console gates on. Nothing writes the flag to the database any more, so
-the field is vestigial; renaming the response field belongs with the read/write split.
+the field is vestigial; the console should move to `platformAccess` and the response field can then be retired.
 
 ## Deployment identity (GitHub Actions → Azure)
 

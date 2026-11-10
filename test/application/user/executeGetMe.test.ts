@@ -98,4 +98,28 @@ describe('executeGetMe', () => {
     expect(res.ok).toBe(false);
     if (!res.ok) expect(res.code).toBe('INTERNAL_ERROR');
   });
+
+  it.each([
+    [['Platform.Owner'], 'write'],
+    [['Platform.Support'], 'write'],
+    [['Platform.ReadOnly'], 'read'],
+  ])('reports platformAccess for roles %j as %s, from the token', async (roles, level) => {
+    vi.mocked(getPrincipalFromAuth).mockResolvedValue({ ...operator, roles } as never);
+    vi.mocked(findUserById).mockResolvedValue(null);
+
+    const res = await executeGetMe(http);
+
+    expect(res.ok && res.data.platformAccess).toBe(level);
+    expect(res.ok && res.data.systemRole).toBe('superadmin');
+    expect(upsertUser).not.toHaveBeenCalled();
+  });
+
+  it('reports no platformAccess for an app user', async () => {
+    vi.mocked(getPrincipalFromAuth).mockResolvedValue(customer as never);
+    vi.mocked(upsertUser).mockResolvedValue({ id: 'cust-1', systemRole: 'user', createdAt: 'a', updatedAt: 'b' } as never);
+
+    const res = await executeGetMe(http);
+
+    expect(res.ok && res.data.platformAccess).toBeUndefined();
+  });
 });
