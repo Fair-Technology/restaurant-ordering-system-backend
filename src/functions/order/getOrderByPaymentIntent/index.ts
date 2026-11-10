@@ -9,7 +9,7 @@ app.http('getOrderByPaymentIntent', {
   handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
     try {
       const paymentIntentId = request.params.paymentIntentId;
-      const result = await getOrderByPaymentIntent(paymentIntentId);
+      const result = await getOrderByPaymentIntent(paymentIntentId, request);
       return mapResultToHttp(result);
     } catch (error) {
       return { status: 500, jsonBody: { error: 'Internal server error' } };

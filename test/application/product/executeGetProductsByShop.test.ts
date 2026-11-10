@@ -8,6 +8,13 @@ vi.mock('../../../src/infrastructure/cosmos/category/CosmosCategoryRepository', 
   findCategoryById: vi.fn(),
 }));
 
+vi.mock('../../../src/application/_shared/shopAccess', () => ({
+  authorizeShopAction: vi.fn().mockResolvedValue({ ok: true }),
+}));
+vi.mock('../../../src/infrastructure/cosmos/shop/CosmosShopRepository', () => ({
+  findShopById: vi.fn().mockResolvedValue({ id: 'shop-1', isDeleted: false, members: [] }),
+}));
+
 import { findProductsByShopId } from '../../../src/infrastructure/cosmos/product/CosmosProductRepository';
 import {
   findCategoriesByShopId,
@@ -52,7 +59,7 @@ describe('executeGetProductsByShop', () => {
   // database read per product category made it take seconds, so the list sat
   // stale on screen long after the "saved" toast.
   it("reads the shop's categories in one query, not one read per product category", async () => {
-    await executeGetProductsByShop({ shopId: 'shop-1' }, { includeUncategorized: true });
+    await executeGetProductsByShop({ shopId: 'shop-1' }, {} as never, { includeUncategorized: true });
 
     expect(findCategoriesByShopId).toHaveBeenCalledTimes(1);
     expect(findCategoriesByShopId).toHaveBeenCalledWith('shop-1');
@@ -60,7 +67,7 @@ describe('executeGetProductsByShop', () => {
   });
 
   it('attaches categories sorted by sortOrder and drops ones that no longer exist', async () => {
-    const result = await executeGetProductsByShop({ shopId: 'shop-1' }, { includeUncategorized: true });
+    const result = await executeGetProductsByShop({ shopId: 'shop-1' }, {} as never, { includeUncategorized: true });
 
     expect(result.ok).toBe(true);
     const byId = Object.fromEntries((result as any).data.map((p: any) => [p.id, p.categories]));
@@ -74,7 +81,7 @@ describe('executeGetProductsByShop', () => {
   });
 
   it('leaves out products with no live category unless asked to include them', async () => {
-    const result = await executeGetProductsByShop({ shopId: 'shop-1' });
+    const result = await executeGetProductsByShop({ shopId: 'shop-1' }, {} as never);
 
     expect((result as any).data.map((p: any) => p.id)).toEqual(['p1', 'p2']);
   });
@@ -84,7 +91,7 @@ describe('executeGetProductsByShop', () => {
       product('p1', ['c-pasta']),
       { ...product('m1', ['c-pasta']), combo: { groups: [], bmfDrinkShare: false } },
     ] as any);
-    const result = await executeGetProductsByShop({ shopId: 'shop-1' });
+    const result = await executeGetProductsByShop({ shopId: 'shop-1' }, {} as never);
     expect((result as any).data.map((p: any) => p.id)).toEqual(['p1']);
   });
 });

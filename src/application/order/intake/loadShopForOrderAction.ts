@@ -7,6 +7,12 @@ import type { ApplicationError } from '../../_shared/types';
 /**
  * Whoever may see orders may act on them (owner, and manager/staff by role); superadmins may not.
  * Shared first step of every kitchen action.
+ *
+ * Deliberate (docs/endpoint-authorization.md): accept, reject, ready, dispatch, complete and
+ * busy-mode are gated by `view_orders`. Taking an order IS the job of the plain staff role, whose
+ * default is exactly `['view_orders']`; a separate write permission would either lock the kitchen
+ * out or have to be granted to every role that has `view_orders` anyway. Money-moving actions
+ * (refunds) do use their own `refund_orders`. The name is imprecise, the behaviour is intended.
  */
 export async function loadShopForOrderAction(
   shopId: string,
