@@ -12,7 +12,6 @@
     "start:dist": "func start --script-root dist --port 7073",
     "openapi:generate": "node scripts/generate-openapi.js",
     "seed": "ts-node --transpile-only scripts/seed.ts",
-    "smoke:order": "ts-node --transpile-only scripts/smoke-order.ts",
     "test": "vitest run"
   },
   "dependencies": {
