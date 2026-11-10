@@ -466,11 +466,361 @@
     "GET /orders/by-payment-intent/{paymentIntentId}": {
       "operationId": "getOrderByPaymentIntent",
       "summary": "Get order by Stripe payment intent ID",
-      "description": "Retrieves order details using the Stripe payment intent ID. The payment intent ID is available on the frontend from stripe.confirmPayment() result or by parsing the clientSecret (format: pi_xxx_secret_xxx). Returns 404 if the order has not yet been created (webhook not yet processed) \u2014 poll with back-off until a 200 is returned.",
+      "description": "Retrieves order details using the Stripe payment intent ID. The payment intent ID is available on the frontend from stripe.confirmPayment() result or by parsing the clientSecret (format: pi_xxx_secret_xxx). Returns 404 if the order has not yet been created (webhook not yet processed) — poll with back-off until a 200 is returned.",
       "tags": [
         "Orders"
       ],
       "responseDescription": "Order found"
+    },
+    "POST /customer-orders/{orderId}/cancel": {
+      "tags": [
+        "Orders"
+      ]
+    },
+    "POST /customer-orders/{orderId}/view": {
+      "tags": [
+        "Orders"
+      ]
+    },
+    "GET /legal/dpa": {
+      "tags": [
+        "Legal"
+      ]
+    },
+    "GET /legal/platform": {
+      "tags": [
+        "Legal"
+      ]
+    },
+    "POST /orders/quote": {
+      "tags": [
+        "Orders"
+      ]
+    },
+    "GET /owner/overview": {
+      "tags": [
+        "Reports"
+      ]
+    },
+    "POST /plans": {
+      "tags": [
+        "Plans"
+      ]
+    },
+    "GET /plans": {
+      "tags": [
+        "Plans"
+      ]
+    },
+    "GET /plans/{planId}": {
+      "tags": [
+        "Plans"
+      ]
+    },
+    "PATCH /plans/{planId}": {
+      "tags": [
+        "Plans"
+      ]
+    },
+    "GET /plans/{planId}/pricing": {
+      "tags": [
+        "Plans"
+      ]
+    },
+    "POST /plans/{planId}/pricing": {
+      "tags": [
+        "Plans"
+      ]
+    },
+    "GET /platform/config": {
+      "tags": [
+        "Platform"
+      ]
+    },
+    "PATCH /platform/config": {
+      "tags": [
+        "Platform"
+      ]
+    },
+    "GET /platform/legal-identity": {
+      "tags": [
+        "Legal"
+      ]
+    },
+    "PUT /platform/legal-identity": {
+      "tags": [
+        "Legal"
+      ]
+    },
+    "PUT /platform/reference-lists/{countryCode}": {
+      "tags": [
+        "Reference Lists"
+      ]
+    },
+    "GET /platform/role-permissions": {
+      "tags": [
+        "Platform"
+      ]
+    },
+    "PUT /platform/role-permissions": {
+      "tags": [
+        "Platform"
+      ]
+    },
+    "PATCH /platform/users/{userId}/limits": {
+      "tags": [
+        "Platform"
+      ]
+    },
+    "GET /reference-lists/{countryCode}": {
+      "tags": [
+        "Reference Lists"
+      ]
+    },
+    "GET /shops/{shopId}/audit": {
+      "tags": [
+        "Audit"
+      ]
+    },
+    "PUT /shops/{shopId}/busy-mode": {
+      "tags": [
+        "Shops"
+      ]
+    },
+    "POST /shops/{shopId}/customer-erasure": {
+      "tags": [
+        "Data Privacy"
+      ]
+    },
+    "GET /shops/{shopId}/data-export": {
+      "tags": [
+        "Data Privacy"
+      ]
+    },
+    "POST /shops/{shopId}/discount-codes": {
+      "tags": [
+        "Promotions"
+      ]
+    },
+    "PATCH /shops/{shopId}/discount-codes/{codeId}": {
+      "tags": [
+        "Promotions"
+      ]
+    },
+    "POST /shops/{shopId}/dpa-acceptance": {
+      "tags": [
+        "Legal"
+      ]
+    },
+    "GET /shops/{shopId}/go-live-status": {
+      "tags": [
+        "Shops"
+      ]
+    },
+    "GET /shops/{shopId}/legal": {
+      "tags": [
+        "Legal"
+      ]
+    },
+    "PATCH /shops/{shopId}/legal": {
+      "tags": [
+        "Legal"
+      ]
+    },
+    "PUT /shops/{shopId}/loyalty": {
+      "tags": [
+        "Shops"
+      ]
+    },
+    "DELETE /shops/{shopId}/name-change-request": {
+      "tags": [
+        "Shops"
+      ]
+    },
+    "POST /shops/{shopId}/name-change-request": {
+      "tags": [
+        "Shops"
+      ]
+    },
+    "POST /shops/{shopId}/name-change-request/approve": {
+      "tags": [
+        "Shops"
+      ]
+    },
+    "GET /shops/{shopId}/order-limit": {
+      "tags": [
+        "Usage"
+      ]
+    },
+    "GET /shops/{shopId}/order-queue": {
+      "tags": [
+        "Orders"
+      ]
+    },
+    "PUT /shops/{shopId}/order-settings": {
+      "tags": [
+        "Shops"
+      ]
+    },
+    "POST /shops/{shopId}/orders/{orderId}/accept": {
+      "tags": [
+        "Orders"
+      ]
+    },
+    "POST /shops/{shopId}/orders/{orderId}/complete": {
+      "tags": [
+        "Orders"
+      ]
+    },
+    "POST /shops/{shopId}/orders/{orderId}/dispatch": {
+      "tags": [
+        "Orders"
+      ]
+    },
+    "POST /shops/{shopId}/orders/{orderId}/ready": {
+      "tags": [
+        "Orders"
+      ]
+    },
+    "POST /shops/{shopId}/orders/{orderId}/reject": {
+      "tags": [
+        "Orders"
+      ]
+    },
+    "GET /shops/{shopId}/promotions": {
+      "tags": [
+        "Promotions"
+      ]
+    },
+    "GET /shops/{shopId}/reports/sales": {
+      "tags": [
+        "Reports"
+      ]
+    },
+    "POST /shops/{shopId}/staff": {
+      "tags": [
+        "Staff"
+      ]
+    },
+    "GET /shops/{shopId}/staff": {
+      "tags": [
+        "Staff"
+      ]
+    },
+    "DELETE /shops/{shopId}/staff/{staffId}": {
+      "tags": [
+        "Staff"
+      ]
+    },
+    "PATCH /shops/{shopId}/staff/{staffId}": {
+      "tags": [
+        "Staff"
+      ]
+    },
+    "POST /shops/{shopId}/staff/{staffId}/password": {
+      "tags": [
+        "Staff"
+      ]
+    },
+    "DELETE /shops/{shopId}/stripe/account": {
+      "tags": [
+        "Stripe"
+      ]
+    },
+    "POST /shops/{shopId}/stripe/account-session": {
+      "tags": [
+        "Stripe"
+      ]
+    },
+    "DELETE /shops/{shopId}/subscription": {
+      "tags": [
+        "Subscriptions"
+      ]
+    },
+    "GET /shops/{shopId}/subscription": {
+      "tags": [
+        "Subscriptions"
+      ]
+    },
+    "POST /shops/{shopId}/subscription/checkout": {
+      "tags": [
+        "Subscriptions"
+      ]
+    },
+    "POST /shops/{shopId}/subscription/checkout/confirm": {
+      "tags": [
+        "Subscriptions"
+      ]
+    },
+    "DELETE /shops/{shopId}/subscription/limit-override": {
+      "tags": [
+        "Subscriptions"
+      ]
+    },
+    "PUT /shops/{shopId}/subscription/limit-override": {
+      "tags": [
+        "Subscriptions"
+      ]
+    },
+    "POST /shops/{shopId}/subscription/override": {
+      "tags": [
+        "Subscriptions"
+      ]
+    },
+    "POST /shops/{shopId}/subscription/portal": {
+      "tags": [
+        "Subscriptions"
+      ]
+    },
+    "POST /shops/{shopId}/subscription/resume": {
+      "tags": [
+        "Subscriptions"
+      ]
+    },
+    "POST /shops/{shopId}/subscription/retry-payment": {
+      "tags": [
+        "Subscriptions"
+      ]
+    },
+    "DELETE /shops/{shopId}/subscription/scheduled-change": {
+      "tags": [
+        "Subscriptions"
+      ]
+    },
+    "GET /shops/{shopId}/usage": {
+      "tags": [
+        "Usage"
+      ]
+    },
+    "POST /shops/{shopId}/usage/reconcile": {
+      "tags": [
+        "Usage"
+      ]
+    },
+    "GET /shops/slug/{slug}/legal": {
+      "tags": [
+        "Legal"
+      ]
+    },
+    "POST /staff/login": {
+      "tags": [
+        "Staff"
+      ]
+    },
+    "GET /usage/rejection-watch": {
+      "tags": [
+        "Usage"
+      ]
+    },
+    "GET /users/me": {
+      "tags": [
+        "Users"
+      ]
+    },
+    "POST /webhooks/stripe-connect": {
+      "tags": [
+        "Webhooks"
+      ]
     }
   }
 }
