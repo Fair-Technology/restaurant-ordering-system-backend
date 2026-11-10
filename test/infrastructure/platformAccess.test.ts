@@ -88,21 +88,24 @@ describe('verifySuperAdminToken', () => {
     expect(findUserById).not.toHaveBeenCalled();
   });
 
-  it('still honours the legacy database flag for customer identities', async () => {
+  // The legacy `systemRole: 'superadmin'` path was removed 2026-11-10, once the single row
+  // carrying that flag was deleted. These two tests pin the removal: a customer token is
+  // refused whether or not the flag is set, and the users container is never consulted.
+  it('refuses a customer identity even when it carries the legacy flag', async () => {
     vi.mocked(authenticate).mockResolvedValue(customer());
     vi.mocked(findUserById).mockResolvedValue({
       id: 'cust-1',
       systemRole: 'superadmin',
     } as never);
 
-    await expect(verifySuperAdminToken(request)).resolves.toBe('cust-1');
+    await expect(verifySuperAdminToken(request)).resolves.toBeNull();
   });
 
-  it('denies a customer identity without the flag', async () => {
+  it('denies a customer identity without consulting the users container', async () => {
     vi.mocked(authenticate).mockResolvedValue(customer());
-    vi.mocked(findUserById).mockResolvedValue({ id: 'cust-1', systemRole: 'user' } as never);
 
     await expect(verifySuperAdminToken(request)).resolves.toBeNull();
+    expect(findUserById).not.toHaveBeenCalled();
   });
 
   it('never lets a platform identity fall back to the legacy flag', async () => {

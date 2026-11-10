@@ -149,3 +149,6 @@ __azurite_db*__.json
 
 # Claude Code local overrides (personal; never commit)
 .claude/settings.local.json
+
+# macOS Finder metadata
+.DS_Store

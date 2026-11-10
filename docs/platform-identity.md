@@ -111,21 +111,29 @@ az rest --method POST --url "https://graph.microsoft.com/v1.0/users/$USER_ID/app
 az rest --method GET --url "https://graph.microsoft.com/v1.0/servicePrincipals/$API_SP/appRoleAssignedTo"
 ```
 
-## The two ways in, and why they are separate
+## The one way in
 
 `isSuperAdminPrincipal` in `src/infrastructure/auth/superAdminAuthHelpers.ts` is the
 only place that answers this question; every platform endpoint calls it (via
 `verifySuperAdminToken`, or directly when it has already authenticated the caller).
 
-1. **Platform operators** — token from the workforce tenant carrying
-   `Platform.Owner` or `Platform.Support`. No database read.
-2. **Legacy app users** — `systemRole: 'superadmin'` on the users document. Kept only
-   while existing superadmins migrate, and only honoured for *customer* tokens, so a
-   workforce identity can never fall back to it.
+**Platform operators** — a token from the workforce tenant carrying `Platform.Owner`
+or `Platform.Support`. No database read.
+
+The former second route — a `systemRole: 'superadmin'` flag on the users document,
+honoured for *customer* tokens — was **removed on 2026-11-10**. The single row carrying
+that flag (a disposable-mail test account) was deleted first, so no user lost access;
+`test/application/platformAccessEndpoints.test.ts` guards the workforce path.
 
 `Platform.ReadOnly` is defined but deliberately denied: the console has no per-endpoint
 read/write split yet, so anything short of Owner/Support is refused rather than silently
 handed full access. Add that split before assigning the role.
+
+*Residue, deliberately left:* `systemRole` still exists as a stored field (`SystemRole`
+type, `UserProfile`, `CosmosUserRepository`'s upsert preservation) and `executeGetMe`
+still returns `systemRole: 'superadmin'` as a **response** value for platform operators,
+which is what the console gates on. Nothing writes the flag to the database any more, so
+the field is vestigial; renaming the response field belongs with the read/write split.
 
 ## Deployment identity (GitHub Actions → Azure)
 
