@@ -1,5 +1,8 @@
+import type { HttpRequest } from '@azure/functions';
 import { findProductsByShopId } from '../../../infrastructure/cosmos/product/CosmosProductRepository';
 import { findCategoriesByShopId } from '../../../infrastructure/cosmos/category/CosmosCategoryRepository';
+import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
+import { authorizeShopAction } from '../../_shared/shopAccess';
 import {
   GetProductsByShopRequestDto,
   GetProductsByShopResultDto,
@@ -10,6 +13,7 @@ import { toMenuFieldsDto } from '../menuFieldsDto';
 
 export async function executeGetProductsByShop(
   request: GetProductsByShopRequestDto,
+  httpRequest: HttpRequest,
   options: { includeUncategorized?: boolean } = {},
 ): Promise<ApplicationResult<GetProductsByShopResultDto>> {
   // Validate input
@@ -27,6 +31,16 @@ export async function executeGetProductsByShop(
 
   try {
     const shopId = request.shopId.trim();
+    // Back-office menu data, not the public menu (that is GET /shops/{id}/catalog):
+    // same permission as the writes it sits beside, and only its menu editor and
+    // combos screens call it.
+    const shop = await findShopById(shopId);
+    if (!shop || shop.isDeleted) {
+      return { ok: false, code: 'NOT_FOUND', error: 'Shop not found' };
+    }
+    const access = await authorizeShopAction(httpRequest, shop, 'manage_menu');
+    if (!access.ok) return access;
+
     // One query for the shop's live categories rather than a read per product
     // category — the admin list refetches this after every save, and the
     // per-category reads made it take seconds.

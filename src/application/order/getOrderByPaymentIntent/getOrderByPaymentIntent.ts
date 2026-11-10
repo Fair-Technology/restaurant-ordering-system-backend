@@ -1,3 +1,6 @@
+import type { HttpRequest } from '@azure/functions';
+import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
+import { authorizeShopAction } from '../../_shared/shopAccess';
 import { findOrderByStripePaymentIntentId } from '../../../infrastructure/cosmos/order/CosmosOrderRepository';
 import { deriveDisplayState } from '../../../domain/order/orderLifecycle';
 import {
@@ -37,6 +40,7 @@ export interface GetOrderByPaymentIntentResultDto {
 
 export async function getOrderByPaymentIntent(
   paymentIntentId: string,
+  httpRequest: HttpRequest,
 ): Promise<ApplicationResult<GetOrderByPaymentIntentResultDto>> {
   if (!paymentIntentId || !paymentIntentId.startsWith('pi_')) {
     return { ok: false, code: 'NOT_FOUND', error: 'Order not found' };
@@ -47,6 +51,16 @@ export async function getOrderByPaymentIntent(
     if (!order) {
       return { ok: false, code: 'NOT_FOUND', error: 'Order not found' };
     }
+    // A PaymentIntent id is not a secret (it rides Stripe's redirect URLs and logs),
+    // and this response carries the customer's name. Only the restaurant that owns
+    // the order may look it up; the diner's own link is /customer-orders/{id}/view,
+    // which takes the order's secret token.
+    const shop = await findShopById(order.shopId);
+    if (!shop || shop.isDeleted) {
+      return { ok: false, code: 'NOT_FOUND', error: 'Order not found' };
+    }
+    const access = await authorizeShopAction(httpRequest, shop, 'view_orders');
+    if (!access.ok) return access;
     return {
       ok: true,
       data: {

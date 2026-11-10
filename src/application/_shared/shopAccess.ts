@@ -5,6 +5,7 @@ import { StaffAccount, StaffRole } from '../../domain/staff/StaffAccount';
 import { Principal, authenticate } from '../../infrastructure/auth/principal';
 import { isSuperAdminPrincipal } from '../../infrastructure/auth/superAdminAuthHelpers';
 import { getRolePermissions } from '../../infrastructure/cosmos/system/CosmosRolePermissionsRepository';
+import { findShopById } from '../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { findStaffAccountById } from '../../infrastructure/cosmos/staff/CosmosStaffAccountRepository';
 import { AuditEntry } from '../../domain/audit/AuditEntry';
 import { ApplicationError } from './types';
@@ -101,6 +102,22 @@ export async function authorizeShopAction(
     return { ok: false, code: 'FORBIDDEN', error: 'Insufficient permissions' };
   }
   return { ok: true, ...access };
+}
+
+/**
+ * Read access to a shop's back-office data (categories, products): a member of that
+ * shop (owner, or its own active staff) or a platform superadmin. Merely being signed in
+ * is not enough: that would let any diner, or another shop's owner, read any shop.
+ */
+export async function authorizeShopRead(
+  request: HttpRequest,
+  shopId: string,
+): Promise<({ ok: true; shop: Shop } & ShopAccess) | ApplicationError> {
+  const shop = await findShopById(shopId);
+  if (!shop) return { ok: false, code: 'NOT_FOUND', error: 'Shop not found' };
+  const access = await authorizeShopAction(request, shop, null, { allowSuperadmin: true });
+  if (!access.ok) return access;
+  return { ...access, shop };
 }
 
 export function toAuditActor(actor: ShopActor): Pick<AuditEntry, 'actorType' | 'actorId'> {
