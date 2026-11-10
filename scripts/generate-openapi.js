@@ -390,6 +390,7 @@ const unresolvedRefs = new Set();
  *   type: [T, "null"]            → type: T, nullable: true
  *   anyOf: [X, { type: "null" }]  → X + nullable: true (collapsed where possible)
  *   enum: [..., null]             → nullable: true, null dropped (3.0 enums are scalar-only)
+ * A nullable $ref is emitted as { nullable: true, allOf: [{ $ref }] } (siblings of $ref are ignored).
  */
 function convert(node, depth = 0) {
   if (Array.isArray(node)) return node.map((x) => convert(x, depth));
@@ -437,6 +438,12 @@ function convert(node, depth = 0) {
       continue;
     }
     out[k] = convert(v, depth);
+  }
+  // OpenAPI 3.0 ignores every sibling of $ref, so {$ref, nullable: true} silently
+  // declares the field non-nullable. allOf carries the reference without the clash.
+  if (typeof out.$ref === 'string' && out.nullable === true) {
+    const { $ref, ...rest } = out;
+    return { ...rest, allOf: [{ $ref }] };
   }
   return out;
 }
