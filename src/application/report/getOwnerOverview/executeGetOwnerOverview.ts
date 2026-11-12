@@ -1,3 +1,4 @@
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 import type { HttpRequest } from '@azure/functions';
 import type { ApplicationResult } from '../../_shared/types';
 import { loadOrderLimitStatus } from '../../usage/orderLimitStatus';
@@ -95,6 +96,7 @@ export async function executeGetOwnerOverview(
     if (error?.message === 'Authentication required') {
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
     }
+    logServiceFailure('GetOwnerOverview', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to load the overview' };
   }
 }

@@ -1,3 +1,4 @@
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 import { ORDER_NOT_FOUND_ERROR, PAYMENT_CONFIRMING_ERROR } from '../../../domain/order/orderErrors';
 import { accessTokenMatches } from '../../../domain/order/orderIds';
 import { findCheckoutSessionById } from '../../../infrastructure/cosmos/order/CosmosCheckoutSessionRepository';
@@ -41,7 +42,8 @@ export async function executeGetCustomerOrder(
     const shop = await findShopById(order.shopId);
     if (!shop) return { ok: false, code: 'NOT_FOUND', error: ORDER_NOT_FOUND_ERROR };
     return { ok: true, data: toCustomerOrderDto(order, shop, options.now ?? new Date()) };
-  } catch {
+  } catch (error: any) {
+    logServiceFailure('GetCustomerOrder', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to retrieve order' };
   }
 }

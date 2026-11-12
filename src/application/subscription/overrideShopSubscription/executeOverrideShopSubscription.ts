@@ -1,3 +1,4 @@
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 import { HttpRequest } from '@azure/functions';
 import { findSubscriptionByShopId, upsertSubscription } from '../../../infrastructure/cosmos/subscription/CosmosSubscriptionRepository';
 import { findPlanById, findDefaultPlan } from '../../../infrastructure/cosmos/plan/CosmosPlanRepository';
@@ -77,6 +78,7 @@ export async function executeOverrideShopSubscription(
     if (error.message === 'Authentication required') {
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
     }
+    logServiceFailure('OverrideShopSubscription', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to override subscription' };
   }
 }

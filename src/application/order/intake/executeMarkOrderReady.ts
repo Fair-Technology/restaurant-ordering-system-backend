@@ -1,3 +1,4 @@
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 import type { HttpRequest } from '@azure/functions';
 import { applyTransition } from '../../../domain/order/orderLifecycle';
 import type { ApplicationResult } from '../../_shared/types';
@@ -27,7 +28,8 @@ export async function executeMarkOrderReady(
 
     await notifyCustomer('order_ready', moved.order, shop);
     return { ok: true, data: toOrderDto(moved.order, now) };
-  } catch {
+  } catch (error: any) {
+    logServiceFailure('MarkOrderReady', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to mark order ready' };
   }
 }

@@ -2,6 +2,7 @@ import { app, HttpRequest, HttpResponseInit } from '@azure/functions';
 import { executeCheckout } from '../../../application/order/checkout/executeCheckout';
 import { CheckoutRequestDto } from '../../../application/order/checkout/dtos';
 import { BODY_NOT_OBJECT_ERROR } from '../../../domain/order/orderErrors';
+import { internalServerError } from '../../_shared/internalServerError';
 import { mapResultToHttp } from '../../_shared/mapResultToHttp';
 
 app.http('checkout', {
@@ -17,7 +18,7 @@ app.http('checkout', {
       const result = await executeCheckout(body as CheckoutRequestDto);
       return mapResultToHttp(result);
     } catch (error) {
-      return { status: 500, jsonBody: { error: 'Internal server error' } };
+      return internalServerError('checkout', error);
     }
   },
 });

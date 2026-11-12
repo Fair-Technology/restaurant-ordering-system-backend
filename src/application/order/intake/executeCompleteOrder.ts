@@ -1,3 +1,4 @@
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 import type { HttpRequest } from '@azure/functions';
 import { applyTransition } from '../../../domain/order/orderLifecycle';
 import type { ApplicationResult } from '../../_shared/types';
@@ -25,7 +26,8 @@ export async function executeCompleteOrder(
     });
     if (!moved.ok) return moved;
     return { ok: true, data: toOrderDto(moved.order, now) };
-  } catch {
+  } catch (error: any) {
+    logServiceFailure('CompleteOrder', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to complete order' };
   }
 }

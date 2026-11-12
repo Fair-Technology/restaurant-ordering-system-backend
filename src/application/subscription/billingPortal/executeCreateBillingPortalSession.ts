@@ -1,3 +1,4 @@
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 import { HttpRequest } from '@azure/functions';
 import { findSubscriptionByShopId } from '../../../infrastructure/cosmos/subscription/CosmosSubscriptionRepository';
 import { ApplicationResult } from '../../_shared/types';
@@ -32,6 +33,7 @@ export async function executeCreateBillingPortalSession(
     if (error.message === 'Authentication required') {
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
     }
+    logServiceFailure('CreateBillingPortalSession', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to open the billing portal' };
   }
 }

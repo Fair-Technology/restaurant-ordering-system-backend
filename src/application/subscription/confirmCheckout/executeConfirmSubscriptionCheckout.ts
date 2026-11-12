@@ -1,3 +1,4 @@
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 import { HttpRequest } from '@azure/functions';
 import { subscriptionPeriod, subscriptionPriceId } from '../../../infrastructure/stripe/billingEventParsing';
 import { ApplicationResult } from '../../_shared/types';
@@ -63,6 +64,7 @@ export async function executeConfirmSubscriptionCheckout(
     if (error.message === 'Authentication required') {
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
     }
+    logServiceFailure('ConfirmSubscriptionCheckout', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to confirm the checkout' };
   }
 }

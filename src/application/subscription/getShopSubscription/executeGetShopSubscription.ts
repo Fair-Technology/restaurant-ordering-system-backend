@@ -1,3 +1,4 @@
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 import { HttpRequest } from '@azure/functions';
 import { findSubscriptionByShopId, upsertSubscription } from '../../../infrastructure/cosmos/subscription/CosmosSubscriptionRepository';
 import { findDefaultPlan, findPlanById } from '../../../infrastructure/cosmos/plan/CosmosPlanRepository';
@@ -48,6 +49,7 @@ export async function executeGetShopSubscription(
     if (error.message === 'Authentication required') {
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
     }
+    logServiceFailure('GetShopSubscription', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to retrieve subscription' };
   }
 }

@@ -1,6 +1,7 @@
 import { app, HttpRequest, HttpResponseInit } from '@azure/functions';
 import { executeRejectOrder } from '../../../application/order/intake/executeRejectOrder';
 import { BODY_NOT_OBJECT_ERROR } from '../../../domain/order/orderErrors';
+import { internalServerError } from '../../_shared/internalServerError';
 import { mapResultToHttp } from '../../_shared/mapResultToHttp';
 import { readJsonObject } from '../../_shared/readJsonObject';
 
@@ -14,8 +15,8 @@ app.http('rejectOrder', {
       if (!body) return { status: 400, jsonBody: { error: BODY_NOT_OBJECT_ERROR } };
       const { shopId, orderId } = request.params;
       return mapResultToHttp(await executeRejectOrder({ ...body, shopId, orderId }, request));
-    } catch {
-      return { status: 500, jsonBody: { error: 'Internal server error' } };
+    } catch (error) {
+      return internalServerError('rejectOrder', error);
     }
   },
 });

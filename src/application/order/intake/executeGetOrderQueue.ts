@@ -1,3 +1,4 @@
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 import type { HttpRequest } from '@azure/functions';
 import { busyStateOf, effectivePrepByMode } from '../../../domain/order/kitchenTiming';
 import { isOpenAtSlot, isUpcoming } from '../../../domain/order/scheduling';
@@ -44,7 +45,8 @@ export async function executeGetOrderQueue(
         ordersPause: ordersPauseFieldsOf(loaded.shop, now),
       },
     };
-  } catch {
+  } catch (error: any) {
+    logServiceFailure('GetOrderQueue', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to retrieve orders' };
   }
 }

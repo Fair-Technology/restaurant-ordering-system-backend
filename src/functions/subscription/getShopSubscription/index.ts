@@ -1,5 +1,6 @@
 import { app, HttpRequest, HttpResponseInit } from '@azure/functions';
 import { executeGetShopSubscription } from '../../../application/subscription/getShopSubscription/executeGetShopSubscription';
+import { internalServerError } from '../../_shared/internalServerError';
 import { mapResultToHttp } from '../../_shared/mapResultToHttp';
 
 app.http('getShopSubscription', {
@@ -12,7 +13,7 @@ app.http('getShopSubscription', {
       const result = await executeGetShopSubscription(shopId, request);
       return mapResultToHttp(result);
     } catch (error) {
-      return { status: 500, jsonBody: { error: 'Internal server error' } };
+      return internalServerError('getShopSubscription', error);
     }
   },
 });

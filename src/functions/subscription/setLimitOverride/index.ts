@@ -1,5 +1,6 @@
 import { app, HttpRequest, HttpResponseInit } from '@azure/functions';
 import { executeSetLimitOverride } from '../../../application/subscription/limitOverride/executeSetLimitOverride';
+import { internalServerError } from '../../_shared/internalServerError';
 import { mapResultToHttp } from '../../_shared/mapResultToHttp';
 
 app.http('setLimitOverride', {
@@ -13,7 +14,7 @@ app.http('setLimitOverride', {
       const result = await executeSetLimitOverride(shopId, body, request);
       return mapResultToHttp(result);
     } catch (error) {
-      return { status: 500, jsonBody: { error: 'Internal server error' } };
+      return internalServerError('setLimitOverride', error);
     }
   },
 });

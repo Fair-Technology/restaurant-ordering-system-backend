@@ -1,5 +1,6 @@
 import { app, HttpRequest, HttpResponseInit } from '@azure/functions';
 import { executeOverrideShopSubscription } from '../../../application/subscription/overrideShopSubscription/executeOverrideShopSubscription';
+import { internalServerError } from '../../_shared/internalServerError';
 import { mapResultToHttp } from '../../_shared/mapResultToHttp';
 
 app.http('overrideShopSubscription', {
@@ -13,7 +14,7 @@ app.http('overrideShopSubscription', {
       const result = await executeOverrideShopSubscription(shopId, body, request);
       return mapResultToHttp(result);
     } catch (error) {
-      return { status: 500, jsonBody: { error: 'Internal server error' } };
+      return internalServerError('overrideShopSubscription', error);
     }
   },
 });
