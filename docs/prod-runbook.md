@@ -709,7 +709,7 @@ invoice PDF is **only logged, never sent**. Prod as built here behaves the same 
 `EMAIL_TRANSPORT=log`. **Diners would receive no order confirmations and no invoices.** Before
 go-live, decide whether to create an Azure Communication Services email resource (in the EU
 data location) and set `EMAIL_TRANSPORT=acs`, `ACS_EMAIL_CONNECTION_STRING` and
-`ACS_EMAIL_SENDER`, as described in `infra/README.md` → "Order emails and timer". This is a
+`ACS_EMAIL_SENDER` (and `PLATFORM_ALERT_EMAIL`, see §12), as described in `infra/README.md` → "Order emails and timer". This is a
 go-live decision, not a mirror-of-dev item.
 
 ---
@@ -892,6 +892,61 @@ and the wallet registration logs one line, before the order is rejected or the r
 Connect permissions), the diner did nothing wrong. `kind=card_decline` is a real decline (`declineCode`
 says why). `kind=transient` is an outage and is retried. Search App Insights traces for `[stripe:failure]`.
 A burst of `permission_or_config` after a key change means the new key is under-permissioned.
+
+### Alert: Stripe permission or configuration failure
+
+**What it is.** If the restricted key loses a permission or is misconfigured, every card order is
+rejected at capture, the hold is released and the diner is told their payment failed. The restaurant
+is told nothing. By decision the order flow is unchanged; the failure is made visible instead.
+
+**How it signals.** On a `permission_or_config` capture failure the backend
+(`src/infrastructure/stripe/platformAlert.ts`) writes one `[alert:platform]` error line **every time**, and
+emails `PLATFORM_ALERT_EMAIL` **at most once per 15 minutes per process** (in-memory limit; a Flex host can
+run several instances, so the worst case is one email per instance per window). There is no custom
+event or metric: the app has no `applicationinsights` SDK, only the host's log forwarding, so the log
+line is the signal. A card decline never alerts.
+
+The line ends in `notified=`: `sent`, `suppressed` (inside the window), `undeliverable` or `failed`.
+When the email cannot go out (`PLATFORM_ALERT_EMAIL` unset, or `EMAIL_TRANSPORT` is not `acs` with both
+`ACS_EMAIL_CONNECTION_STRING` and `ACS_EMAIL_SENDER` present) the line is prefixed
+`[alert:platform:undeliverable] NO PLATFORM OPERATOR WAS EMAILED`. **Set `PLATFORM_ALERT_EMAIL` in Phase E**
+and keep the Azure Monitor rule below, which does not depend on email config from the app.
+
+**Log query** (Application Insights, or the Log Analytics workspace):
+
+```kusto
+traces
+| where cloud_RoleName == "restaurant-ordering-system"
+| where message contains "[alert:platform] kind=stripe_permission_or_config"
+| project timestamp, message
+```
+
+**Create the rule deliberately** (needs `az extension add --name scheduled-query`; this is a
+documented command, nothing has been created). It reuses the action group from §12:
+
+```sh
+az monitor scheduled-query create -g $RG -n alert-prod-stripe-config-failure \
+  --scopes "$AI_ID" --location $LOC --severity 1 \
+  --evaluation-frequency 5m --window-duration 15m \
+  --condition 'count "hits" > 0' \
+  --condition-query hits='traces | where cloud_RoleName == "restaurant-ordering-system" | where message contains "[alert:platform] kind=stripe_permission_or_config"' \
+  --description "Stripe key/config refused a capture: card orders are being rejected" \
+  --action-groups "$AG_ID" --mute-actions-duration 15m
+```
+
+`--mute-actions-duration 15m` is the rule-side rate limit. Confirm `cloud_RoleName` as in §12.
+
+**When it fires**
+1. Read the line: `op`, `code`, `status`, `requestId`. Find the full `[stripe:failure]` line for the same time
+   (it carries `orderId`). `more_permissions_required` or `status=403`: a permission is missing on the
+   restricted key. `status=401` / `api_key_expired`: the key is wrong, revoked or expired.
+2. Confirm scope with a test-mode order, or Stripe Dashboard → Developers → Logs filtered by the `requestId`.
+3. Fix: in Stripe, add the missing permission to the restricted key (or roll to a correct key), then update
+   `STRIPE_SECRET_KEY` in the Function App settings (names only; never paste the value into a ticket).
+4. Orders rejected meanwhile (`payment_failed`) are not recoverable: their holds were released. Tell
+   affected restaurants and diners which window was hit; list them from `orders` whose history
+   has a REJECTED entry with `reason = 'payment_failed'` in that period.
+5. If `notified=undeliverable` appeared, also fix the email settings named above.
 
 ---
 
