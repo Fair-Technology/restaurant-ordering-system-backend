@@ -1,3 +1,4 @@
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 import { HttpRequest } from '@azure/functions';
 import { findSubscriptionByShopId, upsertSubscription } from '../../../infrastructure/cosmos/subscription/CosmosSubscriptionRepository';
 import { findDefaultPlan } from '../../../infrastructure/cosmos/plan/CosmosPlanRepository';
@@ -81,6 +82,7 @@ export async function executeSetLimitOverride(
     if (error.message === 'Authentication required') {
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
     }
+    logServiceFailure('SetLimitOverride', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to set the limit override' };
   }
 }

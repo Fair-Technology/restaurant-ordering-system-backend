@@ -1,3 +1,4 @@
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 import { HttpRequest } from '@azure/functions';
 import Stripe from 'stripe';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
@@ -78,6 +79,7 @@ export async function executeResumeShopSubscription(
     if (error.message === 'Authentication required') {
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
     }
+    logServiceFailure('ResumeShopSubscription', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to resume subscription' };
   }
 }

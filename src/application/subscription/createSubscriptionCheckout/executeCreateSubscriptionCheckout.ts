@@ -1,3 +1,4 @@
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 import { HttpRequest } from '@azure/functions';
 import { findPlanById } from '../../../infrastructure/cosmos/plan/CosmosPlanRepository';
 import { findPricingByPlanAndCurrency } from '../../../infrastructure/cosmos/plan/CosmosPlanPricingRepository';
@@ -164,6 +165,7 @@ export async function executeCreateSubscriptionCheckout(
     if (error.message === 'Authentication required') {
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
     }
+    logServiceFailure('CreateSubscriptionCheckout', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to change the plan' };
   }
 }

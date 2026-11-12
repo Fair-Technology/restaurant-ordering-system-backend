@@ -1,3 +1,4 @@
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 import type { HttpRequest } from '@azure/functions';
 import { REJECT_REASON_CODES, StaffRejectReason } from '../../../domain/order/Order';
 import { ORDER_CHANGED_ERROR, REJECT_REASON_ERROR } from '../../../domain/order/orderErrors';
@@ -55,7 +56,8 @@ export async function executeRejectOrder(
     const order = released.order ?? moved.order;
     await notifyCustomer('order_rejected', order, shop);
     return { ok: true, data: toOrderDto(order, now) };
-  } catch {
+  } catch (error: any) {
+    logServiceFailure('RejectOrder', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to decline order' };
   }
 }

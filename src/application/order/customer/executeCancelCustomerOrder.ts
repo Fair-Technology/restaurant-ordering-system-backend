@@ -1,3 +1,4 @@
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 import { CUSTOMER_CANCEL_REASON } from '../../../domain/order/Order';
 import { CANNOT_CANCEL_ERROR, ORDER_NOT_FOUND_ERROR } from '../../../domain/order/orderErrors';
 import { accessTokenMatches } from '../../../domain/order/orderIds';
@@ -44,7 +45,8 @@ export async function executeCancelCustomerOrder(
     const closed = released.order ?? moved.order;
     await notifyCustomer('order_cancelled', closed, shop);
     return { ok: true, data: toCustomerOrderDto(closed, shop, now) };
-  } catch {
+  } catch (error: any) {
+    logServiceFailure('CancelCustomerOrder', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to cancel order' };
   }
 }

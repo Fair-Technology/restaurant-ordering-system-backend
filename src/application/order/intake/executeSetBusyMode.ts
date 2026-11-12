@@ -1,3 +1,4 @@
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 import type { HttpRequest } from '@azure/functions';
 import {
   busyStateOf,
@@ -46,7 +47,8 @@ export async function executeSetBusyMode(
       changes: [{ field: 'busyMinutes', from: wasOn ? shop.busyMode!.extraMinutes : 0, to: busyMode?.extraMinutes ?? 0 }],
     });
     return { ok: true, data: busyStateOf({ ...shop, busyMode }, now) };
-  } catch {
+  } catch (error: any) {
+    logServiceFailure('SetBusyMode', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to change busy mode' };
   }
 }

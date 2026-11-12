@@ -1,3 +1,4 @@
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 import { HttpRequest } from '@azure/functions';
 import { findSubscriptionByShopId, upsertSubscription } from '../../../infrastructure/cosmos/subscription/CosmosSubscriptionRepository';
 import { logAudit } from '../../_shared/auditHelpers';
@@ -43,6 +44,7 @@ export async function executeClearLimitOverride(
     if (error.message === 'Authentication required') {
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
     }
+    logServiceFailure('ClearLimitOverride', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to remove the limit override' };
   }
 }

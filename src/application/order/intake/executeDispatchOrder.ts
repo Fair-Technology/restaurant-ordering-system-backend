@@ -1,3 +1,4 @@
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 import type { HttpRequest } from '@azure/functions';
 import { applyTransition } from '../../../domain/order/orderLifecycle';
 import type { ApplicationResult } from '../../_shared/types';
@@ -28,7 +29,8 @@ export async function executeDispatchOrder(
 
     await notifyCustomer('order_out_for_delivery', moved.order, shop);
     return { ok: true, data: toOrderDto(moved.order, now) };
-  } catch {
+  } catch (error: any) {
+    logServiceFailure('DispatchOrder', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to dispatch order' };
   }
 }

@@ -6,6 +6,7 @@ import {
   PlatformAccessLevel,
   Principal,
 } from './principal';
+import { logAuthFailure } from './logAuthFailure';
 
 /**
  * Decides whether the caller may use the platform (superadmin) API at the given level.
@@ -33,7 +34,8 @@ export async function requirePlatform(
     const granted = platformAccessLevel(principal);
     if (granted === 'write' || (granted === 'read' && level === 'read')) return principal.userId;
     return null;
-  } catch {
+  } catch (err) {
+    logAuthFailure('requirePlatform', err);
     return null;
   }
 }

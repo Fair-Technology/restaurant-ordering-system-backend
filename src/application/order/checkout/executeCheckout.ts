@@ -1,3 +1,4 @@
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 import { EMAIL_PATTERN } from '../../../domain/legal/impressum';
 import { isOrdersPausedAt } from '../../../domain/shop/ordersPause';
 import { LEGAL_PACK_INCOMPLETE_ERROR, isLegalPackComplete } from '../../../domain/legal/legalReadiness';
@@ -458,6 +459,7 @@ export async function executeCheckout(
     };
   } catch (error: any) {
     if (error instanceof TaxRateMissingError) return taxRateMissingResult(request.shopId, error);
+    logServiceFailure('Checkout', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Checkout failed' };
   }
 }

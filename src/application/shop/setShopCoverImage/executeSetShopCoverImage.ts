@@ -1,3 +1,4 @@
+import { errorBrief } from '../../_shared/errorBrief';
 import { HttpRequest } from '@azure/functions';
 import {
   findShopById,
@@ -92,7 +93,7 @@ export async function executeSetShopCoverImage(
     if (error.message === 'Authentication required') {
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
     }
-    console.error('[setShopCoverImage] failed:', error);
+    console.error('[setShopCoverImage] failed:', errorBrief(error));
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to set shop cover image' };
   }
 }

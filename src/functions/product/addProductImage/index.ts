@@ -1,3 +1,4 @@
+import { errorBrief } from '../../../application/_shared/errorBrief';
 import { app, HttpRequest, HttpResponseInit } from '@azure/functions';
 import { executeAddProductImage } from '../../../application/product/addProductImage/executeAddProductImage';
 import { mapResultToHttp } from '../../_shared/mapResultToHttp';
@@ -39,7 +40,7 @@ app.http('addProductImage', {
 
       return mapResultToHttp(result);
     } catch (error) {
-      console.error('[addProductImage] failed:', error);
+      console.error('[addProductImage] failed:', errorBrief(error));
       return {
         status: 500,
         jsonBody: { error: 'Internal server error' }

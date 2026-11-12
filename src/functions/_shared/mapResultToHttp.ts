@@ -1,4 +1,5 @@
 import { HttpResponseInit } from '@azure/functions';
+import { errorBrief } from '../../application/_shared/errorBrief';
 
 export interface ApplicationError {
   ok: false;
@@ -71,6 +72,9 @@ export function mapResultToHttp<T>(result: ApplicationResult<T>): HttpResponseIn
         jsonBody: { error: result.error }
       };
     default:
+      // Every unmapped code (INTERNAL_ERROR, STRIPE_ERROR, ...) lands here. Log it so a bare 500 is
+      // diagnosable; the response is unchanged. Code and message only: no request data.
+      console.error(`[http:500] unmapped result code=${result.code} error=${errorBrief(result.error)}`);
       return {
         status: 500,
         jsonBody: { error: 'Internal server error' }

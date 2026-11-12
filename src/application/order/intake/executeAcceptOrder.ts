@@ -1,3 +1,4 @@
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 import type { HttpRequest } from '@azure/functions';
 import { PREP_MINUTES_ERROR } from '../../../domain/order/orderErrors';
 import type { ApplicationResult } from '../../_shared/types';
@@ -43,7 +44,8 @@ export async function executeAcceptOrder(
     if (!accepted.ok) return accepted;
     const order = accepted.data;
     return { ok: true, data: toOrderDto(order, now) };
-  } catch {
+  } catch (error: any) {
+    logServiceFailure('AcceptOrder', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to accept order' };
   }
 }

@@ -1,3 +1,4 @@
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 import { HttpRequest } from '@azure/functions';
 import { findPricingByPlanAndCurrency } from '../../../infrastructure/cosmos/plan/CosmosPlanPricingRepository';
 import {
@@ -64,6 +65,7 @@ export async function executeCancelScheduledChange(
     if (error.message === 'Authentication required') {
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
     }
+    logServiceFailure('CancelScheduledChange', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to cancel the scheduled change' };
   }
 }

@@ -3,6 +3,7 @@ import { ALL_SHOP_PERMISSIONS, Shop, ShopPermission } from '../../domain/shop/Sh
 import { RolePermissionsDoc, permissionsForRole } from '../../domain/system/RolePermissions';
 import { StaffAccount, StaffRole } from '../../domain/staff/StaffAccount';
 import { Principal, authenticate } from '../../infrastructure/auth/principal';
+import { logAuthFailure } from '../../infrastructure/auth/logAuthFailure';
 import { isSuperAdminPrincipal } from '../../infrastructure/auth/superAdminAuthHelpers';
 import { getRolePermissions } from '../../infrastructure/cosmos/system/CosmosRolePermissionsRepository';
 import { findShopById } from '../../infrastructure/cosmos/shop/CosmosShopRepository';
@@ -90,7 +91,8 @@ export async function authorizeShopAction(
   let principal: Principal;
   try {
     principal = await authenticate(request);
-  } catch {
+  } catch (err) {
+    logAuthFailure('authorizeShopAction', err);
     return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
   }
 

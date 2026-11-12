@@ -1,3 +1,4 @@
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 import { ordersPauseFieldsOf } from '../../../domain/shop/ordersPause';
 import { isShopOffline } from '../../../domain/shop/Shop';
 import { orderSettingsOf } from '../../../domain/order/orderSettings';
@@ -100,6 +101,7 @@ export async function executeGetShop(
     if (error.message === 'Authentication required') {
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
     }
+    logServiceFailure('GetShop', error);
     return {
       ok: false,
       code: 'INTERNAL_ERROR',
