@@ -10,6 +10,7 @@ import { countLoyaltyOrders } from '../../../infrastructure/cosmos/order/CosmosO
 import { createVoucher, findPromotions } from '../../../infrastructure/cosmos/promotion/CosmosPromotionRepository';
 import { notifyLoyaltyVoucher } from '../notifications/notifyOrder';
 import { transitionOrder } from '../_shared/transitionOrder';
+import { errorBrief } from '../../_shared/errorBrief';
 
 const ALREADY_ISSUED = 'voucher already issued';
 
@@ -56,7 +57,7 @@ export async function issueLoyaltyVoucher(
       return;
     }
     await notifyLoyaltyVoucher(marked, shop, voucher, count);
-  } catch {
-    console.error('[loyalty:error] voucher not issued', order.id);
+  } catch (err: unknown) {
+    console.error('[loyalty:error] voucher not issued', order.id, errorBrief(err));
   }
 }

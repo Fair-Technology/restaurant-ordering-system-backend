@@ -4,6 +4,7 @@ import { deleteCheckoutSession, findCheckoutSessionById } from '../../../infrast
 import { findOrderById } from '../../../infrastructure/cosmos/order/CosmosOrderRepository';
 import { releaseAuthorization, retrievePaymentIntentSnapshot } from '../../../infrastructure/stripe/stripeClient';
 import { releaseSlotPlace } from '../_shared/slotPlaces';
+import { errorBrief } from '../../_shared/errorBrief';
 
 export type RetireOutcome =
   | 'same_checkout' | 'not_owner' | 'already_ordered' | 'not_scheduled' | 'mismatch' | 'paid' | 'retired' | 'error';
@@ -43,8 +44,8 @@ export async function retireReplacedCheckout(input: {
     await deleteCheckoutSession(old.id);
     console.warn('[checkout-replace:retired]', old.id, newSessionId);
     return 'retired';
-  } catch {
-    console.error('[checkout-replace:error]', replacesOrderId);
+  } catch (err: unknown) {
+    console.error('[checkout-replace:error]', replacesOrderId, errorBrief(err));
     return 'error';
   }
 }

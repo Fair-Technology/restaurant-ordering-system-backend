@@ -16,6 +16,7 @@ import { releaseClosedOrderPayment } from '../_shared/releasePayment';
 import { fixSlotPlace } from '../_shared/slotPlaces';
 import { notifyCustomer } from '../notifications/notifyOrder';
 import { buildPlacedOrderFromSession } from './buildPlacedOrderFromSession';
+import { errorBrief } from '../../_shared/errorBrief';
 
 export type PaymentAuthorizedOutcome = 'created' | 'declined_shop_unavailable' | 'duplicate' | 'released_orphan' | 'no_session';
 
@@ -95,8 +96,8 @@ export async function executeHandlePaymentAuthorized(input: {
       const accepted = await acceptPlacedOrder({ orderId: order.id, shop, actor: { type: 'system' }, now });
       // Still waiting (Stripe outage): the diner is told it was received, and the timer retries.
       sendReceived = !accepted.ok && accepted.error === PAYMENT_SERVICE_UNAVAILABLE_ERROR;
-    } catch {
-      console.error('[auto-accept:error]', order.id);
+    } catch (err: unknown) {
+      console.error('[auto-accept:error]', order.id, errorBrief(err));
       sendReceived = true;
     }
   }

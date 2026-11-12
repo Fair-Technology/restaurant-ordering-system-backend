@@ -8,6 +8,7 @@ import { findShopBySlug } from '../../../infrastructure/cosmos/shop/CosmosShopRe
 import { GetShopBySlugRequestDto, GetShopBySlugResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 import { loadOrderLimitStatus } from '../../usage/orderLimitStatus';
+import { errorBrief } from '../../_shared/errorBrief';
 
 export async function executeGetShopBySlug(
   request: GetShopBySlugRequestDto,
@@ -41,8 +42,8 @@ export async function executeGetShopBySlug(
     let orderLimitReached = false;
     try {
       orderLimitReached = (await loadOrderLimitStatus(shop, now)).limitReached;
-    } catch {
-      console.error('[order-limit:error] shop page', shop.id);
+    } catch (err: unknown) {
+      console.error('[order-limit:error] shop page', shop.id, errorBrief(err));
     }
 
     const modes = orderableModesFor(shop);

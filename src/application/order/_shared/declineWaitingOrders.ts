@@ -6,14 +6,15 @@ import { findOrdersByShopIdAndStates } from '../../../infrastructure/cosmos/orde
 import { notifyCustomer } from '../notifications/notifyOrder';
 import { releaseClosedOrderPayment } from './releasePayment';
 import { transitionOrder } from './transitionOrder';
+import { errorBrief } from '../../_shared/errorBrief';
 
 /** Platform takedown: every order still waiting for an answer is declined and its card hold released. Never throws. */
 export async function declineWaitingOrdersForShop(shop: Shop, now: Date): Promise<number> {
   let waiting: Order[];
   try {
     waiting = await findOrdersByShopIdAndStates(shop.id, ['PLACED']);
-  } catch {
-    console.error('[takedown:error] could not list waiting orders', shop.id);
+  } catch (err: unknown) {
+    console.error('[takedown:error] could not list waiting orders', shop.id, errorBrief(err));
     return 0;
   }
   let declined = 0;
@@ -31,8 +32,8 @@ export async function declineWaitingOrdersForShop(shop: Shop, now: Date): Promis
       const released = await releaseClosedOrderPayment(moved.order.id, shop, now);
       await notifyCustomer('order_rejected', released.order ?? moved.order, shop);
       declined++;
-    } catch {
-      console.error('[takedown:error]', o.id);
+    } catch (err: unknown) {
+      console.error('[takedown:error]', o.id, errorBrief(err));
     }
   }
   return declined;

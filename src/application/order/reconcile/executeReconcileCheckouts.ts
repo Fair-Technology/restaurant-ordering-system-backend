@@ -4,6 +4,7 @@ import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepo
 import { releaseAuthorization } from '../../../infrastructure/stripe/stripeClient';
 import { releaseSlotPlace } from '../_shared/slotPlaces';
 import { reconcileCheckoutSession } from './reconcileCheckoutSession';
+import { errorBrief } from '../../_shared/errorBrief';
 
 export const SWEEP_MIN_AGE_MS = 120_000;
 export const GIVE_UP_AFTER_MS = 2_700_000; // 45 min
@@ -21,9 +22,9 @@ export async function executeReconcileCheckouts(input: { now: Date }): Promise<R
     try {
       const outcome = await reconcileCheckoutSession({ session, now, source: 'sweep' });
       if (outcome === 'created' || outcome === 'declined_shop_unavailable') result.converted++;
-    } catch {
+    } catch (err: unknown) {
       result.failed++;
-      console.error('[checkout-reconcile:error]', session.id);
+      console.error('[checkout-reconcile:error]', session.id, errorBrief(err));
       const ageMs = session._ts === undefined ? 0 : now.getTime() - session._ts * 1000;
       if (ageMs < GIVE_UP_AFTER_MS) continue;
       try {
@@ -37,8 +38,8 @@ export async function executeReconcileCheckouts(input: { now: Date }): Promise<R
         await deleteCheckoutSession(session.id);
         result.released++;
         console.warn('[checkout-reconcile:released]', session.id);
-      } catch {
-        console.error('[checkout-reconcile:give-up-error]', session.id);
+      } catch (err: unknown) {
+        console.error('[checkout-reconcile:give-up-error]', session.id, errorBrief(err));
       }
     }
   }

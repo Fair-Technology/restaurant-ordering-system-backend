@@ -28,6 +28,7 @@ import { recordMissedOrder } from '../_shared/missedOrders';
 import { releaseClosedOrderPayment } from '../_shared/releasePayment';
 import { renderInvoicePdf } from '../../../infrastructure/pdf/invoicePdf';
 import { transitionOrder } from '../_shared/transitionOrder';
+import { errorBrief } from '../../_shared/errorBrief';
 
 /**
  * Emails a document the timer issued late. The mark is written before sending, so a crash in between
@@ -51,8 +52,8 @@ async function emailLateDocument(
       },
     });
     if (moved.ok) await email(moved.order);
-  } catch {
-    console.error('[timers:error] late document email', orderId, doc.number);
+  } catch (err: unknown) {
+    console.error('[timers:error] late document email', orderId, doc.number, errorBrief(err));
   }
 }
 
@@ -173,8 +174,8 @@ export async function executeProcessOrderTimers(input: { now: Date }): Promise<O
           result.escalated++;
         }
       }
-    } catch {
-      console.error('[timers:error] placed order', found.id);
+    } catch (err: unknown) {
+      console.error('[timers:error] placed order', found.id, errorBrief(err));
     }
   }
 
@@ -189,8 +190,8 @@ export async function executeProcessOrderTimers(input: { now: Date }): Promise<O
           change: (x) => applyTransition(x, 'COMPLETED', { now, actor: { type: 'system' } }),
         });
         if (moved.ok) result.autoCompleted++;
-      } catch {
-        console.error('[timers:error] ready order', o.id);
+      } catch (err: unknown) {
+        console.error('[timers:error] ready order', o.id, errorBrief(err));
       }
     }
   }
@@ -203,8 +204,8 @@ export async function executeProcessOrderTimers(input: { now: Date }): Promise<O
       if (!shop) continue;
       const { outcome } = await releaseClosedOrderPayment(o.id, shop, now);
       if (outcome === 'released' || outcome === 'refunded') result.released++;
-    } catch {
-      console.error('[timers:error] release', o.id);
+    } catch (err: unknown) {
+      console.error('[timers:error] release', o.id, errorBrief(err));
     }
   }
 
@@ -235,8 +236,8 @@ export async function executeProcessOrderTimers(input: { now: Date }): Promise<O
             attachedDocument: { title: invoiceTitle('invoice', doc.language), number: doc.number },
           }),
       );
-    } catch {
-      console.error('[timers:error] invoice', o.id);
+    } catch (err: unknown) {
+      console.error('[timers:error] invoice', o.id, errorBrief(err));
     }
   }
 
@@ -283,8 +284,8 @@ export async function executeProcessOrderTimers(input: { now: Date }): Promise<O
           },
         );
       }
-    } catch {
-      console.error('[timers:error] correction', o.id);
+    } catch (err: unknown) {
+      console.error('[timers:error] correction', o.id, errorBrief(err));
     }
   }
   return result;

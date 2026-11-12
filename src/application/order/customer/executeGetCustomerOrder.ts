@@ -7,6 +7,7 @@ import { reconcileCheckoutSession, type ReconcileOutcome } from '../reconcile/re
 import type { ApplicationResult } from '../../_shared/types';
 import type { CustomerOrderDto } from './dtos';
 import { toCustomerOrderDto } from './toCustomerOrderDto';
+import { errorBrief } from '../../_shared/errorBrief';
 
 /** Shows an order to whoever holds its secret link. A wrong token looks exactly like a missing order. */
 export async function executeGetCustomerOrder(
@@ -22,8 +23,8 @@ export async function executeGetCustomerOrder(
         let outcome: ReconcileOutcome | null = null;
         try {
           outcome = await reconcileCheckoutSession({ session, now: options.now ?? new Date(), source: 'order_page' });
-        } catch {
-          console.error('[checkout-reconcile:error]', session.id);
+        } catch (err: unknown) {
+          console.error('[checkout-reconcile:error]', session.id, errorBrief(err));
         }
         if (outcome !== 'created' && outcome !== 'duplicate' && outcome !== 'declined_shop_unavailable') {
           return { ok: false, code: 'NOT_FOUND', error: PAYMENT_CONFIRMING_ERROR };

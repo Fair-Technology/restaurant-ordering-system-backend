@@ -8,6 +8,7 @@ import {
 } from '../../../infrastructure/cosmos/order/CosmosOrderRepository';
 import { createRefund, listPaymentRefunds, releaseAuthorization } from '../../../infrastructure/stripe/stripeClient';
 import { logStripeFailure } from '../../../infrastructure/stripe/stripeErrorDiagnostics';
+import { errorBrief } from '../../_shared/errorBrief';
 import { releaseSlotPlace } from './slotPlaces';
 import { notifyRestaurantReleaseFailed } from '../notifications/notifyOrder';
 
@@ -129,7 +130,7 @@ export async function releaseClosedOrderPayment(
     }
     return { outcome: reservationOnly ? 'released' : 'refunded', order: recorded ?? order };
   } catch (err: unknown) {
-    console.error('[release:error]', orderId);
+    console.error('[release:error]', orderId, errorBrief(err));
     logStripeFailure('release', err, { orderId });
     return recordFailure(orderId, shop, now, messageOf(err), order);
   }
@@ -158,7 +159,9 @@ async function recordFailure(
     // Written before sending: a crash in between loses one email instead of repeating it every retry.
     if (written && firstTime) await notifyRestaurantReleaseFailed(written, shop);
     return { outcome: 'failed', order: written ?? fallback };
-  } catch {
+  } catch (err: unknown) {
+    // The failure could not be recorded, so this line is the only trace; the timer will try the release again.
+    console.error('[release:error] could not record the release failure', orderId, errorBrief(err));
     return { outcome: 'failed', order: fallback };
   }
 }
