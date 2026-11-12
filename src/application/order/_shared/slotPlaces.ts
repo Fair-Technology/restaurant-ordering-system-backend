@@ -16,6 +16,7 @@ import {
   findSlotPlacesWithEtag,
   replaceSlotPlacesIfMatch,
 } from '../../../infrastructure/cosmos/usage/CosmosSlotPlacesRepository';
+import { errorBrief } from '../../_shared/errorBrief';
 
 export const SLOT_WRITE_ATTEMPTS = 5;
 
@@ -65,8 +66,8 @@ export async function fixSlotPlace(input: {
       withPlace(doc, { shopId: shop.id, day }, { orderId, slot, heldUntil: null }, null, now),
     );
     if (res !== 'ok') console.error('[slots:error] could not keep the place', orderId);
-  } catch {
-    console.error('[slots:error] could not keep the place', orderId);
+  } catch (err: unknown) {
+    console.error('[slots:error] could not keep the place', orderId, errorBrief(err));
   }
 }
 
@@ -82,8 +83,8 @@ export async function releaseSlotPlace(input: {
   try {
     const res = await changeDay(shop.id, slotDayOf(slot, shop.timezone), (doc) => withoutPlace(doc, order.id, now));
     if (res === 'conflict') console.error('[slots:error] could not free the place', order.id);
-  } catch {
-    console.error('[slots:error] could not free the place', order.id);
+  } catch (err: unknown) {
+    console.error('[slots:error] could not free the place', order.id, errorBrief(err));
   }
 }
 

@@ -36,6 +36,7 @@ import type { AttachedDocument } from '../notifications/emailTemplates';
 import { toOrderDto } from '../_shared/toOrderDto';
 import { shopActorToOrderActor, transitionOrder } from '../_shared/transitionOrder';
 import type { RefundOrderBody } from './dtos';
+import { errorBrief } from '../../_shared/errorBrief';
 
 const MAX_REASON_CHARS = 200;
 const WRITE_ATTEMPTS = 3;
@@ -188,15 +189,16 @@ export async function executeRefundOrder(
         ];
         attachedDocument = { title: invoiceTitle(doc.documentType, doc.language), number: doc.number };
       }
-    } catch {
+    } catch (err: unknown) {
       // The timer issues missing corrections later.
-      console.error('[invoice:error] could not issue the correction invoice', written.id);
+      console.error('[invoice:error] could not issue the correction invoice', written.id, errorBrief(err));
     }
 
     const latest = (await findOrderWithEtag(written.id))?.order ?? written;
     await notifyCustomer('order_refunded', latest, shop, { attachments, attachedDocument });
     return { ok: true, data: toOrderDto(latest, now) };
-  } catch {
+  } catch (err: unknown) {
+    console.error('[refund:error] unexpected failure', errorBrief(err));
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to refund order' };
   }
 }

@@ -1,5 +1,7 @@
 import { app, HttpRequest, HttpResponseInit } from '@azure/functions';
 import Stripe from 'stripe';
+import { errorBrief } from '../../../application/_shared/errorBrief';
+import { logStripeFailure } from '../../../infrastructure/stripe/stripeErrorDiagnostics';
 import { executeHandlePaymentAuthorized } from '../../../application/order/handlePaymentAuthorized/executeHandlePaymentAuthorized';
 import { executePaymentIntentUpdates } from '../../../application/order/paymentIntentUpdates/executePaymentIntentUpdates';
 import { executeRecordStripeRefunds } from '../../../application/order/stripeRefunds/executeRecordStripeRefunds';
@@ -37,6 +39,7 @@ app.http('stripeConnectWebhook', {
     try {
       event = stripe.webhooks.constructEvent(rawBody, sig, webhookSecret);
     } catch (err: any) {
+      console.warn('[webhook:stripe-connect] signature verification failed', errorBrief(err));
       return { status: 400, jsonBody: { error: `Webhook Error: ${err.message}` } };
     }
 
@@ -104,6 +107,9 @@ app.http('stripeConnectWebhook', {
           break;
       }
     } catch (err) {
+      // 500 makes Stripe retry the event; the log says which event and why.
+      console.error('[webhook:stripe-connect] processing failed', `event=${event.id} type=${event.type}`, errorBrief(err));
+      logStripeFailure('webhook_stripe_connect', err, { eventId: event.id });
       return { status: 500, jsonBody: { error: 'Failed to process webhook event' } };
     }
 

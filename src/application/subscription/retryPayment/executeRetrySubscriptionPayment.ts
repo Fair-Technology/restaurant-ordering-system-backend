@@ -8,6 +8,8 @@ import { isStripeCardError } from '../../../infrastructure/stripe/billingEventPa
 import { applyBillingEvent } from '../../../domain/subscription/billingEvents';
 import { FALLBACK_DEFAULT_PLAN_ID } from '../../../domain/subscription/entitlements';
 import { PAYMENT_DECLINED_AGAIN_ERROR } from '../../../domain/order/orderErrors';
+import { errorBrief } from '../../_shared/errorBrief';
+import { logStripeFailure } from '../../../infrastructure/stripe/stripeErrorDiagnostics';
 import { toAuditActor } from '../../_shared/shopAccess';
 import { ApplicationResult } from '../../_shared/types';
 import { logAudit } from '../../_shared/auditHelpers';
@@ -46,6 +48,7 @@ export async function executeRetrySubscriptionPayment(
       await stripe.invoices.pay(invoice.id);
     } catch (err) {
       if (isStripeCardError(err)) return { ok: false, code: 'CONFLICT', error: PAYMENT_DECLINED_AGAIN_ERROR };
+      logStripeFailure('retry_subscription_payment', err, { shopId });
       throw err;
     }
 
@@ -68,6 +71,7 @@ export async function executeRetrySubscriptionPayment(
     if (error.message === 'Authentication required') {
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
     }
+    console.error('[subscription:error] retry payment failed', shopId, errorBrief(error));
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to take the payment' };
   }
 }

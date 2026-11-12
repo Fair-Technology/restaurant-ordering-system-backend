@@ -6,6 +6,7 @@ import {
 } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { findProductsByShopId } from '../../../infrastructure/cosmos/product/CosmosProductRepository';
 import { findCategoriesByShopId } from '../../../infrastructure/cosmos/category/CosmosCategoryRepository';
+import { logStripeFailure } from '../../../infrastructure/stripe/stripeErrorDiagnostics';
 import { authorizeShopAction } from '../../_shared/shopAccess';
 import { ApplicationResult } from '../../_shared/types';
 import {
@@ -109,8 +110,14 @@ export async function executeGetGoLiveStatus(
       const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
       if (stripeSecretKey) {
         const stripe = new Stripe(stripeSecretKey);
-        const stripeAccount = await stripe.accounts.retrieve(shop.stripe.connectAccountId);
-        const liveStatus =
+        let stripeAccount: Stripe.Account | null = null;
+        try {
+          stripeAccount = await stripe.accounts.retrieve(shop.stripe.connectAccountId);
+        } catch (err: unknown) {
+          // The stored status is still a fair answer; a Stripe or permission problem must not hide the whole checklist.
+          logStripeFailure('go_live_account_retrieve', err, { shopId: shop.id, account: shop.stripe.connectAccountId });
+        }
+        const liveStatus = !stripeAccount ? shop.stripe.connectOnboardingStatus ?? 'not_started' :
           stripeAccount.charges_enabled && stripeAccount.details_submitted
             ? 'complete'
             : stripeAccount.details_submitted
@@ -119,7 +126,7 @@ export async function executeGetGoLiveStatus(
         const statusRank = { not_started: 0, pending: 1, complete: 2 };
         const currentRank = statusRank[shop.stripe.connectOnboardingStatus ?? 'not_started'] ?? 0;
         const liveRank = statusRank[liveStatus] ?? 0;
-        if (liveStatus !== shop.stripe.connectOnboardingStatus && liveRank >= currentRank) {
+        if (stripeAccount && liveStatus !== shop.stripe.connectOnboardingStatus && liveRank >= currentRank) {
           // Patch only this field: rewriting the whole shop from a GET could undo a settings save made meanwhile.
           await patchShopPath(shop.id, '/stripe/connectOnboardingStatus', liveStatus);
           shop = { ...shop, stripe: { ...shop.stripe, connectOnboardingStatus: liveStatus } };

@@ -4,13 +4,14 @@ import { findShopById, patchShopFields } from '../../../infrastructure/cosmos/sh
 import { incrementMissedStreak, resetMissedStreak } from '../../../infrastructure/cosmos/usage/CosmosMissedOrdersRepository';
 import { logAudit } from '../../_shared/auditHelpers';
 import { notifyRestaurantAutoPaused } from '../notifications/notifyOrder';
+import { errorBrief } from '../../_shared/errorBrief';
 
 /** Starts the missed-order count again (someone answered an order, or the owner switched the pause). Never throws. */
 export async function resetMissedOrderStreak(shopId: string, now: Date): Promise<void> {
   try {
     await resetMissedStreak(shopId, now);
-  } catch {
-    console.error('[missed-orders:error] reset', shopId);
+  } catch (err: unknown) {
+    console.error('[missed-orders:error] reset', shopId, errorBrief(err));
   }
 }
 
@@ -47,8 +48,8 @@ export async function recordMissedOrder(shop: Shop, now: Date): Promise<Shop | n
     await notifyRestaurantAutoPaused(paused, streak);
     console.warn('[missed-orders:auto-paused]', shop.id, streak);
     return paused;
-  } catch {
-    console.error('[missed-orders:error] record', shop.id);
+  } catch (err: unknown) {
+    console.error('[missed-orders:error] record', shop.id, errorBrief(err));
     return null;
   }
 }

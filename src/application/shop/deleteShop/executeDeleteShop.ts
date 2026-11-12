@@ -1,5 +1,6 @@
 import { HttpRequest } from '@azure/functions';
 import Stripe from 'stripe';
+import { logStripeFailure } from '../../../infrastructure/stripe/stripeErrorDiagnostics';
 import {
   findShopById,
   updateShop,
@@ -72,6 +73,7 @@ export async function executeDeleteShop(
       } catch (err: any) {
         // Already gone on Stripe's side is the state we want; anything else aborts the delete.
         if (err?.code !== 'resource_missing') {
+          logStripeFailure('delete_shop_cancel_subscription', err, { shopId: shop.id });
           return { ok: false, code: 'INTERNAL_ERROR', error: 'Could not cancel the subscription, so the restaurant was not deleted' };
         }
       }

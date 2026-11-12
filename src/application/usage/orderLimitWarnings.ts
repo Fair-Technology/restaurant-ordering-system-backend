@@ -10,6 +10,7 @@ import { loadEntitlements } from '../_shared/entitlements';
 import { PLAN_LIMIT_KEYS } from '../_shared/planLimitKeys';
 import { render } from '../order/notifications/emailTemplates';
 import type { OrderEmailContent } from '../order/notifications/emailTemplates';
+import { errorBrief } from '../_shared/errorBrief';
 
 export function buildOrderLimitEmail(input: {
   shop: Pick<Shop, 'name' | 'menuLanguages'>;
@@ -78,7 +79,7 @@ export async function notifyOrderLimitThresholds(shop: Shop, after: ShopUsage, n
       replyTo: null,
       tag: 'order_limit_warning',
     });
-  } catch {
-    console.error('[email:error]', 'order_limit_warning');
+  } catch (err: unknown) {
+    console.error('[email:error]', 'order_limit_warning', errorBrief(err));
   }
 }

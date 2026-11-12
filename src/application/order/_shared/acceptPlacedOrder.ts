@@ -34,6 +34,7 @@ import type { AttachedDocument } from '../notifications/emailTemplates';
 import { resetMissedOrderStreak } from './missedOrders';
 import { releaseClosedOrderPayment } from './releasePayment';
 import { transitionOrder } from './transitionOrder';
+import { errorBrief } from '../../_shared/errorBrief';
 
 const RECORD_ATTEMPTS = 3;
 
@@ -78,9 +79,9 @@ async function invoiceForEmail(
       ],
       attachedDocument: { title: invoiceTitle('invoice', doc.language), number: doc.number },
     };
-  } catch {
+  } catch (err: unknown) {
     // The timer issues missing invoices later.
-    console.error('[invoice:error] could not issue the invoice at acceptance', order.id);
+    console.error('[invoice:error] could not issue the invoice at acceptance', order.id, errorBrief(err));
     return { order };
   }
 }
@@ -148,7 +149,7 @@ export async function acceptPlacedOrder(input: {
         await clearClaim(orderId);
         return { ok: false, code: 'CONFLICT', error: PAYMENT_SERVICE_UNAVAILABLE_ERROR };
       }
-      console.error('[accept:error] payment refused', orderId);
+      console.error('[accept:error] payment refused', orderId, errorBrief(err));
       logStripeFailure('capture', err, { orderId, paymentIntentId: paymentIntentId ?? undefined });
       const declined = await transitionOrder({
         orderId,
@@ -201,9 +202,9 @@ export async function acceptPlacedOrder(input: {
   try {
     const usage = await incrementAcceptedOrders(shop.id, usagePeriodKey);
     await notifyOrderLimitThresholds(shop, usage, now);
-  } catch {
+  } catch (err: unknown) {
     // The order is accepted; a usage counter miss is repaired by reconcileShopUsage.
-    console.error('[usage:error] could not count accepted order');
+    console.error('[usage:error] could not count accepted order', errorBrief(err));
   }
   await resetMissedOrderStreak(shop.id, now); // an answered order starts the missed-order count again
   // Option (c): an order for now takes a place in the quarter hour it is ready; the limit never turns it away.

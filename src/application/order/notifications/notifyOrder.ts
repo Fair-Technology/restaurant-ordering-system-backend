@@ -5,6 +5,7 @@ import type { LoyaltyVoucherDoc } from '../../../domain/promotion/promotions';
 import type { Shop } from '../../../domain/shop/Shop';
 import { EmailAttachment, sendEmail } from '../../../infrastructure/email/emailSender';
 import { AttachedDocument, buildAutoPausedEmail, buildLoyaltyVoucherEmail, buildOrderEmail, OrderEmailKind } from './emailTemplates';
+import { errorBrief } from '../../_shared/errorBrief';
 
 export function customerOrderUrl(shop: Pick<Shop, 'slug'>, order: Pick<Order, 'id' | 'customerAccessToken'>): string {
   const base = process.env.STOREFRONT_BASE_URL ?? 'http://localhost:5175';
@@ -43,8 +44,8 @@ export async function notifyCustomer(
       attachments: options.attachments,
       tag: kind,
     });
-  } catch {
-    console.error('[email:error]', kind);
+  } catch (err: unknown) {
+    console.error('[email:error]', kind, errorBrief(err));
   }
 }
 
@@ -61,8 +62,8 @@ export async function notifyRestaurantEscalation(order: Order, shop: Shop): Prom
       adminOrdersUrl: adminOrdersUrl(shop),
     });
     await sendEmail({ to, ...content, replyTo: null, tag: 'order_escalation' });
-  } catch {
-    console.error('[email:error]', 'order_escalation');
+  } catch (err: unknown) {
+    console.error('[email:error]', 'order_escalation', errorBrief(err));
   }
 }
 
@@ -77,8 +78,8 @@ export async function notifyRestaurantAutoPaused(shop: Shop, missedOrders: numbe
     if (to.length === 0) return;
     const content = buildAutoPausedEmail(shop, missedOrders, adminShopStatusUrl(shop));
     await sendEmail({ to, ...content, replyTo: null, tag: 'orders_auto_paused' });
-  } catch {
-    console.error('[email:error]', 'orders_auto_paused');
+  } catch (err: unknown) {
+    console.error('[email:error]', 'orders_auto_paused', errorBrief(err));
   }
 }
 
@@ -95,8 +96,8 @@ export async function notifyRestaurantReleaseFailed(order: Order, shop: Shop): P
       adminOrdersUrl: adminOrdersUrl(shop),
     });
     await sendEmail({ to, ...content, replyTo: null, tag: 'payment_release_failed' });
-  } catch {
-    console.error('[email:error]', 'payment_release_failed');
+  } catch (err: unknown) {
+    console.error('[email:error]', 'payment_release_failed', errorBrief(err));
   }
 }
 
@@ -113,8 +114,8 @@ export async function notifyRestaurantRefundFailed(order: Order, shop: Shop): Pr
       adminOrdersUrl: adminOrdersUrl(shop),
     });
     await sendEmail({ to, ...content, replyTo: null, tag: 'refund_failed' });
-  } catch {
-    console.error('[email:error]', 'refund_failed');
+  } catch (err: unknown) {
+    console.error('[email:error]', 'refund_failed', errorBrief(err));
   }
 }
 
@@ -129,7 +130,7 @@ export async function notifyLoyaltyVoucher(order: Order, shop: Shop, voucher: Lo
       replyTo: legalOf(shop).impressum?.email?.trim() || null,
       tag: 'loyalty_voucher',
     });
-  } catch {
-    console.error('[email:error]', 'loyalty_voucher');
+  } catch (err: unknown) {
+    console.error('[email:error]', 'loyalty_voucher', errorBrief(err));
   }
 }
