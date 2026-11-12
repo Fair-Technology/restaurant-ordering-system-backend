@@ -23,6 +23,7 @@ import { incrementAcceptedOrders } from '../../../infrastructure/cosmos/usage/Co
 import type { EmailAttachment } from '../../../infrastructure/email/emailSender';
 import { renderInvoicePdf } from '../../../infrastructure/pdf/invoicePdf';
 import { capturePaymentIntent, isRetryableStripeError } from '../../../infrastructure/stripe/stripeClient';
+import { alertOnStripeConfigFailure } from '../../../infrastructure/stripe/platformAlert';
 import { logStripeFailure } from '../../../infrastructure/stripe/stripeErrorDiagnostics';
 import type { ApplicationResult } from '../../_shared/types';
 import { notifyOrderLimitThresholds } from '../../usage/orderLimitWarnings';
@@ -151,6 +152,7 @@ export async function acceptPlacedOrder(input: {
       }
       console.error('[accept:error] payment refused', orderId, errorBrief(err));
       logStripeFailure('capture', err, { orderId, paymentIntentId: paymentIntentId ?? undefined });
+      await alertOnStripeConfigFailure('capture', err, { orderId, paymentIntentId: paymentIntentId ?? undefined });
       const declined = await transitionOrder({
         orderId,
         shopId: shop.id,
