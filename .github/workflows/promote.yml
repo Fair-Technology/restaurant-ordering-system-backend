@@ -23,10 +23,25 @@
 # NOTE: the login below used to reference AZUREAPPSERVICE_{CLIENTID,TENANTID,SUBSCRIPTIONID}_<GUID>.
 # Those secrets never existed, and the GUIDs name a client (`beec627b-…`) and tenant
 # (`e3b53bd1-…`) that are not in this account, so the step could never have authenticated.
+#
+# The production identity secret is AZURE_CLIENT_ID_PROD, deliberately NOT AZURE_CLIENT_ID.
+# GitHub falls back to a repo-level secret when the environment has none, and the dev deploy
+# reads repo-level AZURE_CLIENT_ID — so a same-name environment secret would silently fall
+# back to the dev identity and the guard could never fire. A distinct name fails closed.
+# AZURE_TENANT_ID and AZURE_SUBSCRIPTION_ID are the same account as dev and stay repo-level
+# (runbook B4). Until AZURE_CLIENT_ID_PROD exists on the `production` environment this
+# workflow is EXPECTED TO FAIL at the guard step. That is by design.
 
 name: Promote artifact to production
 
 on:
+  # A release is `dev` merged into `main` (spec §21-5a). Once the dev workflow has built and
+  # tested that main commit, this workflow ships the same artifact — still behind the
+  # `production` environment's required reviewer.
+  workflow_run:
+    workflows: ['Build, test and deploy (dev)']
+    types: [completed]
+    branches: [main]
   push:
     tags:
       - 'v*'
@@ -45,9 +60,32 @@ jobs:
   promote:
     name: Deploy promoted artifact to production
     runs-on: ubuntu-latest
+    # Only a successful dev run on main may start a workflow_run promotion; tag and manual runs pass.
+    if: github.event_name != 'workflow_run' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')
     environment: production # required reviewer / approval rule lives here
+    env:
+      # workflow_run executes on the default branch's latest commit, so take the built commit from the event.
+      RELEASE_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
 
     steps:
+      # First step on purpose: a production run must fail before it downloads anything if
+      # its own identity is not configured. See the header for why the name is _PROD.
+      - name: Guard - production deployment identity must exist
+        env:
+          PROD_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID_PROD }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+        run: |
+          missing=""
+          if [ -z "$PROD_CLIENT_ID" ]; then missing="$missing AZURE_CLIENT_ID_PROD"; fi
+          for n in AZURE_TENANT_ID AZURE_SUBSCRIPTION_ID; do
+            if [ -z "${!n}" ]; then missing="$missing $n"; fi
+          done
+          if [ -n "$missing" ]; then
+            echo "::error title=Missing production secret::Refusing to deploy to production: secret(s) not set:$missing. AZURE_CLIENT_ID_PROD must be an environment secret on 'production' (Settings -> Environments -> production) holding the PRODUCTION identity's client ID. It deliberately does not share the name AZURE_CLIENT_ID, because GitHub falls back to the repo-level secret of the same name when the environment has none — which would deploy with the dev identity. This is fail-closed by design. See docs/prod-runbook.md B4."
+            exit 1
+          fi
+
       - name: Find the dev run that built this commit
         id: source
         env:
@@ -56,26 +94,29 @@ jobs:
         run: |
           set -euo pipefail
           RUN_ID="${{ inputs.run_id }}"
+          if [ -z "$RUN_ID" ] && [ "${{ github.event_name }}" = "workflow_run" ]; then
+            RUN_ID="${{ github.event.workflow_run.id }}"
+          fi
           if [ -z "$RUN_ID" ]; then
             RUN_ID=$(gh run list \
               --workflow main_restaurant-ordering-system.yml \
-              --commit "$GITHUB_SHA" \
+              --commit "$RELEASE_SHA" \
               --status success \
               --limit 1 \
               --json databaseId \
               --jq '.[0].databaseId')
           fi
           if [ -z "$RUN_ID" ] || [ "$RUN_ID" = "null" ]; then
-            echo "::error::No successful dev run found for $GITHUB_SHA. Deploy this commit to dev first, or pass run_id explicitly."
+            echo "::error::No successful dev run found for $RELEASE_SHA. Deploy this commit to dev first, or pass run_id explicitly."
             exit 1
           fi
           echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
-          echo "Promoting artifact app-$GITHUB_SHA from dev run $RUN_ID"
+          echo "Promoting artifact app-$RELEASE_SHA from dev run $RUN_ID"
 
       - name: Download the dev-built artifact
         uses: actions/download-artifact@v4
         with:
-          name: app-${{ github.sha }}
+          name: app-${{ env.RELEASE_SHA }}
           run-id: ${{ steps.source.outputs.run_id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -92,7 +133,7 @@ jobs:
       - name: Login to Azure
         uses: azure/login@v2
         with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          client-id: ${{ secrets.AZURE_CLIENT_ID_PROD }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
