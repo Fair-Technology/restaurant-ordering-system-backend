@@ -6,18 +6,20 @@ vi.mock('../../../src/infrastructure/cosmos/product/CosmosProductRepository', ()
   findProductById: vi.fn(),
   updateProduct: vi.fn(async (p: any) => p),
 }));
-vi.mock('../../../src/infrastructure/storage/blobImageSize', () => ({ readBlobImageSize: vi.fn() }));
+vi.mock('../../../src/infrastructure/image/normalizeImage', () => ({ normalizeImage: vi.fn() }));
 vi.mock('../../../src/infrastructure/storage/blobStorageHelpers', () => ({
   deleteBlob: vi.fn(async () => {}),
   getBlobProperties: vi.fn(),
+  downloadBlob: vi.fn(async () => Buffer.from('x')),
+  uploadBlob: vi.fn(async () => {}),
 }));
 
 import { executeAddProductImage } from '../../../src/application/product/addProductImage/executeAddProductImage';
 import { authorizeShopAction } from '../../../src/application/_shared/shopAccess';
 import { findShopById } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
 import { findProductById, updateProduct } from '../../../src/infrastructure/cosmos/product/CosmosProductRepository';
-import { readBlobImageSize } from '../../../src/infrastructure/storage/blobImageSize';
-import { deleteBlob, getBlobProperties } from '../../../src/infrastructure/storage/blobStorageHelpers';
+import { normalizeImage } from '../../../src/infrastructure/image/normalizeImage';
+import { deleteBlob, getBlobProperties, uploadBlob } from '../../../src/infrastructure/storage/blobStorageHelpers';
 
 const BASE = 'https://acct.blob.core.windows.net/product-media/';
 const path = 'shops/shop-1/products/prod-1/img-1.jpg';
@@ -33,7 +35,7 @@ beforeEach(() => {
   vi.mocked(findShopById).mockResolvedValue({ id: 'shop-1' } as any);
   vi.mocked(authorizeShopAction).mockResolvedValue({ ok: true } as any);
   vi.mocked(findProductById).mockImplementation(async () => product);
-  vi.mocked(readBlobImageSize).mockResolvedValue({ status: 'ok', size: { width: 1200, height: 900 }, format: 'jpg' });
+  vi.mocked(normalizeImage).mockResolvedValue({ status: 'ok', bytes: Buffer.from('norm') });
 });
 
 afterEach(() => vi.unstubAllEnvs());
@@ -42,7 +44,8 @@ describe('addProductImage exact pixel size', () => {
   it('accepts exactly 1200 x 900 and saves the photo', async () => {
     const r = await executeAddProductImage(req, httpRequest);
     expect(r.ok).toBe(true);
-    expect(readBlobImageSize).toHaveBeenCalledWith(path);
+    expect(normalizeImage).toHaveBeenCalledWith(expect.anything(), { width: 1200, height: 900 }, { width: 800, height: 600 }, 'jpg');
+    expect(uploadBlob).toHaveBeenCalledWith(path, Buffer.from('norm'), 'image/jpeg');
     expect(updateProduct).toHaveBeenCalledTimes(1);
     expect(deleteBlob).not.toHaveBeenCalled();
   });
@@ -51,28 +54,24 @@ describe('addProductImage exact pixel size', () => {
     product = { ...product, combo: { groups: [{ id: 'g', name: 'A', productIds: ['p1'] }], bmfDrinkShare: false } };
     const r = await executeAddProductImage(req, httpRequest);
     expect(r.ok).toBe(true);
-    expect(readBlobImageSize).toHaveBeenCalledWith(path);
+    expect(normalizeImage).toHaveBeenCalledWith(expect.anything(), { width: 1200, height: 900 }, { width: 800, height: 600 }, 'jpg');
+    expect(uploadBlob).toHaveBeenCalledWith(path, Buffer.from('norm'), 'image/jpeg');
     expect(vi.mocked(updateProduct).mock.calls[0][0]).toMatchObject({ combo: { bmfDrinkShare: false }, images: [{ id: 'old' }, { id: 'img-1' }] });
   });
 
-  it.each([
-    ['wrong ratio', { width: 1000, height: 1000 }],
-    ['right ratio, wrong size', { width: 800, height: 600 }],
-    ['right ratio, too big', { width: 2400, height: 1800 }],
-  ])('rejects %s, deletes the blob, leaves the dish unchanged', async (_n, size) => {
-    vi.mocked(readBlobImageSize).mockResolvedValue({ status: 'ok', size, format: 'jpg' });
+  it('rejects a source below the minimum, deletes the blob, leaves the dish unchanged', async () => {
+    vi.mocked(normalizeImage).mockResolvedValue({ status: 'too_small' });
     const r = await executeAddProductImage(req, httpRequest);
-    expect(r).toEqual({ ok: false, code: 'PRODUCT_IMAGE_WRONG_SIZE', error: 'Dish photo must be exactly 1200 x 900 px' });
+    expect(r).toEqual({ ok: false, code: 'PRODUCT_IMAGE_WRONG_SIZE', error: 'Dish photo source must be at least 800 x 600 px' });
     expect(deleteBlob).toHaveBeenCalledWith(path);
     expect(updateProduct).not.toHaveBeenCalled();
     expect(product.images).toHaveLength(1);
   });
 
-  it('rejects an unreadable file the same way', async () => {
-    vi.mocked(readBlobImageSize).mockResolvedValue({ status: 'unreadable' });
+  it('rejects an undecodable file as a wrong type', async () => {
+    vi.mocked(normalizeImage).mockResolvedValue({ status: 'unsupported' });
     const r = await executeAddProductImage(req, httpRequest);
-    expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.code).toBe('PRODUCT_IMAGE_WRONG_SIZE');
+    expect(r).toMatchObject({ ok: false, code: 'INVALID_INPUT' });
     expect(deleteBlob).toHaveBeenCalledWith(path);
     expect(updateProduct).not.toHaveBeenCalled();
   });
@@ -89,7 +88,7 @@ describe('addProductImage exact pixel size', () => {
       const r = await executeAddProductImage({ ...req, url }, httpRequest);
       expect(r).toMatchObject({ ok: false, code: 'INVALID_INPUT' });
     }
-    expect(readBlobImageSize).not.toHaveBeenCalled();
+    expect(normalizeImage).not.toHaveBeenCalled();
     expect(deleteBlob).not.toHaveBeenCalled();
   });
 

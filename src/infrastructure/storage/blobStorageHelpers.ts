@@ -144,6 +144,33 @@ export async function downloadBlobRange(blobPath: string, offset: number, count:
   }
 }
 
+/** Whole blob as a buffer; null if it does not exist. */
+export async function downloadBlob(blobPath: string): Promise<Buffer | null> {
+  const blob = new BlobServiceClient(
+    `https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net`,
+    sharedKeyCredential,
+  )
+    .getContainerClient(CONTAINER_NAME)
+    .getBlockBlobClient(blobPath);
+  try {
+    return await blob.downloadToBuffer();
+  } catch (e: unknown) {
+    if ((e as { statusCode?: number })?.statusCode === 404) return null;
+    throw e;
+  }
+}
+
+/** Overwrite a blob with `bytes` and the given content type (server-side write of a normalised image). */
+export async function uploadBlob(blobPath: string, bytes: Buffer, contentType: string): Promise<void> {
+  const blob = new BlobServiceClient(
+    `https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net`,
+    sharedKeyCredential,
+  )
+    .getContainerClient(CONTAINER_NAME)
+    .getBlockBlobClient(blobPath);
+  await blob.uploadData(bytes, { blobHTTPHeaders: { blobContentType: contentType } });
+}
+
 export interface BlobUploadProperties {
   contentLength: number;
   contentType: string | null;

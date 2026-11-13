@@ -11,6 +11,10 @@ export const COVER_IMAGE_SIZE: ExactImageSize = { width: 1920, height: 640 };
 /** Dish photo: ratio 4:3. */
 export const PRODUCT_IMAGE_SIZE: ExactImageSize = { width: 1200, height: 900 };
 
+/** Smallest source (after EXIF orientation) the server will resize; smaller is refused, never upscaled. */
+export const COVER_IMAGE_MIN_SOURCE: ExactImageSize = { width: 1200, height: 400 };
+export const DISH_IMAGE_MIN_SOURCE: ExactImageSize = { width: 800, height: 600 };
+
 export const COVER_IMAGE_WRONG_SIZE = 'COVER_IMAGE_WRONG_SIZE';
 export const PRODUCT_IMAGE_WRONG_SIZE = 'PRODUCT_IMAGE_WRONG_SIZE';
 
@@ -20,6 +24,10 @@ export function isExactSize(actual: ExactImageSize, expected: ExactImageSize): b
 
 export function wrongSizeMessage(what: string, expected: ExactImageSize): string {
   return `${what} must be exactly ${expected.width} x ${expected.height} px`;
+}
+
+export function tooSmallMessage(what: string, min: ExactImageSize): string {
+  return `${what} source must be at least ${min.width} x ${min.height} px`;
 }
 
 /** A dish that has a photo must keep one: an update may not empty its image list. */

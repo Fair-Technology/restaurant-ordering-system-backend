@@ -11,7 +11,7 @@ import { SetShopCoverImageRequestDto, ShopCoverImageResultDto, toCoverImageResul
 import { ApplicationResult } from '../../_shared/types';
 import { logAudit } from '../../_shared/auditHelpers';
 import { verifyUploadedImageSize } from '../../_shared/verifyUploadedImageSize';
-import { COVER_IMAGE_SIZE, COVER_IMAGE_WRONG_SIZE } from '../../../domain/images/imageRules';
+import { COVER_IMAGE_SIZE, COVER_IMAGE_MIN_SOURCE, COVER_IMAGE_WRONG_SIZE } from '../../../domain/images/imageRules';
 
 // Extensions the upload-URL step can generate (getFileExtensionFromContentType).
 const COVER_IMAGE_EXTENSIONS = ['.jpg', '.png', '.webp'];
@@ -55,6 +55,7 @@ export async function executeSetShopCoverImage(
     const sizeError = await verifyUploadedImageSize(
       issuedPath,
       COVER_IMAGE_SIZE,
+      COVER_IMAGE_MIN_SOURCE,
       'Cover image',
       COVER_IMAGE_WRONG_SIZE,
     );
