@@ -58,7 +58,7 @@ deploys to `app-name: 'restaurant-ordering-system'`. That name was free on 2026-
 (`checknameavailability` → `nameAvailable: true`). `*.azurewebsites.net` names are
 global, so check again before step A7.
 
-**Why `infra/main.bicep` is not used.** The template names the app
+**Why `infra/main.bicep` was not used (superseded: see `docs/reports/2026-11-13-d1.md`, now parameterised for prod — choose one route, never both).** The template names the app
 `${prefix}-${env}` → `restaurant-ordering-system-prod`, which `promote.yml` does not
 target, and its README warns that a redeploy wipes all app settings. The
 explicit commands below are also what dev actually is: dev's plan was created by the CLI and
