@@ -28,7 +28,7 @@ az deployment group create -g rg-restaurant-ordering-system-prod \
 Names (Function App, storage, Cosmos), region and hardening are parameters; see
 [docs/reports/2026-11-13-d1.md](../docs/reports/2026-11-13-d1.md) for the values to confirm.
 
-Then three things the template deliberately leaves out.
+Then two things the template leaves out, and one it creates only when asked.
 
 **1. Secret app settings.** Everything except the secrets is set by the
 template. The rest comes from the vault `.env`, under the
@@ -44,9 +44,14 @@ az functionapp config appsettings set \
              STAFF_JWT_SECRET=…
 ```
 
-**2. The GitHub deployment credential.** The identity exists, but what it
-trusts names a specific repo and branch, so it is added separately — and has to
-be redone if a repo is ever renamed:
+**2. The GitHub deployment credential — optional, the template can create it.**
+Set `githubFederatedSubject` (e.g.
+`repo:Fair-Technology/restaurant-ordering-system-backend:environment:production`)
+and the deployment creates the federated credential on the identity *and* a
+*Website Contributor* role assignment scoped to the Function App. Leave it
+`''` (the dev default) and what the identity trusts has to be added separately —
+it names a specific repo and branch, so it also has to be redone if a repo is
+ever renamed:
 
 ```bash
 az identity federated-credential create --name github-test \
