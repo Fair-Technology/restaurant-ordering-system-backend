@@ -879,7 +879,7 @@ az cosmosdb delete -g $RG -n ${COSMOS}-restore-test --yes
 invoices and booking records to be kept for **years**, not 30 days. Neither PITR nor soft delete
 meets that. Prod needs an archive path for invoices (and the PDFs they generate) before the
 first real invoice is issued, and its retention period should be confirmed with the tax adviser.
-This runbook does not design it.
+This runbook does not design it. A first cut (orders + invoices export, checksummed restore, `records-archive` container) is in `scripts/backup/` and `docs/reports/2026-11-13-d3.md`; its scheduled upload is still open.
 
 ---
 
