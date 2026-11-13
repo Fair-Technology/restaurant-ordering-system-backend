@@ -19,7 +19,7 @@ export async function executeGetSalesReport(
   try {
     const shop = request.shopId ? await findShopById(request.shopId) : null;
     if (!shop || shop.isDeleted) return { ok: false, code: 'NOT_FOUND', error: 'Shop not found' };
-    const access = await authorizeShopAction(httpRequest, shop, 'view_reports');
+    const access = await authorizeShopAction(httpRequest, shop, 'view_reports', { allowPlatformRead: true });
     if (!access.ok) return access;
     const range = parseReportRange(request.from, request.to);
     if (range === 'invalid') return { ok: false, code: 'INVALID_INPUT', error: REPORT_RANGE_ERROR };

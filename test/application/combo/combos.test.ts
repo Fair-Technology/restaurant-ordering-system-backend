@@ -54,7 +54,7 @@ describe('combo endpoints', () => {
   it('someone who edits the menu creates a combo', async () => {
     const res = await executeCreateCombo({ shopId: 'shop-1', body, now }, http);
     expect(res.ok).toBe(true);
-    expect(authorizeShopAction).toHaveBeenCalledWith(http, CARD_SHOP, 'manage_menu');
+    expect(authorizeShopAction).toHaveBeenCalledWith(http, CARD_SHOP, 'manage_menu', {});
     expect(createProduct).toHaveBeenCalledWith(
       expect.objectContaining({
         shopId: 'shop-1',

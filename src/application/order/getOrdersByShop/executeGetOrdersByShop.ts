@@ -47,7 +47,7 @@ export async function executeGetOrdersByShop(
       return { ok: false, code: 'NOT_FOUND', error: 'Shop not found' };
     }
 
-    const access = await authorizeShopAction(httpRequest, shop, 'view_orders', { allowSuperadmin: true });
+    const access = await authorizeShopAction(httpRequest, shop, 'view_orders', { allowSuperadmin: true, allowPlatformRead: true });
     if (!access.ok) return access;
 
     const [orders, total] = await Promise.all([

@@ -10,16 +10,25 @@ import { GetShopSubscriptionResultDto } from './dtos';
 import { defaultSubscription } from '../../../domain/subscription/ShopSubscription';
 import { FALLBACK_DEFAULT_PLAN_ID } from '../../../domain/subscription/entitlements';
 
-/** The restaurant's subscription (created on first read for restaurants that pre-date billing), its plan and entitlements. */
-export async function loadShopSubscriptionResult(shopId: string): Promise<GetShopSubscriptionResultDto> {
+/**
+ * The restaurant's subscription (created on first read for restaurants that pre-date billing), its plan and entitlements.
+ *
+ * `initIfMissing` (default `true`) controls that lazy init. A platform operator reads with it
+ * `false`: creating the document is a write, so a `Platform.ReadOnly` principal - or any
+ * platform operator on a route that must not write - gets the derived default without one
+ * being persisted. The shop's own owner/staff keep the initialising behaviour.
+ */
+export async function loadShopSubscriptionResult(
+  shopId: string,
+  options: { initIfMissing?: boolean } = {},
+): Promise<GetShopSubscriptionResultDto> {
   let subscription = await findSubscriptionByShopId(shopId);
 
   // Lazy init for existing shops that pre-date this feature
   if (!subscription) {
     const defaultPlan = await findDefaultPlan();
-    const now = new Date().toISOString();
-    const newSub = defaultSubscription(shopId, defaultPlan?.id ?? FALLBACK_DEFAULT_PLAN_ID, now);
-    subscription = await upsertSubscription(newSub);
+    const derived = defaultSubscription(shopId, defaultPlan?.id ?? FALLBACK_DEFAULT_PLAN_ID, new Date().toISOString());
+    subscription = options.initIfMissing === false ? derived : await upsertSubscription(derived);
   }
 
   const plan = await findPlanById(subscription.planId);
@@ -41,10 +50,13 @@ export async function executeGetShopSubscription(
       return { ok: false, code: 'NOT_FOUND', error: 'Shop not found' };
     }
 
-    const access = await authorizeShopAction(httpRequest, shop, 'manage_billing', { allowSuperadmin: true });
+    const access = await authorizeShopAction(httpRequest, shop, 'manage_billing', { allowSuperadmin: true, allowPlatformRead: true });
     if (!access.ok) return access;
 
-    return { ok: true, data: await loadShopSubscriptionResult(shopId) };
+    // A platform operator reads the derived default without creating it. The lazy init is a
+    // write, and `allowPlatformRead` admits Platform.ReadOnly - see docs/platform-identity.md.
+    const initIfMissing = access.actor.actorType !== 'superadmin';
+    return { ok: true, data: await loadShopSubscriptionResult(shopId, { initIfMissing }) };
   } catch (error: any) {
     if (error.message === 'Authentication required') {
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };

@@ -70,7 +70,7 @@ describe('order limit', () => {
     const denied = { ok: false, code: 'FORBIDDEN', error: 'You do not have access to this restaurant' };
     (authorizeShopAction as any).mockResolvedValue(denied);
     expect(await executeGetOrderLimit('shop-1', http)).toEqual(denied);
-    expect(authorizeShopAction).toHaveBeenCalledWith(http, CARD_SHOP, null, { allowSuperadmin: true });
+    expect(authorizeShopAction).toHaveBeenCalledWith(http, CARD_SHOP, null, { allowSuperadmin: true, allowPlatformRead: true });
   });
 
   it('reports grace to every member', async () => {

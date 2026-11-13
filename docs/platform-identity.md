@@ -144,9 +144,25 @@ and must change nothing when it does.
 Read-level handlers (the complete list): `getAllShops`, `getPlan`, `getPlanPricing`
 (operator view), `getShopUsage`, `getRejectionWatch`, `getSystemConfig`,
 `getRolePermissions`, `getPlatformLegalIdentity`, and `getMe` (which reports the level).
-Every other platform handler is write-level. Not opened to ReadOnly, on purpose: a
-platform operator reading one shop's own back-office data (categories, products, orders)
-through the shop-scoped routes.
+Every other platform handler is write-level.
+
+**Shop-scoped reads.** A handler that reads one shop's data opts ReadOnly in with
+`allowPlatformRead: true` on `authorizeShopAction` / `resolveShopAccess` (`shopAccess.ts`);
+`allowSuperadmin` alone stays write-level. Covered: `getShop`, `getProduct`, `getProductsByShop`,
+`getCategory`, `getCategoriesByShop`, `getOrdersByShop`, `getOrderByPaymentIntent`,
+`getOrderQueue`, `getOrderDocument`, `getOrderLimit`, `getShopSubscription`, `getAuditEntries`,
+`getSalesReport`, `listStaff`, `getShopLegal`, `getPromotions`, `getCombos`.
+Deliberately **not** covered: `getGoLiveStatus` (a GET that syncs Stripe and patches the shop)
+and `exportShopData` (writes an audit entry and exports customer personal data). Never set the
+flag on a handler that writes. `test/application/platformReadOnlyShopScoped.test.ts` pins both sides.
+
+One covered read used to write: `getShopSubscription` lazily *created* a `shop_subscriptions`
+document for restaurants that pre-date billing. The lazy init now stays off the platform path
+(`loadShopSubscriptionResult(shopId, { initIfMissing })` — a platform operator gets the derived
+default plan without it being persisted; the shop's own owner/staff still initialise). A covered
+read must not write, whoever the caller is: keep this pattern in mind when a read syncs, logs or
+back-fills. (The owner/staff GET still initialises, as before — that is the shop's own billing
+record and is not a platform-privilege question.)
 
 **`GET /me`** returns `systemRole: 'superadmin'` for any operator, and now also
 `platformAccess: 'read' | 'write'`, derived from the verified token. A client deciding

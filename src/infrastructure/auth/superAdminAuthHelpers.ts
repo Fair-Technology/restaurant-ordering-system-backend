@@ -54,3 +54,11 @@ export async function isSuperAdminPrincipal(principal: Principal): Promise<boole
   if (principal.kind !== 'entra') return false;
   return isPlatformAdmin(principal);
 }
+
+/**
+ * Read-level decision: any platform operator, ReadOnly included. For shop-scoped handlers
+ * that change nothing; see `allowPlatformRead` in `shopAccess`.
+ */
+export async function isPlatformReaderPrincipal(principal: Principal): Promise<boolean> {
+  return platformAccessLevel(principal) !== null;
+}

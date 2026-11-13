@@ -39,7 +39,7 @@ export async function executeGetOrderDocument(
   httpRequest: HttpRequest,
 ): Promise<ApplicationResult<InvoiceFileDto>> {
   try {
-    const loaded = await loadShopForOrderAction(request.shopId, httpRequest);
+    const loaded = await loadShopForOrderAction(request.shopId, httpRequest, { allowPlatformRead: true });
     if (!loaded.ok) return loaded;
     if (!belongsToOrder(request.orderId, request.documentId)) {
       return { ok: false, code: 'NOT_FOUND', error: DOCUMENT_NOT_FOUND_ERROR };

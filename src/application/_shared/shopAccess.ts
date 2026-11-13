@@ -4,7 +4,7 @@ import { RolePermissionsDoc, permissionsForRole } from '../../domain/system/Role
 import { StaffAccount, StaffRole } from '../../domain/staff/StaffAccount';
 import { Principal, authenticate } from '../../infrastructure/auth/principal';
 import { logAuthFailure } from '../../infrastructure/auth/logAuthFailure';
-import { isSuperAdminPrincipal } from '../../infrastructure/auth/superAdminAuthHelpers';
+import { isPlatformReaderPrincipal, isSuperAdminPrincipal } from '../../infrastructure/auth/superAdminAuthHelpers';
 import { getRolePermissions } from '../../infrastructure/cosmos/system/CosmosRolePermissionsRepository';
 import { findShopById } from '../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { findStaffAccountById } from '../../infrastructure/cosmos/staff/CosmosStaffAccountRepository';
@@ -23,25 +23,43 @@ export interface ShopAccess {
 
 export interface ShopAccessDeps {
   isSuperadmin(principal: Principal): Promise<boolean>;
+  /** Any platform operator, including Platform.ReadOnly. Consulted only when a handler opts in with `allowPlatformRead`. */
+  isPlatformReader(principal: Principal): Promise<boolean>;
   rolePermissions(): Promise<Pick<RolePermissionsDoc, 'manager' | 'staff'>>;
   findStaff(shopId: string, staffId: string): Promise<StaffAccount | null>;
 }
 
 export const realDeps: ShopAccessDeps = {
   isSuperadmin: isSuperAdminPrincipal,
+  isPlatformReader: isPlatformReaderPrincipal,
   rolePermissions: getRolePermissions,
   findStaff: findStaffAccountById,
 };
+
+/**
+ * - `allowSuperadmin`: write-level platform staff (Owner/Support) may act on the shop.
+ * - `allowPlatformRead`: ALSO admit Platform.ReadOnly. Only for handlers that change nothing:
+ *   a GET that writes (a sync, an audit entry) must not set it.
+ */
+export interface ShopAccessOptions {
+  allowSuperadmin?: boolean;
+  allowPlatformRead?: boolean;
+}
+
+async function platformOperatorMayAct(principal: Principal, deps: ShopAccessDeps, options: ShopAccessOptions) {
+  if (options.allowSuperadmin && (await deps.isSuperadmin(principal))) return true;
+  return !!options.allowPlatformRead && (await deps.isPlatformReader(principal));
+}
 
 export async function resolveShopAccess(
   principal: Principal,
   shop: Shop,
   deps: ShopAccessDeps,
-  options: { allowSuperadmin?: boolean } = {},
+  options: ShopAccessOptions = {},
 ): Promise<ShopAccess | null> {
   // A deleted shop is closed to everyone except a superadmin on an endpoint that allows one.
   if (shop.isDeleted) {
-    if (principal.kind === 'entra' && options.allowSuperadmin && (await deps.isSuperadmin(principal))) {
+    if (principal.kind === 'entra' && (await platformOperatorMayAct(principal, deps, options))) {
       return {
         actor: { actorType: 'superadmin', actorId: principal.userId, role: null },
         permissions: [...ALL_SHOP_PERMISSIONS],
@@ -59,7 +77,7 @@ export async function resolveShopAccess(
         permissions: [...ALL_SHOP_PERMISSIONS],
       };
     }
-    if (options.allowSuperadmin && (await deps.isSuperadmin(principal))) {
+    if (await platformOperatorMayAct(principal, deps, options)) {
       return {
         actor: { actorType: 'superadmin', actorId: principal.userId, role: null },
         permissions: [...ALL_SHOP_PERMISSIONS],
@@ -86,7 +104,7 @@ export async function authorizeShopAction(
   request: HttpRequest,
   shop: Shop,
   permission: ShopPermission | null,
-  options: { allowSuperadmin?: boolean } = {},
+  options: ShopAccessOptions = {},
 ): Promise<({ ok: true } & ShopAccess) | ApplicationError> {
   let principal: Principal;
   try {
@@ -117,7 +135,7 @@ export async function authorizeShopRead(
 ): Promise<({ ok: true; shop: Shop } & ShopAccess) | ApplicationError> {
   const shop = await findShopById(shopId);
   if (!shop) return { ok: false, code: 'NOT_FOUND', error: 'Shop not found' };
-  const access = await authorizeShopAction(request, shop, null, { allowSuperadmin: true });
+  const access = await authorizeShopAction(request, shop, null, { allowSuperadmin: true, allowPlatformRead: true });
   if (!access.ok) return access;
   return { ...access, shop };
 }

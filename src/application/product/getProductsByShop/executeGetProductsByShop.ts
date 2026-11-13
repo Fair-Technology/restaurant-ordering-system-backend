@@ -38,7 +38,7 @@ export async function executeGetProductsByShop(
     if (!shop || shop.isDeleted) {
       return { ok: false, code: 'NOT_FOUND', error: 'Shop not found' };
     }
-    const access = await authorizeShopAction(httpRequest, shop, 'manage_menu');
+    const access = await authorizeShopAction(httpRequest, shop, 'manage_menu', { allowPlatformRead: true });
     if (!access.ok) return access;
 
     // One query for the shop's live categories rather than a read per product

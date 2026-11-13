@@ -84,6 +84,6 @@ describe('executeSetBusyMode', () => {
     (authorizeShopAction as any).mockResolvedValue(refusal);
     const res = await executeSetBusyMode({ shopId: 'shop-1', on: true }, http, { now });
     expect(res).toEqual(refusal);
-    expect(authorizeShopAction).toHaveBeenCalledWith(http, CARD_SHOP, 'view_orders');
+    expect(authorizeShopAction).toHaveBeenCalledWith(http, CARD_SHOP, 'view_orders', {});
   });
 });
