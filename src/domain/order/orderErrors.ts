@@ -16,6 +16,10 @@ export const PAYMENT_CAPTURE_FAILED_ERROR =
   'The payment could not be taken, so the order was declined and the customer told. Nothing was charged.';
 export const PAYMENT_SERVICE_UNAVAILABLE_ERROR =
   'The payment service did not answer. The order is still waiting — please try again.';
+export const PAYMENT_CONFIG_UNAVAILABLE_ERROR =
+  'The payment service refused the request because of a platform setup problem, not the card. The order is still waiting and nothing was charged — try again once the platform has fixed it.';
+/** Accept failures that leave the order PLACED and waiting for the timer. */
+export const WAITING_PAYMENT_ERRORS: readonly string[] = [PAYMENT_SERVICE_UNAVAILABLE_ERROR, PAYMENT_CONFIG_UNAVAILABLE_ERROR];
 export const ADDRESS_INVALID_ERROR =
   'customerAddress must have street, postcode, city and country of at most 200 characters each';
 export const ADDRESS_REQUIRED_ERROR = 'An address is required for orders over 250 €';

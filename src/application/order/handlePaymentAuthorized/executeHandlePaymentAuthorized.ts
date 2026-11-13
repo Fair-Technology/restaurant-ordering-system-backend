@@ -2,7 +2,7 @@ import { applyTransition } from '../../../domain/order/orderLifecycle';
 import { shopRefusalForPaidCheckout } from '../../../domain/order/shopAvailability';
 import { autoAcceptsOrder, isUpcoming } from '../../../domain/order/scheduling';
 import { orderSettingsOf } from '../../../domain/order/orderSettings';
-import { PAYMENT_SERVICE_UNAVAILABLE_ERROR } from '../../../domain/order/orderErrors';
+import { WAITING_PAYMENT_ERRORS } from '../../../domain/order/orderErrors';
 import { generateOrderRef } from '../../../domain/order/orderRef';
 import {
   deleteCheckoutSession,
@@ -94,8 +94,8 @@ export async function executeHandlePaymentAuthorized(input: {
   if (autoAccepts) {
     try {
       const accepted = await acceptPlacedOrder({ orderId: order.id, shop, actor: { type: 'system' }, now });
-      // Still waiting (Stripe outage): the diner is told it was received, and the timer retries.
-      sendReceived = !accepted.ok && accepted.error === PAYMENT_SERVICE_UNAVAILABLE_ERROR;
+      // Still waiting (Stripe outage or platform key fault): the diner is told it was received, and the timer retries.
+      sendReceived = !accepted.ok && WAITING_PAYMENT_ERRORS.includes(accepted.error);
     } catch (err: unknown) {
       console.error('[auto-accept:error]', order.id, errorBrief(err));
       sendReceived = true;

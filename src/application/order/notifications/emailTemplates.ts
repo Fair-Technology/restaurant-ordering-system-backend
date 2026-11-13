@@ -49,6 +49,10 @@ const REJECT_SENTENCES: Record<RejectReason, Bilingual> = {
     de: 'Die Zahlung konnte bei der Annahme nicht abgeschlossen werden.',
     en: 'The payment could not be completed when the restaurant accepted.',
   },
+  payment_unavailable: {
+    de: 'Die Zahlung konnte wegen eines technischen Problems nicht abgeschlossen werden. Das liegt nicht am Restaurant und nicht an Ihrer Karte.',
+    en: 'The payment could not be completed because of a technical problem. This is not the restaurant and not your card.',
+  },
   shop_unavailable: {
     de: 'Das Restaurant nimmt gerade keine Bestellungen an.',
     en: 'The restaurant is not taking orders right now.',

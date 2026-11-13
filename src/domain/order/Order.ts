@@ -47,7 +47,7 @@ export interface OrderHistoryEntry {
 
 export const REJECT_REASON_CODES = ['too_busy', 'item_unavailable', 'closing_soon', 'other'] as const;
 export type StaffRejectReason = (typeof REJECT_REASON_CODES)[number];
-export type RejectReason = StaffRejectReason | 'no_response' | 'payment_failed' | 'shop_unavailable'; // 'no_response' = automatic decline
+export type RejectReason = StaffRejectReason | 'no_response' | 'payment_failed' | 'payment_unavailable' | 'shop_unavailable'; // 'no_response' = automatic decline
 export const CUSTOMER_CANCEL_REASON = 'customer_cancelled';
 
 export interface TaxBreakdownEntry {
@@ -124,6 +124,12 @@ export interface PaymentReleaseFailure {
   attempts?: number; // failed tries so far; a retry after a failure uses a new Stripe key
 }
 
+/** Stripe refused a capture for a platform permission/key reason (not the card); the order waits as PLACED. */
+export interface CaptureConfigFailure {
+  at: string; // ISO, last refusal
+  attempts: number; // refusals so far
+}
+
 export interface LegalRevisions {
   terms: number;
   withdrawal: number;
@@ -189,6 +195,7 @@ export interface Order {
   queuedAt?: string; // ISO, when a scheduled order entered the live queue; the alert and decline count from here
   refunds?: OrderRefund[];
   releaseFailure?: PaymentReleaseFailure; // the reservation could not be released yet
+  captureConfigFailure?: CaptureConfigFailure; // a capture was refused for a platform key/permission reason; the timeout then declines without blaming the shop
   invoiceNumber?: string; // set once the invoice is issued
   invoiceEmailedAt?: string; // ISO, written just before the timer emails a late invoice
   captureStartedAt?: string; // ISO, claim written just before the money is taken
