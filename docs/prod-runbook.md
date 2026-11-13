@@ -411,8 +411,9 @@ az role assignment create --assignee-object-id $PROD_PRINCIPAL_ID \
 
 ### B4. GitHub `production` environment (backend repo)
 
-The environment carries a required reviewer and only accepts `v*` **tags**, because
-`promote.yml` triggers on `push: tags: v*`.
+The environment carries a required reviewer and accepts deployments from `v*` **tags** and
+from the `main` branch — a release is `dev` merged into `main` (§9.1a), so `main` needs its
+own branch policy as well as the tag one.
 
 ```sh
 REVIEWER_ID=$(gh api users/manish-ghimire --jq .id)     # 68095065 on 2026-11-10
@@ -423,16 +424,27 @@ gh api -X PUT repos/$REPO/environments/production --input - <<EOF
   "deployment_branch_policy": { "protected_branches": false, "custom_branch_policies": true } }
 EOF
 gh api -X POST repos/$REPO/environments/production/deployment-branch-policies -f name='v*' -f type=tag
+gh api -X POST repos/$REPO/environments/production/deployment-branch-policies -f name='main' -f type=branch
 
-# The workflow reads secrets.AZURE_CLIENT_ID. An environment secret overrides the repo
-# secret of the same name, so prod uses its identity while dev keeps the repo-level one.
-gh secret set AZURE_CLIENT_ID --env production -R $REPO --body "$PROD_CLIENT_ID"
-# AZURE_TENANT_ID and AZURE_SUBSCRIPTION_ID are the same as dev; the repo secrets apply.
+# promote.yml reads secrets.AZURE_CLIENT_ID_PROD. It deliberately does NOT use
+# AZURE_CLIENT_ID: GitHub falls back to the repo-level secret of the same name when an
+# environment has none, and the dev deploy reads repo-level AZURE_CLIENT_ID — so a
+# same-name override would silently deploy with the dev identity and the guard could
+# never fire. The distinct _PROD name makes a missing secret fail closed.
+gh secret set AZURE_CLIENT_ID_PROD --env production -R $REPO --body "$PROD_CLIENT_ID"
+# AZURE_TENANT_ID and AZURE_SUBSCRIPTION_ID are the same account as dev; the repo secrets apply.
 
 gh api repos/$REPO/environments/production --jq '{name, rules: [.protection_rules[].type]}'
 ```
 
-With the tag-only policy, a manual "Run workflow" must select the **tag** as its ref, not `main`.
+This replaces the earlier same-name override instruction: B4 used to say to set
+`AZURE_CLIENT_ID` as an environment secret. Do not — `promote.yml` no longer reads it, and a
+same-name environment secret would reintroduce the dev-identity fallback. This is the same
+design the three frontend repos adopted on 2026-11-12 for
+`AZURE_STATIC_WEB_APPS_API_TOKEN_PROD`; the backend's identity is an OIDC client ID rather
+than a Static Web App token, so the suffix is on `AZURE_CLIENT_ID`.
+
+With both policies, a manual "Run workflow" may select the `v*` tag or `main` as its ref.
 
 ### B5. GitHub `production` environments on the three frontend repos
 
@@ -732,6 +744,25 @@ gh run watch -R $REPO "$(gh run list -R $REPO --workflow promote.yml --limit 1 -
 Dev artifacts are kept for **90 days** (`retention-days: 90`), so a commit older than that
 cannot be promoted. Push a fresh commit through dev first.
 
+### 9.1a Releasing: `dev` → `main` → production (spec §21-5a)
+
+Work merges into `dev` first; a release is `dev` merged into `main`. No hand-deploys.
+
+1. Merge feature PRs into `dev`. The dev workflow builds, tests and deploys to the dev app.
+2. Verify on dev.
+3. Open a PR `dev` → `main` and merge it. The dev workflow builds and tests the merge commit
+   (and refreshes dev with it). When that run succeeds, `promote.yml` starts via `workflow_run`
+   and **waits for the `production` environment's required reviewer**. Approve it in the Actions UI.
+4. `promote.yml` ships that run's artifact, refusing to continue if `AZURE_CLIENT_ID_PROD`,
+   `AZURE_TENANT_ID` or `AZURE_SUBSCRIPTION_ID` is empty. `git tag v*` / manual dispatch remain
+   as alternatives.
+
+**Before the first automatic promotion works** (not done; needs owner/Azure/GitHub admin):
+B4 now documents a `main` branch policy alongside `v*` tags — add it and keep the required
+reviewer. The prod app and its `environment:production` federated credential (B2) must exist,
+and the `AZURE_CLIENT_ID_PROD` environment secret must be set. Until then the promotion
+fails or stays blocked. That is by design.
+
 ### 9.2 Smoke checks (read-only)
 
 ```sh
@@ -761,6 +792,13 @@ Finally, send a test event from the dashboard to each **live** webhook endpoint
 **Blocked by Gate 1.** Until the frontend promote workflows build with production
 variables, the prod SWAs stay empty, and the API is reachable only through tools. Do not
 work around this by pointing dev's frontends at the prod API.
+
+Each frontend repo's `promote.yml` is wired the same way as the backend's: a successful dev
+workflow run on `main` starts promotion of that run's `dist` output, behind the
+`production` environment's required reviewer, and the first step refuses to continue unless
+`AZURE_STATIC_WEB_APPS_API_TOKEN_PROD` is set on that environment (fail-closed, so
+production never falls back to the dev token). Until the owner adds it, promotion fails at
+the guard. That is by design.
 
 ---
 
