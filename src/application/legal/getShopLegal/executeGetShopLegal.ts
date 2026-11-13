@@ -18,7 +18,7 @@ export async function executeGetShopLegal(
     if (!shop || shop.isDeleted) {
       return { ok: false, code: 'NOT_FOUND', error: 'Shop not found' };
     }
-    const access = await authorizeShopAction(httpRequest, shop, 'manage_shop');
+    const access = await authorizeShopAction(httpRequest, shop, 'manage_shop', { allowPlatformRead: true });
     if (!access.ok) return access;
 
     const identity = await getPlatformLegalIdentity();

@@ -10,7 +10,7 @@ export async function executeGetCombos(
   httpRequest: HttpRequest,
 ): Promise<ApplicationResult<ComboDto[]>> {
   try {
-    const auth = await authorizeCombos(input.shopId, httpRequest);
+    const auth = await authorizeCombos(input.shopId, httpRequest, { allowPlatformRead: true });
     if (!auth.ok) return auth;
     const products = await findProductsByShopId(auth.shop.id);
     return { ok: true, data: products.filter((p) => p.combo).map(toComboDto).sort((a, b) => a.name.localeCompare(b.name)) };

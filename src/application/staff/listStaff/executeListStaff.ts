@@ -22,7 +22,7 @@ export async function executeListStaff(
       return { ok: false, code: 'NOT_FOUND', error: 'Shop not found' };
     }
 
-    const access = await authorizeShopAction(httpRequest, shop, 'manage_staff');
+    const access = await authorizeShopAction(httpRequest, shop, 'manage_staff', { allowPlatformRead: true });
     if (!access.ok) return access;
 
     const now = new Date();

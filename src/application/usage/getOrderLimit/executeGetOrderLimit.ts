@@ -24,7 +24,7 @@ export async function executeGetOrderLimit(
       return { ok: false, code: 'NOT_FOUND', error: 'Shop not found' };
     }
 
-    const access = await authorizeShopAction(httpRequest, shop, null, { allowSuperadmin: true });
+    const access = await authorizeShopAction(httpRequest, shop, null, { allowSuperadmin: true, allowPlatformRead: true });
     if (!access.ok) return access;
 
     const now = new Date();

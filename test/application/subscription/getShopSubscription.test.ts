@@ -36,7 +36,11 @@ describe('executeGetShopSubscription', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     (findShopById as any).mockResolvedValue(CARD_SHOP);
-    (authorizeShopAction as any).mockResolvedValue({ ok: true });
+    (authorizeShopAction as any).mockResolvedValue({
+      ok: true,
+      actor: { actorType: 'owner', actorId: 'u1', role: 'owner' },
+      permissions: [],
+    });
     (findDefaultPlan as any).mockResolvedValue(BASIC);
     (findPlanById as any).mockResolvedValue(BASIC);
     (upsertSubscription as any).mockImplementation(async (s: unknown) => s);
@@ -50,6 +54,24 @@ describe('executeGetShopSubscription', () => {
     if (res.ok) {
       expect(res.data.entitlements.planId).toBe('plan-basic');
       expect(res.data.entitlements.limits.ORDERS_PER_MONTH).toBe(30);
+    }
+  });
+
+  // The lazy init is a write. A platform operator (the ReadOnly list includes it) must not
+  // trigger it: see test/application/platformReadOnlyShopScoped.test.ts for the route-level pin.
+  it('a platform operator reads the derived default without creating the document', async () => {
+    (authorizeShopAction as any).mockResolvedValue({
+      ok: true,
+      actor: { actorType: 'superadmin', actorId: 'op-1', role: null },
+      permissions: [],
+    });
+    (findSubscriptionByShopId as any).mockResolvedValue(null);
+    const res = await executeGetShopSubscription('shop-1', {} as HttpRequest);
+    expect(upsertSubscription).not.toHaveBeenCalled();
+    expect(res.ok).toBe(true);
+    if (res.ok) {
+      expect(res.data.subscription.planId).toBe('plan-basic');
+      expect(res.data.entitlements.planId).toBe('plan-basic');
     }
   });
 });

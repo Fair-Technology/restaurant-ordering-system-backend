@@ -18,7 +18,7 @@ export async function executeGetOrderQueue(
   options: { now?: Date } = {},
 ): Promise<ApplicationResult<OrderQueueDto>> {
   try {
-    const loaded = await loadShopForOrderAction(request.shopId, httpRequest);
+    const loaded = await loadShopForOrderAction(request.shopId, httpRequest, { allowPlatformRead: true });
     if (!loaded.ok) return loaded;
     const now = options.now ?? new Date();
     const all = await findOrdersByShopIdAndStates(loaded.shop.id, ['PLACED', 'ACCEPTED', 'READY', 'OUT_FOR_DELIVERY']);

@@ -38,7 +38,7 @@ describe('executeGetSalesReport', () => {
 
   it('needs the view_reports permission', async () => {
     await executeGetSalesReport(input, http);
-    expect(authorizeShopAction).toHaveBeenCalledWith(http, CARD_SHOP, 'view_reports');
+    expect(authorizeShopAction).toHaveBeenCalledWith(http, CARD_SHOP, 'view_reports', { allowPlatformRead: true });
 
     const refusal = { ok: false, code: 'FORBIDDEN', error: 'Insufficient permissions' } as const;
     vi.mocked(authorizeShopAction).mockResolvedValue(refusal as never);

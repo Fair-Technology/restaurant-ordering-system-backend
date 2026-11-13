@@ -59,7 +59,7 @@ export async function getOrderByPaymentIntent(
     if (!shop || shop.isDeleted) {
       return { ok: false, code: 'NOT_FOUND', error: 'Order not found' };
     }
-    const access = await authorizeShopAction(httpRequest, shop, 'view_orders');
+    const access = await authorizeShopAction(httpRequest, shop, 'view_orders', { allowPlatformRead: true });
     if (!access.ok) return access;
     return {
       ok: true,

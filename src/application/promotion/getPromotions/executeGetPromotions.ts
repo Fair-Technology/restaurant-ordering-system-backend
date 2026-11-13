@@ -10,7 +10,7 @@ export async function executeGetPromotions(
   httpRequest: HttpRequest,
 ): Promise<ApplicationResult<PromotionsDto>> {
   try {
-    const auth = await authorizePromotions(input.shopId, httpRequest);
+    const auth = await authorizePromotions(input.shopId, httpRequest, { allowPlatformRead: true });
     if (!auth.ok) return auth;
     return { ok: true, data: await loadPromotionsDto(auth.shop.id) };
   } catch {

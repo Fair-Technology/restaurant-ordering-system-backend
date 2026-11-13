@@ -58,7 +58,7 @@ describe('promotion endpoints', () => {
       http,
     );
     expect(res.ok).toBe(true);
-    expect(authorizeShopAction).toHaveBeenCalledWith(http, CARD_SHOP, 'manage_shop');
+    expect(authorizeShopAction).toHaveBeenCalledWith(http, CARD_SHOP, 'manage_shop', {});
     expect(createPromotions).toHaveBeenCalledWith(
       expect.objectContaining({
         id: 'promotions_shop-1',

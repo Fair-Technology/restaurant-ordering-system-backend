@@ -25,7 +25,7 @@ export async function executeGetAuditEntries(
       return { ok: false, code: 'NOT_FOUND', error: 'Shop not found' };
     }
 
-    const access = await authorizeShopAction(httpRequest, shop, 'view_audit', { allowSuperadmin: true });
+    const access = await authorizeShopAction(httpRequest, shop, 'view_audit', { allowSuperadmin: true, allowPlatformRead: true });
     if (!access.ok) return access;
 
     const { entries, total } = await findAuditEntriesByShop(

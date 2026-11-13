@@ -13,9 +13,10 @@ const shop = {
   ],
 } as unknown as Shop;
 
-function makeDeps(isSuperadmin: boolean, findStaff?: ShopAccessDeps['findStaff']): ShopAccessDeps {
+function makeDeps(isSuperadmin: boolean, findStaff?: ShopAccessDeps['findStaff'], isPlatformReader = false): ShopAccessDeps {
   return {
     isSuperadmin: async () => isSuperadmin,
+    isPlatformReader: async () => isPlatformReader || isSuperadmin,
     rolePermissions: async () => ({ manager: [], staff: [] }),
     findStaff: findStaff ?? (async () => null),
   };
@@ -51,6 +52,21 @@ describe('resolveShopAccess', () => {
     const principal: Principal = { kind: 'entra', userId: 'u-admin', issuer: 'customer', roles: [] };
     const access = await resolveShopAccess(principal, shop, makeDeps(true));
     expect(access).toBeNull();
+  });
+});
+
+describe('resolveShopAccess (Platform.ReadOnly)', () => {
+  const op: Principal = { kind: 'entra', userId: 'op-1', issuer: 'platform', roles: ['Platform.ReadOnly'] };
+  const deps = makeDeps(false, undefined, true);
+
+  it('admitted only when the handler opts in with allowPlatformRead', async () => {
+    const access = await resolveShopAccess(op, shop, deps, { allowPlatformRead: true });
+    expect(access?.actor.actorType).toBe('superadmin');
+  });
+
+  it('refused by default and by allowSuperadmin alone (write level)', async () => {
+    expect(await resolveShopAccess(op, shop, deps)).toBeNull();
+    expect(await resolveShopAccess(op, shop, deps, { allowSuperadmin: true })).toBeNull();
   });
 });
 
