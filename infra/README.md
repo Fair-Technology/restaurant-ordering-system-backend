@@ -18,6 +18,16 @@ az deployment group create \
   -p env=test
 ```
 
+Production uses the same template with a parameter file:
+
+```bash
+az deployment group create -g rg-restaurant-ordering-system-prod \
+  -f infra/main.bicep -p infra/main.prod.bicepparam
+```
+
+Names (Function App, storage, Cosmos), region and hardening are parameters; see
+[docs/reports/2026-11-13-d1.md](../docs/reports/2026-11-13-d1.md) for the values to confirm.
+
 Then three things the template deliberately leaves out.
 
 **1. Secret app settings.** Everything except the secrets is set by the
