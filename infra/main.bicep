@@ -70,7 +70,9 @@ resource cosmos 'Microsoft.DocumentDB/databaseAccounts@2024-11-15' = {
     consistencyPolicy: { defaultConsistencyLevel: 'Session' }
     locations: [ { locationName: location, failoverPriority: 0, isZoneRedundant: false } ]
     capabilities: [ { name: 'EnableServerless' } ]
-    backupPolicy: { type: 'Continuous' }
+    // 30-day point-in-time restore. Reaches back 30 days only; the eight-year copy of orders and
+    // invoices is the archive container below (scripts/backup, docs/reports/2026-11-13-d3.md).
+    backupPolicy: { type: 'Continuous', continuousModeProperties: { tier: 'Continuous30Days' } }
   }
 }
 
@@ -128,6 +130,25 @@ resource blobService 'Microsoft.Storage/storageAccounts/blobServices@2023-05-01'
         }
       ]
     }
+  }
+}
+
+// Long-term archive of the `orders` and `invoices` containers (JSONL + manifest, written by
+// scripts/backup/export.ts). Private. Restaurants must keep these records eight years (2922 days).
+// The retention policy is created UNLOCKED: locking is irreversible, so a human locks it
+// (az storage container immutability-policy lock) after confirming the period with the tax adviser.
+resource archiveContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-05-01' = {
+  parent: blobService
+  name: 'records-archive'
+  properties: { publicAccess: 'None' }
+}
+
+resource archiveRetention 'Microsoft.Storage/storageAccounts/blobServices/containers/immutabilityPolicies@2023-05-01' = {
+  parent: archiveContainer
+  name: 'default'
+  properties: {
+    immutabilityPeriodSinceCreationInDays: 2922
+    allowProtectedAppendWrites: false
   }
 }
 
