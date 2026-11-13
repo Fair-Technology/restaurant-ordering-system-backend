@@ -18,7 +18,17 @@ az deployment group create \
   -p env=test
 ```
 
-Then three things the template deliberately leaves out.
+Production uses the same template with a parameter file:
+
+```bash
+az deployment group create -g rg-restaurant-ordering-system-prod \
+  -f infra/main.bicep -p infra/main.prod.bicepparam
+```
+
+Names (Function App, storage, Cosmos), region and hardening are parameters; see
+[docs/reports/2026-11-13-d1.md](../docs/reports/2026-11-13-d1.md) for the values to confirm.
+
+Then two things the template leaves out, and one it creates only when asked.
 
 **1. Secret app settings.** Everything except the secrets is set by the
 template. The rest comes from the vault `.env`, under the
@@ -34,9 +44,19 @@ az functionapp config appsettings set \
              STAFF_JWT_SECRET=…
 ```
 
-**2. The GitHub deployment credential.** The identity exists, but what it
-trusts names a specific repo and branch, so it is added separately — and has to
-be redone if a repo is ever renamed:
+**2. The GitHub deployment credential — optional, the template can create it.**
+Set `githubFederatedSubject` (the classic form, e.g.
+`repo:Fair-Technology/restaurant-ordering-system-backend:environment:production`)
+and/or `githubFederatedSubjectImmutable` (the immutable form, e.g.
+`repo:Fair-Technology@175465322/restaurant-ordering-system-backend@1050545921:environment:production`)
+and the deployment creates one federated credential per subject on the identity
+*and* a *Website Contributor* role assignment scoped to the Function App (created
+once, when either is set). This repo presents the **immutable** subject —
+`gh api repos/<owner>/<repo>/actions/oidc/customization/sub` reports
+`use_immutable_subject: true` — so a deployment pipeline needs the immutable one;
+dev's identity carries both. Leave both `''` (the dev default) and what the
+identity trusts has to be added separately — each subject names a specific repo
+and environment, so it also has to be redone if a repo is ever renamed:
 
 ```bash
 az identity federated-credential create --name github-test \

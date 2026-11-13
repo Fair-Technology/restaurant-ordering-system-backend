@@ -58,7 +58,7 @@ deploys to `app-name: 'restaurant-ordering-system'`. That name was free on 2026-
 (`checknameavailability` → `nameAvailable: true`). `*.azurewebsites.net` names are
 global, so check again before step A7.
 
-**Why `infra/main.bicep` is not used.** The template names the app
+**Why `infra/main.bicep` was not used (superseded: see `docs/reports/2026-11-13-d1.md`, now parameterised for prod — choose one route, never both).** The template names the app
 `${prefix}-${env}` → `restaurant-ordering-system-prod`, which `promote.yml` does not
 target, and its README warns that a redeploy wipes all app settings. The
 explicit commands below are also what dev actually is: dev's plan was created by the CLI and
@@ -382,7 +382,10 @@ PROD_PRINCIPAL_ID=$(az identity show -g $RG -n $ID --query principalId -o tsv)
 `use_immutable_subject: true` with prefix
 `repo:Fair-Technology@175465322/restaurant-ordering-system-backend@1050545921`. The
 token GitHub presents therefore carries the **immutable** subject. Dev's identity
-registers both forms, so prod does the same:
+registers both forms, so prod does the same. `infra/main.bicep` creates both when
+`githubFederatedSubject` and `githubFederatedSubjectImmutable` are set (as
+`infra/main.prod.bicepparam` does) — the commands below are the by-hand route,
+which is what dev used:
 
 ```sh
 az identity federated-credential create -g $RG --identity-name $ID \

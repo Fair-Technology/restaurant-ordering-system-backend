@@ -7,15 +7,29 @@
 //   az deployment group create -g rg-restaurant-ordering-system-test \
 //     -f infra/main.bicep -p env=test
 //
+// Production is the same template with infra/main.prod.bicepparam, which sets
+// the names, region and hardening that differ from dev. The database, storage
+// account and Function App each have their own name parameter, so none of them
+// is forced to follow the `<prefix>-<env>` pattern. See docs/reports/2026-11-13-d1.md.
+//
 // Everything sits in the EU because the platform holds diner data as a
 // processor for restaurants in Germany, and Australia has no EU adequacy
 // decision. Do not move these to an Australian region.
 //
-// What this file does NOT create, deliberately:
+// What this file leaves to the owner, deliberately:
 //   - Entra app registrations (a tenant-level change, made by hand)
 //   - Stripe configuration (not an Azure resource)
-//   - the GitHub federated credential and its role assignment (see README)
 //   - secret app settings — they are set after deployment from the vault .env
+//   - the GitHub federated credential and its role assignment, UNLESS
+//     githubFederatedSubject and/or githubFederatedSubjectImmutable is set:
+//     then this file creates the credentials on the deployment identity, and
+//     Website Contributor on the Function App once either is set. Both empty
+//     (the default) means add them by hand — see README.
+//
+// Both subject forms exist because this repo presents GitHub's immutable OIDC
+// subject (`repo:Owner@ID/Repo@ID:environment:<env>`), while the classic form
+// is kept for compatibility. Set the immutable one from
+// `gh api repos/<owner>/<repo>/actions/oidc/customization/sub`; prod does.
 
 @description('Environment suffix: dev, test, prod.')
 @allowed(['dev', 'test', 'prod'])
@@ -24,14 +38,49 @@ param env string
 @description('Region for compute and data. Must stay in the EU.')
 param location string = 'westeurope'
 
+@description('Function App name. Globally unique (*.azurewebsites.net). Production is "restaurant-ordering-system" because promote.yml deploys to that name.')
+@minLength(2)
+@maxLength(60)
+param functionAppName string = 'restaurant-ordering-system-${env}'
+
+@description('Storage account name: 3-24 chars, lowercase letters and digits only. Globally unique.')
+@minLength(3)
+@maxLength(24)
+param storageAccountName string = 'restaurantordsys${env}'
+
+@description('Cosmos DB account name: 3-44 chars, lowercase letters, digits and hyphens. Globally unique.')
+@minLength(3)
+@maxLength(44)
+param cosmosAccountName string = 'restaurant-ordering-system-db-${env}'
+
+@description('Cosmos database name inside the account. The same in every environment, so the code needs no per-environment change.')
+param databaseName string = 'restaurant-ordering-system-db'
+
+@description('Cosmos continuous-backup retention window.')
+@allowed(['Continuous7Days', 'Continuous30Days'])
+param cosmosBackupTier string = 'Continuous7Days'
+
+@description('Create an explicit Log Analytics workspace and make Application Insights workspace-based. false keeps dev\'s shape (Azure-managed workspace).')
+param createLogAnalytics bool = false
+
+@description('Days of soft delete for blobs and containers. 0 = off (dev). Production uses 30.')
+@minValue(0)
+@maxValue(365)
+param blobSoftDeleteDays int = 0
+
+@description('Optional classic federated-credential subject for GitHub Actions, e.g. "repo:Fair-Technology/restaurant-ordering-system-backend:environment:production". Empty = create none (add it by hand, see README).')
+param githubFederatedSubject string = ''
+
+@description('Optional IMMUTABLE federated-credential subject, e.g. "repo:Fair-Technology@175465322/restaurant-ordering-system-backend@1050545921:environment:production". This repo presents the immutable form, so without it a deploy pipeline cannot log in. Empty = create none.')
+param githubFederatedSubjectImmutable string = ''
+
 @description('Region for Static Web Apps — a shorter list than other services.')
 @allowed(['westeurope', 'eastasia', 'centralus', 'eastus2', 'westus2'])
 param staticWebAppLocation string = 'westeurope'
 
 var prefix = 'restaurant-ordering-system'
-var storageName = 'restaurantordsys${env}'   // ≤24 chars, lowercase alphanumeric
-var cosmosName = '${prefix}-db-${env}'
-var databaseName = '${prefix}-db'
+var storageName = storageAccountName
+var cosmosName = cosmosAccountName
 
 // Containers and their partition keys. Products and categories partition by
 // shop so one restaurant's menu reads as a single partition; everything else
@@ -70,7 +119,8 @@ resource cosmos 'Microsoft.DocumentDB/databaseAccounts@2024-11-15' = {
     consistencyPolicy: { defaultConsistencyLevel: 'Session' }
     locations: [ { locationName: location, failoverPriority: 0, isZoneRedundant: false } ]
     capabilities: [ { name: 'EnableServerless' } ]
-    backupPolicy: { type: 'Continuous' }
+    backupPolicy: { type: 'Continuous', continuousModeProperties: { tier: cosmosBackupTier } }
+    minimalTlsVersion: 'Tls12'
   }
 }
 
@@ -117,6 +167,8 @@ resource blobService 'Microsoft.Storage/storageAccounts/blobServices@2023-05-01'
   parent: storage
   name: 'default'
   properties: {
+    deleteRetentionPolicy: { enabled: blobSoftDeleteDays > 0, days: max(blobSoftDeleteDays, 1) }
+    containerDeleteRetentionPolicy: { enabled: blobSoftDeleteDays > 0, days: max(blobSoftDeleteDays, 1) }
     cors: {
       corsRules: [
         {
@@ -156,11 +208,23 @@ resource identity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' 
   location: location
 }
 
+resource logWorkspace 'Microsoft.OperationalInsights/workspaces@2023-09-01' = if (createLogAnalytics) {
+  name: 'log-${prefix}-${env}'
+  location: location
+  properties: {
+    sku: { name: 'PerGB2018' }
+    retentionInDays: 30
+  }
+}
+
 resource insights 'Microsoft.Insights/components@2020-02-02' = {
   name: '${prefix}-${env}'
   location: location
   kind: 'web'
-  properties: { Application_Type: 'web' }
+  properties: {
+    Application_Type: 'web'
+    WorkspaceResourceId: createLogAnalytics ? logWorkspace.id : null
+  }
 }
 
 // ── Compute ───────────────────────────────────────────────────────────────────
@@ -176,7 +240,7 @@ resource plan 'Microsoft.Web/serverfarms@2023-12-01' = {
 }
 
 resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
-  name: '${prefix}-${env}'
+  name: functionAppName
   location: location
   kind: 'functionapp,linux'
   identity: {
@@ -193,7 +257,10 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
         storage: {
           type: 'blobContainer'
           value: '${storage.properties.primaryEndpoints.blob}app-package'
-          authentication: { type: 'SystemAssignedIdentity' }
+          authentication: {
+            type: 'UserAssignedIdentity'
+            userAssignedIdentityResourceId: identity.id
+          }
         }
       }
     }
@@ -217,12 +284,63 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
         { name: 'COSMOS_USAGE_CONTAINER', value: 'shop_usage' }
         { name: 'COSMOS_CHECKOUT_SESSION_CONTAINER', value: 'checkout_sessions' }
         { name: 'STORAGE_ACCOUNT_NAME', value: storageName }
+        // Host state (timer leases) over the identity, so no storage key sits in the template.
+        { name: 'AzureWebJobsStorage__accountName', value: storageName }
+        { name: 'AzureWebJobsStorage__credential', value: 'managedidentity' }
+        { name: 'AzureWebJobsStorage__clientId', value: identity.properties.clientId }
         // Where Stripe sends the owner back after subscription checkout.
         { name: 'ADMIN_APP_URL', value: 'https://${staticSites[indexOf(staticApps, 'admin')].properties.defaultHostname}' }
         // Secrets — COSMOS_DB_KEY, STORAGE_ACCOUNT_KEY, ENTRA_*, STRIPE_* — are
         // set after deployment from the vault .env, never committed here.
       ]
     }
+  }
+}
+
+// The identity reads the deployment package and holds the host's timer leases.
+var storageBlobDataOwner = 'b7e6dc6d-f1e8-4753-8033-0f276bb0955b'
+resource identityStorageAccess 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(storage.id, identity.id, storageBlobDataOwner)
+  scope: storage
+  properties: {
+    principalId: identity.properties.principalId
+    principalType: 'ServicePrincipal'
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', storageBlobDataOwner)
+  }
+}
+
+// GitHub Actions deploy credential — only when a subject is supplied.
+// Two resources, because GitHub's immutable-subject rollout means the token
+// carries `repo:Owner@ID/Repo@ID:...` on this repo while the classic form may
+// still be what an older workflow presents. Dev's identity registers both.
+resource githubCredential 'Microsoft.ManagedIdentity/userAssignedIdentities/federatedIdentityCredentials@2023-01-31' = if (!empty(githubFederatedSubject)) {
+  parent: identity
+  name: 'github-${env}'
+  properties: {
+    issuer: 'https://token.actions.githubusercontent.com'
+    subject: githubFederatedSubject
+    audiences: [ 'api://AzureADTokenExchange' ]
+  }
+}
+
+resource githubCredentialImmutable 'Microsoft.ManagedIdentity/userAssignedIdentities/federatedIdentityCredentials@2023-01-31' = if (!empty(githubFederatedSubjectImmutable)) {
+  parent: identity
+  name: 'github-${env}-immutable'
+  properties: {
+    issuer: 'https://token.actions.githubusercontent.com'
+    subject: githubFederatedSubjectImmutable
+    audiences: [ 'api://AzureADTokenExchange' ]
+  }
+}
+
+var websiteContributor = 'de139f84-1756-47ae-9be6-808fbbe84772'
+resource deployRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!empty(githubFederatedSubject) || !empty(githubFederatedSubjectImmutable)) {
+  name: guid(functionApp.id, identity.id, websiteContributor)
+  scope: functionApp
+  properties: {
+    principalId: identity.properties.principalId
+    principalType: 'ServicePrincipal'
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', websiteContributor)
   }
 }
 
@@ -238,6 +356,9 @@ resource staticSites 'Microsoft.Web/staticSites@2023-12-01' = [for app in static
 // ── Outputs ───────────────────────────────────────────────────────────────────
 
 output functionAppName string = functionApp.name
+output functionAppHostname string = functionApp.properties.defaultHostName
+output cosmosAccountName string = cosmos.name
+output logAnalyticsWorkspace string = createLogAnalytics ? logWorkspace.name : ''
 output cosmosEndpoint string = cosmos.properties.documentEndpoint
 output storageAccountName string = storageName
 output identityClientId string = identity.properties.clientId
