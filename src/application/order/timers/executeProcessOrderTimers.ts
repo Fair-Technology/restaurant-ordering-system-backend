@@ -141,19 +141,25 @@ export async function executeProcessOrderTimers(input: { now: Date }): Promise<O
         // Not accepted (service down, declined card, lost race): what is still waiting falls through to the checks below.
       }
       if (isDueForAutoReject(o, now)) {
+        // Held by a platform key/permission fault: the shop did not miss it, so it is not counted against the shop.
+        let heldByConfig = false;
         const moved = await transitionOrder({
           orderId: o.id,
           shopId: o.shopId,
           change: (x) =>
             hasFreshCaptureClaim(x, now)
               ? { ok: false, error: 'skip' } // an accept is taking the money right now
-              : applyTransition(x, 'REJECTED', { now, actor: { type: 'system' }, reason: 'no_response' }),
+              : applyTransition(x, 'REJECTED', {
+                  now,
+                  actor: { type: 'system' },
+                  reason: (heldByConfig = !!x.captureConfigFailure) ? 'payment_unavailable' : 'no_response',
+                }),
         });
         if (moved.ok) {
           const released = await releaseClosedOrderPayment(moved.order.id, shop, now);
           await notifyCustomer('order_rejected', released.order ?? moved.order, shop);
           result.autoRejected++;
-          const pausedShop = await recordMissedOrder(shop, now);
+          const pausedShop = heldByConfig ? null : await recordMissedOrder(shop, now);
           if (pausedShop) {
             shops.set(shop.id, pausedShop);
             result.autoPaused++;

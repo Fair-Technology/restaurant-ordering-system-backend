@@ -40,7 +40,7 @@ import { createOrder, findOrderById, findOrderWithEtag, replaceOrderIfMatch } fr
 import { findShopById } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
 import { sendEmail } from '../../../src/infrastructure/email/emailSender';
 import { releaseAuthorization } from '../../../src/infrastructure/stripe/stripeClient';
-import { PAYMENT_SERVICE_UNAVAILABLE_ERROR } from '../../../src/domain/order/orderErrors';
+import { PAYMENT_CONFIG_UNAVAILABLE_ERROR, PAYMENT_SERVICE_UNAVAILABLE_ERROR } from '../../../src/domain/order/orderErrors';
 import { dayDoc, installSlotStore } from '../../fixtures/slotPlaces';
 import { CARD_SHOP, NOW_CLOSED, NOW_OPEN, orderStore, PLACED_CARD_ORDER, SLOT_1800 } from '../../fixtures/orders';
 import type { Order } from '../../../src/domain/order/Order';
@@ -126,6 +126,14 @@ describe('executeHandlePaymentAuthorized', () => {
   it('leaves the order for the timer when the payment service is down', async () => {
     (findShopById as any).mockResolvedValue(CARD_SHOP);
     (acceptPlacedOrder as any).mockResolvedValue({ ok: false, code: 'CONFLICT', error: PAYMENT_SERVICE_UNAVAILABLE_ERROR });
+    expect(await executeHandlePaymentAuthorized(input)).toBe('created');
+    expect(sendEmail).toHaveBeenCalledTimes(1);
+    expect(sendEmail).toHaveBeenCalledWith(expect.objectContaining({ tag: 'order_received' }));
+  });
+
+  it('leaves the order for the timer when the platform key is refused, and sends the received email', async () => {
+    (findShopById as any).mockResolvedValue(CARD_SHOP);
+    (acceptPlacedOrder as any).mockResolvedValue({ ok: false, code: 'CONFLICT', error: PAYMENT_CONFIG_UNAVAILABLE_ERROR });
     expect(await executeHandlePaymentAuthorized(input)).toBe('created');
     expect(sendEmail).toHaveBeenCalledTimes(1);
     expect(sendEmail).toHaveBeenCalledWith(expect.objectContaining({ tag: 'order_received' }));

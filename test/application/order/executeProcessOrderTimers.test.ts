@@ -196,14 +196,17 @@ describe('executeProcessOrderTimers', () => {
     expect(store.current.state).toBe('REJECTED');
   });
 
-  it('a capture refused for missing permissions still rejects the order, and the log says permission_or_config, not a decline', async () => {
+  it('a capture refused for missing permissions leaves the order PLACED (not a decline), logs permission_or_config, and a card decline still rejects', async () => {
     (findShopById as any).mockResolvedValue(DEFAULT_SHOP);
     const spy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const lines = () => spy.mock.calls.map((c) => String(c[0])).filter((l) => l.startsWith('[stripe:failure]'));
     (capturePaymentIntent as any).mockRejectedValue({ type: 'StripePermissionError', code: 'more_permissions_required', statusCode: 403, requestId: 'req_p' });
     const store = storedOrder();
     await executeProcessOrderTimers({ now: new Date('2026-10-05T10:01:00Z') });
-    expect(store.current.state).toBe('REJECTED');
+    expect(store.current.state).toBe('PLACED');
+    expect(store.current.captureStartedAt).toBeUndefined();
+    expect(store.current.captureConfigFailure).toEqual({ at: '2026-10-05T10:01:00.000Z', attempts: 1 });
+    expect(releaseAuthorization).not.toHaveBeenCalled();
     expect(lines()[0]).toContain('kind=permission_or_config');
     expect(lines()[0]).toContain('code=more_permissions_required');
     expect(lines()[0]).toContain('requestId=req_p');
@@ -212,9 +215,45 @@ describe('executeProcessOrderTimers', () => {
     const store2 = storedOrder();
     await executeProcessOrderTimers({ now: new Date('2026-10-05T10:01:00Z') });
     expect(store2.current.state).toBe('REJECTED');
+    expect(store2.current.history.at(-1)).toMatchObject({ reason: 'payment_failed' });
     expect(lines()[0]).toContain('kind=card_decline');
     expect(lines()[0]).toContain('declineCode=insufficient_funds');
     spy.mockRestore();
+  });
+
+  it('a key that is never fixed ends in a released authorization at the timeout, without counting a missed order', async () => {
+    (findShopById as any).mockResolvedValue(DEFAULT_SHOP);
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    (capturePaymentIntent as any).mockRejectedValue({ type: 'StripePermissionError', statusCode: 403 });
+    const store = storedOrder();
+    for (const t of ['10:01', '10:02', '10:05']) {
+      await executeProcessOrderTimers({ now: new Date(`2026-10-05T${t}:00Z`) });
+      expect(store.current.state).toBe('PLACED');
+    }
+    expect(store.current.captureConfigFailure?.attempts).toBe(3);
+    const late = await executeProcessOrderTimers({ now: new Date('2026-10-05T10:10:00Z') });
+    expect(late.autoRejected).toBe(1);
+    expect(store.current.state).toBe('REJECTED');
+    expect(store.current.history.at(-1)).toMatchObject({ actor: { type: 'system' }, reason: 'payment_unavailable' });
+    expect(releaseAuthorization).toHaveBeenCalledWith(expect.objectContaining({ idempotencyKey: 'release-o1' }));
+    expect(store.current.payment.status).toBe('canceled');
+    expect(recordMissedOrder).not.toHaveBeenCalled();
+    expect(late.autoPaused).toBe(0);
+    vi.restoreAllMocks();
+  });
+
+  it('a fixed key accepts the held order and drops the marker', async () => {
+    (findShopById as any).mockResolvedValue(DEFAULT_SHOP);
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    (capturePaymentIntent as any).mockRejectedValueOnce({ type: 'StripePermissionError', statusCode: 403 });
+    const store = storedOrder();
+    await executeProcessOrderTimers({ now: new Date('2026-10-05T10:01:00Z') });
+    expect(store.current.captureConfigFailure).toBeDefined();
+    (capturePaymentIntent as any).mockResolvedValue(undefined);
+    await executeProcessOrderTimers({ now: new Date('2026-10-05T10:02:00Z') });
+    expect(store.current.state).toBe('ACCEPTED');
+    expect(store.current.captureConfigFailure).toBeUndefined();
+    vi.restoreAllMocks();
   });
 
   it('an order placed inside the automatic hours is still accepted after they end', async () => {

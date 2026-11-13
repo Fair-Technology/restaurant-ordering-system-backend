@@ -7862,9 +7862,9 @@
         "additionalProperties": false
       },
       "ExportOrder": {
-        "$ref": "#/components/schemas/Pick_Order_Exclude_id_shopId_orderRef_st_3a0c561d"
+        "$ref": "#/components/schemas/Pick_Order_Exclude_id_shopId_orderRef_st_08d1799a"
       },
-      "Pick_Order_Exclude_id_shopId_orderRef_st_3a0c561d": {
+      "Pick_Order_Exclude_id_shopId_orderRef_st_08d1799a": {
         "type": "object",
         "properties": {
           "id": {
@@ -7961,6 +7961,9 @@
           },
           "releaseFailure": {
             "$ref": "#/components/schemas/PaymentReleaseFailure"
+          },
+          "captureConfigFailure": {
+            "$ref": "#/components/schemas/CaptureConfigFailure"
           },
           "invoiceNumber": {
             "type": "string"
@@ -8468,6 +8471,22 @@
           "at",
           "message",
           "notifiedAt"
+        ],
+        "additionalProperties": false
+      },
+      "CaptureConfigFailure": {
+        "type": "object",
+        "properties": {
+          "at": {
+            "type": "string"
+          },
+          "attempts": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "at",
+          "attempts"
         ],
         "additionalProperties": false
       },
@@ -9422,6 +9441,10 @@
           {
             "type": "string",
             "const": "payment_failed"
+          },
+          {
+            "type": "string",
+            "const": "payment_unavailable"
           },
           {
             "type": "string",

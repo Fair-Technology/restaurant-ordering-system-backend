@@ -5,6 +5,7 @@ import {
   ORDER_CHANGED_ERROR,
   ORDER_NOT_FOUND_ERROR,
   PAYMENT_CAPTURE_FAILED_ERROR,
+  PAYMENT_CONFIG_UNAVAILABLE_ERROR,
   PAYMENT_SERVICE_UNAVAILABLE_ERROR,
   SCHEDULED_NOT_DUE_ERROR,
 } from '../../../domain/order/orderErrors';
@@ -24,7 +25,7 @@ import type { EmailAttachment } from '../../../infrastructure/email/emailSender'
 import { renderInvoicePdf } from '../../../infrastructure/pdf/invoicePdf';
 import { capturePaymentIntent, isRetryableStripeError } from '../../../infrastructure/stripe/stripeClient';
 import { alertOnStripeConfigFailure } from '../../../infrastructure/stripe/platformAlert';
-import { logStripeFailure } from '../../../infrastructure/stripe/stripeErrorDiagnostics';
+import { diagnoseStripeError, logStripeFailure } from '../../../infrastructure/stripe/stripeErrorDiagnostics';
 import type { ApplicationResult } from '../../_shared/types';
 import { notifyOrderLimitThresholds } from '../../usage/orderLimitWarnings';
 import { fixSlotPlace } from './slotPlaces';
@@ -45,7 +46,7 @@ function captureKey(orderId: string, attempts: number): string {
 }
 
 function withoutClaim(order: Order): Order {
-  const { captureStartedAt: _claim, captureAttempts: _attempts, ...rest } = order;
+  const { captureStartedAt: _claim, captureAttempts: _attempts, captureConfigFailure: _config, ...rest } = order;
   return rest;
 }
 
@@ -57,6 +58,34 @@ async function clearClaim(orderId: string): Promise<void> {
     const { captureStartedAt: _claim, ...rest } = found.order;
     if ((await replaceOrderIfMatch(rest, found.etag)) === 'ok') return;
   }
+}
+
+/** Clears the capture claim and marks the order as held by a platform config fault; it stays PLACED. Never throws. */
+async function holdForConfigFailure(orderId: string, shopId: string, now: Date): Promise<void> {
+  for (let attempt = 0; attempt < RECORD_ATTEMPTS; attempt++) {
+    const held = await transitionOrder({
+      orderId,
+      shopId,
+      change: (current) => {
+        if (current.state !== 'PLACED') return { ok: false, error: 'skip' };
+        const { captureStartedAt: _claim, ...rest } = current;
+        return {
+          ok: true,
+          order: {
+            ...rest,
+            captureConfigFailure: {
+              at: now.toISOString(),
+              attempts: (current.captureConfigFailure?.attempts ?? 0) + 1,
+            },
+            updatedAt: now.toISOString(),
+          },
+        };
+      },
+    });
+    if (held.ok) return;
+    if (held.error !== ORDER_CHANGED_ERROR) break; // not PLACED any more, or gone: nothing to hold
+  }
+  await clearClaim(orderId); // at least never leave the claim behind
 }
 
 /** The invoice PDF for the email; a failure is logged and the order is accepted without it. */
@@ -91,7 +120,7 @@ async function invoiceForEmail(
  * Accepts a waiting order: takes the reserved card money, moves the order to ACCEPTED, counts it,
  * issues the invoice and emails the diner. Shared by staff, auto-accept and the timer.
  * A claim is written before the money is taken so decline, cancel and a second accept wait meanwhile.
- * A refused payment declines the order; a Stripe outage leaves it waiting.
+ * A refused card declines the order; a Stripe outage or a platform key/permission fault leaves it waiting (PLACED).
  */
 export async function acceptPlacedOrder(input: {
   orderId: string;
@@ -153,6 +182,12 @@ export async function acceptPlacedOrder(input: {
       console.error('[accept:error] payment refused', orderId, errorBrief(err));
       logStripeFailure('capture', err, { orderId, paymentIntentId: paymentIntentId ?? undefined });
       await alertOnStripeConfigFailure('capture', err, { orderId, paymentIntentId: paymentIntentId ?? undefined });
+      if (diagnoseStripeError(err).kind === 'permission_or_config') {
+        // A platform key/permission fault, not the card: the sale is not lost. The order stays PLACED with the claim
+        // cleared; the timer retries each minute, and at autoRejectAt it declines without blaming the shop (see the timer).
+        await holdForConfigFailure(orderId, shop.id, now);
+        return { ok: false, code: 'CONFLICT', error: PAYMENT_CONFIG_UNAVAILABLE_ERROR };
+      }
       const declined = await transitionOrder({
         orderId,
         shopId: shop.id,
