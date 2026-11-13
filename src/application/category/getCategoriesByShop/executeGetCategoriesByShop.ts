@@ -7,6 +7,7 @@ import {
   CategoryDto,
 } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 
 export async function executeGetCategoriesByShop(
   request: GetCategoriesByShopRequestDto,
@@ -54,6 +55,7 @@ export async function executeGetCategoriesByShop(
     if (error.message === 'Authentication required') {
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
     }
+    logServiceFailure('getCategoriesByShop', error);
     return {
       ok: false,
       code: 'INTERNAL_ERROR',

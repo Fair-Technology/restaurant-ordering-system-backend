@@ -6,6 +6,7 @@ import { isShopOffline } from '../../../domain/shop/Shop';
 import { ApplicationResult } from '../../_shared/types';
 import { buildCatalog } from './buildCatalog';
 import { GetCatalogResultDto } from './dtos';
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 
 interface GetCatalogRequestDto {
   shopId: string;
@@ -50,7 +51,8 @@ export async function executeGetCatalog(
       ok: true,
       data: buildCatalog({ shop, categories, products, refs, lang: request.lang, now: new Date() }),
     };
-  } catch {
+  } catch (error) {
+    logServiceFailure('getCatalog', error);
     return {
       ok: false,
       code: 'INTERNAL_ERROR',

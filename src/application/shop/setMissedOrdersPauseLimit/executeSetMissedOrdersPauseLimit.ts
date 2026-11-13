@@ -4,6 +4,7 @@ import { findShopById, patchShopFields } from '../../../infrastructure/cosmos/sh
 import { logAudit } from '../../_shared/auditHelpers';
 import { ApplicationResult } from '../../_shared/types';
 import { verifySuperAdminToken } from '../../../infrastructure/auth/superAdminAuthHelpers';
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 
 /**
  * Superadmin only. Sets how many unanswered orders in a row pause a shop automatically (0 = off, 1-10).
@@ -50,6 +51,7 @@ export async function executeSetMissedOrdersPauseLimit(
     if (error.message === 'Authentication required') {
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
     }
+    logServiceFailure('setMissedOrdersPauseLimit', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to update shop' };
   }
 }

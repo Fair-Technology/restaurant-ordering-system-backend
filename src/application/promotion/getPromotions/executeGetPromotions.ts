@@ -3,6 +3,7 @@ import type { ApplicationResult } from '../../_shared/types';
 import { authorizePromotions } from '../authorizePromotions';
 import { loadPromotionsDto } from '../loadPromotionsDto';
 import type { PromotionsDto } from '../dtos';
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 
 /** The restaurant's discount codes with their use counts, and its loyalty rule. */
 export async function executeGetPromotions(
@@ -13,7 +14,8 @@ export async function executeGetPromotions(
     const auth = await authorizePromotions(input.shopId, httpRequest, { allowPlatformRead: true });
     if (!auth.ok) return auth;
     return { ok: true, data: await loadPromotionsDto(auth.shop.id) };
-  } catch {
+  } catch (error) {
+    logServiceFailure('getPromotions', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to load discounts' };
   }
 }

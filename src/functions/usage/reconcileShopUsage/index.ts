@@ -1,6 +1,7 @@
 import { app, HttpRequest, HttpResponseInit } from '@azure/functions';
 import { executeReconcileShopUsage } from '../../../application/usage/reconcileShopUsage/executeReconcileShopUsage';
 import { mapResultToHttp } from '../../_shared/mapResultToHttp';
+import { internalServerError } from '../../_shared/internalServerError';
 
 app.http('reconcileShopUsage', {
   methods: ['POST'],
@@ -12,7 +13,7 @@ app.http('reconcileShopUsage', {
       const result = await executeReconcileShopUsage(shopId, request);
       return mapResultToHttp(result);
     } catch (error) {
-      return { status: 500, jsonBody: { error: 'Internal server error' } };
+      return internalServerError('reconcileShopUsage', error);
     }
   },
 });

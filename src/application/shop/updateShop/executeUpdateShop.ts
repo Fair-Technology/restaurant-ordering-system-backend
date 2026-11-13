@@ -20,6 +20,7 @@ import { isOnMenu } from '../../../domain/product/Product';
 import { LEGAL_GO_LIVE_ERRORS, legalCriteria } from '../../../domain/legal/legalReadiness';
 import { hasInvoiceTaxId } from '../../../domain/legal/legalTexts';
 import { getPlatformLegalIdentity } from '../../../infrastructure/cosmos/system/CosmosPlatformLegalIdentityRepository';
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 
 async function validateGoLiveCriteria(shop: Shop): Promise<string | null> {
   const addr = shop.address ?? {};
@@ -287,6 +288,7 @@ export async function executeUpdateShop(
     if (error.message === 'Authentication required') {
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
     }
+    logServiceFailure('updateShop', error);
     return {
       ok: false,
       code: 'INTERNAL_ERROR',

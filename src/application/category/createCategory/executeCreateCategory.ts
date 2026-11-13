@@ -13,6 +13,7 @@ import { ApplicationResult } from '../../_shared/types';
 import { Category } from '../../../domain/category/Category';
 import { normaliseTranslations } from '../../../domain/menu/menuLanguage';
 import { logAudit } from '../../_shared/auditHelpers';
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 
 export async function executeCreateCategory(
   request: CreateCategoryRequestDto,
@@ -133,6 +134,7 @@ export async function executeCreateCategory(
     if (error.message === 'Authentication required') {
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
     }
+    logServiceFailure('createCategory', error);
     return {
       ok: false,
       code: 'INTERNAL_ERROR',

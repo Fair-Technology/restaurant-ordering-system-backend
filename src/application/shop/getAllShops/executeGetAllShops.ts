@@ -5,6 +5,7 @@ import { findAllShopsIncludingDeleted } from '../../../infrastructure/cosmos/sho
 import { GetAllShopsRequestDto, GetAllShopsResultDto, ShopSummaryDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 import { requirePlatform } from '../../../infrastructure/auth/superAdminAuthHelpers';
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 
 export async function executeGetAllShops(
   _request: GetAllShopsRequestDto,
@@ -59,6 +60,7 @@ export async function executeGetAllShops(
     if (error.message === 'Authentication required') {
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
     }
+    logServiceFailure('getAllShops', error);
     return {
       ok: false,
       code: 'INTERNAL_ERROR',

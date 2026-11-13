@@ -3,6 +3,7 @@ import { executeSetBusyMode } from '../../../application/order/intake/executeSet
 import { BODY_NOT_OBJECT_ERROR } from '../../../domain/order/orderErrors';
 import { mapResultToHttp } from '../../_shared/mapResultToHttp';
 import { readJsonObject } from '../../_shared/readJsonObject';
+import { internalServerError } from '../../_shared/internalServerError';
 
 app.http('setBusyMode', {
   methods: ['PUT'],
@@ -13,8 +14,8 @@ app.http('setBusyMode', {
       const body = await readJsonObject(request);
       if (!body) return { status: 400, jsonBody: { error: BODY_NOT_OBJECT_ERROR } };
       return mapResultToHttp(await executeSetBusyMode({ shopId: request.params.shopId, on: body.on }, request));
-    } catch {
-      return { status: 500, jsonBody: { error: 'Internal server error' } };
+    } catch (error) {
+      return internalServerError('setBusyMode', error);
     }
   },
 });

@@ -3,6 +3,7 @@ import { executeRefundOrder } from '../../../application/order/refunds/executeRe
 import { BODY_NOT_OBJECT_ERROR } from '../../../domain/order/orderErrors';
 import { mapResultToHttp } from '../../_shared/mapResultToHttp';
 import { readJsonObject } from '../../_shared/readJsonObject';
+import { internalServerError } from '../../_shared/internalServerError';
 
 app.http('refundOrder', {
   methods: ['POST'],
@@ -14,8 +15,8 @@ app.http('refundOrder', {
       if (!body) return { status: 400, jsonBody: { error: BODY_NOT_OBJECT_ERROR } };
       const { shopId, orderId } = request.params;
       return mapResultToHttp(await executeRefundOrder({ ...body, shopId, orderId }, request));
-    } catch {
-      return { status: 500, jsonBody: { error: 'Internal server error' } };
+    } catch (error) {
+      return internalServerError('refundOrder', error);
     }
   },
 });

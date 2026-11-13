@@ -1,6 +1,7 @@
 import { app, HttpRequest, HttpResponseInit } from '@azure/functions';
 import { executeGetPlanPricing } from '../../../application/plan/getPlanPricing/executeGetPlanPricing';
 import { mapResultToHttp } from '../../_shared/mapResultToHttp';
+import { internalServerError } from '../../_shared/internalServerError';
 
 app.http('getPlanPricing', {
   methods: ['GET'],
@@ -13,7 +14,7 @@ app.http('getPlanPricing', {
       if (!result.ok) return mapResultToHttp(result);
       return { status: 200, jsonBody: result.data };
     } catch (error) {
-      return { status: 500, jsonBody: { error: 'Internal server error' } };
+      return internalServerError('getPlanPricing', error);
     }
   },
 });

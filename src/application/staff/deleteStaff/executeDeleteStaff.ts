@@ -9,6 +9,7 @@ import { logAudit } from '../../_shared/auditHelpers';
 import { canManage, CANNOT_MANAGE_ERROR } from '../_shared';
 import { DeleteStaffRequestDto, DeleteStaffResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 
 export async function executeDeleteStaff(
   request: DeleteStaffRequestDto,
@@ -64,6 +65,7 @@ export async function executeDeleteStaff(
     if (error.message === 'Authentication required') {
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
     }
+    logServiceFailure('deleteStaff', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to delete staff login' };
   }
 }

@@ -1,6 +1,7 @@
 import { app, HttpRequest, HttpResponseInit } from '@azure/functions';
 import { executeGetPublicShops } from '../../../application/shop/getPublicShops/executeGetPublicShops';
 import { mapResultToHttp } from '../../_shared/mapResultToHttp';
+import { internalServerError } from '../../_shared/internalServerError';
 
 // Public: the diner home page. Listed = not deleted and not offline. Public fields only.
 app.http('getPublicShops', {
@@ -10,8 +11,8 @@ app.http('getPublicShops', {
   handler: async (_request: HttpRequest): Promise<HttpResponseInit> => {
     try {
       return mapResultToHttp(await executeGetPublicShops());
-    } catch {
-      return { status: 500, jsonBody: { error: 'Internal server error' } };
+    } catch (error) {
+      return internalServerError('getPublicShops', error);
     }
   },
 });

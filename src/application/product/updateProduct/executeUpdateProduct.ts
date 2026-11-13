@@ -17,6 +17,7 @@ import { validateMenuFields } from '../menuFields';
 import { toMenuFieldsDto } from '../menuFieldsDto';
 import { PRODUCT_IMAGE_REQUIRED, mergeProductImages, unknownOrChangedImage, wouldRemoveLastProductImage } from '../../../domain/images/imageRules';
 import { diffFields, logAudit } from '../../_shared/auditHelpers';
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 
 export async function executeUpdateProduct(
   request: UpdateProductRequestDto,
@@ -281,6 +282,7 @@ export async function executeUpdateProduct(
     if (error.message === 'Authentication required') {
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
     }
+    logServiceFailure('updateProduct', error);
     return {
       ok: false,
       code: 'INTERNAL_ERROR',

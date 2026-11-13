@@ -1,6 +1,7 @@
 import { app, HttpRequest, HttpResponseInit } from '@azure/functions';
 import { executeDeleteCategory } from '../../../application/category/deleteCategory/executeDeleteCategory';
 import { mapResultToHttp } from '../../_shared/mapResultToHttp';
+import { internalServerError } from '../../_shared/internalServerError';
 
 app.http('deleteCategory', {
   methods: ['DELETE'],
@@ -15,10 +16,7 @@ app.http('deleteCategory', {
       
       return mapResultToHttp(result);
     } catch (error) {
-      return {
-        status: 500,
-        jsonBody: { error: 'Internal server error' }
-      };
+      return internalServerError('deleteCategory', error);
     }
   }
 });

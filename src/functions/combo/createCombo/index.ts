@@ -3,6 +3,7 @@ import { executeCreateCombo } from '../../../application/combo/createCombo/execu
 import { BODY_NOT_OBJECT_ERROR } from '../../../domain/order/orderErrors';
 import { mapResultToHttp } from '../../_shared/mapResultToHttp';
 import { readJsonObject } from '../../_shared/readJsonObject';
+import { internalServerError } from '../../_shared/internalServerError';
 
 app.http('createCombo', {
   methods: ['POST'],
@@ -14,8 +15,8 @@ app.http('createCombo', {
       if (!body) return { status: 400, jsonBody: { error: BODY_NOT_OBJECT_ERROR } };
       const result = await executeCreateCombo({ shopId: request.params.shopId, body }, request);
       return result.ok ? { status: 201, jsonBody: result.data } : mapResultToHttp(result);
-    } catch {
-      return { status: 500, jsonBody: { error: 'Internal server error' } };
+    } catch (error) {
+      return internalServerError('createCombo', error);
     }
   },
 });

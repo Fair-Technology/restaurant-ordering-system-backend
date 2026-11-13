@@ -9,6 +9,7 @@ import type { ApplicationResult } from '../../_shared/types';
 import { authorizeCombos } from '../authorizeCombos';
 import { comboContext } from '../comboContext';
 import { toComboDto, type ComboDto } from '../dtos';
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 
 /** Adds a combo: a product record carrying choice groups instead of sizes and extras. */
 export async function executeCreateCombo(
@@ -63,7 +64,8 @@ export async function executeCreateCombo(
       changes: [{ field: 'name', from: null, to: created.name }],
     });
     return { ok: true, data: toComboDto(created) };
-  } catch {
+  } catch (error) {
+    logServiceFailure('createCombo', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to create combo' };
   }
 }

@@ -10,6 +10,7 @@ import {
 } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 import { toMenuFieldsDto } from '../menuFieldsDto';
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 
 export async function executeGetProductsByShop(
   request: GetProductsByShopRequestDto,
@@ -105,6 +106,7 @@ export async function executeGetProductsByShop(
       data: result,
     };
   } catch (error) {
+    logServiceFailure('getProductsByShop', error);
     return {
       ok: false,
       code: 'INTERNAL_ERROR',

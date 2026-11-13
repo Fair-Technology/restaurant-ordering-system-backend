@@ -7,6 +7,7 @@ import { findOrderById } from '../../../infrastructure/cosmos/order/CosmosOrderR
 import { renderInvoicePdf } from '../../../infrastructure/pdf/invoicePdf';
 import { loadShopForOrderAction } from '../intake/loadShopForOrderAction';
 import type { ApplicationResult } from '../../_shared/types';
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 
 export interface InvoiceFileDto {
   fileName: string;
@@ -49,7 +50,8 @@ export async function executeGetOrderDocument(
       return { ok: false, code: 'NOT_FOUND', error: ORDER_NOT_FOUND_ERROR };
     }
     return await renderDocument(loaded.shop.id, request.documentId);
-  } catch {
+  } catch (error) {
+    logServiceFailure('getOrderDocument', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to retrieve document' };
   }
 }
@@ -69,7 +71,8 @@ export async function executeGetCustomerDocument(request: {
       return { ok: false, code: 'NOT_FOUND', error: ORDER_NOT_FOUND_ERROR };
     }
     return await renderDocument(order.shopId, request.documentId);
-  } catch {
+  } catch (error) {
+    logServiceFailure('getOrderDocument', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to retrieve document' };
   }
 }

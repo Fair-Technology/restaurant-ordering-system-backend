@@ -14,6 +14,7 @@ import { logAudit } from '../../_shared/auditHelpers';
 import { toDto, canManage, CANNOT_MANAGE_ERROR, validateUsername, validatePassword, validateRole } from '../_shared';
 import { CreateStaffRequestDto, CreateStaffResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 
 export async function executeCreateStaff(
   request: CreateStaffRequestDto,
@@ -97,6 +98,7 @@ export async function executeCreateStaff(
     if (error.message === 'Authentication required') {
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
     }
+    logServiceFailure('createStaff', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to create staff login' };
   }
 }

@@ -3,6 +3,7 @@ import { executeGetCustomerDocument } from '../../../application/order/invoices/
 import { BODY_NOT_OBJECT_ERROR } from '../../../domain/order/orderErrors';
 import { mapResultToHttp } from '../../_shared/mapResultToHttp';
 import { readJsonObject } from '../../_shared/readJsonObject';
+import { internalServerError } from '../../_shared/internalServerError';
 
 app.http('viewCustomerDocument', {
   methods: ['POST'],
@@ -14,8 +15,8 @@ app.http('viewCustomerDocument', {
       if (!body) return { status: 400, jsonBody: { error: BODY_NOT_OBJECT_ERROR } };
       const { orderId, documentId } = request.params;
       return mapResultToHttp(await executeGetCustomerDocument({ orderId, documentId, token: body.token }));
-    } catch {
-      return { status: 500, jsonBody: { error: 'Internal server error' } };
+    } catch (error) {
+      return internalServerError('viewCustomerDocument', error);
     }
   },
 });

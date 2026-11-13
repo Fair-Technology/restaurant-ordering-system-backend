@@ -20,6 +20,7 @@ import { legalCriteria } from '../../../domain/legal/legalReadiness';
 import { hasInvoiceTaxId } from '../../../domain/legal/legalTexts';
 import { PlatformLegalIdentity } from '../../../domain/legal/PlatformLegalIdentity';
 import { getPlatformLegalIdentity } from '../../../infrastructure/cosmos/system/CosmosPlatformLegalIdentityRepository';
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 
 function buildCriteria(
   shop: Shop,
@@ -151,6 +152,7 @@ export async function executeGetGoLiveStatus(
     if (error.message === 'Authentication required') {
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
     }
+    logServiceFailure('getGoLiveStatus', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to get go-live status' };
   }
 }

@@ -12,6 +12,7 @@ import { ApplicationResult } from '../../_shared/types';
 import { logAudit } from '../../_shared/auditHelpers';
 import { verifyUploadedImageSize } from '../../_shared/verifyUploadedImageSize';
 import { COVER_IMAGE_SIZE, COVER_IMAGE_MIN_SOURCE, COVER_IMAGE_WRONG_SIZE } from '../../../domain/images/imageRules';
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 
 // Extensions the upload-URL step can generate (getFileExtensionFromContentType).
 const COVER_IMAGE_EXTENSIONS = ['.jpg', '.png', '.webp'];
@@ -95,6 +96,7 @@ export async function executeSetShopCoverImage(
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
     }
     console.error('[setShopCoverImage] failed:', errorBrief(error));
+    logServiceFailure('setShopCoverImage', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to set shop cover image' };
   }
 }

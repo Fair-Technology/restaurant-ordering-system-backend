@@ -8,6 +8,7 @@ import { authorizeShopAction, toAuditActor } from '../../_shared/shopAccess';
 import { ApplicationResult } from '../../_shared/types';
 import { ShopLegalSettingsDto } from '../dtos';
 import { toShopLegalSettingsDto } from '../toShopLegalSettingsDto';
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 
 export const OWNER_ONLY_ERROR = 'Only the restaurant owner can do this';
 
@@ -62,6 +63,7 @@ export async function executeAcceptDpa(
     if (error.message === 'Authentication required') {
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
     }
+    logServiceFailure('acceptDpa', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to record acceptance' };
   }
 }

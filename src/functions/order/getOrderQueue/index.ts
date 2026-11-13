@@ -1,6 +1,7 @@
 import { app, HttpRequest, HttpResponseInit } from '@azure/functions';
 import { executeGetOrderQueue } from '../../../application/order/intake/executeGetOrderQueue';
 import { mapResultToHttp } from '../../_shared/mapResultToHttp';
+import { internalServerError } from '../../_shared/internalServerError';
 
 app.http('getOrderQueue', {
   methods: ['GET'],
@@ -9,8 +10,8 @@ app.http('getOrderQueue', {
   handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
     try {
       return mapResultToHttp(await executeGetOrderQueue({ shopId: request.params.shopId }, request));
-    } catch {
-      return { status: 500, jsonBody: { error: 'Internal server error' } };
+    } catch (error) {
+      return internalServerError('getOrderQueue', error);
     }
   },
 });

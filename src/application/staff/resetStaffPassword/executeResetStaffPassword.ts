@@ -10,6 +10,7 @@ import { logAudit } from '../../_shared/auditHelpers';
 import { toDto, canManage, CANNOT_MANAGE_ERROR, validatePassword } from '../_shared';
 import { ResetStaffPasswordRequestDto, ResetStaffPasswordResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 
 export async function executeResetStaffPassword(
   request: ResetStaffPasswordRequestDto,
@@ -65,6 +66,7 @@ export async function executeResetStaffPassword(
     if (error.message === 'Authentication required') {
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
     }
+    logServiceFailure('resetStaffPassword', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to reset staff password' };
   }
 }

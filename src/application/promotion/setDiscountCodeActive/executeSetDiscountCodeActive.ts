@@ -6,6 +6,7 @@ import { authorizePromotions } from '../authorizePromotions';
 import { loadPromotionsDto } from '../loadPromotionsDto';
 import { mutatePromotions } from '../mutatePromotions';
 import type { PromotionsDto } from '../dtos';
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 
 /** Switches one discount code on or off. */
 export async function executeSetDiscountCodeActive(
@@ -40,7 +41,8 @@ export async function executeSetDiscountCodeActive(
       changes: [{ field: `${code.code} active`, from: code.active, to: active }],
     });
     return { ok: true, data: await loadPromotionsDto(auth.shop.id) };
-  } catch {
+  } catch (error) {
+    logServiceFailure('setDiscountCodeActive', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to update discount code' };
   }
 }

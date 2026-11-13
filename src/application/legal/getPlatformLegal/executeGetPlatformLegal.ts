@@ -2,6 +2,7 @@ import { getPlatformLegalIdentity } from '../../../infrastructure/cosmos/system/
 import { CURRENT_DPA, SUB_PROCESSORS } from '../../../domain/legal/platformDocuments';
 import { ApplicationResult } from '../../_shared/types';
 import { PlatformLegalPublicDto } from '../dtos';
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 
 export async function executeGetPlatformLegal(): Promise<ApplicationResult<PlatformLegalPublicDto>> {
   try {
@@ -18,7 +19,8 @@ export async function executeGetPlatformLegal(): Promise<ApplicationResult<Platf
         currentDpaIsDraft: CURRENT_DPA.isDraft,
       },
     };
-  } catch {
+  } catch (error) {
+    logServiceFailure('getPlatformLegal', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to load platform details' };
   }
 }

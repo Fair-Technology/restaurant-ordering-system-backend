@@ -1,6 +1,7 @@
 import { app, HttpRequest, HttpResponseInit } from '@azure/functions';
 import { executeRemoveShopCoverImage } from '../../../application/shop/removeShopCoverImage/executeRemoveShopCoverImage';
 import { mapResultToHttp } from '../../_shared/mapResultToHttp';
+import { internalServerError } from '../../_shared/internalServerError';
 
 app.http('removeShopCoverImage', {
   methods: ['DELETE'],
@@ -17,7 +18,7 @@ app.http('removeShopCoverImage', {
       const result = await executeRemoveShopCoverImage({ shopId }, request);
       return mapResultToHttp(result);
     } catch (error) {
-      return { status: 500, jsonBody: { error: 'Internal server error' } };
+      return internalServerError('removeShopCoverImage', error);
     }
   },
 });

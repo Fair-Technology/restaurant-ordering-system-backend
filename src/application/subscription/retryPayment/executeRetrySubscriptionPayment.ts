@@ -16,6 +16,7 @@ import { logAudit } from '../../_shared/auditHelpers';
 import { GetShopSubscriptionResultDto } from '../getShopSubscription/dtos';
 import { loadShopSubscriptionResult } from '../getShopSubscription/executeGetShopSubscription';
 import { authorizeBilling, isApplicationError, stripeFromEnv } from '../_shared/billingAccess';
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 
 /** "Pay now": tries the open invoice again with whatever card is on file. */
 export async function executeRetrySubscriptionPayment(
@@ -72,6 +73,7 @@ export async function executeRetrySubscriptionPayment(
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
     }
     console.error('[subscription:error] retry payment failed', shopId, errorBrief(error));
+    logServiceFailure('retrySubscriptionPayment', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to take the payment' };
   }
 }

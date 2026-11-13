@@ -4,6 +4,7 @@ import { ApplicationResult } from '../../_shared/types';
 import { PlatformLegalIdentityDto } from '../dtos';
 import { toPlatformLegalIdentityDto } from '../toPlatformLegalIdentityDto';
 import { requirePlatform } from '../../../infrastructure/auth/superAdminAuthHelpers';
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 
 export async function executeGetPlatformLegalIdentity(
   httpRequest: HttpRequest,
@@ -18,6 +19,7 @@ export async function executeGetPlatformLegalIdentity(
     if (error.message === 'Authentication required') {
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
     }
+    logServiceFailure('getPlatformLegalIdentity', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to load platform legal identity' };
   }
 }

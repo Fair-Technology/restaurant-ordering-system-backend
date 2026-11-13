@@ -4,6 +4,7 @@ import { declineWaitingOrdersForShop } from '../../order/_shared/declineWaitingO
 import { logAudit } from '../../_shared/auditHelpers';
 import { ApplicationResult } from '../../_shared/types';
 import { verifySuperAdminToken } from '../../../infrastructure/auth/superAdminAuthHelpers';
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 
 const REASON_MAX_LENGTH = 500;
 
@@ -82,6 +83,7 @@ export async function executeSetShopOfflineBySuperadmin(
     if (error.message === 'Authentication required') {
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
     }
+    logServiceFailure('setShopOfflineBySuperadmin', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to update shop' };
   }
 }

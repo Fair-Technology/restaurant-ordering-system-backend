@@ -12,6 +12,7 @@ import type { ApplicationResult } from '../../_shared/types';
 import { authorizeCombos } from '../authorizeCombos';
 import { comboContext } from '../comboContext';
 import { toComboDto, type ComboDto } from '../dtos';
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 
 /** Replaces a combo's fields as a whole. Group ids sent back are kept, so baskets holding the combo still work. */
 export async function executeUpdateCombo(
@@ -61,7 +62,8 @@ export async function executeUpdateCombo(
       ),
     });
     return { ok: true, data: toComboDto(saved) };
-  } catch {
+  } catch (error) {
+    logServiceFailure('updateCombo', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to update combo' };
   }
 }

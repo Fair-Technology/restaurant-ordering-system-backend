@@ -37,6 +37,7 @@ import { toOrderDto } from '../_shared/toOrderDto';
 import { shopActorToOrderActor, transitionOrder } from '../_shared/transitionOrder';
 import type { RefundOrderBody } from './dtos';
 import { errorBrief } from '../../_shared/errorBrief';
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 
 const MAX_REASON_CHARS = 200;
 const WRITE_ATTEMPTS = 3;
@@ -199,6 +200,7 @@ export async function executeRefundOrder(
     return { ok: true, data: toOrderDto(latest, now) };
   } catch (err: unknown) {
     console.error('[refund:error] unexpected failure', errorBrief(err));
+    logServiceFailure('refundOrder', err);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to refund order' };
   }
 }

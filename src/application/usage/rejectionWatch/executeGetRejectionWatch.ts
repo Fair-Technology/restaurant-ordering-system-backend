@@ -6,6 +6,7 @@ import { ApplicationResult } from '../../_shared/types';
 import { loadOrderLimitStatus } from '../orderLimitStatus';
 import { RejectionWatchDto, RejectionWatchRowDto } from './dtos';
 import { requirePlatform } from '../../../infrastructure/auth/superAdminAuthHelpers';
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 
 export async function executeGetRejectionWatch(httpRequest: HttpRequest): Promise<ApplicationResult<RejectionWatchDto>> {
   try {
@@ -42,6 +43,7 @@ export async function executeGetRejectionWatch(httpRequest: HttpRequest): Promis
     if (error.message === 'Authentication required') {
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
     }
+    logServiceFailure('getRejectionWatch', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to load the decline watch' };
   }
 }

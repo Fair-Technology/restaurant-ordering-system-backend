@@ -10,6 +10,7 @@ import {
 } from '../../../domain/report/salesReport';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { findReportRows } from '../../../infrastructure/cosmos/order/CosmosOrderRepository';
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 
 /** Takings, VAT per rate, hours, modes and top dishes of one restaurant for a date range. */
 export async function executeGetSalesReport(
@@ -36,6 +37,7 @@ export async function executeGetSalesReport(
     if (error?.message === 'Authentication required') {
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
     }
+    logServiceFailure('getSalesReport', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to load the report' };
   }
 }

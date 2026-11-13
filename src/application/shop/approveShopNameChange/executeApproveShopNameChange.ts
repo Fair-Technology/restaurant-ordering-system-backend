@@ -7,6 +7,7 @@ import { verifySuperAdminToken } from '../../../infrastructure/auth/superAdminAu
 import { logAudit } from '../../_shared/auditHelpers';
 import { ApplicationResult } from '../../_shared/types';
 import { ApproveShopNameChangeRequestDto, ApproveShopNameChangeResultDto } from './dtos';
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 
 export async function executeApproveShopNameChange(
   request: ApproveShopNameChangeRequestDto,
@@ -70,6 +71,7 @@ export async function executeApproveShopNameChange(
     if (error.message === 'Authentication required') {
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
     }
+    logServiceFailure('approveShopNameChange', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to approve shop name change' };
   }
 }

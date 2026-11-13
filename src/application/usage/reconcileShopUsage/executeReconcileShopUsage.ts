@@ -8,6 +8,7 @@ import { ShopUsage } from '../../../domain/usage/ShopUsage';
 import { periodKeyFor } from '../../../domain/usage/usagePeriod';
 import { toShopUsageDto } from '../shopUsageDto';
 import { verifySuperAdminToken } from '../../../infrastructure/auth/superAdminAuthHelpers';
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 
 export async function executeReconcileShopUsage(
   shopId: string,
@@ -50,6 +51,7 @@ export async function executeReconcileShopUsage(
     if (error.message === 'Authentication required') {
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
     }
+    logServiceFailure('reconcileShopUsage', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to reconcile usage' };
   }
 }

@@ -23,6 +23,7 @@ import { FALLBACK_DEFAULT_PLAN_ID } from '../../../domain/subscription/entitleme
 import { ShopUsage } from '../../../domain/usage/ShopUsage';
 import { periodKeyFor } from '../../../domain/usage/usagePeriod';
 import { validateAccentColor } from '../../_shared/contrast';
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 
 function validateBranding(branding: unknown): string | null {
   if (branding === null || branding === undefined) return null;
@@ -305,6 +306,7 @@ export async function executeCreateShop(
       };
     }
 
+    logServiceFailure('createShop', error);
     return {
       ok: false,
       code: 'INTERNAL_ERROR',

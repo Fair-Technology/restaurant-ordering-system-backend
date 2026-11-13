@@ -10,6 +10,7 @@ import { ReferenceListsResultDto } from '../dtos';
 import { toReferenceListsDto } from '../toReferenceListsDto';
 import { validateReferenceListsUpdate } from './validateReferenceListsUpdate';
 import { verifySuperAdminToken } from '../../../infrastructure/auth/superAdminAuthHelpers';
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 
 const COUNTRY_CODE_PATTERN = /^[A-Za-z]{2}$/;
 
@@ -66,6 +67,7 @@ export async function executeUpdateReferenceLists(
     if (error.message === 'Authentication required') {
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
     }
+    logServiceFailure('updateReferenceLists', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to update reference lists' };
   }
 }

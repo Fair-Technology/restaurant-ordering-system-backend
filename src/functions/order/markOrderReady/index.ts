@@ -3,6 +3,7 @@ import { executeMarkOrderReady } from '../../../application/order/intake/execute
 import { BODY_NOT_OBJECT_ERROR } from '../../../domain/order/orderErrors';
 import { mapResultToHttp } from '../../_shared/mapResultToHttp';
 import { readJsonObject } from '../../_shared/readJsonObject';
+import { internalServerError } from '../../_shared/internalServerError';
 
 app.http('markOrderReady', {
   methods: ['POST'],
@@ -14,8 +15,8 @@ app.http('markOrderReady', {
       if (!body) return { status: 400, jsonBody: { error: BODY_NOT_OBJECT_ERROR } };
       const { shopId, orderId } = request.params;
       return mapResultToHttp(await executeMarkOrderReady({ ...body, shopId, orderId }, request));
-    } catch {
-      return { status: 500, jsonBody: { error: 'Internal server error' } };
+    } catch (error) {
+      return internalServerError('markOrderReady', error);
     }
   },
 });

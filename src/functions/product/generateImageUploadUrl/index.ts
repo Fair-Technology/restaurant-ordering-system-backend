@@ -1,6 +1,7 @@
 import { app, HttpRequest, HttpResponseInit } from '@azure/functions';
 import { executeGenerateImageUploadUrl } from '../../../application/product/generateImageUploadUrl/executeGenerateImageUploadUrl';
 import { mapResultToHttp } from '../../_shared/mapResultToHttp';
+import { internalServerError } from '../../_shared/internalServerError';
 
 app.http('generateImageUploadUrl', {
   methods: ['POST'],
@@ -38,10 +39,7 @@ app.http('generateImageUploadUrl', {
 
       return mapResultToHttp(result);
     } catch (error) {
-      return {
-        status: 500,
-        jsonBody: { error: 'Internal server error' }
-      };
+      return internalServerError('generateImageUploadUrl', error);
     }
   }
 });

@@ -1,6 +1,7 @@
 import { app, HttpRequest, HttpResponseInit } from '@azure/functions';
 import { executeSetMissedOrdersPauseLimit } from '../../../application/shop/setMissedOrdersPauseLimit/executeSetMissedOrdersPauseLimit';
 import { mapResultToHttp } from '../../_shared/mapResultToHttp';
+import { internalServerError } from '../../_shared/internalServerError';
 
 app.http('setMissedOrdersPauseLimit', {
   methods: ['PUT'],
@@ -14,8 +15,8 @@ app.http('setMissedOrdersPauseLimit', {
       }
       const result = await executeSetMissedOrdersPauseLimit({ shopId: request.params.shopId, limit: body.limit }, request);
       return mapResultToHttp(result);
-    } catch {
-      return { status: 500, jsonBody: { error: 'Internal server error' } };
+    } catch (error) {
+      return internalServerError('setMissedOrdersPauseLimit', error);
     }
   },
 });

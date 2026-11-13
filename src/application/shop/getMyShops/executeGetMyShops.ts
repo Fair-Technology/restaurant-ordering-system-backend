@@ -5,6 +5,7 @@ import { findShopsByMemberId } from '../../../infrastructure/cosmos/shop/CosmosS
 import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
 import { GetMyShopsRequestDto, GetMyShopsResultDto, ShopSummaryDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 
 export async function executeGetMyShops(
   request: GetMyShopsRequestDto,
@@ -44,6 +45,7 @@ export async function executeGetMyShops(
     if (error.message === 'Authentication required') {
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
     }
+    logServiceFailure('getMyShops', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to retrieve shops' };
   }
 }

@@ -4,6 +4,7 @@ import { platformAccessLevel } from '../../../infrastructure/auth/principal';
 import { findUserById, upsertUser } from '../../../infrastructure/cosmos/user/CosmosUserRepository';
 import { ApplicationResult } from '../../_shared/types';
 import { GetMeResultDto } from './dtos';
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 
 export async function executeGetMe(
   httpRequest: HttpRequest,
@@ -60,6 +61,7 @@ export async function executeGetMe(
     if (error.message === 'Authentication required') {
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
     }
+    logServiceFailure('getMe', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to retrieve user profile' };
   }
 }
