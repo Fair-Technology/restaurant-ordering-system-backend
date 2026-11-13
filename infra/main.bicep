@@ -16,11 +16,14 @@
 // processor for restaurants in Germany, and Australia has no EU adequacy
 // decision. Do not move these to an Australian region.
 //
-// What this file does NOT create, deliberately:
+// What this file leaves to the owner, deliberately:
 //   - Entra app registrations (a tenant-level change, made by hand)
 //   - Stripe configuration (not an Azure resource)
-//   - the GitHub federated credential and its role assignment (see README)
 //   - secret app settings — they are set after deployment from the vault .env
+//   - the GitHub federated credential and its role assignment, UNLESS
+//     githubFederatedSubject is set: then this file creates both (the
+//     credential on the deployment identity, Website Contributor on the
+//     Function App). Empty (the default) means add it by hand — see README.
 
 @description('Environment suffix: dev, test, prod.')
 @allowed(['dev', 'test', 'prod'])
