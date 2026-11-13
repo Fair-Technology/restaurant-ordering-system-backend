@@ -382,7 +382,10 @@ PROD_PRINCIPAL_ID=$(az identity show -g $RG -n $ID --query principalId -o tsv)
 `use_immutable_subject: true` with prefix
 `repo:Fair-Technology@175465322/restaurant-ordering-system-backend@1050545921`. The
 token GitHub presents therefore carries the **immutable** subject. Dev's identity
-registers both forms, so prod does the same:
+registers both forms, so prod does the same. `infra/main.bicep` creates both when
+`githubFederatedSubject` and `githubFederatedSubjectImmutable` are set (as
+`infra/main.prod.bicepparam` does) — the commands below are the by-hand route,
+which is what dev used:
 
 ```sh
 az identity federated-credential create -g $RG --identity-name $ID \

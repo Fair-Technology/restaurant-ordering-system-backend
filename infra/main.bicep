@@ -21,9 +21,15 @@
 //   - Stripe configuration (not an Azure resource)
 //   - secret app settings — they are set after deployment from the vault .env
 //   - the GitHub federated credential and its role assignment, UNLESS
-//     githubFederatedSubject is set: then this file creates both (the
-//     credential on the deployment identity, Website Contributor on the
-//     Function App). Empty (the default) means add it by hand — see README.
+//     githubFederatedSubject and/or githubFederatedSubjectImmutable is set:
+//     then this file creates the credentials on the deployment identity, and
+//     Website Contributor on the Function App once either is set. Both empty
+//     (the default) means add them by hand — see README.
+//
+// Both subject forms exist because this repo presents GitHub's immutable OIDC
+// subject (`repo:Owner@ID/Repo@ID:environment:<env>`), while the classic form
+// is kept for compatibility. Set the immutable one from
+// `gh api repos/<owner>/<repo>/actions/oidc/customization/sub`; prod does.
 
 @description('Environment suffix: dev, test, prod.')
 @allowed(['dev', 'test', 'prod'])
@@ -62,8 +68,11 @@ param createLogAnalytics bool = false
 @maxValue(365)
 param blobSoftDeleteDays int = 0
 
-@description('Optional federated-credential subject for GitHub Actions, e.g. "repo:Fair-Technology/restaurant-ordering-system-backend:environment:production". Empty = create none (add it by hand, see README).')
+@description('Optional classic federated-credential subject for GitHub Actions, e.g. "repo:Fair-Technology/restaurant-ordering-system-backend:environment:production". Empty = create none (add it by hand, see README).')
 param githubFederatedSubject string = ''
+
+@description('Optional IMMUTABLE federated-credential subject, e.g. "repo:Fair-Technology@175465322/restaurant-ordering-system-backend@1050545921:environment:production". This repo presents the immutable form, so without it a deploy pipeline cannot log in. Empty = create none.')
+param githubFederatedSubjectImmutable string = ''
 
 @description('Region for Static Web Apps — a shorter list than other services.')
 @allowed(['westeurope', 'eastasia', 'centralus', 'eastus2', 'westus2'])
@@ -301,6 +310,9 @@ resource identityStorageAccess 'Microsoft.Authorization/roleAssignments@2022-04-
 }
 
 // GitHub Actions deploy credential — only when a subject is supplied.
+// Two resources, because GitHub's immutable-subject rollout means the token
+// carries `repo:Owner@ID/Repo@ID:...` on this repo while the classic form may
+// still be what an older workflow presents. Dev's identity registers both.
 resource githubCredential 'Microsoft.ManagedIdentity/userAssignedIdentities/federatedIdentityCredentials@2023-01-31' = if (!empty(githubFederatedSubject)) {
   parent: identity
   name: 'github-${env}'
@@ -311,8 +323,18 @@ resource githubCredential 'Microsoft.ManagedIdentity/userAssignedIdentities/fede
   }
 }
 
+resource githubCredentialImmutable 'Microsoft.ManagedIdentity/userAssignedIdentities/federatedIdentityCredentials@2023-01-31' = if (!empty(githubFederatedSubjectImmutable)) {
+  parent: identity
+  name: 'github-${env}-immutable'
+  properties: {
+    issuer: 'https://token.actions.githubusercontent.com'
+    subject: githubFederatedSubjectImmutable
+    audiences: [ 'api://AzureADTokenExchange' ]
+  }
+}
+
 var websiteContributor = 'de139f84-1756-47ae-9be6-808fbbe84772'
-resource deployRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!empty(githubFederatedSubject)) {
+resource deployRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!empty(githubFederatedSubject) || !empty(githubFederatedSubjectImmutable)) {
   name: guid(functionApp.id, identity.id, websiteContributor)
   scope: functionApp
   properties: {

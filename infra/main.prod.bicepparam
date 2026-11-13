@@ -21,4 +21,12 @@ param createLogAnalytics = true
 param blobSoftDeleteDays = 30
 
 // OWNER MUST CONFIRM: the GitHub environment subject promote.yml runs under.
+// Two forms on purpose — this repo presents GitHub's IMMUTABLE OIDC subject
+// (`use_immutable_subject: true`; prefix verified read-only 2026-11-13 with
+// `gh api repos/Fair-Technology/restaurant-ordering-system-backend/actions/oidc/customization/sub`).
+// The immutable one is the subject the token actually carries; the classic one
+// is kept to match dev's identity, which registers both. Same pair as
+// docs/prod-runbook.md §B2.
 param githubFederatedSubject = 'repo:Fair-Technology/restaurant-ordering-system-backend:environment:production'
+param githubFederatedSubjectImmutable = 'repo:Fair-Technology@175465322/restaurant-ordering-system-backend@1050545921:environment:production'
+

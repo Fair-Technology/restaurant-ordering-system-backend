@@ -45,13 +45,18 @@ az functionapp config appsettings set \
 ```
 
 **2. The GitHub deployment credential — optional, the template can create it.**
-Set `githubFederatedSubject` (e.g.
+Set `githubFederatedSubject` (the classic form, e.g.
 `repo:Fair-Technology/restaurant-ordering-system-backend:environment:production`)
-and the deployment creates the federated credential on the identity *and* a
-*Website Contributor* role assignment scoped to the Function App. Leave it
-`''` (the dev default) and what the identity trusts has to be added separately —
-it names a specific repo and branch, so it also has to be redone if a repo is
-ever renamed:
+and/or `githubFederatedSubjectImmutable` (the immutable form, e.g.
+`repo:Fair-Technology@175465322/restaurant-ordering-system-backend@1050545921:environment:production`)
+and the deployment creates one federated credential per subject on the identity
+*and* a *Website Contributor* role assignment scoped to the Function App (created
+once, when either is set). This repo presents the **immutable** subject —
+`gh api repos/<owner>/<repo>/actions/oidc/customization/sub` reports
+`use_immutable_subject: true` — so a deployment pipeline needs the immutable one;
+dev's identity carries both. Leave both `''` (the dev default) and what the
+identity trusts has to be added separately — each subject names a specific repo
+and environment, so it also has to be redone if a repo is ever renamed:
 
 ```bash
 az identity federated-credential create --name github-test \
