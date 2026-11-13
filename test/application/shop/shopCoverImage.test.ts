@@ -25,11 +25,13 @@ vi.mock('../../../src/infrastructure/storage/blobStorageHelpers', () => ({
   }),
   deleteBlob: vi.fn(async () => {}),
   getBlobProperties: vi.fn(),
+  downloadBlob: vi.fn(async () => Buffer.from('x')),
+  uploadBlob: vi.fn(async () => {}),
 }));
 
-vi.mock('../../../src/infrastructure/storage/blobImageSize', () => ({ readBlobImageSize: vi.fn() }));
+vi.mock('../../../src/infrastructure/image/normalizeImage', () => ({ normalizeImage: vi.fn() }));
 
-import { readBlobImageSize } from '../../../src/infrastructure/storage/blobImageSize';
+import { normalizeImage } from '../../../src/infrastructure/image/normalizeImage';
 import { executeGenerateShopCoverImageUploadUrl } from '../../../src/application/shop/generateShopCoverImageUploadUrl/executeGenerateShopCoverImageUploadUrl';
 import { executeSetShopCoverImage } from '../../../src/application/shop/setShopCoverImage/executeSetShopCoverImage';
 import { executeSetShopLogo } from '../../../src/application/shop/setShopLogo/executeSetShopLogo';
@@ -37,7 +39,7 @@ import { executeRemoveShopCoverImage } from '../../../src/application/shop/remov
 import { authorizeShopAction } from '../../../src/application/_shared/shopAccess';
 import { findShopById, updateShop } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
 import { logAudit } from '../../../src/application/_shared/auditHelpers';
-import { deleteBlob, getBlobProperties } from '../../../src/infrastructure/storage/blobStorageHelpers';
+import { deleteBlob, getBlobProperties, uploadBlob, downloadBlob } from '../../../src/infrastructure/storage/blobStorageHelpers';
 
 const BASE = 'https://acct.blob.core.windows.net/product-media/';
 const httpRequest = {} as any;
@@ -68,7 +70,7 @@ beforeEach(() => {
   vi.mocked(findShopById).mockResolvedValue(makeShop());
   vi.mocked(updateShop).mockImplementation(async (s: any) => s);
   vi.mocked(deleteBlob).mockResolvedValue(undefined as any);
-  vi.mocked(readBlobImageSize).mockResolvedValue({ status: 'ok', size: { width: 1920, height: 640 }, format: 'jpg' });
+  vi.mocked(normalizeImage).mockResolvedValue({ status: 'ok', bytes: Buffer.from('norm') });
 });
 
 afterEach(() => vi.unstubAllEnvs());
@@ -212,38 +214,34 @@ describe('shop cover image', () => {
   describe('exact pixel size', () => {
     const oldCover = BASE + 'shops/shop-1/branding/old.jpg';
 
-    it('accepts exactly 1920 x 640 and reads the header of the uploaded blob', async () => {
+    it('normalises the uploaded blob to 1920 x 640 and stores the result', async () => {
       const r = await executeSetShopCoverImage(setReq, httpRequest);
       expect(r.ok).toBe(true);
-      expect(readBlobImageSize).toHaveBeenCalledWith('shops/shop-1/branding/img-1.jpg');
+      expect(normalizeImage).toHaveBeenCalledWith(expect.anything(), { width: 1920, height: 640 }, { width: 1200, height: 400 }, 'jpg');
+      expect(uploadBlob).toHaveBeenCalledWith('shops/shop-1/branding/img-1.jpg', Buffer.from('norm'), 'image/jpeg');
     });
 
-    it.each([
-      ['wrong ratio', { width: 1600, height: 900 }],
-      ['right ratio, wrong size', { width: 1200, height: 400 }],
-      ['right ratio, too big', { width: 3840, height: 1280 }],
-    ])('rejects %s, deletes the new blob, leaves the shop unchanged', async (_name, size) => {
+    it('rejects a source below the minimum, deletes the new blob, leaves the shop unchanged', async () => {
       vi.mocked(findShopById).mockResolvedValue(withHero(oldCover));
-      vi.mocked(readBlobImageSize).mockResolvedValue({ status: 'ok', size, format: 'jpg' });
+      vi.mocked(normalizeImage).mockResolvedValue({ status: 'too_small' });
       const r = await executeSetShopCoverImage(setReq, httpRequest);
-      expect(r).toEqual({ ok: false, code: 'COVER_IMAGE_WRONG_SIZE', error: 'Cover image must be exactly 1920 x 640 px' });
+      expect(r).toEqual({ ok: false, code: 'COVER_IMAGE_WRONG_SIZE', error: 'Cover image source must be at least 1200 x 400 px' });
       expect(deleteBlob).toHaveBeenCalledTimes(1);
       expect(deleteBlob).toHaveBeenCalledWith('shops/shop-1/branding/img-1.jpg');
       expect(updateShop).not.toHaveBeenCalled();
       expect(logAudit).not.toHaveBeenCalled();
     });
 
-    it('rejects a file whose header cannot be read as an image', async () => {
-      vi.mocked(readBlobImageSize).mockResolvedValue({ status: 'unreadable' });
+    it('rejects a file that cannot be decoded as an image', async () => {
+      vi.mocked(normalizeImage).mockResolvedValue({ status: 'unsupported' });
       const r = await executeSetShopCoverImage(setReq, httpRequest);
-      expect(r.ok).toBe(false);
-      if (!r.ok) expect(r.code).toBe('COVER_IMAGE_WRONG_SIZE');
+      expect(r).toMatchObject({ ok: false, code: 'INVALID_INPUT' });
       expect(deleteBlob).toHaveBeenCalledWith('shops/shop-1/branding/img-1.jpg');
       expect(updateShop).not.toHaveBeenCalled();
     });
 
     it('answers INVALID_INPUT when nothing was uploaded', async () => {
-      vi.mocked(readBlobImageSize).mockResolvedValue({ status: 'missing' });
+      vi.mocked(downloadBlob).mockResolvedValueOnce(null);
       const r = await executeSetShopCoverImage(setReq, httpRequest);
       expect(r.ok).toBe(false);
       if (!r.ok) expect(r.code).toBe('INVALID_INPUT');
