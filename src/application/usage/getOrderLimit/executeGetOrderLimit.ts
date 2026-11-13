@@ -5,6 +5,7 @@ import { authorizeShopAction } from '../../_shared/shopAccess';
 import { ApplicationResult } from '../../_shared/types';
 import { loadEntitlements } from '../../_shared/entitlements';
 import { loadOrderLimitStatus } from '../orderLimitStatus';
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 
 export interface OrderLimitWithPaymentDto extends OrderLimitStatus {
   payment: { inGrace: boolean; graceEndsAt: string | null; droppedForNonPayment: boolean };
@@ -39,6 +40,7 @@ export async function executeGetOrderLimit(
     if (error.message === 'Authentication required') {
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
     }
+    logServiceFailure('getOrderLimit', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to load the order limit' };
   }
 }

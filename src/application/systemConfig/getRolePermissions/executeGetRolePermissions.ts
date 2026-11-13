@@ -4,6 +4,7 @@ import { ALL_SHOP_PERMISSIONS } from '../../../domain/shop/Shop';
 import { ApplicationResult } from '../../_shared/types';
 import { RolePermissionsResultDto } from './dtos';
 import { requirePlatform } from '../../../infrastructure/auth/superAdminAuthHelpers';
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 
 export async function executeGetRolePermissions(
   httpRequest: HttpRequest,
@@ -28,6 +29,7 @@ export async function executeGetRolePermissions(
     if (error.message === 'Authentication required') {
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
     }
+    logServiceFailure('getRolePermissions', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to get role permissions' };
   }
 }

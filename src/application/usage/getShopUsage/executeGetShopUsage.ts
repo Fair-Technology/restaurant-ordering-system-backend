@@ -12,6 +12,7 @@ import { REJECTION_WINDOW_DAYS, rejectionStats } from '../../../domain/usage/rej
 import { periodKeyFor } from '../../../domain/usage/usagePeriod';
 import { toShopUsageDto } from '../shopUsageDto';
 import { requirePlatform } from '../../../infrastructure/auth/superAdminAuthHelpers';
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 
 export async function executeGetShopUsage(
   shopId: string,
@@ -69,6 +70,7 @@ export async function executeGetShopUsage(
     if (error.message === 'Authentication required') {
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
     }
+    logServiceFailure('getShopUsage', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to retrieve usage' };
   }
 }

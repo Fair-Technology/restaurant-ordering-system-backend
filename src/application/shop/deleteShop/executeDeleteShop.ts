@@ -17,6 +17,7 @@ import { authorizeShopAction, toAuditActor } from '../../_shared/shopAccess';
 import { logAudit } from '../../_shared/auditHelpers';
 import { DeleteShopRequestDto, DeleteShopResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 
 export const DELETE_OWNER_ONLY_ERROR = 'Only the restaurant owner can delete it';
 export const OPEN_ORDERS_ERROR =
@@ -66,6 +67,7 @@ export async function executeDeleteShop(
     if (subscription?.billingSubscriptionId) {
       const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
       if (!stripeSecretKey) {
+        console.error('[service:failure] site=deleteShop cause=STRIPE_SECRET_KEY is not set');
         return { ok: false, code: 'INTERNAL_ERROR', error: 'Stripe is not configured' };
       }
       try {
@@ -74,6 +76,7 @@ export async function executeDeleteShop(
         // Already gone on Stripe's side is the state we want; anything else aborts the delete.
         if (err?.code !== 'resource_missing') {
           logStripeFailure('delete_shop_cancel_subscription', err, { shopId: shop.id });
+          logServiceFailure('deleteShop', err);
           return { ok: false, code: 'INTERNAL_ERROR', error: 'Could not cancel the subscription, so the restaurant was not deleted' };
         }
       }
@@ -115,6 +118,7 @@ export async function executeDeleteShop(
     if (error.message === 'Authentication required') {
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
     }
+    logServiceFailure('deleteShop', error);
     return {
       ok: false,
       code: 'INTERNAL_ERROR',

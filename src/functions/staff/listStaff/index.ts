@@ -1,6 +1,7 @@
 import { app, HttpRequest, HttpResponseInit } from '@azure/functions';
 import { executeListStaff } from '../../../application/staff/listStaff/executeListStaff';
 import { mapResultToHttp } from '../../_shared/mapResultToHttp';
+import { internalServerError } from '../../_shared/internalServerError';
 
 app.http('listStaff', {
   methods: ['GET'],
@@ -14,7 +15,7 @@ app.http('listStaff', {
 
       return mapResultToHttp(result);
     } catch (error) {
-      return { status: 500, jsonBody: { error: 'Internal server error' } };
+      return internalServerError('listStaff', error);
     }
   },
 });

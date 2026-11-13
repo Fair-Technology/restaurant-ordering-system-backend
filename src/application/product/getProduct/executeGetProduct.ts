@@ -5,6 +5,7 @@ import { authorizeShopRead } from '../../_shared/shopAccess';
 import { GetProductRequestDto, GetProductResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 import { toMenuFieldsDto } from '../menuFieldsDto';
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 
 export async function executeGetProduct(
   request: GetProductRequestDto,
@@ -91,6 +92,7 @@ export async function executeGetProduct(
     if (error.message === 'Authentication required') {
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
     }
+    logServiceFailure('getProduct', error);
     return {
       ok: false,
       code: 'INTERNAL_ERROR',

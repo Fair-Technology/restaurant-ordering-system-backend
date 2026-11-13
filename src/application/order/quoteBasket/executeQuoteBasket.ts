@@ -25,6 +25,7 @@ import { TaxRateMissingError } from '../../../domain/reference/ReferenceLists';
 import { taxRateMissingResult } from '../_shared/taxRateMissing';
 import { judgeBasketTimes } from './basketTimes';
 import { BasketQuoteDto, QuoteBasketRequestDto } from './dtos';
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 
 /** Re-prices a basket for the diner without placing anything, so changes can be shown before they order. */
 export async function executeQuoteBasket(
@@ -156,6 +157,7 @@ export async function executeQuoteBasket(
     };
   } catch (error: unknown) {
     if (error instanceof TaxRateMissingError) return taxRateMissingResult(request.shopId, error);
+    logServiceFailure('quoteBasket', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Quote failed' };
   }
 }

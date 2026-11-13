@@ -6,6 +6,7 @@ import { authorizePromotions } from '../authorizePromotions';
 import { loadPromotionsDto } from '../loadPromotionsDto';
 import { mutatePromotions } from '../mutatePromotions';
 import type { PromotionsDto } from '../dtos';
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 
 const AUDITED = ['enabled', 'everyOrders', 'rewardCents', 'validDays'] as const;
 
@@ -45,7 +46,8 @@ export async function executeUpdateLoyalty(
       changes,
     });
     return { ok: true, data: await loadPromotionsDto(auth.shop.id) };
-  } catch {
+  } catch (error) {
+    logServiceFailure('updateLoyalty', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to update loyalty' };
   }
 }

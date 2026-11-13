@@ -5,6 +5,7 @@ import { CreatePlanRequestDto, CreatePlanResultDto } from './dtos';
 import { Plan } from '../../../domain/plan/Plan';
 import { PLAN_LIMIT_KEYS } from '../../_shared/planLimitKeys';
 import { verifySuperAdminToken } from '../../../infrastructure/auth/superAdminAuthHelpers';
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 
 const VALID_LIMIT_KEYS = new Set(Object.values(PLAN_LIMIT_KEYS));
 
@@ -77,6 +78,7 @@ export async function executeCreatePlan(
     if (error.message === 'Authentication required') {
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
     }
+    logServiceFailure('createPlan', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to create plan' };
   }
 }

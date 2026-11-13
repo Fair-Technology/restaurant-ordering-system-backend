@@ -3,6 +3,7 @@ import { upsertSystemConfig } from '../../../infrastructure/cosmos/system/Cosmos
 import { ApplicationResult } from '../../_shared/types';
 import { UpdateSystemConfigRequestDto, UpdateSystemConfigResultDto } from './dtos';
 import { verifySuperAdminToken } from '../../../infrastructure/auth/superAdminAuthHelpers';
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 
 export async function executeUpdateSystemConfig(
   request: UpdateSystemConfigRequestDto,
@@ -31,6 +32,7 @@ export async function executeUpdateSystemConfig(
     if (error.message === 'Authentication required') {
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
     }
+    logServiceFailure('updateSystemConfig', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to update system config' };
   }
 }

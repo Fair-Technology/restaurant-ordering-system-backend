@@ -6,6 +6,7 @@ import {
 import { authorizeShopAction } from '../../_shared/shopAccess';
 import { ApplicationResult } from '../../_shared/types';
 import { DisconnectStripeAccountRequestDto, DisconnectStripeAccountResultDto } from './dtos';
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 
 export async function executeDisconnectStripeAccount(
   request: DisconnectStripeAccountRequestDto,
@@ -36,6 +37,7 @@ export async function executeDisconnectStripeAccount(
     if (error.message === 'Authentication required') {
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
     }
+    logServiceFailure('disconnectStripeAccount', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to disconnect Stripe account' };
   }
 }

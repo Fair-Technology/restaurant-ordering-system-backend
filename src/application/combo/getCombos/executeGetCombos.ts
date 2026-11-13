@@ -3,6 +3,7 @@ import { findProductsByShopId } from '../../../infrastructure/cosmos/product/Cos
 import type { ApplicationResult } from '../../_shared/types';
 import { authorizeCombos } from '../authorizeCombos';
 import { toComboDto, type ComboDto } from '../dtos';
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 
 /** The restaurant's combos, by name. Dishes are listed elsewhere. */
 export async function executeGetCombos(
@@ -14,7 +15,8 @@ export async function executeGetCombos(
     if (!auth.ok) return auth;
     const products = await findProductsByShopId(auth.shop.id);
     return { ok: true, data: products.filter((p) => p.combo).map(toComboDto).sort((a, b) => a.name.localeCompare(b.name)) };
-  } catch {
+  } catch (error) {
+    logServiceFailure('getCombos', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to get combos' };
   }
 }

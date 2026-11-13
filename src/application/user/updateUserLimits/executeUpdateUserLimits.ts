@@ -3,6 +3,7 @@ import { patchUserLimits } from '../../../infrastructure/cosmos/user/CosmosUserR
 import { ApplicationResult } from '../../_shared/types';
 import { UpdateUserLimitsRequestDto, UpdateUserLimitsResultDto } from './dtos';
 import { verifySuperAdminToken } from '../../../infrastructure/auth/superAdminAuthHelpers';
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 
 export async function executeUpdateUserLimits(
   targetUserId: string,
@@ -42,6 +43,7 @@ export async function executeUpdateUserLimits(
     if (error.message === 'Authentication required') {
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
     }
+    logServiceFailure('updateUserLimits', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to update user limits' };
   }
 }

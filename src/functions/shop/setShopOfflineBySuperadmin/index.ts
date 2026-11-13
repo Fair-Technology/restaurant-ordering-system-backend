@@ -1,6 +1,7 @@
 import { app, HttpRequest, HttpResponseInit } from '@azure/functions';
 import { executeSetShopOfflineBySuperadmin } from '../../../application/shop/setShopOfflineBySuperadmin/executeSetShopOfflineBySuperadmin';
 import { mapResultToHttp } from '../../_shared/mapResultToHttp';
+import { internalServerError } from '../../_shared/internalServerError';
 
 app.http('setShopOfflineBySuperadmin', {
   methods: ['POST'],
@@ -17,8 +18,8 @@ app.http('setShopOfflineBySuperadmin', {
         request,
       );
       return mapResultToHttp(result);
-    } catch {
-      return { status: 500, jsonBody: { error: 'Internal server error' } };
+    } catch (error) {
+      return internalServerError('setShopOfflineBySuperadmin', error);
     }
   },
 });

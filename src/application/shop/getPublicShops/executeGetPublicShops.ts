@@ -3,6 +3,7 @@ import { Shop, isShopOffline } from '../../../domain/shop/Shop';
 import { findAllShops } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { ApplicationResult } from '../../_shared/types';
 import { GetPublicShopsResultDto, PublicShopSummaryDto } from './dtos';
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 
 /** Public fields only. Every field is picked by name so nothing private can leak through a spread. */
 export function toPublicShopSummary(shop: Shop, now: Date): PublicShopSummaryDto {
@@ -33,7 +34,8 @@ export async function executeGetPublicShops(options: { now?: Date } = {}): Promi
       .map((s) => toPublicShopSummary(s, now))
       .sort((a, b) => a.name.localeCompare(b.name, 'de', { sensitivity: 'base' }));
     return { ok: true, data: { shops } };
-  } catch {
+  } catch (error) {
+    logServiceFailure('getPublicShops', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to retrieve shops' };
   }
 }

@@ -16,6 +16,7 @@ import { authorizeShopAction, toAuditActor } from '../../_shared/shopAccess';
 import { ApplicationResult } from '../../_shared/types';
 import { ShopLegalSettingsDto, UpdateShopLegalBody } from '../dtos';
 import { toShopLegalSettingsDto } from '../toShopLegalSettingsDto';
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 
 const TAX_NUMBER_MAX_CHARS = 30;
 const TEXT_KINDS: readonly LegalTextKind[] = ['terms', 'withdrawal', 'privacyAddition'];
@@ -113,6 +114,7 @@ export async function executeUpdateShopLegal(
     if (error.message === 'Authentication required') {
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
     }
+    logServiceFailure('updateShopLegal', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to update legal settings' };
   }
 }

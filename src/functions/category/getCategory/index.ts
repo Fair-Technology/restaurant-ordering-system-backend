@@ -1,6 +1,7 @@
 import { app, HttpRequest, HttpResponseInit } from '@azure/functions';
 import { executeGetCategory } from '../../../application/category/getCategory/executeGetCategory';
 import { mapResultToHttp } from '../../_shared/mapResultToHttp';
+import { internalServerError } from '../../_shared/internalServerError';
 
 app.http('getCategory', {
   methods: ['GET'],
@@ -15,10 +16,7 @@ app.http('getCategory', {
       
       return mapResultToHttp(result);
     } catch (error) {
-      return {
-        status: 500,
-        jsonBody: { error: 'Internal server error' }
-      };
+      return internalServerError('getCategory', error);
     }
   }
 });

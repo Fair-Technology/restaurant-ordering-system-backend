@@ -9,6 +9,7 @@ import { GetShopBySlugRequestDto, GetShopBySlugResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 import { loadOrderLimitStatus } from '../../usage/orderLimitStatus';
 import { errorBrief } from '../../_shared/errorBrief';
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 
 export async function executeGetShopBySlug(
   request: GetShopBySlugRequestDto,
@@ -86,6 +87,7 @@ export async function executeGetShopBySlug(
       data: shopDto,
     };
   } catch (error) {
+    logServiceFailure('getShopBySlug', error);
     return {
       ok: false,
       code: 'INTERNAL_ERROR',

@@ -7,6 +7,7 @@ import { buildPrivacyNotice } from '../../../domain/legal/privacyNotice';
 import { defaultMenuLanguageForCountry } from '../../../domain/menu/menuLanguage';
 import { ApplicationResult } from '../../_shared/types';
 import { LegalTextDto, PublicLegalPackDto } from '../dtos';
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 
 function publishedTextDto(t: LegalText | null): LegalTextDto | null {
   return t && isLegalTextPublished(t) ? { text: t.text, revision: t.revision, updatedAt: t.updatedAt } : null;
@@ -57,7 +58,8 @@ export async function executeGetPublicLegalPack(input: {
         platform: { name: identity.platformName, salesSiteUrl: identity.salesSiteUrl },
       },
     };
-  } catch {
+  } catch (error) {
+    logServiceFailure('getPublicLegalPack', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to load legal pages' };
   }
 }

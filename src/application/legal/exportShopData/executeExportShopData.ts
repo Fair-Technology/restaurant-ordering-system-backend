@@ -11,6 +11,7 @@ import { ApplicationResult } from '../../_shared/types';
 import { OWNER_ONLY_ERROR } from '../acceptDpa/executeAcceptDpa';
 import { ExportOrder, ShopDataExportDto } from '../dtos';
 import { deriveCustomers, stripCosmosMeta } from './deriveCustomers';
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 
 export async function executeExportShopData(
   input: { shopId: string; now?: Date },
@@ -92,6 +93,7 @@ export async function executeExportShopData(
     if (error.message === 'Authentication required') {
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
     }
+    logServiceFailure('exportShopData', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to export data' };
   }
 }

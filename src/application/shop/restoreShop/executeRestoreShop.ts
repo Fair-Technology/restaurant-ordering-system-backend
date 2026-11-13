@@ -3,6 +3,7 @@ import { findShopById, findShopBySlug, updateShop } from '../../../infrastructur
 import { logAudit } from '../../_shared/auditHelpers';
 import { ApplicationResult } from '../../_shared/types';
 import { verifySuperAdminToken } from '../../../infrastructure/auth/superAdminAuthHelpers';
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 
 /** Superadmin only. Brings a deleted shop back; billing is NOT restarted (the shop stays on the free plan). */
 export async function executeRestoreShop(
@@ -47,6 +48,7 @@ export async function executeRestoreShop(
     if (error.message === 'Authentication required') {
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
     }
+    logServiceFailure('restoreShop', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to restore shop' };
   }
 }

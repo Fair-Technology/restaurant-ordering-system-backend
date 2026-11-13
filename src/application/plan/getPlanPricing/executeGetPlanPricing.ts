@@ -5,6 +5,7 @@ import { findPlanById } from '../../../infrastructure/cosmos/plan/CosmosPlanRepo
 import { findPricingByPlan } from '../../../infrastructure/cosmos/plan/CosmosPlanPricingRepository';
 import { ApplicationResult } from '../../_shared/types';
 import { GetPlanPricingResultDto } from './dtos';
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 
 // Superadmin: every row incl. Stripe price ids, any plan.
 // Everyone else (owners): visible plans only, active rows only, Stripe ids stripped.
@@ -39,6 +40,7 @@ export async function executeGetPlanPricing(
     if (error.message === 'Authentication required') {
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
     }
+    logServiceFailure('getPlanPricing', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to retrieve plan pricing' };
   }
 }

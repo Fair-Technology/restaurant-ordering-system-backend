@@ -12,6 +12,7 @@ import {
   CreateStripeAccountSessionRequestDto,
   CreateStripeAccountSessionResultDto,
 } from './dtos';
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 
 export async function executeCreateStripeAccountSession(
   request: CreateStripeAccountSessionRequestDto,
@@ -23,6 +24,7 @@ export async function executeCreateStripeAccountSession(
 
   const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
   if (!stripeSecretKey) {
+    console.error('[service:failure] site=createStripeAccountSession cause=STRIPE_SECRET_KEY is not set');
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Stripe is not configured' };
   }
 
@@ -88,6 +90,7 @@ export async function executeCreateStripeAccountSession(
     if (error.message === 'Authentication required') {
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
     }
+    logServiceFailure('createStripeAccountSession', error);
     return {
       ok: false,
       code: 'INTERNAL_ERROR',

@@ -12,6 +12,7 @@ import {
   OrderDto,
 } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 
 export async function executeGetOrdersByShop(
   request: GetOrdersByShopRequestDto,
@@ -68,6 +69,7 @@ export async function executeGetOrdersByShop(
     if (error.message === 'Authentication required') {
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
     }
+    logServiceFailure('getOrdersByShop', error);
     return {
       ok: false,
       code: 'INTERNAL_ERROR',

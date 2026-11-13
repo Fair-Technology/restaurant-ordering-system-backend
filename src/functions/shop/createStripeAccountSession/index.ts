@@ -1,6 +1,7 @@
 import { app, HttpRequest, HttpResponseInit } from '@azure/functions';
 import { executeCreateStripeAccountSession } from '../../../application/shop/createStripeAccountSession/executeCreateStripeAccountSession';
 import { mapResultToHttp } from '../../_shared/mapResultToHttp';
+import { internalServerError } from '../../_shared/internalServerError';
 
 app.http('createStripeAccountSession', {
   methods: ['POST'],
@@ -14,7 +15,7 @@ app.http('createStripeAccountSession', {
       const result = await executeCreateStripeAccountSession({ shopId, purpose }, request);
       return mapResultToHttp(result);
     } catch (error) {
-      return { status: 500, jsonBody: { error: 'Internal server error' } };
+      return internalServerError('createStripeAccountSession', error);
     }
   },
 });

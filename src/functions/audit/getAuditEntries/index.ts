@@ -1,6 +1,7 @@
 import { app, HttpRequest, HttpResponseInit } from '@azure/functions';
 import { executeGetAuditEntries } from '../../../application/audit/getAuditEntries/executeGetAuditEntries';
 import { mapResultToHttp } from '../../_shared/mapResultToHttp';
+import { internalServerError } from '../../_shared/internalServerError';
 
 app.http('getAuditEntries', {
   methods: ['GET'],
@@ -22,8 +23,8 @@ app.http('getAuditEntries', {
       );
 
       return mapResultToHttp(result);
-    } catch {
-      return { status: 500, jsonBody: { error: 'Internal server error' } };
+    } catch (error) {
+      return internalServerError('getAuditEntries', error);
     }
   },
 });

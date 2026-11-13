@@ -9,6 +9,7 @@ import { ApplicationResult } from '../../_shared/types';
 import { PlatformLegalIdentityDto } from '../dtos';
 import { toPlatformLegalIdentityDto } from '../toPlatformLegalIdentityDto';
 import { verifySuperAdminToken } from '../../../infrastructure/auth/superAdminAuthHelpers';
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 
 export async function executeUpdatePlatformLegalIdentity(
   input: { body: unknown; now?: Date },
@@ -56,6 +57,7 @@ export async function executeUpdatePlatformLegalIdentity(
     if (error.message === 'Authentication required') {
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
     }
+    logServiceFailure('updatePlatformLegalIdentity', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to update platform legal identity' };
   }
 }

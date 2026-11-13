@@ -13,6 +13,7 @@ import { diffFields, logAudit } from '../../_shared/auditHelpers';
 import { toDto, canManage, CANNOT_MANAGE_ERROR, validateRole } from '../_shared';
 import { UpdateStaffRequestDto, UpdateStaffResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 
 export async function executeUpdateStaff(
   request: UpdateStaffRequestDto,
@@ -94,6 +95,7 @@ export async function executeUpdateStaff(
     if (error.message === 'Authentication required') {
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
     }
+    logServiceFailure('updateStaff', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to update staff login' };
   }
 }

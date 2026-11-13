@@ -5,6 +5,7 @@ import { ApplicationResult } from '../../_shared/types';
 import { SetPlanPricingRequestDto, SetPlanPricingResultDto } from './dtos';
 import { PlanPricing } from '../../../domain/plan/PlanPricing';
 import { verifySuperAdminToken } from '../../../infrastructure/auth/superAdminAuthHelpers';
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 
 const ISO4217_REGEX = /^[A-Z]{3}$/;
 
@@ -66,6 +67,7 @@ export async function executeSetPlanPricing(
     if (error.message === 'Authentication required') {
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
     }
+    logServiceFailure('setPlanPricing', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to set plan pricing' };
   }
 }

@@ -1,6 +1,7 @@
 import { app, HttpRequest, HttpResponseInit } from '@azure/functions';
 import { executeGetPlan } from '../../../application/plan/getPlan/executeGetPlan';
 import { mapResultToHttp } from '../../_shared/mapResultToHttp';
+import { internalServerError } from '../../_shared/internalServerError';
 
 app.http('getPlan', {
   methods: ['GET'],
@@ -12,7 +13,7 @@ app.http('getPlan', {
       const result = await executeGetPlan(planId, request);
       return mapResultToHttp(result);
     } catch (error) {
-      return { status: 500, jsonBody: { error: 'Internal server error' } };
+      return internalServerError('getPlan', error);
     }
   },
 });

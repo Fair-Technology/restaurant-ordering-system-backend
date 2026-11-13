@@ -11,6 +11,7 @@ import { authorizeShopAction, toAuditActor } from '../../_shared/shopAccess';
 import { ApplicationResult } from '../../_shared/types';
 import { OWNER_ONLY_ERROR } from '../acceptDpa/executeAcceptDpa';
 import { EraseCustomerResultDto } from '../dtos';
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 
 export async function executeEraseCustomer(
   input: { shopId: string; email: unknown; now?: Date },
@@ -69,6 +70,7 @@ export async function executeEraseCustomer(
     if (error.message === 'Authentication required') {
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
     }
+    logServiceFailure('eraseCustomer', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to erase customer data' };
   }
 }

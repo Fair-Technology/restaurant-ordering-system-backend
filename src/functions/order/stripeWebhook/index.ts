@@ -15,6 +15,7 @@ app.http('stripeWebhook', {
     const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
     if (!stripeSecretKey || !webhookSecret) {
+      console.error('[webhook:stripe] not configured: STRIPE_SECRET_KEY and/or STRIPE_WEBHOOK_SECRET is unset');
       return {
         status: 500,
         jsonBody: { error: 'Stripe is not configured' },

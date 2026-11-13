@@ -9,6 +9,7 @@ import { generateSlugFromName } from '../createShop/slugHelpers';
 import { logAudit } from '../../_shared/auditHelpers';
 import { ApplicationResult } from '../../_shared/types';
 import { RequestShopNameChangeRequestDto, RequestShopNameChangeResultDto } from './dtos';
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 
 export async function executeRequestShopNameChange(
   request: RequestShopNameChangeRequestDto,
@@ -91,6 +92,7 @@ export async function executeRequestShopNameChange(
     if (error.message === 'Authentication required') {
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
     }
+    logServiceFailure('requestShopNameChange', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to request shop name change' };
   }
 }

@@ -3,6 +3,7 @@ import { executeCompleteOrder } from '../../../application/order/intake/executeC
 import { BODY_NOT_OBJECT_ERROR } from '../../../domain/order/orderErrors';
 import { mapResultToHttp } from '../../_shared/mapResultToHttp';
 import { readJsonObject } from '../../_shared/readJsonObject';
+import { internalServerError } from '../../_shared/internalServerError';
 
 app.http('completeOrder', {
   methods: ['POST'],
@@ -14,8 +15,8 @@ app.http('completeOrder', {
       if (!body) return { status: 400, jsonBody: { error: BODY_NOT_OBJECT_ERROR } };
       const { shopId, orderId } = request.params;
       return mapResultToHttp(await executeCompleteOrder({ ...body, shopId, orderId }, request));
-    } catch {
-      return { status: 500, jsonBody: { error: 'Internal server error' } };
+    } catch (error) {
+      return internalServerError('completeOrder', error);
     }
   },
 });

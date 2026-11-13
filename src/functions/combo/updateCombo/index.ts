@@ -3,6 +3,7 @@ import { executeUpdateCombo } from '../../../application/combo/updateCombo/execu
 import { BODY_NOT_OBJECT_ERROR } from '../../../domain/order/orderErrors';
 import { mapResultToHttp } from '../../_shared/mapResultToHttp';
 import { readJsonObject } from '../../_shared/readJsonObject';
+import { internalServerError } from '../../_shared/internalServerError';
 
 app.http('updateCombo', {
   methods: ['PUT'],
@@ -17,8 +18,8 @@ app.http('updateCombo', {
         request,
       );
       return mapResultToHttp(result);
-    } catch {
-      return { status: 500, jsonBody: { error: 'Internal server error' } };
+    } catch (error) {
+      return internalServerError('updateCombo', error);
     }
   },
 });

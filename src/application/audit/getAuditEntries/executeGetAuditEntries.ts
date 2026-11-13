@@ -7,6 +7,7 @@ import { authorizeShopAction } from '../../_shared/shopAccess';
 import { resolveActorLabels } from '../../_shared/buildAuditEntry';
 import { GetAuditEntriesRequestDto, GetAuditEntriesResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 
 export async function executeGetAuditEntries(
   request: GetAuditEntriesRequestDto,
@@ -62,6 +63,7 @@ export async function executeGetAuditEntries(
     if (error.message === 'Authentication required') {
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
     }
+    logServiceFailure('getAuditEntries', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to retrieve audit entries' };
   }
 }

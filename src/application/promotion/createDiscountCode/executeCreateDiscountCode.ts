@@ -12,6 +12,7 @@ import { authorizePromotions } from '../authorizePromotions';
 import { loadPromotionsDto } from '../loadPromotionsDto';
 import { mutatePromotions } from '../mutatePromotions';
 import type { PromotionsDto } from '../dtos';
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 
 /** Adds a discount code. Codes cannot be edited or deleted afterwards: switch one off and make a new one. */
 export async function executeCreateDiscountCode(
@@ -48,7 +49,8 @@ export async function executeCreateDiscountCode(
       changes: [{ field: 'code', from: null, to: parsed.code }],
     });
     return { ok: true, data: await loadPromotionsDto(auth.shop.id) };
-  } catch {
+  } catch (error) {
+    logServiceFailure('createDiscountCode', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to create discount code' };
   }
 }

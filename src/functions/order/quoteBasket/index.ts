@@ -2,6 +2,7 @@ import { app, HttpRequest, HttpResponseInit } from '@azure/functions';
 import { executeQuoteBasket } from '../../../application/order/quoteBasket/executeQuoteBasket';
 import { BODY_NOT_OBJECT_ERROR } from '../../../domain/order/orderErrors';
 import { mapResultToHttp } from '../../_shared/mapResultToHttp';
+import { internalServerError } from '../../_shared/internalServerError';
 
 app.http('quoteBasket', {
   methods: ['POST'],
@@ -14,8 +15,8 @@ app.http('quoteBasket', {
         return { status: 400, jsonBody: { error: BODY_NOT_OBJECT_ERROR } };
       }
       return mapResultToHttp(await executeQuoteBasket(body as Parameters<typeof executeQuoteBasket>[0]));
-    } catch {
-      return { status: 500, jsonBody: { error: 'Internal server error' } };
+    } catch (error) {
+      return internalServerError('quoteBasket', error);
     }
   },
 });

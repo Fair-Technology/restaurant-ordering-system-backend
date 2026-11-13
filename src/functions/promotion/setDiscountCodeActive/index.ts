@@ -3,6 +3,7 @@ import { executeSetDiscountCodeActive } from '../../../application/promotion/set
 import { BODY_NOT_OBJECT_ERROR } from '../../../domain/order/orderErrors';
 import { mapResultToHttp } from '../../_shared/mapResultToHttp';
 import { readJsonObject } from '../../_shared/readJsonObject';
+import { internalServerError } from '../../_shared/internalServerError';
 
 app.http('setDiscountCodeActive', {
   methods: ['PATCH'],
@@ -13,8 +14,8 @@ app.http('setDiscountCodeActive', {
       const body = await readJsonObject(request);
       if (!body) return { status: 400, jsonBody: { error: BODY_NOT_OBJECT_ERROR } };
       return mapResultToHttp(await executeSetDiscountCodeActive({ shopId: request.params.shopId, codeId: request.params.codeId, body }, request));
-    } catch {
-      return { status: 500, jsonBody: { error: 'Internal server error' } };
+    } catch (error) {
+      return internalServerError('setDiscountCodeActive', error);
     }
   },
 });

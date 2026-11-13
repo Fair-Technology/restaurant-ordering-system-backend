@@ -1,6 +1,7 @@
 import { app, HttpRequest, HttpResponseInit } from '@azure/functions';
 import { executeCreateShop } from '../../../application/shop/createShop/executeCreateShop';
 import { mapResultToHttp } from '../../_shared/mapResultToHttp';
+import { internalServerError } from '../../_shared/internalServerError';
 
 app.http('createShop', {
   methods: ['POST'],
@@ -14,10 +15,7 @@ app.http('createShop', {
       
       return mapResultToHttp(result);
     } catch (error) {
-      return {
-        status: 500,
-        jsonBody: { error: 'Internal server error' }
-      };
+      return internalServerError('createShop', error);
     }
   }
 });

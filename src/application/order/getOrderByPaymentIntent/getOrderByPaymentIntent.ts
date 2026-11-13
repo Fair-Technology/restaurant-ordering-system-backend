@@ -11,6 +11,7 @@ import {
   StoredOrderState,
 } from '../../../domain/order/Order';
 import { ApplicationResult } from '../../_shared/types';
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 
 export interface GetOrderByPaymentIntentResultDto {
   orderId: string;
@@ -90,6 +91,7 @@ export async function getOrderByPaymentIntent(
       },
     };
   } catch (error) {
+    logServiceFailure('getOrderByPaymentIntent', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to retrieve order' };
   }
 }

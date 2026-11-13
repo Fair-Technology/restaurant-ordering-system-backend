@@ -1,6 +1,7 @@
 import { app, HttpRequest, HttpResponseInit } from '@azure/functions';
 import { executeGetOrderLimit } from '../../../application/usage/getOrderLimit/executeGetOrderLimit';
 import { mapResultToHttp } from '../../_shared/mapResultToHttp';
+import { internalServerError } from '../../_shared/internalServerError';
 
 app.http('getOrderLimit', {
   methods: ['GET'],
@@ -12,7 +13,7 @@ app.http('getOrderLimit', {
       const result = await executeGetOrderLimit(shopId, request);
       return mapResultToHttp(result);
     } catch (error) {
-      return { status: 500, jsonBody: { error: 'Internal server error' } };
+      return internalServerError('getOrderLimit', error);
     }
   },
 });

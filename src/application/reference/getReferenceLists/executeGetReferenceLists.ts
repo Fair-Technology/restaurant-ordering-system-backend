@@ -2,6 +2,7 @@ import { getReferenceLists } from '../../../infrastructure/cosmos/reference/Cosm
 import { ApplicationResult } from '../../_shared/types';
 import { ReferenceListsResultDto } from '../dtos';
 import { toReferenceListsDto } from '../toReferenceListsDto';
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 
 const COUNTRY_CODE_PATTERN = /^[A-Za-z]{2}$/;
 
@@ -17,7 +18,8 @@ export async function executeGetReferenceLists(input: {
     const cc = input.countryCode.toUpperCase();
     const doc = await getReferenceLists(cc);
     return { ok: true, data: toReferenceListsDto(doc, input.now ?? new Date()) };
-  } catch {
+  } catch (error) {
+    logServiceFailure('getReferenceLists', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to load reference lists' };
   }
 }

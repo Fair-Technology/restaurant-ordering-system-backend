@@ -10,6 +10,7 @@ import { ownedBlobPath, productImageFolder } from '../../../infrastructure/stora
 import { DeleteProductRequestDto, DeleteProductResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 import { logAudit } from '../../_shared/auditHelpers';
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 
 export async function executeDeleteProduct(
   request: DeleteProductRequestDto,
@@ -96,6 +97,7 @@ export async function executeDeleteProduct(
     if (error.message === 'Authentication required') {
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
     }
+    logServiceFailure('deleteProduct', error);
     return {
       ok: false,
       code: 'INTERNAL_ERROR',

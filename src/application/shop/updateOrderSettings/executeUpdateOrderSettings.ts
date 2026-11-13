@@ -34,6 +34,7 @@ import { logAudit } from '../../_shared/auditHelpers';
 import { authorizeShopAction, toAuditActor } from '../../_shared/shopAccess';
 import type { ApplicationResult } from '../../_shared/types';
 import type { OrderSettingsResultDto, UpdateOrderSettingsBody } from './dtos';
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 
 const MAX_WRITE_ATTEMPTS = 3;
 const SETTINGS_CONFLICT_ERROR = 'The settings were changed at the same time. Please try again.';
@@ -233,6 +234,7 @@ export async function executeUpdateOrderSettings(
     if (error.message === 'Authentication required') {
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
     }
+    logServiceFailure('updateOrderSettings', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to update order settings' };
   }
 }

@@ -4,6 +4,7 @@ import { findPricingByPlan } from '../../../infrastructure/cosmos/plan/CosmosPla
 import { ApplicationResult } from '../../_shared/types';
 import { GetPlanResultDto } from './dtos';
 import { requirePlatform } from '../../../infrastructure/auth/superAdminAuthHelpers';
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 
 export async function executeGetPlan(
   planId: string,
@@ -30,6 +31,7 @@ export async function executeGetPlan(
     if (error.message === 'Authentication required') {
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
     }
+    logServiceFailure('getPlan', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to retrieve plan' };
   }
 }

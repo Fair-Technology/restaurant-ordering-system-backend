@@ -4,6 +4,7 @@ import { ApplicationResult } from '../../_shared/types';
 import { UpdatePlanRequestDto, UpdatePlanResultDto } from './dtos';
 import { PLAN_LIMIT_KEYS } from '../../_shared/planLimitKeys';
 import { verifySuperAdminToken } from '../../../infrastructure/auth/superAdminAuthHelpers';
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 
 const VALID_LIMIT_KEYS = new Set(Object.values(PLAN_LIMIT_KEYS));
 
@@ -63,6 +64,7 @@ export async function executeUpdatePlan(
     if (error.message === 'Authentication required') {
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
     }
+    logServiceFailure('updatePlan', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to update plan' };
   }
 }

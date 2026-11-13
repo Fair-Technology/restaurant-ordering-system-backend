@@ -1,6 +1,7 @@
 import { app, HttpRequest, HttpResponseInit } from '@azure/functions';
 import { executeGetPromotions } from '../../../application/promotion/getPromotions/executeGetPromotions';
 import { mapResultToHttp } from '../../_shared/mapResultToHttp';
+import { internalServerError } from '../../_shared/internalServerError';
 
 app.http('getPromotions', {
   methods: ['GET'],
@@ -9,8 +10,8 @@ app.http('getPromotions', {
   handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
     try {
       return mapResultToHttp(await executeGetPromotions({ shopId: request.params.shopId }, request));
-    } catch {
-      return { status: 500, jsonBody: { error: 'Internal server error' } };
+    } catch (error) {
+      return internalServerError('getPromotions', error);
     }
   },
 });

@@ -13,6 +13,7 @@ import { validateMenuFields } from '../menuFields';
 import { toMenuFieldsDto } from '../menuFieldsDto';
 import { CREATE_WITH_PHOTOS_ERROR } from '../../../domain/images/imageRules';
 import { logAudit } from '../../_shared/auditHelpers';
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 
 export async function executeCreateProduct(
   request: CreateProductRequestDto,
@@ -196,6 +197,7 @@ export async function executeCreateProduct(
     if (error.message === 'Authentication required') {
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
     }
+    logServiceFailure('createProduct', error);
     return {
       ok: false,
       code: 'INTERNAL_ERROR',

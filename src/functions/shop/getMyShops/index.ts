@@ -1,6 +1,7 @@
 import { app, HttpRequest, HttpResponseInit } from '@azure/functions';
 import { executeGetMyShops } from '../../../application/shop/getMyShops/executeGetMyShops';
 import { mapResultToHttp } from '../../_shared/mapResultToHttp';
+import { internalServerError } from '../../_shared/internalServerError';
 
 app.http('getMyShops', {
   methods: ['GET'],
@@ -11,7 +12,7 @@ app.http('getMyShops', {
       const result = await executeGetMyShops({}, request);
       return mapResultToHttp(result);
     } catch (error) {
-      return { status: 500, jsonBody: { error: 'Internal server error' } };
+      return internalServerError('getMyShops', error);
     }
   },
 });

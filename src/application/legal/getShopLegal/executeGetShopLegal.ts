@@ -5,6 +5,7 @@ import { authorizeShopAction } from '../../_shared/shopAccess';
 import { ApplicationResult } from '../../_shared/types';
 import { ShopLegalSettingsDto } from '../dtos';
 import { toShopLegalSettingsDto } from '../toShopLegalSettingsDto';
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 
 export async function executeGetShopLegal(
   input: { shopId: string },
@@ -27,6 +28,7 @@ export async function executeGetShopLegal(
     if (error.message === 'Authentication required') {
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
     }
+    logServiceFailure('getShopLegal', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to load legal settings' };
   }
 }

@@ -9,6 +9,7 @@ import { ownedBlobPath, shopBrandingFolder } from '../../../infrastructure/stora
 import { SetShopLogoRequestDto, SetShopLogoResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 import { logAudit } from '../../_shared/auditHelpers';
+import { logServiceFailure } from '../../_shared/logServiceFailure';
 
 export async function executeSetShopLogo(
   request: SetShopLogoRequestDto,
@@ -82,6 +83,7 @@ export async function executeSetShopLogo(
     if (error.message === 'Authentication required') {
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
     }
+    logServiceFailure('setShopLogo', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to set shop logo' };
   }
 }
