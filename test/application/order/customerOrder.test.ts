@@ -251,4 +251,29 @@ describe('customer order page', () => {
     const res = await executeGetCustomerOrder({ orderId: 'o4', token: TOKEN }, { now });
     expect(res.ok && res.data).toMatchObject({ scheduledFor: SLOT_1800, canCancel: true });
   });
+  const HELD = { at: '2026-10-05T10:03:00.000Z', attempts: 1 };
+
+  it('a PLACED order held by a platform capture failure reports paymentHeld', async () => {
+    stored({ ...PLACED_CARD_ORDER, captureConfigFailure: HELD });
+    const res = await executeGetCustomerOrder({ orderId: 'o1', token: TOKEN }, { now });
+    expect(res.ok && res.data.paymentHeld).toBe(true);
+  });
+
+  it('an ordinary PLACED order does not report paymentHeld', async () => {
+    stored(PLACED_CARD_ORDER);
+    const res = await executeGetCustomerOrder({ orderId: 'o1', token: TOKEN }, { now });
+    expect(res.ok && res.data.paymentHeld).toBe(false);
+  });
+
+  it('a declined order no longer reports paymentHeld even if the capture failure is still on the document', async () => {
+    stored({
+      ...PLACED_CARD_ORDER,
+      state: 'REJECTED',
+      captureConfigFailure: HELD,
+      payment: { method: 'card', status: 'canceled', stripePaymentIntentId: 'pi_1' },
+      history: [...PLACED_CARD_ORDER.history, { from: 'PLACED', to: 'REJECTED', at: '2026-10-05T10:04:00.000Z', actor: { type: 'system' }, reason: 'payment_unavailable' }],
+    });
+    const res = await executeGetCustomerOrder({ orderId: 'o1', token: TOKEN }, { now });
+    expect(res.ok && res.data).toMatchObject({ state: 'REJECTED', paymentHeld: false });
+  });
 });

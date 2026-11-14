@@ -100,7 +100,11 @@ function buildEscalationEmail(order: Order, shop: Shop, adminOrdersUrl: string):
   return render(subject, [
     {
       type: 'p',
-      text: de
+      text: order.captureConfigFailure
+        ? de
+          ? `Bestellung ${order.orderRef} (${f.money(chargedCents(order))}) wartet seit 3 Minuten. Die Zahlung kann derzeit wegen eines technischen Problems auf unserer Seite nicht abgeschlossen werden. Die Karte des Gastes ist nur reserviert; es wurde nichts abgebucht. Sie müssen nichts tun — die Bestellung wird um ${until} automatisch abgelehnt und die Reservierung freigegeben. Wir kümmern uns um das Problem.`
+          : `Order ${order.orderRef} (${f.money(chargedCents(order))}) has been waiting 3 minutes. The payment cannot be completed right now because of a technical problem on our side. The diner's card is only on hold; nothing has been charged. You don't need to do anything — the order will be declined automatically at ${until} and the hold released. We are looking into the problem.`
+        : de
         ? `Bestellung ${order.orderRef} (${f.money(chargedCents(order))}) wartet seit 3 Minuten. Ohne Annahme wird sie um ${until} automatisch abgelehnt.`
         : `Order ${order.orderRef} (${f.money(chargedCents(order))}) has been waiting 3 minutes. It will be declined automatically at ${until} unless you accept it.`,
     },

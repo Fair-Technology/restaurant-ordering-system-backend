@@ -48,5 +48,6 @@ export interface CustomerOrderDto {
   currency: string;
   createdAt: string;
   canCancel: boolean; // state === 'PLACED'
+  paymentHeld: boolean; // the order is still PLACED with a platform-caused capture failure: the card is only held, nothing charged, we keep retrying
   rejectionReason: RejectReason | null;
 }
