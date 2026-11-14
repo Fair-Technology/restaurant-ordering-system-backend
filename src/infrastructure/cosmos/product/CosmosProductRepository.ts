@@ -64,3 +64,14 @@ export async function deleteProduct(
     throw error;
   }
 }
+
+/** Ids of every product of a shop, soft-deleted ones included (the wind-down removes them all). */
+export async function findAllProductIdsByShopId(shopId: string): Promise<string[]> {
+  const { resources } = await productContainer.items
+    .query<{ id: string }>(
+      { query: 'SELECT c.id FROM c WHERE c.shopId = @shopId', parameters: [{ name: '@shopId', value: shopId }] },
+      { partitionKey: shopId },
+    )
+    .fetchAll();
+  return (resources || []).map((r) => r.id);
+}

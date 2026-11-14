@@ -77,6 +77,7 @@ All functions are registered in [src/index.ts](src/index.ts).
 - **Partition key**: Cosmos DB containers use `/id` — point reads are `.item(id, id)`, *not* `.item(id, shopId)`
 - **Image uploads**: Products use Azure Blob Storage SAS URLs (generate → upload from client → register URL)
 - **Authentication**: **implemented.** Platform-staff access is an Entra app role in the workforce tenant rather than a database flag — see [docs/platform-identity.md](docs/platform-identity.md). The legacy CIAM `systemRole: 'superadmin'` path is still honoured, for migration only.
+- **Injected-clock routes**: routes that run a timer job "as of" a supplied date (e.g. `POST /api/platform/test-clock/shops/{shopId}/wind-down`) are registered only when the app setting `ENABLE_TEST_CLOCK_ROUTES` is exactly `true` (dev, via `infra/main.bicep`); otherwise they do not exist (404). Do not key this on `AZURE_FUNCTIONS_ENVIRONMENT` — it is `Production` on every deployed app, dev included. See [src/functions/_shared/testClockRoutes.ts](src/functions/_shared/testClockRoutes.ts).
 - **Payments**: card only, as Stripe Connect **direct charges** on the restaurant's own account with **manual capture** — money is reserved at checkout and captured when the restaurant accepts, so an order does not exist until Stripe confirms the reservation. See [docs/spec.md](docs/spec.md) §8.
 
 ### Infrastructure

@@ -33,6 +33,11 @@ export function mapResultToHttp<T>(result: ApplicationResult<T>): HttpResponseIn
         status: 404,
         jsonBody: { error: result.error }
       };
+    case 'UNAUTHORIZED':
+      return {
+        status: 401,
+        jsonBody: { error: result.error }
+      };
     case 'FORBIDDEN':
       return {
         status: 403,

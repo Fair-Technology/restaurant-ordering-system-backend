@@ -178,3 +178,26 @@ export async function patchShopPath(shopId: string, path: string, value: unknown
     { op: 'set', path: '/updatedAt', value: new Date().toISOString() },
   ]);
 }
+
+/** Every soft-deleted shop: the candidates for the 90-day wind-down. */
+export async function findDeletedShops(): Promise<Shop[]> {
+  const { resources } = await shopContainer.items
+    .query<Shop>({ query: 'SELECT * FROM c WHERE c.isDeleted = true', parameters: [] })
+    .fetchAll();
+  return resources || [];
+}
+
+/**
+ * Hard-deletes the shop document only if nobody changed it since it was read (e.g. a restore).
+ * 'gone' means it was already deleted, which is the state the caller wanted.
+ */
+export async function deleteShopIfMatch(shopId: string, etag: string): Promise<'ok' | 'conflict' | 'gone'> {
+  try {
+    await shopContainer.item(shopId, shopId).delete({ accessCondition: { type: 'IfMatch', condition: etag } });
+    return 'ok';
+  } catch (error: any) {
+    if (error.code === 412) return 'conflict';
+    if (error.code === 404) return 'gone';
+    throw error;
+  }
+}
