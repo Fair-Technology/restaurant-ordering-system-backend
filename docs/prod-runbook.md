@@ -920,6 +920,69 @@ az rest --method get --url "$U" --query "{enabled:properties.enabled,scope:prope
 `requests | take 1 | project cloud_RoleName` once traffic exists. A wrong value means the alert
 can never fire. Severity is 1 here (dev uses 2).
 
+### Alerts: order intake and paid-but-no-order (packet D4)
+
+Read back from Azure on 2026-11-14, dev has two rules and they are the pattern to copy:
+`alert-dev-webhook-non2xx` and `alert-stripe-credential-failure`. Both are enabled, severity 2,
+evaluate every `PT5M` over a `PT5M` window, fire when the count is above 0, and notify
+`ag-restaurant-dev-webhooks` (enabled; one email receiver, `owner`).
+
+**Webhook failures are already covered — no second rule.** `alert-dev-webhook-non2xx`'s query is
+`requests | where cloud_RoleName == 'restaurant-ordering-system-dev' | where url has '/api/webhooks/' | where not(resultCode startswith '2')`,
+which matches both routes (`webhooks/stripe`, `webhooks/stripe-connect`) and host-level failures
+(`resultCode` 0). Re-run against the 30 days to 2026-11-14 it returned two real rows: a `400` and a
+`499` on `/api/webhooks/stripe`.
+
+**Order intake and paid-without-order were not covered.** The definitions live in `infra/alerts/`
+(one JSON payload per rule per environment, holding the ARM body verbatim) and are applied by
+`scripts/alerts/apply-alerts.sh`, which PUTs each payload and then reads it back:
+
+| Rule | Fires when | Window | Severity |
+|---|---|---|---|
+| `alert-<env>-order-intake-5xx` | the `checkout` function (POST /api/orders) answers 5xx, or the host failed the invocation (`resultCode` 0) | `PT5M` / `PT5M`, count > 0 | dev 2, prod 1 |
+| `alert-<env>-paid-without-order` | the checkout reconciler logs `[checkout-reconcile:error]`, `[checkout-reconcile:give-up-error]` or `[checkout-reconcile:captured-without-order]` — a payment it could not turn into an order | `PT5M` / `PT5M`, count > 0 | dev 2, prod 1 |
+
+```sh
+# dev (ag-restaurant-dev-webhooks already exists)
+scripts/alerts/apply-alerts.sh dev            # create/update, then read back
+scripts/alerts/apply-alerts.sh dev --verify   # read back only
+
+# prod, after Phase A and the action group above exist
+scripts/alerts/apply-alerts.sh prod
+```
+
+`--dry-run` prints the URL and payload without writing; `--validate` is read-only and runs each
+rule's query against the App Insights component (P7D) to prove it parses. The script refuses to run
+when the payload's scope or action group belongs to the other environment, and stops when the action
+group is missing — a rule pointing at a missing group is rejected by ARM anyway.
+
+The prod payloads assume `cloud_RoleName == 'restaurant-ordering-system'`, the same open item as the
+webhook rule above: confirm it with `requests | take 1 | project cloud_RoleName` once prod has traffic.
+
+**Why 4xx is not alerted.** A `400`/`404`/`409` from `POST /api/orders` is diner input or a shop
+state (offline, orders paused, tax rate missing) that the diner is told about. Alerting on it would
+page the owner for a customer's typo.
+
+**Why the reconciler rule is separate.** A 5xx on intake means no order was attempted. A
+`[checkout-reconcile:*]` error means the card was **authorized** and the order could not be built, so
+money is held — and on `captured-without-order`, taken — with nothing to show. That is the failure
+the owner must hear about first.
+
+**Limits — read these before trusting an alert.**
+- The rules are scoped to the App Insights component, and the queries filter on `cloud_RoleName`, so
+  local `func start` traffic cannot page the owner: local runs report an empty role name (measured;
+  every `localhost` request row in dev has one).
+- `alert-dev-order-intake-5xx` has not fired on real traffic. The deployed dev app's last `checkout`
+  request was 2026-10-09; every checkout since came from a local run, which the role filter excludes.
+  The query parses and returns 0 rows. That is not the same as "the rule works end to end".
+- `alert-dev-paid-without-order` matched nothing in the 90 days to 2026-11-14: no
+  `[checkout-reconcile:*]` error line has ever been observed in dev telemetry. Its query is written
+  from the source tags (`src/application/order/reconcile/`), not from an observed line.
+- Neither rule was seen to fire, and no email delivery was tested. A read-back proves the definition,
+  not the notification.
+- The in-app layer (next section) is still undeliverable until `PLATFORM_ALERT_EMAIL` is set. These
+  Azure rules do not depend on it.
+
 ### Telling a Stripe permission failure from a declined card
 
 Every failed Stripe call on the money paths (capture, release, refund, payment-intent creation)

@@ -1,0 +1,38 @@
+{
+  "location": "westeurope",
+  "properties": {
+    "displayName": "dev: paid but no order (checkout reconciler)",
+    "description": "The checkout reconciler reported a payment it could not turn into an order, or gave up trying (the authorization was already captured). Money has been taken for a checkout that has no order.",
+    "severity": 2,
+    "enabled": true,
+    "autoMitigate": true,
+    "scopes": [
+      "/subscriptions/c115d7d2-2778-4d1d-8ac8-e234f5a95f17/resourceGroups/rg-restaurant-ordering-system-dev/providers/Microsoft.Insights/components/restaurant-ordering-system-dev"
+    ],
+    "targetResourceTypes": ["Microsoft.Insights/components"],
+    "evaluationFrequency": "PT5M",
+    "windowSize": "PT5M",
+    "criteria": {
+      "allOf": [
+        {
+          "query": "traces\n| where cloud_RoleName == 'restaurant-ordering-system-dev'\n| where message has '[checkout-reconcile:error]' or message has '[checkout-reconcile:give-up-error]' or message has '[checkout-reconcile:captured-without-order]'",
+          "timeAggregation": "Count",
+          "operator": "GreaterThan",
+          "threshold": 0,
+          "failingPeriods": {
+            "numberOfEvaluationPeriods": 1,
+            "minFailingPeriodsToAlert": 1
+          }
+        }
+      ]
+    },
+    "actions": {
+      "actionGroups": [
+        "/subscriptions/c115d7d2-2778-4d1d-8ac8-e234f5a95f17/resourceGroups/rg-restaurant-ordering-system-dev/providers/microsoft.insights/actionGroups/ag-restaurant-dev-webhooks"
+      ],
+      "customProperties": {
+        "runbook": "docs/prod-runbook.md"
+      }
+    }
+  }
+}
