@@ -311,6 +311,9 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
         { name: 'AzureWebJobsStorage__clientId', value: identity.properties.clientId }
         // Where Stripe sends the owner back after subscription checkout.
         { name: 'ADMIN_APP_URL', value: 'https://${staticSites[indexOf(staticApps, 'admin')].properties.defaultHostname}' }
+        // Injected-clock routes (e.g. the 90-day wind-down "as of" a date) exist only in dev.
+        // Fail-closed: anything but the exact string 'true' leaves them unregistered (404).
+        { name: 'ENABLE_TEST_CLOCK_ROUTES', value: env == 'dev' ? 'true' : 'false' }
         // Secrets — COSMOS_DB_KEY, STORAGE_ACCOUNT_KEY, ENTRA_*, STRIPE_* — are
         // set after deployment from the vault .env, never committed here.
       ]

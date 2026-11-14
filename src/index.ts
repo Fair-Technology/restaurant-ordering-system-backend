@@ -66,6 +66,11 @@ import './functions/order/cancelCustomerOrder/index';
 import './functions/order/orderTimers/index';
 import './functions/order/reconcileCheckouts/index';
 
+// 90-day wind-down of restaurants that left (SPECS §15). The injected-clock route registers itself
+// only where ENABLE_TEST_CLOCK_ROUTES=true.
+import './functions/shop/shopWindDownTimer/index';
+import './functions/shop/runShopWindDownWithClock/index';
+
 // Promotion endpoints
 import './functions/promotion/getPromotions/index';
 import './functions/promotion/createDiscountCode/index';

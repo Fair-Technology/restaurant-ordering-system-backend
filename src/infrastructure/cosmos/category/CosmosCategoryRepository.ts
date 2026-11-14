@@ -69,3 +69,14 @@ export async function deleteCategory(
     throw error;
   }
 }
+
+/** Ids of every category of a shop, soft-deleted ones included (the wind-down removes them all). */
+export async function findAllCategoryIdsByShopId(shopId: string): Promise<string[]> {
+  const { resources } = await categoryContainer.items
+    .query<{ id: string }>(
+      { query: 'SELECT c.id FROM c WHERE c.shopId = @shopId', parameters: [{ name: '@shopId', value: shopId }] },
+      { partitionKey: shopId },
+    )
+    .fetchAll();
+  return (resources || []).map((r) => r.id);
+}
