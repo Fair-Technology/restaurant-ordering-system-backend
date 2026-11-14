@@ -51,6 +51,7 @@ export function toCustomerOrderDto(order: Order, shop: Shop, now: Date): Custome
     currency: order.currency,
     createdAt: order.createdAt,
     canCancel: order.state === 'PLACED',
+    paymentHeld: order.state === 'PLACED' && !!order.captureConfigFailure,
     rejectionReason,
   };
 }

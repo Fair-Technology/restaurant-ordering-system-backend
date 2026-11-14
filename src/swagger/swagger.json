@@ -13412,6 +13412,9 @@
           "canCancel": {
             "type": "boolean"
           },
+          "paymentHeld": {
+            "type": "boolean"
+          },
           "rejectionReason": {
             "nullable": true,
             "allOf": [
@@ -13448,6 +13451,7 @@
           "currency",
           "createdAt",
           "canCancel",
+          "paymentHeld",
           "rejectionReason"
         ],
         "additionalProperties": false

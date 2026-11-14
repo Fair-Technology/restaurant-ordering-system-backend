@@ -214,4 +214,28 @@ describe('order emails', () => {
     const en = build('order_accepted', { ...DISCOUNTED_ORDER, language: 'en' }).text;
     expect(en).toContain('Discount WELCOME10 — -€1.40');
   });
+  const HELD = { at: '2026-10-05T10:03:00.000Z', attempts: 1 };
+
+  it('the waiting-order email says a platform-held payment needs no action', () => {
+    const text = build('order_escalation', { ...PLACED_CARD_ORDER, captureConfigFailure: HELD }).text;
+    expect(text).toContain('Sie müssen nichts tun');
+    expect(text).not.toContain('Ohne Annahme');
+  });
+
+  it('the ordinary waiting-order email still asks the restaurant to accept', () => {
+    expect(build('order_escalation', PLACED_CARD_ORDER).text).toContain('Ohne Annahme');
+  });
+
+  it('the English waiting-order email says a platform-held payment is only on hold', () => {
+    // The escalation email is written in the restaurant's language (the shop's first menu language), not the diner's.
+    const text = buildOrderEmail({
+      kind: 'order_escalation',
+      order: { ...PLACED_CARD_ORDER, language: 'en', captureConfigFailure: HELD },
+      shop: { ...CARD_SHOP, menuLanguages: ['en'] },
+      customerOrderUrl,
+      adminOrdersUrl,
+    }).text;
+    expect(text).toContain('only on hold');
+    expect(text).not.toContain('unless you accept it');
+  });
 });
