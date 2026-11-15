@@ -31,7 +31,7 @@ Swagger JSON: `http://localhost:7071/api/swagger.json`
 
 ## Tests
 
-`npm test` runs the whole vitest suite (161 files, ~1,470 tests, a few seconds). There is no vitest config: vitest's defaults pick up every `*.test.ts`, and they live under `test/`, mirroring the source layers (`test/domain`, `test/application/<area>`, `test/infrastructure`, `test/swagger`, `test/scripts`; fixtures in `test/fixtures`). Run one file with `npx vitest run test/domain/<file>.test.ts`. Tests need no Azure, Cosmos, Stripe or `local.settings.json`.
+`npm test` runs the whole vitest suite (175 files, ~1,636 tests, ~10 s). There is no vitest config: vitest's defaults pick up every `*.test.ts`, and they live under `test/`, mirroring the source layers (`test/domain`, `test/application/<area>`, `test/infrastructure`, `test/swagger`, `test/scripts`; fixtures in `test/fixtures`). Run one file with `npx vitest run test/domain/<file>.test.ts`. Tests need no Azure, Cosmos, Stripe or `local.settings.json`.
 
 CI is [.github/workflows/main_restaurant-ordering-system.yml](.github/workflows/main_restaurant-ordering-system.yml) ("Build, test and deploy (dev)"): on every push to `main` and every pull request to `main` it runs `npm ci` → `npm run build` → `npm test`, and the "Deploy to dev" job only runs if that job passes.
 
