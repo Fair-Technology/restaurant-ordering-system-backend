@@ -15,6 +15,7 @@ import './functions/shop/setShopOfflineBySuperadmin/index';
 import './functions/shop/setMissedOrdersPauseLimit/index';
 import './functions/shop/generateShopLogoUploadUrl/index';
 import './functions/shop/setShopLogo/index';
+import './functions/shop/removeShopLogo/index';
 import './functions/shop/generateShopCoverImageUploadUrl/index';
 import './functions/shop/setShopCoverImage/index';
 import './functions/shop/removeShopCoverImage/index';

@@ -352,6 +352,15 @@
       ],
       "responseDescription": "Shop logo updated successfully"
     },
+    "DELETE /shops/{shopId}/logo": {
+      "operationId": "removeShopLogo",
+      "summary": "Remove shop logo",
+      "description": "Clears the shop logo (branding.logoUrl) and deletes the stored file. Succeeds without changes if no logo is set.",
+      "tags": [
+        "Shop Logo"
+      ],
+      "responseDescription": "Shop logo removed successfully"
+    },
     "POST /shops/{shopId}/cover-image/upload-url": {
       "operationId": "generateShopCoverImageUploadUrl",
       "summary": "Generate upload URL for shop cover image",
