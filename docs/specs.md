@@ -8,13 +8,13 @@ reading the file end to end. It is the source a ticket is cut from.
 are product decisions. **What does not:** how any of it is implemented. That
 lives in the code.
 
-**Companion documents in this folder:**
-
-- `audit-2026-08-27.md` — what the existing code already does, where it
-  contradicts this spec, and what is missing. Read it before touching a
-  subsystem; it says whether you are building, reshaping or replacing.
-- `deferred.md` — everything ruled out of scope, with the reason. If a feature
-  seems missing here, check there before assuming it was forgotten.
+**This is the only specification document.** Everything ruled out of scope, with
+the reason, is in §22 — if a feature seems missing, check there before assuming
+it was forgotten. Open work is tracked on the kanban board, not in this file.
+The 2026-08-27 audit of the pre-spec code was reconciled on 2026-11-13: every
+conflict it named is resolved (built the decided way, or superseded by a later
+decision here) and everything it listed as missing is built, except the
+link-preview / `noindex` work (§16).
 
 **Decided in the design interview of 2026-08-26/27 (session
 `b7830bf6-afd2-4617-b9f2-bcb61c312187`).** Edit this file in place to say the
@@ -46,8 +46,9 @@ Three groups of people use it, each through their own web app:
 | **Restaurant owner and staff** | admin (`restaurant-ordering-system-admin`) | Menu, orders, tables, staff, subscription, settings. |
 | **Platform operator** | superadmin (`restaurant-ordering-system-superadmin`) | Plans, limits, roles, allergen and tax lists, all restaurants, audit. |
 
-All three talk to one backend (`restaurant-ordering-system-backend`). A fifth repo
-for end-to-end browser tests is still to be split out of the storefront repo.
+All three talk to one backend (`restaurant-ordering-system-backend`). A fifth
+repo (`rs-e2e`) holds the end-to-end browser tests and the daily contract check
+against the deployed dev environment.
 
 **Germany first, global by design.** The pilot is Ma Pasta (`www.mapasta.de`),
 a friend's Italian restaurant in Germany that is already trading — its Shop
@@ -61,8 +62,8 @@ The four repos at `~/FairTech/restaurant-ordering-system` (≈330 commits, last
 touched March 2026) are the starting point. They are on exactly the chosen
 stack — React + Vite + Tailwind front-ends, Azure Functions backend, Cosmos DB,
 Blob storage, TypeScript strict, Entra External ID via MSAL, Stripe — and
-roughly two thirds of the platform spine already matches this spec. See the
-audit for what conflicts.
+roughly two thirds of the platform spine already matched this spec; the rest has
+since been built or reshaped.
 
 **Copyshop-system is untouched.** Its lessons are carried over; its code is
 not, and it is never refactored to share anything with this product.
@@ -295,8 +296,11 @@ every order** (§8) and still need name, email and phone.
 
 **One "Dine in" switch per restaurant, off by default.** While it is off, table
 links open the normal pickup shop and the server refuses dine-in orders. Secret
-per-table codes and a "scan for menu" table picker were deferred (see
-`deferred.md`) — every order is prepaid, so a prank order costs the prankster.
+per-table codes and a "scan for menu" table picker were deferred (Manish,
+2026-10-03/05) — every order is prepaid, so a prank order costs the prankster.
+Revisit if prank orders appear; random codes can share the same `?t=` link and
+orders keep their own copy of the table, so the swap is cheap. A generic QR
+for the restaurant's plain menu link (no table) exists in admin Settings.
 
 ### ASAP or scheduled
 
@@ -442,6 +446,9 @@ An order waiting for staff (auto-accept off) that nobody touches:
   card reservation is released, so nothing is charged, and the customer gets a
   plain message. An honest rejection beats a customer waiting an hour, and the
   automatic release keeps the platform out of the dispute.
+- **If the order is waiting because the platform's own Stripe key is unusable**
+  (expired, revoked, missing a permission — see §8), the escalation email says
+  so: the card is only held, nothing is charged, the owner need do nothing.
 
 ### Ready-time estimate
 
@@ -455,8 +462,8 @@ there is real data to check them against.
 ### Thermal printers
 
 Later. Cloud printers (Star CloudPRNT, Epson server-direct) poll the platform
-over HTTPS for anything to print — one endpoint, no on-site software. See
-`deferred.md`.
+over HTTPS for anything to print — one endpoint, no on-site software. Not
+built (§22).
 
 ---
 
@@ -518,6 +525,12 @@ the menu. Decision: [[option-allergens-undeclared-adds-nothing]].
   left off the storefront, its dishes can't be ordered, and combos stop
   offering them. **A dish in two categories stays orderable while either is
   live** (confirmed by Manish 2026-10-13) — see [[category-switch-and-times]].
+  Category times are **deliberately one window per day, no overnight window, and
+  23:59 as an end time is never live**; widen only when a shop needs a
+  late-night-only or split-lunch section (reuse the opening-hours format).
+- **Offer labels** (a dish window's "Angebot des Tages") hold one string and are
+  shown untranslated to diners of another language; names, descriptions, option
+  and category names are translated (§12).
 
 ### Combos
 
@@ -555,6 +568,26 @@ One per dish, one per option, a logo and a cover per restaurant. **Accept
 anything up to 10 MB; auto-orient, resize and re-encode on upload**, with an
 in-browser crop to a fixed ratio the owner can adjust. Storage is not gated by
 tier. Owners will not produce correctly-sized images and should not have to.
+
+**The server normalises every cover and dish upload** (built 2026-11-13): it
+decodes by the file's real content (JPEG, PNG, WebP, GIF, TIFF, AVIF; HEIC/HEIF,
+SVG and anything undecodable are refused), applies the EXIF orientation,
+centre-crops to the exact stored size (§16), re-encodes in the declared format
+and drops all metadata, including GPS. The minimum source size is judged after
+orientation. The upload link still issues only JPG, PNG and WebP; accepting
+other declared types is a product decision, not made. The logo has no fixed
+target size and is not yet size-capped or normalised on upload.
+
+### Where a dish lives
+
+A product belongs to exactly one shop — never to a user — and carries its own
+variants, extras, media, tags and allergen data. There is no separate
+shop-to-product mapping: availability, price and ordering are edited on the dish
+itself. Categories are per shop and hierarchical. Every stored document shares
+one base contract (optional tenant marker, tags, metadata, version, soft
+deletion via `archivedAt`/`isDeleted`), so backups, analytics and compliance
+exports work the same across containers. Records are soft-deleted, never
+destroyed.
 
 ### Menu content is typed by hand
 
@@ -688,7 +721,9 @@ Unfinished checkouts expire after 1 hour (Cosmos TTL on `checkout_sessions`).
 (Manish, 2026-10-03) — collection and table orders alike, and every order needs
 an email. The diner pays by **card, Apple Pay or Google Pay**. **No PayPal for
 now:** Stripe doesn't offer it to platforms whose businesses take payments
-directly, which is our setup (TODO). **There is no pay in person** — the earlier
+directly (Connect direct charges; the restaurant is the merchant) without a
+manual approval these platforms don't get. Later options: ask Stripe anyway, or
+a separate PayPal integration — a second payment provider, so more work. **There is no pay in person** — the earlier
 cash / "pay on collection" option was deleted from the code, not hidden; old
 slice-4a orders read as "not paid online". This reverses the 2026-10-01 rule
 that a restaurant could go live without Stripe: connecting Stripe is now a
@@ -714,6 +749,31 @@ order is accepted** (Manish, 2026-10-03):
 A reservation lasts about 7 days, far longer than any order waits. Why:
 [[card-reserved-until-accepted]].
 
+### When the platform's own Stripe key is unusable
+
+One platform key serves every restaurant's captures. If it is expired, revoked
+or missing a permission, taking the money fails for everybody — a fault of the
+platform, not of the diner's card. **Such an order is held, not rejected:** it
+stays `PLACED` with a marker, the capture is retried every minute (auto-accept
+shops) or staff can press Accept, and the first successful accept clears the
+marker. The wait is bounded by the shop's own decline timeout (§5): at that time
+the order is rejected with the reason `payment_unavailable`, the reservation is
+released, the diner gets a non-blaming email, and the rejection is **not**
+counted as a missed order, so no restaurant is auto-paused by a platform fault.
+An order past that time cannot be accepted; the diner must re-order. **A real
+card decline is unaffected** — it still rejects at once with `payment_failed`.
+The diner's order page carries a "payment held" flag only while the order is
+still `PLACED` and marked. The failure raises a platform alert (a log line every
+time, and an email to the platform alert address at most once per 15 minutes per
+process), and every failed Stripe call on a money path logs whether it was a
+permission/config fault, a card decline or a transient outage. Only a restricted
+live key (`rk_live_…`) is ever used on the platform account, never the account's
+secret key. Because Stripe refuses payment-method-domain registration to
+restricted keys, **Apple Pay / Google Pay domains are not registered
+automatically** in production: registration is best-effort, fails harmlessly,
+and wallets need the domain registered per connected account in the Stripe
+dashboard (a product decision, not yet taken).
+
 ### Direct charges, zero fee
 
 Stripe Connect direct charges into the restaurant's own connected account. The
@@ -724,7 +784,8 @@ account in euros — whatever country the platform itself is registered in.
 
 ### No tips
 
-Removed from scope outright. See `deferred.md`.
+Removed from scope outright (§22): a tip taken at checkout lands in the
+restaurant's account as business income, and getting it to staff means payroll.
 
 ---
 
@@ -901,7 +962,24 @@ exportable as CSV for an accountant, searchable.
 since 1 January 2025 (it was ten). The archive outlives the restaurant's account
 and any customer anonymisation (§15): an invoice is a tax record the restaurant
 is legally required to hold. Owners can download any invoice from admin; a
-month's batch, and invoices in the owner export, come later (TODO).
+month's batch of invoices and correction invoices in one download, and invoices
+and corrections inside the owner's data export, come later (needs a ZIP-or-CSV
+decision; single downloads already meet the legal need).
+
+**Backup is not archive.** The database's 30-day point-in-time restore (§20)
+does not satisfy the eight-year duty. Orders and invoice snapshots are
+therefore also exported to a write-once archive store with an eight-year
+retention policy and verified against checksums; the retention period is to be
+confirmed with a tax adviser before that policy is locked, because locking is
+irreversible. Re-rendering an old invoice must not change its content: a change
+to the invoice's printed text requires a new template version.
+
+**Business buyers and e-invoices — parked (Manish, 2026-10-13).** Every buyer is
+a private customer; there is no company-name / VAT-ID field and no XRechnung or
+ZUGFeRD output. Revisit before the German B2B e-invoice duty (2027 for sellers
+over €800k prior-year turnover, 2028 for all) or when a shop asks for
+catering/office orders. Invoices of €250 or less are exempt (§27(38) UStG, §33
+UStDV), which covers almost every takeaway order.
 
 ---
 
@@ -912,7 +990,10 @@ month's batch, and invoices in the owner export, come later (TODO).
 - **Owners** register and sign in through **Microsoft Entra External ID**
   (self-service sign-up; the existing MSAL integration). Registration comes
   first; creating a restaurant is a separate step afterwards, which is what
-  makes one identity holding several restaurants natural.
+  makes one identity holding several restaurants natural. **A restaurant has
+  exactly one owner**, the person who created it (Manish, 2026-10-13): no
+  co-owner invite and no superadmin "add owner"; helpers get a staff login with
+  a role, so billing, Stripe and legal stay with one clear person.
 - **Managers and staff are local accounts** the owner creates by hand:
   **username and password, no email, no self-registration.** Usernames are
   unique per restaurant, not globally, so every restaurant can have a
@@ -958,6 +1039,69 @@ suspend a restaurant, edit a restaurant's content, impersonate an owner —
 **every use written to the audit log and visible to that restaurant.** A
 superadmin permission model exists from the start, everyone defaulting to full
 access, so an invited helper can be restricted later without a rewrite.
+
+**Who counts as platform staff is decided by where the identity comes from.**
+The API trusts two token issuers and they mean different things: the **customer
+tenant** (Entra External ID) signs in restaurant owners and grants normal
+product access; a separate **workforce tenant** signs in the platform's own
+operators and is the only route to the superadmin console. Every token is
+checked for signature, issuer, audience and expiry; the workforce issuer is
+optional per environment (an environment without it simply accepts customer
+tokens). The API accepts only v2.0 access tokens, deliberately — accepting
+the v1.0 form too would mean trusting every tenant's `sts.windows.net` URL. A
+customer-tenant token can never buy platform access by claiming a platform
+role, and there is no database flag that makes anyone a platform operator (the
+old `systemRole: 'superadmin'` route for customer tokens was removed
+2026-11-10). **Granting and revoking is an Entra app-role assignment** — never a
+row in our database — so it is auditable and takes effect on the operator's next
+token refresh. Each environment (dev, prod) has its own pair of app
+registrations, so a dev operator's token is not valid against prod.
+
+| Role | Level | Reaches |
+|---|---|---|
+| `Platform.Owner`, `Platform.Support` | write | every platform endpoint |
+| `Platform.ReadOnly` | read | only handlers that opt in to read access |
+| none, other, or a customer-tenant token | — | nothing |
+
+**Write is the default.** Anything that may change something refuses ReadOnly
+until someone deliberately opts it in; a handler opts in only if it changes
+nothing, whoever the caller is — a covered read must never lazily create,
+back-fill or sync a record. Read-level: the platform lists (shops, plans, plan
+pricing, usage, rejection watch, system config, role permissions, platform legal
+identity, "me") and shop-scoped reads of a single shop (shop, products,
+categories, orders, queue, order documents, order limit, subscription, audit
+entries, sales report, staff list, shop legal, promotions, combos). A platform
+operator reading a shop's subscription gets the derived default plan without it
+being stored. **Deliberately not read-level:** the go-live status check (it syncs
+Stripe and patches the shop) and the owner data export (it exports customer
+personal data and writes an audit entry). The API returns the operator's level
+so a console can hide write controls; the API enforces it regardless.
+
+### Who may call what
+
+Every HTTP operation checks authorisation itself — the host gates nothing. Each
+operation has an authorizer or a stated reason for having none.
+
+- **Public on purpose:** the public shop list and shop-by-slug, the legal pages
+  (shop, platform, DPA), the diner catalogue (refuses deleted or offline shops),
+  reference lists by country, price quote, diner checkout, staff login
+  (credentials), and the two Stripe webhooks (signature-verified before any
+  work). The three diner order-page routes are authorised by the order's secret
+  access token.
+- **Closed, because the data is not public:** a payment-intent lookup requires
+  `view_orders` on the order's shop (a PaymentIntent id is not a secret and the
+  response carries the diner's name; the route is kept only so the published
+  contract does not change); a shop's product list requires `manage_menu`; a
+  single product and a shop's categories require membership of that shop (owner
+  or its own active staff) or a platform operator — plain staff keep access
+  because the order screens need dish names.
+- **Kitchen writes are gated by `view_orders`:** accept, reject, ready,
+  dispatch, complete and busy mode. There is deliberately no `manage_orders`
+  permission: the plain staff role's default is exactly `view_orders`, running
+  the kitchen is the job of the role that sees the orders, and a separate write
+  permission would either lock plain staff out or be granted to every role that
+  already has `view_orders`. Money movement is separate (`refund_orders`).
+  Revisit only if a role should see orders but not act on them.
 
 ### Audit log
 
@@ -1265,6 +1409,9 @@ and is the restaurant's own content. This section is only about what a
   page and emails, included in the owner's export, removed by erasure; **never
   on the invoice and never in the activity log.** No automatic blanking after a
   period yet (that is slice 5a's retention clean-up).
+- **Erasure also removes the kitchen notes** on that customer's orders; the
+  personal fields are anonymised and the order itself stays for the restaurant's
+  records.
 - **Any restaurant leaving for any reason — including suspension — can export
   its menu, orders and customer list first.**
 
@@ -1273,17 +1420,40 @@ and is the restaurant's own content. This section is only about what a
 - **Security:** encryption at rest and in transit, access control, a breach
   procedure with the 72-hour clock, instructions-only handling written into the
   DPA.
-- **Two documents written now, not at go-live**, in the backend repo
-  (`docs/privacy/`):
-  - **Breach runbook** — how a breach is noticed, who decides and how fast,
-    how affected restaurants are identified and reached, a ready notification
-    template (what happened, what data, what was done, what they must do), and
-    an incident log that records every incident including unreported ones. As
-    processor the platform must notify "without undue delay"; every hour spent
-    improvising comes out of the restaurant's own 72 hours.
-  - **Record of processing (Article 30)** — categories of data processed for
-    restaurants, purposes, sub-processors, location (West Europe), retention,
-    security measures. The EU representative holds a copy.
+- **Two obligations written now, not at go-live** (both still **draft — not
+  lawyer-reviewed**, owner Manish):
+  - **Breach procedure.** As processor the platform must tell each affected
+    restaurant "without undue delay"; the restaurant, as controller, has 72 hours
+    from becoming aware to notify its data-protection authority, so every hour
+    the platform spends improvising comes out of the restaurant's clock. Anyone
+    who suspects a breach tells Manish at once. Manish decides (a named deputy is
+    still to be appointed): is personal data involved, was it lost, altered,
+    disclosed or accessed without permission, is it still happening — and if so
+    contain first (revoke keys, disable the endpoint, rotate secrets). Affected
+    restaurants are identified from the shop id on orders and the audit log, and
+    each owner gets a notice saying what happened, which data, what was done and
+    what they must do; the EU representative is told too. **Every incident is
+    logged, including ones judged not reportable** (dates, what happened, data and
+    restaurants affected, the decision and why, actions, closure), kept at least
+    as long as the retention in the record of processing; afterwards the cause is
+    fixed and the procedure updated.
+  - **Record of processing (Article 30).** The platform is processor; each
+    restaurant (named in its Impressum) is controller; the EU representative
+    holds a copy. Processed: diner name, email and phone, order contents, totals,
+    payment method and status, optional kitchen notes (not meant for health
+    data); owner sign-in identity and email; staff names and sign-in details.
+    Card, Apple Pay and Google Pay data is processed by Stripe as independent
+    controller and never passes through the platform. Sub-processors, all
+    Microsoft Ireland Operations Ltd. in the EU: Azure (hosting, database, files),
+    Entra External ID (owner sign-in) and Communication Services (order email).
+    Location: the dev environment is West Europe, production Germany West Central
+    (§20) — the record must say which before go-live. Security measures:
+    encryption in transit and at rest; owners reach only their own restaurants,
+    staff are limited by role, platform admin is limited to superadmins; every
+    change to legal settings, exports and erasures is audit-logged with no
+    personal content; instructions-only handling under the DPA. The record is
+    reviewed when a sub-processor changes, a new kind of data is processed, and at
+    least yearly.
 - **Notice-and-action:** a reachable way to report illegal content on a
   storefront, a recorded decision, and the suspend switch — the EU hosting
   liability shield depends on acting once notified.
@@ -1310,6 +1480,44 @@ The root domain is the sales site. Storefronts carry **`noindex`**; no SEO
 work. One exception that is not SEO: a page title and a **link-preview card**
 (image, name, one line) injected into the storefront's HTML shell by a small
 Function, so a URL pasted into WhatsApp renders as a card and not a grey box.
+
+**How the card and `noindex` work (built 2026-11-13 in the storefront repo;
+deployed behaviour still to be verified).** Link-preview crawlers do not run
+JavaScript, so a client-side hook alone cannot produce the card; the Function is
+the mechanism, and a small client hook additionally keeps the browser tab title
+in step with the shop on in-app navigation (shop name only — never the order id,
+token or any path text — reverting to the baseline on non-shop routes).
+
+- The Function is an SWA-managed function in the storefront repo, served for
+  every `/shops/*` and `/legal/*` path (a rewrite, never a redirect), fetching the
+  current HTML shell live — never a baked copy, whose asset hashes would go stale
+  and leave diners an unstyled page.
+- **`noindex` is derived from the path alone**, on every `/shops/*` and
+  `/legal/*` response, unconditionally and before any backend call — so a backend
+  outage can never strip it, and the diner's order-page URL (which carries the
+  secret token in `?t=`) is never indexable. The front page `/` is not routed
+  through it and stays indexable (it is the sales site); whether a pasted
+  front-page URL should unfurl with a platform card is an open product call.
+- **Link-preview tags appear only on exactly `/shops/<slug>`:** title = shop
+  name, description = name plus city (a fixed fallback string when there is no
+  city, never empty, never "undefined"), image = hero, else logo, else a static
+  raster card (social crawlers do not render SVG), always an absolute https
+  URL, with the canonical URL; all values HTML-escaped. Checkout, order and legal
+  pages get no card.
+- **It fails open:** every failure (shop read slow or failing, shell fetch failing,
+  malformed data) still answers **200** with `noindex` at the same URL — never a
+  3xx (a redirect to `/index.html` would escape `noindex`) and never a 5xx; if both
+  hops fail a self-contained minimal page is served that references no assets and
+  never echoes the request path or query. Hops have hard timeouts (about 1 s for
+  the shop read) so a hang can never block the SPA from loading; per-shop meta and
+  the shell are cached on separate lifetimes, and one shop's card is never served
+  for another. The Function trusts the original-URL header only when its host
+  matches the host the request arrived on.
+- Admin and superadmin carry `noindex` and a `robots.txt` as plain static files.
+- The platform name shown in the browser tab of the front page should come from
+  the platform legal identity (§15), not a hard-coded string; the platform's
+  name, its domain, its operator's legal name and each restaurant's own legal
+  name are four different things and are never forced to be one word.
 
 ### The LIVE toggle
 
@@ -1371,8 +1579,10 @@ four-colour branding is reduced to one.
 
 **Built so far (2026-10-06):** cover image upload in admin → Settings (upload,
 preview, remove; JPG/PNG/WebP up to 10 MB; guidance for a ~3:1 banner); the
-storefront ships its own default cover instead of loading Unsplash. Still open
-from §Photos: resize, re-encode and crop on upload — for any image type.
+storefront ships its own default cover instead of loading Unsplash. Resize,
+re-encode and orientation on upload are done server-side for cover and dish
+photos (§6). A restaurant can set a logo but not yet remove one (the cover
+can be removed).
 
 **How banner and logo are shown (Manish, 2026-10-10, decided live in the UI;
 merged to `dev` in storefront + admin, not yet pushed):**
@@ -1383,8 +1593,9 @@ merged to `dev` in storefront + admin, not yet pushed):**
     crop window with a fixed 3:1 frame, zoom, keyboard moves, desktop and phone previews, and
     the centre 2:1 dimmed-outside "Visible on phones" area. Sources under 1200 × 400 refused.
     Only the cropped JPEG is uploaded.
-  - The backend reads the uploaded file's real pixel size and refuses anything else
-    (`COVER_IMAGE_WRONG_SIZE`), deleting the upload and keeping the old cover.
+  - The backend normalises the upload to exactly this size (§6) and refuses a
+    source below the minimum (`COVER_IMAGE_WRONG_SIZE`), deleting the upload and
+    keeping the old cover.
   - Storefront: 2:1 full width on phones, 3:1 from tablet width up, at most page-content
     width, picture fills the box (cropped centre). No blurred backdrop. Old covers of other
     shapes still fill the box, centre-cropped; no migration.
@@ -1493,6 +1704,10 @@ The kitchen tablet is a real design constraint: glanceable at arm's length,
 big touch targets, readable with greasy hands and bad lighting. Those rules
 live in the shared components, not in a note everyone forgets by screen twelve.
 
+The move from Tailwind 3 to 4 is a migration, not a version bump, and is done
+together with this design pass (as is the React-hooks lint plugin's compiler
+rules, which would fail today's clean lint gate in the storefront).
+
 ---
 
 ## 20. Infrastructure
@@ -1514,22 +1729,103 @@ live in the shared components, not in a note everyone forgets by screen twelve.
   app registrations and sign-up flow. See
   `wiki/work/restaurant-ordering-system/entra-tenant.md`.
 
-  ⛔ Stripe is still copyshop's account — tracked in `projects/TODO.md` under
-  `restaurant-ordering-system-backend`. No real payment can be taken until it is
-  done.
+  ⛔ The product has its own Stripe **test** sandbox (since 2026-10-06), but its
+  own **live** account is not yet set up. No real payment can be taken until it
+  is. The backend's Stripe library is held at major 20 (current is 23) because
+  newer majors change the Stripe API version and a break would only show at
+  runtime; that can now be exercised in the dev sandbox. The storefront's Stripe
+  packages follow the backend's bump, never precede it.
 - **Same Azure subscription, its own resource group**, EU region.
 - **The dev environment was recreated in `westeurope`** on 2026-09-23 under
   `restaurant-ordering-*` names, replacing one that sat in `australiaeast` and
   `eastasia`. Three Static Web Apps and a Flex Consumption Functions app, all
   deployed by GitHub Actions using stable secret names.
 - **`infra/main.bicep`** in the backend repo describes one environment, so a
-  second is one command. Nothing described the old environment — it was built by
-  hand in the portal. The old resource groups still exist and are Manish's to
+  second is one command; it is parameterised (function app, storage and Cosmos
+  names, backup tier, log workspace, blob soft-delete, GitHub federated
+  credential) and production has its own parameter file with no secrets. The old
+  `australiaeast`/`eastasia` resource groups still exist and are Manish's to
   delete.
-- **Dev data is wiped and reseeded for Germany** — the existing seed is
-  Australian.
-- **Dependency upgrade is ticket zero**, before any feature work, with the
-  existing Playwright and unit tests as the safety net.
+- **Dev data was wiped and reseeded for Germany** (currency EUR, Europe/Berlin);
+  the dependency upgrade was ticket zero, before any feature work.
+
+### Production environment (decided 2026-11-10; nothing created yet)
+
+Production mirrors dev one-for-one (same resource types and SKUs), with these
+deliberate differences:
+
+- **Region: Germany West Central** for compute, data and telemetry — a German
+  product holding diners' personal data as processor for German restaurants. Dev
+  stays in West Europe. Static Web Apps are in West Europe because the service
+  is not offered in Germany West Central; they serve only static bundles and hold
+  no diner data. All data, including backups, stays in the one region, which
+  keeps the data-residency statement simple.
+- **Own identities everywhere.** Its own deploy identity (a user-assigned managed
+  identity with GitHub federated credentials for the `production` environment
+  only, least-privilege on the prod app alone — never a second credential on the
+  dev identity), its own workforce app registrations (§11), and its own
+  customer-auth app registration, never dev's client id, because the API checks
+  issuer and audience. **Open decision: whether production's customer-auth
+  (External ID) tenant is shared with dev or separate** — copyshop uses separate
+  tenants; sharing puts real owners next to test accounts and lets a dev-tenant
+  mistake hit prod sign-in.
+- **The database starts empty and the dev seed never runs against it** (the seed
+  wipes containers and refuses any non-dev account). Before the first restaurant
+  signs up, an operator provisions through the superadmin console: the three
+  plans (§9), their euro pricing with the live Stripe price ids, the German
+  reference lists saved once (so a future rate change is an attributed edit, not
+  a deploy), the platform legal identity (without it no restaurant can go live),
+  and a review of role permissions. Plans created this way get new ids; nothing
+  may depend on dev's plan ids.
+- **Payments:** live Stripe with a restricted key only (§8), two webhook
+  endpoints (connected-account events and platform events) each with its own
+  signing secret — mixing them up rejects every webhook, so a non-2xx-on-webhook
+  alert exists in production.
+- **Hardening dev lacks:** HTTPS-only function app, 30-day blob soft-delete,
+  Cosmos delete lock, Cosmos TLS 1.2, no localhost CORS origin.
+- **Backups:** Cosmos **continuous 30-day point-in-time restore** (not periodic —
+  periodic could lose up to four hours of orders), restored only into a new
+  account, with a restore drill once after go-live and quarterly after. App
+  settings are not backed up by Azure; their values live in the vault. This is
+  not the eight-year invoice archive (§10).
+- **Email:** without Azure Communication Services configured, order emails and
+  invoice PDFs are only logged, never sent, and diners would receive nothing.
+  Going live with real email is an explicit go-live decision, with the sending
+  domain authenticated (SPF, DKIM, DMARC).
+- **Idle cost is not zero:** the three timers (orders every minute, checkout
+  reconciliation every two minutes, subscriptions hourly) bill a few dollars a
+  month per environment and grow with the number of shops.
+- **Secrets** are never echoed, logged, committed or kept in local settings; the
+  function app's settings are written with output suppressed, and the platform
+  secret for staff tokens is generated fresh per environment (changing it signs
+  out every staff login).
+
+### Release pipeline
+
+Work merges into `dev` first; a release is `dev` merged into `main`; production
+receives the **same artifact dev built and tested** for that commit (artifacts
+are kept 90 days, so an older commit cannot be promoted — push a fresh one
+through dev). Promotion waits for the `production` environment's required
+reviewer. It **fails closed**: production reads its identity or deployment token
+from a secret name that exists only on the production environment (the backend's
+`AZURE_CLIENT_ID_PROD`, each front-end's deployment token), because GitHub falls
+back to a repo-level secret of the same name and a same-name secret would
+silently deploy as dev. Rollback after real data exists is re-promoting the
+previous tag; **production is never torn down once it holds data**, since
+deleting the Cosmos account destroys its continuous backups.
+
+**Front-ends bake their configuration in at build time** (Vite inlines every
+`VITE_*` value), so a front-end promoted unchanged from dev would call the dev
+API with the test Stripe key. **No front-end is promoted to production until its
+promote job rebuilds the tagged commit under the production environment's
+variables.** Every variable a front-end reads must also be mapped in its
+workflow's build step, or it silently becomes `undefined`.
+
+### Observability
+
+No failure path is silent: every internal-error response and every swallowed
+failure logs a line naming the handler or service, and a missing-configuration
+failure logs the names of the missing settings, never their values.
 
 ---
 
@@ -1700,7 +1996,7 @@ notice-and-action mini-slice → 6 → 9. Slice numbers below are unchanged.
    **Next after slice 8:** 5a (production readiness), then 6 (go live). Start
    from `plans/handoff-after-slice-8.md`.
 9. ~~**Embed widget**~~ — **out of scope for now** (Manish, 2026-10-09); a topic
-   for future discussion. Reasons and trade-offs in `deferred.md`.
+   for future discussion. Reasons and trade-offs in §22.
 
 **Start with the order model.** Everything in intake, scheduling, tax-by-mode
 and reporting hangs off it, and every day it waits is another feature built
@@ -1710,9 +2006,127 @@ against the wrong shape.
 
 ## 22. Explicitly out of scope
 
-See `deferred.md` for each item's reason and whether it is *later* or *never*.
-Headline: no POS or till, no kiosks, no menu boards, no branded apps, no driver
-routing, no reservations, no directory beyond the plain root list, no custom domains, no customer
-accounts, no platform-wide loyalty, no cross-restaurant carts, no tips, no SEO,
-no order editing, no pay-at-till, no custom sending domains, no embedded
-ordering widget for now (open for future discussion).
+Everything ruled out during the design interview of 2026-08-26/27 and later,
+with the reason, so a parked idea is never thought through twice. If one comes
+back, read the reason first — it usually still applies, and where it doesn't, the
+reason says exactly what changed. **Later** = deliberately not in the first
+releases and the design already accommodates it. **Never** = actively rejected;
+bringing it back means undoing a decision something else depends on.
+
+### Never — rejected on principle
+
+- **Platform-wide customer accounts** (cross-restaurant order history). It would
+  make Manish a data *controller* of diners' data, with his own privacy policy,
+  erasure duties and liability, while he is in Australia with no EU
+  establishment and wants to be processor only. Bringing it back is a legal
+  decision (controller status, an EU-facing privacy policy, direct regulatory
+  exposure), not a feature decision.
+- **Customer accounts of any kind.** Guest checkout only; it removes passwords,
+  resets, lockouts, account pages and a category of stored personal data. Order
+  status and receipts reach the diner through the secret token link in their
+  email; "remember my details" is browser-local; reordering is from a link in a
+  past email; loyalty is emailed single-use vouchers, not a balance.
+- **Platform-wide loyalty points** (earn at one restaurant, spend at another).
+  Settling value between two businesses makes the platform a clearing house,
+  breaking the rule that no customer money touches it. Loyalty is per
+  restaurant, always.
+- **Cross-restaurant shopping carts.** One payment split across Stripe accounts
+  makes the platform a money transmitter. One restaurant per cart.
+- **Custom sending domain for email.** One sending reputation to protect instead
+  of hundreds, and restaurants that cannot configure DNS would never find out
+  their confirmations were failing silently (§17).
+- **Editing an order after it is placed.** It means recalculating totals,
+  adjusting the payment and re-issuing the receipt for a diner who picked the
+  wrong dish; cancellation until acceptance covers the real need (§7).
+- **Dine-in "pay at the till" and running tabs.** A tab across orders, one bill,
+  split payments — and probably German cash-register law (the certified security
+  element and its record-keeping) once the platform records a dine-in sale.
+  Table ordering is pay now, table attached (§3).
+- **Tips / digital tipping.** A tip at checkout lands in the restaurant's account
+  as business income rather than the tax-free cash gratuity an employee gets
+  directly, and passing it to staff means payroll. A tax question shipped on for
+  everybody becomes the platform's support burden.
+- **Search-engine indexing and SEO features.** Storefronts carry `noindex`, no
+  structured data, no per-restaurant switch: the storefront is a destination for
+  people following the restaurant's own link and must not compete with its own
+  website. Kept anyway, not as SEO: page title and link-preview card (§16).
+- **Custom domains for storefronts.** Per-tenant DNS verification, certificates
+  and routing for a cosmetic gain; the embed widget (below) would solve the same
+  "look like my site" need better.
+- **Hardware and adjacent products:** POS/till, self-order kiosks, digital menu
+  boards, drive-thru, branded per-restaurant customer apps, driver apps with live
+  tracking and route planning — each a hardware business in a software coat that
+  would double the support burden for one customer segment.
+- **Cash / pay-in-person.** Built 2026-10-02 and deliberately deleted 2026-10-05
+  (§8); not a gap.
+- **A second owner per restaurant** (§11).
+
+### Later — designed for, not yet built
+
+- **Embedded ordering widget** (a snippet for the restaurant's own website). Out
+  of scope for now (Manish, 2026-10-09), kept as a topic for future discussion.
+  It mostly wins restaurants that already have a website, while the first release
+  targets small restaurants for whom a plain "Order online" link does the job;
+  it also brings Safari's blocking of storage in embedded frames, per-restaurant
+  Apple/Google Pay domain setup and an "it looks off on my site" support load.
+  The cost of omitting it: the main sales argument for restaurants with their own
+  site, diners leaving the restaurant's site to order, and no home for "make the
+  storefront look like my site" requests. Coming back is cheap — it sits on top
+  of the existing storefront.
+- **Native mobile apps** (React Native, same API) once the web version has real
+  users. Until then the owner's order screen is an installable web page.
+- **Live order-status page for diners** beyond the self-refreshing order page
+  (§7); the full state machine is recorded from day one so it is cheap.
+- **Menu import** (from a photo or a competitor export); the menu model must not
+  preclude it.
+- **Review collection and marketing emails.**
+- **Buyable add-on modules** alongside the tiers (candidates: invoicing,
+  reservations, advanced promotions). v1 is tiers only; plans are data, so this
+  is a reversible pricing-page decision. Capability keys are not stored yet —
+  plans carry numeric limits only — and the key list is added with the first
+  module, because a list nothing reads is dead configuration.
+- **Reservations and deposits.** Cut from v1 after detailed design: deposit
+  charged to the restaurant's own Stripe account, auto-refunded when staff mark
+  the party arrived, kept on a no-show after a grace period.
+- **Superadmin roles** beyond Manish (§11) and **owner-editable role
+  permissions**: per-restaurant editing waits until real owners say which
+  permission they wanted to move.
+- **Per-item preparation times driving the ready-time estimate**: captured from
+  day one, but a computed estimate is only as good as numbers nobody fills in
+  accurately at signup; it earns its place once there is real data (§5).
+- **Multi-location billing discount.** Each restaurant keeps its own
+  subscription, limits never pool; a discount for owners running several is a
+  later pricing move.
+- **Storage-based tier limits.** Storage is not gated; the menu is already
+  unlimited and policing a megabyte number nobody understands is not worth the
+  support.
+- **Advertising pixels and the cookie banner that follows.** No non-essential
+  cookies in v1, hence no banner; a restaurant's own Google or Meta pixel
+  becomes an opt-in that switches the banner on for that storefront only (§15).
+- **A public directory beyond the plain root list** (§1). Genuinely unsure it
+  will come. A directory that only lists restaurants and links out holds
+  business data and leaves the processor-only structure intact; it becomes a
+  controller problem the moment the platform uses diner data for its own
+  purposes (cross-restaurant accounts, "your orders everywhere", marketing to
+  diners). The moderation argument for not having one still applies.
+- **Thermal printers** (§5) and **secret per-table codes** (§3).
+- **Business buyers and e-invoices** (§10).
+- **Ideas parked on 2026-10-11 (Manish chose these for later):** an "add a
+  drink?" upsell before checkout; menu search on the storefront (Ma Pasta has 50
+  items); diet and allergen filters for diners; an "order again" that refills the
+  basket from the order's secret link; "sold out until tomorrow" from the order
+  board (the dish returns by itself next morning); "popular" badges from the
+  sales report; suggested translations on a two-language menu.
+- **Parked from the 2026-10-13 triage (real but someday):** a dish
+  `unavailableUntil` plus a stock-only staff permission (`manage_stock`) — today
+  availability is a plain flag editable only with `manage_menu`, and declining
+  with "item unavailable" does not touch the dish; a shop-wide library of option
+  groups so one "out of Coke" switch covers every dish (option groups are copied
+  per dish today); translated offer labels; a monthly batch download of invoices
+  and corrections (§10); removing a logo once set; resolving staff and shop
+  names, instead of ids, in the activity log.
+- **Dependency majors held back:** admin i18next 26 / react-i18next 17 /
+  i18next-http-backend 4 (translation breakage only shows at runtime, so it needs
+  a browser pass in both languages); unpinning the admin's React-hooks lint
+  plugin from 7.0.1 (the original blocker is gone and the lint count is
+  unchanged); the Stripe majors (§20) and Tailwind 4 (§19).
