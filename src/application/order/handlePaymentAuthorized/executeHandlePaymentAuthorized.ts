@@ -86,8 +86,6 @@ export async function executeHandlePaymentAuthorized(input: {
     await notifyCustomer('order_rejected', released.order ?? toWrite, shop);
     return 'declined_shop_unavailable';
   }
-  // The order is live: signal the open kitchen boards and installed devices (never throws).
-  if (inLiveQueue) await notifyShopNewOrder(order, shop);
   // The card is reserved: the booked place is kept for good, even if its hold lapsed meanwhile.
   if (order.scheduledFor) await fixSlotPlace({ shop, orderId: order.id, slot: order.scheduledFor, now });
 
@@ -105,5 +103,7 @@ export async function executeHandlePaymentAuthorized(input: {
     }
   }
   if (sendReceived) await notifyCustomer('order_received', order, shop);
+  // The order is live and capture has been attempted: signal the open kitchen boards and installed devices (never throws).
+  if (inLiveQueue) await notifyShopNewOrder(order, shop);
   return 'created';
 }
