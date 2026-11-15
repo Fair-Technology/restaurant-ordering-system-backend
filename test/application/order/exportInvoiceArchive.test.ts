@@ -89,7 +89,8 @@ describe('executeExportInvoiceArchive', () => {
   it('asks the repository for the shop-local month', async () => {
     await executeExportInvoiceArchive({ shopId: CARD_SHOP.id, month: '2026-10' }, http);
     const [, from, to] = m.findInvoiceDocumentsIssuedBetween.mock.calls[0];
-    expect(Date.parse(to) - Date.parse(from)).toBe(31 * 24 * 3_600_000 + 3_600_000 // Berlin leaves DST on 25 Oct: the month is an hour longer);
+    // Berlin leaves DST on 25 Oct, so October is an hour longer than 31 days.
+    expect(Date.parse(to) - Date.parse(from)).toBe(31 * 24 * 3_600_000 + 3_600_000);
   });
 
   it('refuses a staff manager', async () => {
