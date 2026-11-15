@@ -22,6 +22,13 @@ vi.mock('../../src/infrastructure/cosmos/cosmosClient');
 vi.mock('../../src/infrastructure/cosmos/shop/CosmosShopRepository', async (io) => ({
   ...(await io<object>()),
   findShopById: vi.fn(),
+  createShop: vi.fn(),
+  updateShop: vi.fn(),
+  replaceShopIfMatch: vi.fn(),
+  deleteShop: vi.fn(),
+  patchShopFields: vi.fn(),
+  patchShopPath: vi.fn(),
+  deleteShopIfMatch: vi.fn(),
 }));
 vi.mock('../../src/infrastructure/cosmos/order/CosmosOrderRepository', async (io) => ({
   ...(await io<object>()),
@@ -32,41 +39,65 @@ vi.mock('../../src/infrastructure/cosmos/order/CosmosOrderRepository', async (io
   countOrdersByShopId: vi.fn(),
   listDiscountUseRows: vi.fn(),
   findReportRows: vi.fn(),
+  createOrder: vi.fn(),
+  replaceOrder: vi.fn(),
+  replaceOrderIfMatch: vi.fn(),
 }));
 vi.mock('../../src/infrastructure/cosmos/promotion/CosmosPromotionRepository', async (io) => ({
   ...(await io<object>()),
   findPromotions: vi.fn(),
+  createPromotions: vi.fn(),
+  replacePromotionsIfMatch: vi.fn(),
+  createVoucher: vi.fn(),
 }));
 vi.mock('../../src/infrastructure/cosmos/system/CosmosPlatformLegalIdentityRepository', async (io) => ({
   ...(await io<object>()),
   getPlatformLegalIdentity: vi.fn(),
+  savePlatformLegalIdentity: vi.fn(),
 }));
 vi.mock('../../src/infrastructure/cosmos/system/CosmosRolePermissionsRepository', async (io) => ({
   ...(await io<object>()),
   getRolePermissions: vi.fn(),
+  saveRolePermissions: vi.fn(),
+}));
+vi.mock('../../src/infrastructure/cosmos/system/CosmosSystemConfigRepository', async (io) => ({
+  ...(await io<object>()),
+  getSystemConfig: vi.fn(),
+  upsertSystemConfig: vi.fn(),
 }));
 vi.mock('../../src/infrastructure/cosmos/product/CosmosProductRepository', async (io) => ({
   ...(await io<object>()),
   findProductsByShopId: vi.fn(),
   findProductById: vi.fn(),
+  createProduct: vi.fn(),
+  updateProduct: vi.fn(),
+  deleteProduct: vi.fn(),
 }));
 vi.mock('../../src/infrastructure/cosmos/category/CosmosCategoryRepository', async (io) => ({
   ...(await io<object>()),
   findCategoriesByShopId: vi.fn(),
   findCategoryById: vi.fn(),
+  createCategory: vi.fn(),
+  updateCategory: vi.fn(),
+  deleteCategory: vi.fn(),
 }));
 vi.mock('../../src/infrastructure/cosmos/staff/CosmosStaffAccountRepository', async (io) => ({
   ...(await io<object>()),
   listStaffAccounts: vi.fn(),
   findStaffAccountById: vi.fn(),
+  createStaffAccount: vi.fn(),
+  replaceStaffAccount: vi.fn(),
 }));
 vi.mock('../../src/infrastructure/cosmos/audit/CosmosAuditRepository', async (io) => ({
   ...(await io<object>()),
   findAuditEntriesByShop: vi.fn(),
+  createAuditEntry: vi.fn(),
 }));
 vi.mock('../../src/infrastructure/cosmos/user/CosmosUserRepository', async (io) => ({
   ...(await io<object>()),
   findUserById: vi.fn(),
+  upsertUser: vi.fn(),
+  patchUserLimits: vi.fn(),
 }));
 vi.mock('../../src/infrastructure/cosmos/subscription/CosmosSubscriptionRepository', async (io) => ({
   ...(await io<object>()),
@@ -77,14 +108,19 @@ vi.mock('../../src/infrastructure/cosmos/plan/CosmosPlanRepository', async (io) 
   ...(await io<object>()),
   findDefaultPlan: vi.fn(),
   findPlanById: vi.fn(),
+  createPlan: vi.fn(),
+  updatePlan: vi.fn(),
 }));
 vi.mock('../../src/infrastructure/cosmos/usage/CosmosUsageRepository', async (io) => ({
   ...(await io<object>()),
   findUsageByShopId: vi.fn(),
+  upsertUsage: vi.fn(),
+  incrementAcceptedOrders: vi.fn(),
 }));
 vi.mock('../../src/infrastructure/cosmos/invoice/CosmosInvoiceRepository', async (io) => ({
   ...(await io<object>()),
   findInvoiceById: vi.fn(),
+  commitInvoice: vi.fn(),
 }));
 vi.mock('../../src/infrastructure/pdf/invoicePdf', async (io) => ({
   ...(await io<object>()),
@@ -116,7 +152,16 @@ import { executeCreateCategory } from '../../src/application/category/createCate
 import { executeUpdateShop } from '../../src/application/shop/updateShop/executeUpdateShop';
 import { executeDeleteShop } from '../../src/application/shop/deleteShop/executeDeleteShop';
 
-import { findShopById } from '../../src/infrastructure/cosmos/shop/CosmosShopRepository';
+import {
+  findShopById,
+  createShop,
+  updateShop,
+  replaceShopIfMatch,
+  deleteShop,
+  patchShopFields,
+  patchShopPath,
+  deleteShopIfMatch,
+} from '../../src/infrastructure/cosmos/shop/CosmosShopRepository';
 import {
   findOrderById,
   findOrderByStripePaymentIntentId,
@@ -125,19 +170,54 @@ import {
   countOrdersByShopId,
   listDiscountUseRows,
   findReportRows,
+  createOrder,
+  replaceOrder,
+  replaceOrderIfMatch,
 } from '../../src/infrastructure/cosmos/order/CosmosOrderRepository';
-import { findPromotions } from '../../src/infrastructure/cosmos/promotion/CosmosPromotionRepository';
-import { getPlatformLegalIdentity } from '../../src/infrastructure/cosmos/system/CosmosPlatformLegalIdentityRepository';
-import { getRolePermissions } from '../../src/infrastructure/cosmos/system/CosmosRolePermissionsRepository';
-import { findProductsByShopId, findProductById } from '../../src/infrastructure/cosmos/product/CosmosProductRepository';
-import { findCategoriesByShopId, findCategoryById } from '../../src/infrastructure/cosmos/category/CosmosCategoryRepository';
-import { listStaffAccounts, findStaffAccountById } from '../../src/infrastructure/cosmos/staff/CosmosStaffAccountRepository';
-import { findAuditEntriesByShop } from '../../src/infrastructure/cosmos/audit/CosmosAuditRepository';
-import { findUserById } from '../../src/infrastructure/cosmos/user/CosmosUserRepository';
+import {
+  findPromotions,
+  createPromotions,
+  replacePromotionsIfMatch,
+  createVoucher,
+} from '../../src/infrastructure/cosmos/promotion/CosmosPromotionRepository';
+import {
+  getPlatformLegalIdentity,
+  savePlatformLegalIdentity,
+} from '../../src/infrastructure/cosmos/system/CosmosPlatformLegalIdentityRepository';
+import {
+  getRolePermissions,
+  saveRolePermissions,
+} from '../../src/infrastructure/cosmos/system/CosmosRolePermissionsRepository';
+import {
+  getSystemConfig,
+  upsertSystemConfig,
+} from '../../src/infrastructure/cosmos/system/CosmosSystemConfigRepository';
+import {
+  findProductsByShopId,
+  findProductById,
+  createProduct,
+  updateProduct,
+  deleteProduct,
+} from '../../src/infrastructure/cosmos/product/CosmosProductRepository';
+import {
+  findCategoriesByShopId,
+  findCategoryById,
+  createCategory,
+  updateCategory,
+  deleteCategory,
+} from '../../src/infrastructure/cosmos/category/CosmosCategoryRepository';
+import {
+  listStaffAccounts,
+  findStaffAccountById,
+  createStaffAccount,
+  replaceStaffAccount,
+} from '../../src/infrastructure/cosmos/staff/CosmosStaffAccountRepository';
+import { findAuditEntriesByShop, createAuditEntry } from '../../src/infrastructure/cosmos/audit/CosmosAuditRepository';
+import { findUserById, upsertUser, patchUserLimits } from '../../src/infrastructure/cosmos/user/CosmosUserRepository';
 import { findSubscriptionByShopId, upsertSubscription } from '../../src/infrastructure/cosmos/subscription/CosmosSubscriptionRepository';
-import { findDefaultPlan, findPlanById } from '../../src/infrastructure/cosmos/plan/CosmosPlanRepository';
-import { findUsageByShopId } from '../../src/infrastructure/cosmos/usage/CosmosUsageRepository';
-import { findInvoiceById } from '../../src/infrastructure/cosmos/invoice/CosmosInvoiceRepository';
+import { findDefaultPlan, findPlanById, createPlan, updatePlan } from '../../src/infrastructure/cosmos/plan/CosmosPlanRepository';
+import { findUsageByShopId, upsertUsage, incrementAcceptedOrders } from '../../src/infrastructure/cosmos/usage/CosmosUsageRepository';
+import { findInvoiceById, commitInvoice } from '../../src/infrastructure/cosmos/invoice/CosmosInvoiceRepository';
 import { renderInvoicePdf } from '../../src/infrastructure/pdf/invoicePdf';
 
 const http = {} as HttpRequest;
@@ -207,6 +287,52 @@ const writes: Array<[string, () => Promise<{ ok: boolean; code?: string }>]> = [
   ['deleteShop', () => executeDeleteShop({ shopId: S } as never, http)],
 ];
 
+// Every write-shaped repository function a covered read could reach. Each is a vi.fn() spy in the
+// module factories above, so an accidental call is recorded instead of reaching Cosmos. No covered
+// read reaches blob storage, so there is no blob write here.
+const writeSpies: Array<[string, unknown]> = [
+  ['createShop', createShop],
+  ['updateShop', updateShop],
+  ['replaceShopIfMatch', replaceShopIfMatch],
+  ['deleteShop', deleteShop],
+  ['patchShopFields', patchShopFields],
+  ['patchShopPath', patchShopPath],
+  ['deleteShopIfMatch', deleteShopIfMatch],
+  ['createOrder', createOrder],
+  ['replaceOrder', replaceOrder],
+  ['replaceOrderIfMatch', replaceOrderIfMatch],
+  ['createPromotions', createPromotions],
+  ['replacePromotionsIfMatch', replacePromotionsIfMatch],
+  ['createVoucher', createVoucher],
+  ['savePlatformLegalIdentity', savePlatformLegalIdentity],
+  ['saveRolePermissions', saveRolePermissions],
+  ['upsertSystemConfig', upsertSystemConfig],
+  ['createProduct', createProduct],
+  ['updateProduct', updateProduct],
+  ['deleteProduct', deleteProduct],
+  ['createCategory', createCategory],
+  ['updateCategory', updateCategory],
+  ['deleteCategory', deleteCategory],
+  ['createStaffAccount', createStaffAccount],
+  ['replaceStaffAccount', replaceStaffAccount],
+  ['createAuditEntry', createAuditEntry],
+  ['upsertUser', upsertUser],
+  ['patchUserLimits', patchUserLimits],
+  ['upsertSubscription', upsertSubscription],
+  ['createPlan', createPlan],
+  ['updatePlan', updatePlan],
+  ['upsertUsage', upsertUsage],
+  ['incrementAcceptedOrders', incrementAcceptedOrders],
+  ['commitInvoice', commitInvoice],
+];
+
+// The 17 covered reads. getShop is not in `reads` because a customer-tenant token still gets its
+// public view rather than a refusal; it is a covered read all the same.
+const coveredReads: Array<[string, () => Promise<{ ok: boolean; code?: string }>]> = [
+  ...reads,
+  ['getShop', () => executeGetShop({ shopId: S } as never, http)],
+];
+
 describe('Platform.ReadOnly on shop-scoped routes', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -270,10 +396,9 @@ describe('Platform.ReadOnly on shop-scoped routes', () => {
     expect((await executeGetOrderQueue({ shopId: S }, http)).ok).toBe(true);
   });
 
-  // The GET is on the ReadOnly list, but its read path lazily creates a shop_subscriptions
-  // document for shops that pre-date billing. Creating it is a write, so a platform operator's
-  // read must return the derived default without persisting it.
-  describe('getShopSubscription: the lazy init must never run for a platform operator', () => {
+  // The GET is a covered read: it derives the default plan in memory and never persists it, for
+  // any caller. The document is created by createShop and by the billing write flows only.
+  describe('getShopSubscription: the read never initialises a missing subscription', () => {
     it('ReadOnly reads the derived default and writes nothing', async () => {
       vi.mocked(findSubscriptionByShopId).mockResolvedValue(null as never);
       const res = await executeGetShopSubscription(S, http);
@@ -293,13 +418,34 @@ describe('Platform.ReadOnly on shop-scoped routes', () => {
       expect(res.ok).toBe(true);
     });
 
-    it("the shop's own owner still initialises a missing subscription", async () => {
+    it("the shop's own owner reads the missing subscription without initialising it", async () => {
       principalRef.current = owner;
       vi.mocked(findSubscriptionByShopId).mockResolvedValue(null as never);
       const res = await executeGetShopSubscription(S, http);
-      expect(upsertSubscription).toHaveBeenCalledTimes(1);
-      expect(upsertSubscription).toHaveBeenCalledWith(expect.objectContaining({ shopId: S, planId: 'plan-basic' }));
+      expect(upsertSubscription).not.toHaveBeenCalled();
       expect(res.ok).toBe(true);
+      if (res.ok) {
+        expect(res.data.subscription.planId).toBe('plan-basic');
+      }
     });
   });
+
+  // A covered read must never write. Every write-shaped repository function a read could reach is
+  // a spy (the module factories above), so a call is recorded rather than thrown. Each of the 17
+  // covered reads is run against a shop with no subscription document - once as the shop's own
+  // owner and once as Platform.ReadOnly - and every spy must stay silent.
+  for (const [who, whoPrincipal] of [
+    ["the shop's own owner", owner],
+    ['Platform.ReadOnly', readOnly],
+  ] as Array<[string, unknown]>) {
+    it.each(coveredReads)(`read %s as ${who}: writes nothing`, async (_n, call) => {
+      principalRef.current = whoPrincipal;
+      const res = await call();
+      expect(res.ok).toBe(true);
+      const called = writeSpies
+        .filter(([, spy]) => (spy as { mock: { calls: unknown[] } }).mock.calls.length > 0)
+        .map(([name]) => name);
+      expect(called).toEqual([]);
+    });
+  }
 });

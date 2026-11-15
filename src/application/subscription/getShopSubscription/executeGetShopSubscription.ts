@@ -11,12 +11,13 @@ import { defaultSubscription } from '../../../domain/subscription/ShopSubscripti
 import { FALLBACK_DEFAULT_PLAN_ID } from '../../../domain/subscription/entitlements';
 
 /**
- * The restaurant's subscription (created on first read for restaurants that pre-date billing), its plan and entitlements.
+ * The restaurant's subscription, its plan and entitlements.
  *
- * `initIfMissing` (default `true`) controls that lazy init. A platform operator reads with it
- * `false`: creating the document is a write, so a `Platform.ReadOnly` principal - or any
- * platform operator on a route that must not write - gets the derived default without one
- * being persisted. The shop's own owner/staff keep the initialising behaviour.
+ * `initIfMissing` (default `true`) controls the lazy init kept for the billing write flows:
+ * the document is created by `createShop` and by `confirmCheckout`, `retryPayment` and
+ * `cancelScheduledChange`. A read must never create, back-fill or sync a record
+ * (docs/specs.md §11), so `executeGetShopSubscription` always passes `false`: every caller
+ * gets the derived default plan in memory and nothing is persisted.
  */
 export async function loadShopSubscriptionResult(
   shopId: string,
@@ -53,10 +54,10 @@ export async function executeGetShopSubscription(
     const access = await authorizeShopAction(httpRequest, shop, 'manage_billing', { allowSuperadmin: true, allowPlatformRead: true });
     if (!access.ok) return access;
 
-    // A platform operator reads the derived default without creating it. The lazy init is a
-    // write, and `allowPlatformRead` admits Platform.ReadOnly - see docs/specs.md §11.
-    const initIfMissing = access.actor.actorType !== 'superadmin';
-    return { ok: true, data: await loadShopSubscriptionResult(shopId, { initIfMissing }) };
+    // A read never writes: derive the default plan in memory for every caller and leave the
+    // document uncreated - it is created by createShop and by the billing write flows. See
+    // docs/specs.md §11.
+    return { ok: true, data: await loadShopSubscriptionResult(shopId, { initIfMissing: false }) };
   } catch (error: any) {
     if (error.message === 'Authentication required') {
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };

@@ -366,7 +366,7 @@
     "/orders/by-payment-intent/{paymentIntentId}": {
       "get": {
         "summary": "Get order by Stripe payment intent ID",
-        "description": "Retrieves order details using the Stripe payment intent ID. The payment intent ID is available on the frontend from stripe.confirmPayment() result or by parsing the clientSecret (format: pi_xxx_secret_xxx). Returns 404 if the order has not yet been created (webhook not yet processed) — poll with back-off until a 200 is returned.",
+        "description": "Retrieves order details using the Stripe payment intent ID. The payment intent ID is available on the frontend from stripe.confirmPayment() result or by parsing the clientSecret (format: pi_xxx_secret_xxx). Returns 404 if the order has not yet been created (webhook not yet processed) — poll with back-off until a 200 is returned. Access: the restaurant's owner or staff with the `view_orders` permission; platform operators (Platform.Owner, Platform.Support, Platform.ReadOnly) may also read. A read never writes.",
         "operationId": "getOrderByPaymentIntent",
         "tags": [
           "Orders"
@@ -1381,6 +1381,7 @@
       },
       "get": {
         "summary": "Get products by shop",
+        "description": "Access: the restaurant's owner or staff with the `manage_menu` permission; platform operators (Platform.Owner, Platform.Support, Platform.ReadOnly) may also read. A read never writes.",
         "operationId": "getProductsByShop",
         "tags": [
           "Products"
@@ -1498,6 +1499,7 @@
       },
       "get": {
         "summary": "Get product by ID",
+        "description": "Access: the restaurant's owner or staff; platform operators (Platform.Owner, Platform.Support, Platform.ReadOnly) may also read. A read never writes.",
         "operationId": "getProductById",
         "tags": [
           "Products"
@@ -1903,6 +1905,7 @@
       },
       "get": {
         "summary": "Get shop by ID",
+        "description": "Access: the restaurant's owner or staff; platform operators (Platform.Owner, Platform.Support, Platform.ReadOnly) may also read. A read never writes.",
         "operationId": "getShopById",
         "tags": [
           "Shops"
@@ -2214,6 +2217,7 @@
     },
     "/shops/{shopId}/audit": {
       "get": {
+        "description": "Access: the restaurant's owner or staff with the `view_audit` permission; platform operators (Platform.Owner, Platform.Support, Platform.ReadOnly) may also read. A read never writes.",
         "operationId": "getAuditEntries",
         "tags": [
           "Audit"
@@ -2482,6 +2486,7 @@
       },
       "get": {
         "summary": "Get categories by shop",
+        "description": "Access: the restaurant's owner or staff; platform operators (Platform.Owner, Platform.Support, Platform.ReadOnly) may also read. A read never writes.",
         "operationId": "getCategoriesByShop",
         "tags": [
           "Categories"
@@ -2588,6 +2593,7 @@
       },
       "get": {
         "summary": "Get category by ID",
+        "description": "Access: the restaurant's owner or staff; platform operators (Platform.Owner, Platform.Support, Platform.ReadOnly) may also read. A read never writes.",
         "operationId": "getCategoryById",
         "tags": [
           "Categories"
@@ -2860,7 +2866,7 @@
       },
       "get": {
         "summary": "List combos",
-        "description": "The restaurant combos, sorted by name. Includes images and translations.",
+        "description": "The restaurant combos, sorted by name. Includes images and translations. Access: the restaurant's owner or staff with the `manage_menu` permission; platform operators (Platform.Owner, Platform.Support, Platform.ReadOnly) may also read. A read never writes.",
         "operationId": "getCombos",
         "tags": [
           "Combos"
@@ -3598,6 +3604,7 @@
     },
     "/shops/{shopId}/legal": {
       "get": {
+        "description": "Access: the restaurant's owner or staff with the `manage_shop` permission; platform operators (Platform.Owner, Platform.Support, Platform.ReadOnly) may also read. A read never writes.",
         "operationId": "getShopLegal",
         "tags": [
           "Legal"
@@ -4150,6 +4157,7 @@
     },
     "/shops/{shopId}/order-limit": {
       "get": {
+        "description": "Access: the restaurant's owner or staff; platform operators (Platform.Owner, Platform.Support, Platform.ReadOnly) may also read. A read never writes.",
         "operationId": "getOrderLimit",
         "tags": [
           "Usage"
@@ -4199,6 +4207,7 @@
     },
     "/shops/{shopId}/order-queue": {
       "get": {
+        "description": "Access: the restaurant's owner or staff with the `view_orders` permission; platform operators (Platform.Owner, Platform.Support, Platform.ReadOnly) may also read. A read never writes.",
         "operationId": "getOrderQueue",
         "tags": [
           "Orders"
@@ -4382,6 +4391,7 @@
     "/shops/{shopId}/orders": {
       "get": {
         "summary": "List orders for a shop",
+        "description": "Access: the restaurant's owner or staff with the `view_orders` permission; platform operators (Platform.Owner, Platform.Support, Platform.ReadOnly) may also read. A read never writes.",
         "operationId": "getOrdersByShop",
         "tags": [
           "Orders"
@@ -4630,8 +4640,8 @@
     },
     "/shops/{shopId}/orders/{orderId}/documents/{documentId}": {
       "get": {
-        "summary": "Download an invoice or correction invoice (staff)",
-        "description": "documentId is the order id for the invoice, or the order id followed by -c1, -c2 and so on for correction invoices. A document of another order or restaurant is 404.",
+        "summary": "Download an invoice or correction invoice (staff or platform operator)",
+        "description": "documentId is the order id for the invoice, or the order id followed by -c1, -c2 and so on for correction invoices. A document of another order or restaurant is 404. Access: the restaurant's owner or staff with the `view_orders` permission; platform operators (Platform.Owner, Platform.Support, Platform.ReadOnly) may also read. A read never writes.",
         "operationId": "getOrderDocument",
         "tags": [
           "Orders"
@@ -5062,6 +5072,7 @@
     },
     "/shops/{shopId}/promotions": {
       "get": {
+        "description": "Access: the restaurant's owner or staff with the `manage_shop` permission; platform operators (Platform.Owner, Platform.Support, Platform.ReadOnly) may also read. A read never writes.",
         "operationId": "getPromotions",
         "tags": [
           "Promotions"
@@ -5324,6 +5335,7 @@
     },
     "/shops/{shopId}/reports/sales": {
       "get": {
+        "description": "Access: the restaurant's owner or staff with the `view_reports` permission; platform operators (Platform.Owner, Platform.Support, Platform.ReadOnly) may also read. A read never writes.",
         "operationId": "getSalesReport",
         "tags": [
           "Reports"
@@ -5523,6 +5535,7 @@
         }
       },
       "get": {
+        "description": "Access: the restaurant's owner or staff with the `manage_staff` permission; platform operators (Platform.Owner, Platform.Support, Platform.ReadOnly) may also read. A read never writes.",
         "operationId": "listStaff",
         "tags": [
           "Staff"
@@ -5948,6 +5961,7 @@
         }
       },
       "get": {
+        "description": "Access: the restaurant's owner or staff with the `manage_billing` permission; platform operators (Platform.Owner, Platform.Support, Platform.ReadOnly) may also read. A read never writes. Never creates the subscription document: a shop without one gets the default plan derived in memory.",
         "operationId": "getShopSubscription",
         "tags": [
           "Subscriptions"
