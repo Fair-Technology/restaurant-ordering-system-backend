@@ -103,6 +103,15 @@ Function App. The dev app already has it.
 settings list.** Every hand-set secret and the settings above would be wiped.
 Re-apply them from the vault `.env` straight after any deployment.
 
+## Eight-year archive timer
+
+The daily `archiveTimer` function (02:17 UTC) exports `orders` + `invoices` and
+writes them to the private `records-archive` container (docs/specs.md §10, §20).
+Without a `COSMOS_DB_KEY` it reads Cosmos as the deployment identity, which needs
+the Cosmos data-plane **Built-in Data Reader** role on the app database — the
+template creates that assignment (`identityCosmosRead`). Blob write comes from the
+existing Storage Blob Data Owner assignment (`identityStorageAccess`).
+
 ## Card payments and invoices
 
 Every order is paid by card. At checkout the diner's card is only **reserved**

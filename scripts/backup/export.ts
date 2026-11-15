@@ -2,7 +2,7 @@
 //   COSMOS_DB_ENDPOINT, COSMOS_DB_KEY, COSMOS_DB_DATABASE_ID   (names only; values from the environment)
 //   npx ts-node --transpile-only scripts/backup/export.ts <outDir>
 import { CosmosClient } from '@azure/cosmos';
-import { exportArchive } from './archiveLib';
+import { exportArchive } from '../../src/infrastructure/archive/archiveLib';
 
 async function main() {
   const outDir = process.argv[2];

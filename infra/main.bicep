@@ -322,6 +322,7 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
 }
 
 // The identity reads the deployment package and holds the host's timer leases.
+// This same assignment is what lets the archiveTimer function write to records-archive.
 var storageBlobDataOwner = 'b7e6dc6d-f1e8-4753-8033-0f276bb0955b'
 resource identityStorageAccess 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   name: guid(storage.id, identity.id, storageBlobDataOwner)
@@ -330,6 +331,19 @@ resource identityStorageAccess 'Microsoft.Authorization/roleAssignments@2022-04-
     principalId: identity.properties.principalId
     principalType: 'ServicePrincipal'
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', storageBlobDataOwner)
+  }
+}
+
+// Cosmos data-plane READ for the identity, so the daily archiveTimer can export orders + invoices
+// without a key. Built-in Data Reader, scoped to the app database only.
+var cosmosDataReader = '00000000-0000-0000-0000-000000000001'
+resource identityCosmosRead 'Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments@2024-11-15' = {
+  parent: cosmos
+  name: guid(cosmos.id, identity.id, cosmosDataReader)
+  properties: {
+    roleDefinitionId: resourceId('Microsoft.DocumentDB/databaseAccounts/sqlRoleDefinitions', cosmosName, cosmosDataReader)
+    principalId: identity.properties.principalId
+    scope: '${cosmos.id}/dbs/${databaseName}'
   }
 }
 

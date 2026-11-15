@@ -3,7 +3,7 @@
 //   npx ts-node --transpile-only scripts/backup/restore.ts <archiveDir>
 // Deliberately uses RESTORE_* names, never COSMOS_DB_*, so a shell configured for the app cannot be a target.
 import { CosmosClient } from '@azure/cosmos';
-import { restoreArchive } from './archiveLib';
+import { restoreArchive } from '../../src/infrastructure/archive/archiveLib';
 
 async function main() {
   const dir = process.argv[2];

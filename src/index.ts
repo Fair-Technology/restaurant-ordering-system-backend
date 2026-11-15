@@ -71,6 +71,9 @@ import './functions/order/reconcileCheckouts/index';
 import './functions/shop/shopWindDownTimer/index';
 import './functions/shop/runShopWindDownWithClock/index';
 
+// Daily eight-year archive of orders + invoices to the private records-archive blob container (SPECS §10, §20).
+import './functions/archive/archiveTimer/index';
+
 // Promotion endpoints
 import './functions/promotion/getPromotions/index';
 import './functions/promotion/createDiscountCode/index';
