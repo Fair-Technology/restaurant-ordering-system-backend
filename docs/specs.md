@@ -1499,11 +1499,15 @@ work. One exception that is not SEO: a page title and a **link-preview card**
 Function, so a URL pasted into WhatsApp renders as a card and not a grey box.
 
 **How the card and `noindex` work (built 2026-11-13 in the storefront repo;
-deployed behaviour still to be verified).** Link-preview crawlers do not run
-JavaScript, so a client-side hook alone cannot produce the card; the Function is
-the mechanism, and a small client hook additionally keeps the browser tab title
-in step with the shop on in-app navigation (shop name only — never the order id,
-token or any path text — reverting to the baseline on non-shop routes).
+live-verified on dev 2026-11-15 — the per-shop `<title>` on a full load is the
+one remaining gap, ticketed).** Link-preview crawlers do not run JavaScript, so a
+client-side hook alone cannot produce the card; the Function is the mechanism. It
+also owns the `<title>` on a **first load** of a shop page — the shop name, so
+the tab and the unfurl card say the same thing. A
+small client hook owns the title on **in-app navigation** only (shop name only —
+never the order id, token or any path text — reverting to the platform name on
+non-shop routes); it leaves a first load's title alone because the Function
+already set it.
 
 - The Function is an SWA-managed function in the storefront repo, served for
   every `/shops/*` and `/legal/*` path (a rewrite, never a redirect), fetching the
@@ -1524,6 +1528,14 @@ token or any path text — reverting to the baseline on non-shop routes).
   generic **platform** card: `og:title` = the platform name (§15), a generic
   description, a static raster image, canonical URL = the bare origin — and no
   `noindex`. Checkout, order and legal pages get no card.
+- **The `<title>` on a full load** (decided 2026-11-15): exactly one `<title>` in
+  the head. On `/shops/<slug>` the Function sets it to the **shop name** — the
+  same value as `og:title`, so the tab and the card agree — so a shared or
+  refreshed link shows the restaurant's name, never the shipped fallback string.
+  On `/` the title is the **platform name** (the client hook today; the Function's
+  head injection once `/` is routed through it). If the shop read fails, the
+  title stays the shipped fallback (the fail-open rule above); the client hook
+  does not correct a first load, so nothing flickers after paint.
 - **It fails open:** every failure (shop read slow or failing, shell fetch failing,
   malformed data) still answers **200** with `noindex` at the same URL — never a
   3xx (a redirect to `/index.html` would escape `noindex`) and never a 5xx; if both
