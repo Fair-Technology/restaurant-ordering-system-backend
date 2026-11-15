@@ -1,6 +1,6 @@
 // Archive + restore for the records restaurants must keep for eight years: the `orders` and `invoices`
 // containers (invoices are the immutable snapshots). Cosmos' own continuous backup only reaches back
-// 30 days (see docs/prod-runbook.md §11), so these functions produce the long-lived copy:
+// 30 days (see docs/specs.md §20, "Backups"), so these functions produce the long-lived copy:
 // one JSONL file per container plus a manifest with counts and SHA-256 digests.
 //
 // Export only READS. Restore only WRITES, and only into a target that passes assertRestoreTargetIsScratch.
@@ -30,7 +30,7 @@ export interface Manifest {
   containers: ManifestEntry[];
 }
 
-/** Hosts a restore may write to: a local emulator, or a throw-away account named `*-restore-test` (the §11 drill). */
+/** Hosts a restore may write to: a local emulator, or a throw-away account named `*-restore-test` (the §20 restore drill). */
 export function assertRestoreTargetIsScratch(endpoint: string, databaseId: string): void {
   const host = new URL(endpoint).hostname;
   const local = host === 'localhost' || host === '127.0.0.1';

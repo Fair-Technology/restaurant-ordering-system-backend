@@ -54,7 +54,7 @@ export async function executeGetShopSubscription(
     if (!access.ok) return access;
 
     // A platform operator reads the derived default without creating it. The lazy init is a
-    // write, and `allowPlatformRead` admits Platform.ReadOnly - see docs/platform-identity.md.
+    // write, and `allowPlatformRead` admits Platform.ReadOnly - see docs/specs.md §11.
     const initIfMissing = access.actor.actorType !== 'superadmin';
     return { ok: true, data: await loadShopSubscriptionResult(shopId, { initIfMissing }) };
   } catch (error: any) {

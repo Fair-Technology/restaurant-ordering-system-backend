@@ -207,7 +207,7 @@ describe('GET /orders/by-payment-intent/{id}', () => {
 });
 
 // The six kitchen writes (accept, reject, ready, dispatch, complete, busy-mode) all start here.
-// Gating them by `view_orders` is a recorded decision (docs/endpoint-authorization.md); these
+// Gating them by `view_orders` is a recorded decision (docs/specs.md §11, "Who may call what"); these
 // pin it, so changing it has to be done on purpose.
 describe('kitchen actions are gated by view_orders (deliberate)', () => {
   it("lets the shop's plain staff role act, since view_orders is its whole default permission", async () => {

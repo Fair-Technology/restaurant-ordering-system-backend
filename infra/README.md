@@ -26,7 +26,7 @@ az deployment group create -g rg-restaurant-ordering-system-prod \
 ```
 
 Names (Function App, storage, Cosmos), region and hardening are parameters; see
-[docs/reports/2026-11-13-d1.md](../docs/reports/2026-11-13-d1.md) for the values to confirm.
+[docs/specs.md](../docs/specs.md) §20 for the values to confirm.
 
 Then two things the template leaves out, and one it creates only when asked.
 

@@ -8,8 +8,8 @@
 # The artifact is found by commit SHA, so the tag must point at a commit that has
 # already been built and deployed by the dev workflow.
 #
-# Precondition — NOT yet met. Production is deliberately parked (see docs/platform-identity.md,
-# "Deployment identity"):
+# Precondition — NOT yet met. Production is deliberately parked (see docs/specs.md §20,
+# "Production environment"):
 #   * a production Function App must exist, and
 #   * the deployment identity must carry a federated credential for the OIDC subject
 #     `repo:Fair-Technology/restaurant-ordering-system-backend:environment:production`.
@@ -82,7 +82,7 @@ jobs:
             if [ -z "${!n}" ]; then missing="$missing $n"; fi
           done
           if [ -n "$missing" ]; then
-            echo "::error title=Missing production secret::Refusing to deploy to production: secret(s) not set:$missing. AZURE_CLIENT_ID_PROD must be an environment secret on 'production' (Settings -> Environments -> production) holding the PRODUCTION identity's client ID. It deliberately does not share the name AZURE_CLIENT_ID, because GitHub falls back to the repo-level secret of the same name when the environment has none — which would deploy with the dev identity. This is fail-closed by design. See docs/prod-runbook.md B4."
+            echo "::error title=Missing production secret::Refusing to deploy to production: secret(s) not set:$missing. AZURE_CLIENT_ID_PROD must be an environment secret on 'production' (Settings -> Environments -> production) holding the PRODUCTION identity's client ID. It deliberately does not share the name AZURE_CLIENT_ID, because GitHub falls back to the repo-level secret of the same name when the environment has none — which would deploy with the dev identity. This is fail-closed by design. See docs/specs.md §20 ("Release pipeline")."
             exit 1
           fi
 

@@ -91,7 +91,7 @@ function buildAlertEmail(detail: string, refs: Record<string, string | undefined
   const text =
     `Stripe is refusing the platform's key or account setup. Card orders are being rejected at capture ` +
     `and their holds released; diners are told their payment failed.\n\n${detail}\n${refText}\n\n` +
-    `Next step: docs/prod-runbook.md, "Alert: Stripe permission or configuration failure". ` +
+    `Next step: docs/specs.md §8, "When the platform's own Stripe key is unusable". ` +
     `At most one of these emails is sent per ${ALERT_WINDOW_MS / 60000} minutes per instance.`;
   const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
   return {
