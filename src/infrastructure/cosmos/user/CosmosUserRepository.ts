@@ -14,10 +14,9 @@ export async function findUserById(userId: string): Promise<UserProfile | null> 
 export async function upsertUser(incoming: UserProfile): Promise<UserProfile> {
   const existing = await findUserById(incoming.id);
 
-  // Preserve existing systemRole and createdAt so lazy upserts never downgrade a superadmin
+  // Preserve createdAt so lazy upserts never reset a user's signup date
   const profile: UserProfile = {
     ...incoming,
-    systemRole: existing?.systemRole ?? incoming.systemRole,
     createdAt: existing?.createdAt ?? incoming.createdAt,
     updatedAt: incoming.updatedAt,
   };

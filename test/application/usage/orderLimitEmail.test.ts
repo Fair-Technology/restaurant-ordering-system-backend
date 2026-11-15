@@ -38,7 +38,6 @@ describe('ownerRecipients', () => {
     };
     (findUserById as any).mockImplementation(async (id: string) => ({
       id,
-      systemRole: 'user',
       email: id === 'u2' ? 'OWNER@x.example' : id === 'u3' ? 'gone@x.example' : 'owner@x.example',
     }));
     expect(await ownerRecipients(shop)).toEqual(['owner@x.example']);

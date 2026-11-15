@@ -12,7 +12,7 @@ vi.mock('../../../src/infrastructure/auth/superAdminAuthHelpers', () => ({
   isSuperAdminPrincipal: vi.fn(async () => false),
 }));
 vi.mock('../../../src/infrastructure/cosmos/user/CosmosUserRepository', () => ({
-  findUserById: vi.fn(async () => ({ systemRole: 'owner', maxShops: null })),
+  findUserById: vi.fn(async () => ({ maxShops: null })),
 }));
 vi.mock('../../../src/infrastructure/cosmos/system/CosmosSystemConfigRepository', () => ({
   getSystemConfig: vi.fn(async () => ({ maxShopsDefault: 3 })),

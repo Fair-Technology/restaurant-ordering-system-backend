@@ -9,7 +9,7 @@ vi.mock('../../../src/application/_shared/entitlements', () => ({
   })),
 }));
 vi.mock('../../../src/infrastructure/cosmos/user/CosmosUserRepository', () => ({
-  findUserById: vi.fn(async () => ({ id: 'u1', email: 'owner@mapasta.example', systemRole: 'user' })),
+  findUserById: vi.fn(async () => ({ id: 'u1', email: 'owner@mapasta.example' })),
 }));
 vi.mock('../../../src/infrastructure/email/emailSender', () => ({
   sendEmail: vi.fn(async () => undefined),
@@ -70,7 +70,7 @@ describe('notifyOrderLimitThresholds', () => {
   });
 
   it('an owner without an email falls back to the Impressum address', async () => {
-    (findUserById as any).mockResolvedValueOnce({ id: 'u1', systemRole: 'user' });
+    (findUserById as any).mockResolvedValueOnce({ id: 'u1' });
     await notifyOrderLimitThresholds(CARD_SHOP, usage(24), now);
     expect(sendEmail).toHaveBeenCalledWith(expect.objectContaining({ to: ['info@mapasta.example'] }));
   });

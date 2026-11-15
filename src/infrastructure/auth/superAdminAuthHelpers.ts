@@ -19,8 +19,9 @@ import { logAuthFailure } from './logAuthFailure';
  * - 'write': Platform.Owner or Platform.Support. Use for anything that changes state.
  * - 'read':  additionally Platform.ReadOnly. Use ONLY for handlers that change nothing.
  *
- * The legacy `systemRole: 'superadmin'` flag on the users document was removed on
- * 2026-11-10: a customer-tenant token can no longer reach the platform API by any means.
+ * The legacy `systemRole: 'superadmin'` flag on the users document is gone: the read
+ * path went on 2026-11-10 and the field itself was retired on 2026-11-15, so a
+ * customer-tenant token can no longer reach the platform API by any means.
  *
  * Returns the userId string when allowed, null otherwise. Never throws.
  */
