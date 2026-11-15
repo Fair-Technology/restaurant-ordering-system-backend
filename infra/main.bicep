@@ -10,7 +10,7 @@
 // Production is the same template with infra/main.prod.bicepparam, which sets
 // the names, region and hardening that differ from dev. The database, storage
 // account and Function App each have their own name parameter, so none of them
-// is forced to follow the `<prefix>-<env>` pattern. See docs/reports/2026-11-13-d1.md.
+// is forced to follow the `<prefix>-<env>` pattern. See docs/specs.md §20.
 //
 // Everything sits in the EU because the platform holds diner data as a
 // processor for restaurants in Germany, and Australia has no EU adequacy
@@ -120,7 +120,7 @@ resource cosmos 'Microsoft.DocumentDB/databaseAccounts@2024-11-15' = {
     locations: [ { locationName: location, failoverPriority: 0, isZoneRedundant: false } ]
     capabilities: [ { name: 'EnableServerless' } ]
     // 30-day point-in-time restore. Reaches back 30 days only; the eight-year copy of orders and
-    // invoices is the archive container below (scripts/backup, docs/reports/2026-11-13-d3.md).
+    // invoices is the archive container below (scripts/backup, docs/specs.md §20, "Backups").
     backupPolicy: { type: 'Continuous', continuousModeProperties: { tier: cosmosBackupTier } }
     minimalTlsVersion: 'Tls12'
   }
