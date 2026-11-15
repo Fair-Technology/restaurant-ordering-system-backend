@@ -9,6 +9,7 @@ import { PLAN_LIMIT_KEYS } from '../../_shared/planLimitKeys';
 import { ApplicationResult } from '../../_shared/types';
 import { LimitOverrideResultDto, SetLimitOverrideRequestDto } from './dtos';
 import { verifySuperAdminToken } from '../../../infrastructure/auth/superAdminAuthHelpers';
+import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 
 const LIMIT_KEYS: string[] = Object.values(PLAN_LIMIT_KEYS);
 
@@ -44,6 +45,11 @@ export async function executeSetLimitOverride(
       return { ok: false, code: 'FORBIDDEN', error: 'Superadmin access required' };
     }
 
+    const shop = await findShopById(shopId);
+    if (!shop) {
+      return { ok: false, code: 'NOT_FOUND', error: 'Shop not found' };
+    }
+
     const now = new Date();
     const invalid = validate(request, now);
     if (invalid) return { ok: false, code: 'INVALID_INPUT', error: invalid };
@@ -69,7 +75,7 @@ export async function executeSetLimitOverride(
       action: 'subscription.limit_override',
       entityType: 'subscription',
       entityId: shopId,
-      entityName: `Shop ${shopId}`,
+      entityName: shop.name,
       changes: limits.map((l) => ({
         field: `limit.${l.key}`,
         from: prev?.limits.find((p) => p.key === l.key)?.value ?? null,

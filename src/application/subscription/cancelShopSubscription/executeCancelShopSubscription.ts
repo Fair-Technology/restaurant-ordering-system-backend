@@ -70,7 +70,7 @@ export async function executeCancelShopSubscription(
       action: 'subscription.cancelScheduled',
       entityType: 'subscription',
       entityId: subscription.id,
-      entityName: `Shop ${shopId}`,
+      entityName: shop.name,
       shopId,
       changes: [],
     });

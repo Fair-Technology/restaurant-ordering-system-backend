@@ -11,6 +11,7 @@ vi.mock('../../../src/infrastructure/cosmos/plan/CosmosPlanRepository', () => ({
   findDefaultPlan: vi.fn(async () => ({ id: 'plan-basic', isDefault: true })),
 }));
 vi.mock('../../../src/application/_shared/auditHelpers', () => ({ logAudit: vi.fn(async () => undefined) }));
+vi.mock('../../../src/infrastructure/cosmos/shop/CosmosShopRepository', () => ({ findShopById: vi.fn() }));
 
 import {
   findSubscriptionByShopId,
@@ -21,6 +22,7 @@ import { executeSetLimitOverride } from '../../../src/application/subscription/l
 import { executeClearLimitOverride } from '../../../src/application/subscription/limitOverride/executeClearLimitOverride';
 import { defaultSubscription } from '../../../src/domain/subscription/ShopSubscription';
 import { verifySuperAdminToken } from '../../../src/infrastructure/auth/superAdminAuthHelpers';
+import { findShopById } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
 
 const http = {} as HttpRequest;
 const ok = { limits: [{ key: 'ORDERS_PER_MONTH', value: 100 }], reason: 'Opening week' };
@@ -29,6 +31,7 @@ describe('limit override', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     (findSubscriptionByShopId as any).mockResolvedValue(defaultSubscription('shop-1', 'plan-basic', 'x'));
+    (findShopById as any).mockResolvedValue({ id: 'shop-1', name: 'Bella Pizza' });
   });
 
   it('only a superadmin may override limits', async () => {
@@ -76,6 +79,7 @@ describe('limit override', () => {
     expect(logAudit).toHaveBeenCalledWith(
       expect.objectContaining({
         action: 'subscription.limit_override',
+        entityName: 'Bella Pizza',
         changes: [{ field: 'limit.ORDERS_PER_MONTH', from: null, to: 100 }],
       }),
     );
@@ -90,6 +94,23 @@ describe('limit override', () => {
     expect(res.ok).toBe(true);
     expect(upsertSubscription).toHaveBeenCalledWith(expect.objectContaining({ limitOverride: null }));
     expect(logAudit).toHaveBeenCalledWith(expect.objectContaining({ action: 'subscription.limit_override_clear', changes: [] }));
+    expect(logAudit).toHaveBeenCalledWith(expect.objectContaining({ entityName: 'Bella Pizza' }));
+  });
+
+  it('overriding limits for a missing shop is a 404', async () => {
+    (findShopById as any).mockResolvedValue(null);
+    const res = await executeSetLimitOverride('shop-1', ok, http);
+    expect(res).toEqual({ ok: false, code: 'NOT_FOUND', error: 'Shop not found' });
+    expect(upsertSubscription).not.toHaveBeenCalled();
+    expect(logAudit).not.toHaveBeenCalled();
+  });
+
+  it('clearing the override for a missing shop is a 404', async () => {
+    (findShopById as any).mockResolvedValue(null);
+    const res = await executeClearLimitOverride('shop-1', http);
+    expect(res).toEqual({ ok: false, code: 'NOT_FOUND', error: 'Shop not found' });
+    expect(upsertSubscription).not.toHaveBeenCalled();
+    expect(logAudit).not.toHaveBeenCalled();
   });
 
   it('clearing with no override is a 404', async () => {
