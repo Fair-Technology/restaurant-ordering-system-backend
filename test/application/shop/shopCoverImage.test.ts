@@ -29,9 +29,9 @@ vi.mock('../../../src/infrastructure/storage/blobStorageHelpers', () => ({
   uploadBlob: vi.fn(async () => {}),
 }));
 
-vi.mock('../../../src/infrastructure/image/normalizeImage', () => ({ normalizeImage: vi.fn() }));
+vi.mock('../../../src/infrastructure/image/normalizeImage', () => ({ normalizeImage: vi.fn(), normalizeImageContain: vi.fn() }));
 
-import { normalizeImage } from '../../../src/infrastructure/image/normalizeImage';
+import { normalizeImage, normalizeImageContain } from '../../../src/infrastructure/image/normalizeImage';
 import { executeGenerateShopCoverImageUploadUrl } from '../../../src/application/shop/generateShopCoverImageUploadUrl/executeGenerateShopCoverImageUploadUrl';
 import { executeSetShopCoverImage } from '../../../src/application/shop/setShopCoverImage/executeSetShopCoverImage';
 import { executeSetShopLogo } from '../../../src/application/shop/setShopLogo/executeSetShopLogo';
@@ -71,6 +71,7 @@ beforeEach(() => {
   vi.mocked(updateShop).mockImplementation(async (s: any) => s);
   vi.mocked(deleteBlob).mockResolvedValue(undefined as any);
   vi.mocked(normalizeImage).mockResolvedValue({ status: 'ok', bytes: Buffer.from('norm') });
+  vi.mocked(normalizeImageContain).mockResolvedValue({ status: 'ok', bytes: Buffer.from('norm') });
 });
 
 afterEach(() => vi.unstubAllEnvs());
@@ -269,14 +270,15 @@ describe('branding deletes stay inside this shop folder', () => {
   it('set logo: deletes an own old logo, never a foreign one', async () => {
     const logoReq = { shopId: 'shop-1', imageId: 'n', url: BASE + 'shops/shop-1/branding/n.png' };
     vi.mocked(findShopById).mockResolvedValue(makeShop());
-    await executeSetShopLogo(logoReq, httpRequest);
+    vi.mocked(getBlobProperties).mockResolvedValue({ contentLength: 50_000, contentType: 'image/png' });
+    expect((await executeSetShopLogo(logoReq, httpRequest)).ok).toBe(true);
     expect(deleteBlob).toHaveBeenCalledWith('shops/shop-1/branding/logo.png');
 
     vi.mocked(deleteBlob).mockClear();
     vi.mocked(findShopById).mockResolvedValue(
       makeShop({ branding: { logoUrl: BASE + 'shops/shop-2/branding/logo.png', heroImageUrl: null, accentColor: null } }),
     );
-    await executeSetShopLogo(logoReq, httpRequest);
+    expect((await executeSetShopLogo(logoReq, httpRequest)).ok).toBe(true);
     expect(deleteBlob).not.toHaveBeenCalled();
   });
 });

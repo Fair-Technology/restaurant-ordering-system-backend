@@ -11,6 +11,9 @@ export const COVER_IMAGE_SIZE: ExactImageSize = { width: 1920, height: 640 };
 /** Dish photo: ratio 4:3. */
 export const PRODUCT_IMAGE_SIZE: ExactImageSize = { width: 1200, height: 900 };
 
+/** Storefront shows a logo whole, up to 320 x 48 CSS px (§16); stored at 2x for retina. Never cropped. */
+export const LOGO_MAX_SIZE: ExactImageSize = { width: 640, height: 96 };
+
 /** Smallest source (after EXIF orientation) the server will resize; smaller is refused, never upscaled. */
 export const COVER_IMAGE_MIN_SOURCE: ExactImageSize = { width: 1200, height: 400 };
 export const DISH_IMAGE_MIN_SOURCE: ExactImageSize = { width: 800, height: 600 };

@@ -38,3 +38,28 @@ export async function normalizeImage(
     return { status: 'unsupported' };
   }
 }
+
+/**
+ * Auto-orients (EXIF), then shrinks to fit inside `box` keeping the aspect ratio: never cropped, never upscaled.
+ * Re-encodes as `outFormat` and drops metadata (EXIF, GPS). Any decodable size is accepted.
+ */
+export async function normalizeImageContain(
+  input: Buffer,
+  box: ExactImageSize,
+  outFormat: 'jpg' | 'png' | 'webp',
+): Promise<{ status: 'ok'; bytes: Buffer } | { status: 'unsupported' }> {
+  try {
+    const meta = await sharp(input, { limitInputPixels: 100_000_000 }).metadata();
+    if (!meta.format || !DECODABLE.has(meta.format) || !meta.width || !meta.height) return { status: 'unsupported' };
+
+    let pipe = sharp(input, { limitInputPixels: 100_000_000 })
+      .rotate()
+      .resize({ width: box.width, height: box.height, fit: 'inside', withoutEnlargement: true });
+    if (outFormat === 'jpg') pipe = pipe.flatten({ background: '#ffffff' }).jpeg({ quality: 85, mozjpeg: true });
+    else if (outFormat === 'png') pipe = pipe.png();
+    else pipe = pipe.webp({ quality: 85 });
+    return { status: 'ok', bytes: await pipe.toBuffer() };
+  } catch {
+    return { status: 'unsupported' };
+  }
+}
