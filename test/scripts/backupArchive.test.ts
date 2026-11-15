@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { assertRestoreTargetIsScratch, verifyArchive } from '../../scripts/backup/archiveLib';
+import { assertRestoreTargetIsScratch, verifyArchive } from '../../src/infrastructure/archive/archiveLib';
 
 describe('assertRestoreTargetIsScratch', () => {
   it('accepts a local emulator and a *-restore-test account', () => {

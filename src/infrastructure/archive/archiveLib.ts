@@ -85,15 +85,24 @@ export async function exportArchive(
   return manifest;
 }
 
+/**
+ * The one checksum implementation: checks a file's bytes against its manifest entry (SHA-256 and line
+ * count). Used for the local archive directory and for the copy downloaded back from blob storage.
+ * `label` names the file or blob in the error. Throws on any mismatch.
+ */
+export function verifyArchiveEntry(body: Buffer, entry: ManifestEntry, label: string = entry.file): void {
+  const digest = createHash('sha256').update(body).digest('hex');
+  const text = body.toString('utf-8');
+  const lines = text === '' ? 0 : text.trimEnd().split('\n').length;
+  if (digest !== entry.sha256) throw new Error(`${label}: checksum mismatch`);
+  if (lines !== entry.count) throw new Error(`${label}: ${lines} lines, manifest says ${entry.count}`);
+}
+
 /** Re-reads an archive and checks every file against the manifest. Throws on any mismatch. */
 export function verifyArchive(dir: string): Manifest {
   const manifest = JSON.parse(fs.readFileSync(path.join(dir, 'manifest.json'), 'utf-8')) as Manifest;
   for (const e of manifest.containers) {
-    const text = fs.readFileSync(path.join(dir, e.file), 'utf-8');
-    const digest = createHash('sha256').update(text).digest('hex');
-    const lines = text === '' ? 0 : text.trimEnd().split('\n').length;
-    if (digest !== e.sha256) throw new Error(`${e.file}: checksum mismatch`);
-    if (lines !== e.count) throw new Error(`${e.file}: ${lines} lines, manifest says ${e.count}`);
+    verifyArchiveEntry(fs.readFileSync(path.join(dir, e.file)), e);
   }
   return manifest;
 }

@@ -1,7 +1,7 @@
 // Drill helper: fills a SCRATCH source database on the local emulator with synthetic orders and invoices,
 // so export -> restore can be practised without touching dev or prod. Refuses any non-local endpoint.
 import { CosmosClient } from '@azure/cosmos';
-import { ARCHIVED_CONTAINERS, assertRestoreTargetIsScratch } from './archiveLib';
+import { ARCHIVED_CONTAINERS, assertRestoreTargetIsScratch } from '../../src/infrastructure/archive/archiveLib';
 
 async function main() {
   const endpoint = process.env.SCRATCH_COSMOS_ENDPOINT;

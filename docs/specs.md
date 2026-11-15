@@ -968,10 +968,16 @@ decision; single downloads already meet the legal need).
 
 **Backup is not archive.** The database's 30-day point-in-time restore (§20)
 does not satisfy the eight-year duty. Orders and invoice snapshots are
-therefore also exported to a write-once archive store with an eight-year
-retention policy and verified against checksums; the retention period is to be
-confirmed with a tax adviser before that policy is locked, because locking is
-irreversible. Re-rendering an old invoice must not change its content: a change
+therefore also exported to a write-once archive store and verified against
+checksums: a daily `archiveTimer` Function in the backend (02:17 UTC) writes a
+timestamped JSONL + manifest archive of `orders` and `invoices` to the private
+`records-archive` blob container, each run under its own prefix so no blob is
+ever overwritten, then downloads it again and checks it against the manifest's
+SHA-256 checksums and counts. The deployment identity carries Cosmos data read
+(Built-in Data Reader on the app database) and blob write (Storage Blob Data
+Owner), both from `infra/main.bicep`. The container's 2922-day (eight-year)
+retention policy is still **unlocked**: the period is to be confirmed with a
+tax adviser before that policy is locked, because locking is irreversible. Re-rendering an old invoice must not change its content: a change
 to the invoice's printed text requires a new template version.
 
 **Business buyers and e-invoices — parked (Manish, 2026-10-13).** Every buyer is
@@ -1787,7 +1793,13 @@ deliberate differences:
   periodic could lose up to four hours of orders), restored only into a new
   account, with a restore drill once after go-live and quarterly after. App
   settings are not backed up by Azure; their values live in the vault. This is
-  not the eight-year invoice archive (§10).
+  not the eight-year invoice archive (§10) — that copy now exists separately:
+  the daily `archiveTimer` Function exports `orders` + `invoices` to the private
+  `records-archive` container (timestamped JSONL + manifest, verified against
+  the manifest's SHA-256 checksums after upload), using the deployment
+  identity's Cosmos data read and blob write. Still open: the 2922-day retention
+  policy is unlocked, and the Cosmos point-in-time restore drill has not yet
+  been run against the live account.
 - **Email:** without Azure Communication Services configured, order emails and
   invoice PDFs are only logged, never sent, and diners would receive nothing.
   Going live with real email is an explicit go-live decision, with the sending
