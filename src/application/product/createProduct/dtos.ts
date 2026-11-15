@@ -21,6 +21,7 @@ export interface CreateProductRequestDto {
   unavailableModes?: FulfilmentMode[];
   taxClassId?: string | null;
   variantGroups?: ProductVariantGroup[];
+  optionGroupRefs?: string[];
   addonGroups?: ProductAddonGroup[];
   isAvailable?: boolean;
   schedule?: ProductSchedule | null;

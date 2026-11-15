@@ -6,6 +6,28 @@ import { DELIVERY_TAX_CLASS_FOR_DISHES_ERROR, UNAVAILABLE_MODES_ERROR } from '..
 
 const refs = DE_REFERENCE_LISTS;
 
+const libGroup = (id: string, isDeleted = false) =>
+  ({ id, shopId: 's', kind: 'variant', name: 'G', minSelectable: 1, maxSelectable: 1, options: [], isDeleted, createdAt: 'x', updatedAt: 'x' }) as any;
+const library = new Map([['g1', libGroup('g1')], ['g2', libGroup('g2')], ['gx', libGroup('gx', true)]]);
+
+describe('validateMenuFields optionGroupRefs', () => {
+  it('accepts and dedupes valid refs', () => {
+    expect(validateMenuFields({ optionGroupRefs: ['g1', 'g2', 'g1'] }, refs, null, library)).toEqual({ optionGroupRefs: ['g1', 'g2'] });
+  });
+  it('leaves refs absent when not sent', () => {
+    expect(validateMenuFields({}, refs, null, library)).toEqual({});
+  });
+  it('rejects an unknown id', () => {
+    expect(validateMenuFields({ optionGroupRefs: ['g1', 'nope'] }, refs, null, library)).toEqual({ error: 'Unknown option group: nope' });
+  });
+  it('rejects a deleted group', () => {
+    expect(validateMenuFields({ optionGroupRefs: ['gx'] }, refs, null, library)).toEqual({ error: 'Unknown option group: gx' });
+  });
+  it('rejects a non-array', () => {
+    expect(validateMenuFields({ optionGroupRefs: 'g1' }, refs, null, library)).toHaveProperty('error');
+  });
+});
+
 describe('validateMenuFields', () => {
   it('a dish cannot use the Delivery class', () => {
     expect(validateMenuFields({ taxClassId: 'delivery' }, refs, null)).toEqual({ error: DELIVERY_TAX_CLASS_FOR_DISHES_ERROR });

@@ -70,6 +70,8 @@ export interface Product {
 
   // Variants (optional)
   variantGroups?: ProductVariantGroup[];
+  /** Ids of shop-level option groups (domain/optionGroup) this dish reuses; resolved to inline groups on read. */
+  optionGroupRefs?: string[];
 
   // Addons (optional)
   addonGroups?: ProductAddonGroup[];

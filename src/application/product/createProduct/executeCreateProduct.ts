@@ -9,6 +9,7 @@ import { authorizeShopAction, toAuditActor } from '../../_shared/shopAccess';
 import { CreateProductRequestDto, CreateProductResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 import { Product } from '../../../domain/product/Product';
+import { findShopOptionGroupsByShopId } from '../../../infrastructure/cosmos/optionGroup/CosmosShopOptionGroupRepository';
 import { validateMenuFields } from '../menuFields';
 import { toMenuFieldsDto } from '../menuFieldsDto';
 import { CREATE_WITH_PHOTOS_ERROR } from '../../../domain/images/imageRules';
@@ -118,13 +119,14 @@ export async function executeCreateProduct(
 
     // Authorization and the reference lists are independent reads too —
     // both only need `shop`, not each other's result.
-    const [access, refs] = await Promise.all([
+    const [access, refs, optionGroups] = await Promise.all([
       authorizeShopAction(httpRequest, shop, 'manage_menu'),
       getReferenceLists(shop.countryCode ?? ''),
+      findShopOptionGroupsByShopId(shopId),
     ]);
     if (!access.ok) return access;
 
-    const menu = validateMenuFields(request, refs, null);
+    const menu = validateMenuFields(request, refs, null, new Map(optionGroups.map((g) => [g.id, g])));
     if ('error' in menu) {
       return { ok: false, code: 'INVALID_INPUT', error: menu.error };
     }
@@ -144,6 +146,7 @@ export async function executeCreateProduct(
       images: [],
       variantGroups: menu.variantGroups ?? request.variantGroups,
       addonGroups: menu.addonGroups ?? request.addonGroups,
+      optionGroupRefs: menu.optionGroupRefs ?? [],
       allergenIds: menu.allergenIds ?? null,
       additiveIds: menu.additiveIds ?? null,
       dietaryTagIds: menu.dietaryTagIds ?? [],
