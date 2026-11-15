@@ -65,3 +65,24 @@ export async function replaceStaffAccount(account: StaffAccount): Promise<StaffA
     .replace<StaffAccount>(account);
   return resource!;
 }
+
+/** Ids of every staff account of a shop, soft-deleted ones included (the wind-down removes them all). */
+export async function findAllStaffAccountIdsByShopId(shopId: string): Promise<string[]> {
+  const { resources } = await staffAccountsContainer.items
+    .query<{ id: string }>(
+      { query: 'SELECT c.id FROM c WHERE c.shopId = @shopId', parameters: [{ name: '@shopId', value: shopId }] },
+      { partitionKey: shopId },
+    )
+    .fetchAll();
+  return (resources || []).map((r) => r.id);
+}
+
+/**
+ * Hard delete of one staff account — the wind-down of a shop that left. Unlike `executeDeleteStaff`
+ * (a soft delete that blanks the identity but keeps the row and history) this removes the document,
+ * username and password hash for good. Deleting, not anonymising in place, is also what frees the
+ * `/username` unique key within the partition.
+ */
+export async function deleteStaffAccount(staffId: string, shopId: string): Promise<void> {
+  await staffAccountsContainer.item(staffId, shopId).delete();
+}

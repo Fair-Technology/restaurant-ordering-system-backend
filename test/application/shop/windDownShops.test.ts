@@ -3,6 +3,7 @@ import type { Shop } from '../../../src/domain/shop/Shop';
 import type { Order } from '../../../src/domain/order/Order';
 import type { Product } from '../../../src/domain/product/Product';
 import type { Category } from '../../../src/domain/category/Category';
+import type { StaffAccount } from '../../../src/domain/staff/StaffAccount';
 import type { InvoiceDoc } from '../../../src/domain/invoice/invoice';
 import { CARD_SHOP, PLACED_CARD_ORDER, ACCEPTED_CARD_ORDER, P_PASTA, P_COLA, CATEGORIES, DELIVERY_ADDRESS } from '../../fixtures/orders';
 import { ANONYMISED_CUSTOMER_NAME } from '../../../src/domain/legal/erasure';
@@ -17,7 +18,11 @@ const db = vi.hoisted(() => ({
   categories: new Map<string, any>(),
   orders: new Map<string, any>(),
   invoices: new Map<string, any>(), // key `${shopId}/${id}`
+  staff: new Map<string, any>(), // key `${shopId}/${id}`
+  blobs: new Set<string>(), // container-relative blob names
   failReplaceFor: new Set<string>(),
+  failBlobsFor: new Set<string>(),
+  failStaffFor: new Set<string>(),
 }));
 
 vi.mock('../../../src/infrastructure/cosmos/cosmosClient');
@@ -59,6 +64,32 @@ vi.mock('../../../src/infrastructure/cosmos/category/CosmosCategoryRepository', 
   ),
   deleteCategory: vi.fn(async (id: string, shopId: string) => {
     if (!db.categories.delete(`${shopId}/${id}`)) throw Object.assign(new Error('gone'), { code: 404 });
+  }),
+}));
+vi.mock('../../../src/infrastructure/cosmos/staff/CosmosStaffAccountRepository', () => ({
+  findAllStaffAccountIdsByShopId: vi.fn(async (shopId: string) =>
+    [...db.staff.values()].filter((s) => s.shopId === shopId).map((s) => s.id),
+  ),
+  deleteStaffAccount: vi.fn(async (id: string, shopId: string) => {
+    if (db.failStaffFor.has(id)) throw Object.assign(new Error('boom'), { code: 503 });
+    if (!db.staff.delete(`${shopId}/${id}`)) throw Object.assign(new Error('gone'), { code: 404 });
+  }),
+}));
+// Blob Storage: a faithful stand-in for the real prefix sweep (delete every name under the prefix,
+// count them); `shopBlobPrefix` is the real formula. The real helper is covered by
+// test/infrastructure/deleteBlobsByPrefix.test.ts.
+vi.mock('../../../src/infrastructure/storage/blobStorageHelpers', () => ({
+  shopBlobPrefix: (shopId: string) => `shops/${shopId}/`,
+  deleteBlobsByPrefix: vi.fn(async (prefix: string) => {
+    if (db.failBlobsFor.has(prefix)) throw Object.assign(new Error('boom'), { code: 503 });
+    let deleted = 0;
+    for (const name of [...db.blobs]) {
+      if (name.startsWith(prefix)) {
+        db.blobs.delete(name);
+        deleted++;
+      }
+    }
+    return deleted;
   }),
 }));
 vi.mock('../../../src/infrastructure/cosmos/invoice/CosmosInvoiceRepository', () => ({
@@ -110,6 +141,31 @@ const SOFT_DELETED_PRODUCT: Product = { ...P_COLA, id: 'p-old', isDeleted: true 
 const OTHER_SHOP_PRODUCT: Product = { ...P_PASTA, id: 'p-recent', shopId: 'shop-recent' };
 const OTHER_SHOP_CATEGORY: Category = { ...CATEGORIES[0], id: 'c-recent', shopId: 'shop-recent' };
 
+// Staff logins: real personal data (username + password hash). The soft-deleted row is what
+// executeDeleteStaff leaves behind (username renamed, hash blanked) and must still be erased.
+const STAFF_ACTIVE: StaffAccount = {
+  id: 'st-1', shopId: 'shop-1', username: 'alice', displayName: 'Alice', role: 'manager',
+  passwordHash: 'scrypt$16384$8$1$c2FsdA==$a2V5', isActive: true, isDeleted: false,
+  failedLoginCount: 0, lockedUntil: null, lastLoginAt: null, createdBy: 'owner-1',
+  createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z',
+};
+const STAFF_SOFT_DELETED: StaffAccount = {
+  ...STAFF_ACTIVE, id: 'st-2', username: 'deleted.st-2', displayName: null,
+  passwordHash: '', isActive: false, isDeleted: true,
+};
+const OTHER_SHOP_STAFF: StaffAccount = { ...STAFF_ACTIVE, id: 'st-other', shopId: 'shop-recent', username: 'bob' };
+
+// Container-relative blob names: two product images, an orphan under a soft-deleted product's
+// folder, a cover and a logo — five for shop-1, one belonging to a different shop.
+const SHOP_1_BLOBS = [
+  'shops/shop-1/products/p1/hero.jpg',
+  'shops/shop-1/products/p2/hero.png',
+  'shops/shop-1/products/p-old/orphan.webp',
+  'shops/shop-1/branding/logo.png',
+  'shops/shop-1/branding/cover.jpg',
+];
+const OTHER_SHOP_BLOB = 'shops/shop-recent/branding/logo.png';
+
 const INVOICE: InvoiceDoc = {
   id: 'inv-1',
   shopId: 'shop-1',
@@ -140,12 +196,18 @@ function seed() {
   db.categories.clear();
   db.orders.clear();
   db.invoices.clear();
+  db.staff.clear();
+  db.blobs.clear();
   db.failReplaceFor.clear();
+  db.failBlobsFor.clear();
+  db.failStaffFor.clear();
   for (const s of [LEFT_SHOP, RECENT_SHOP, LIVE_SHOP]) db.shops.set(s.id, { doc: structuredClone(s), etag: `"e-${s.id}"` });
   for (const p of [P_PASTA, P_COLA, SOFT_DELETED_PRODUCT, OTHER_SHOP_PRODUCT]) db.products.set(`${p.shopId}/${p.id}`, structuredClone(p));
   for (const c of [...CATEGORIES, OTHER_SHOP_CATEGORY]) db.categories.set(`${c.shopId}/${c.id}`, structuredClone(c));
   for (const o of [CLOSED_ORDER, OPEN_ORDER, ALREADY_ANON, OTHER_SHOP_ORDER]) db.orders.set(o.id, structuredClone(o));
   db.invoices.set(`${INVOICE.shopId}/${INVOICE.id}`, structuredClone(INVOICE));
+  for (const s of [STAFF_ACTIVE, STAFF_SOFT_DELETED, OTHER_SHOP_STAFF]) db.staff.set(`${s.shopId}/${s.id}`, structuredClone(s));
+  for (const b of [...SHOP_1_BLOBS, OTHER_SHOP_BLOB]) db.blobs.add(b);
 }
 
 const snapshot = () => structuredClone({
@@ -154,6 +216,8 @@ const snapshot = () => structuredClone({
   categories: Object.fromEntries(db.categories),
   orders: Object.fromEntries(db.orders),
   invoices: Object.fromEntries(db.invoices),
+  staff: Object.fromEntries(db.staff),
+  blobs: [...db.blobs].sort(),
 });
 
 let logSpy: ReturnType<typeof vi.spyOn>;
@@ -186,7 +250,7 @@ describe('executeWindDownShops', () => {
     const before = snapshot();
     const result = await executeWindDownShops({ now: at(89) });
 
-    expect(result).toEqual({ shopsWoundDown: 0, ordersAnonymised: 0, productsDeleted: 0, categoriesDeleted: 0, failures: 0 });
+    expect(result).toEqual({ shopsWoundDown: 0, ordersAnonymised: 0, productsDeleted: 0, categoriesDeleted: 0, staffAccountsDeleted: 0, imagesDeleted: 0, failures: 0 });
     expect(snapshot()).toEqual(before);
     expect(replaceOrder).not.toHaveBeenCalled();
     expect(actionLines()).toEqual([]);
@@ -195,11 +259,20 @@ describe('executeWindDownShops', () => {
   it('AC2: at day 91 deletes storefront and menu and anonymises every order, open ones included', async () => {
     const result = await executeWindDownShops({ now: at(91) });
 
-    expect(result).toEqual({ shopsWoundDown: 1, ordersAnonymised: 2, productsDeleted: 3, categoriesDeleted: 2, failures: 0 });
+    expect(result).toEqual({ shopsWoundDown: 1, ordersAnonymised: 2, productsDeleted: 3, categoriesDeleted: 2, staffAccountsDeleted: 2, imagesDeleted: 5, failures: 0 });
     // Storefront and menu: gone, soft-deleted dishes included.
     expect(db.shops.has('shop-1')).toBe(false);
     expect([...db.products.values()].filter((p) => p.shopId === 'shop-1')).toEqual([]);
     expect([...db.categories.values()].filter((c) => c.shopId === 'shop-1')).toEqual([]);
+
+    // Images: every blob under the shop's own prefix is gone, the soft-deleted product's orphan
+    // included; the other shop's blob stays.
+    expect(SHOP_1_BLOBS.filter((b) => db.blobs.has(b))).toEqual([]);
+    expect([...db.blobs]).toEqual([OTHER_SHOP_BLOB]);
+
+    // Staff logins: erased, the soft-deleted row included; the other shop keeps its own.
+    expect([...db.staff.values()].filter((s) => s.shopId === 'shop-1')).toEqual([]);
+    expect([...db.staff.values()]).toEqual([OTHER_SHOP_STAFF]);
 
     // Orders: kept, with amounts and dishes, but no person.
     for (const id of ['o-closed', 'o-open']) {
@@ -254,17 +327,25 @@ describe('executeWindDownShops', () => {
 
     const second = await executeWindDownShops({ now: at(91) });
 
-    expect(second).toEqual({ shopsWoundDown: 0, ordersAnonymised: 0, productsDeleted: 0, categoriesDeleted: 0, failures: 0 });
+    expect(second).toEqual({ shopsWoundDown: 0, ordersAnonymised: 0, productsDeleted: 0, categoriesDeleted: 0, staffAccountsDeleted: 0, imagesDeleted: 0, failures: 0 });
     expect(snapshot()).toEqual(afterFirst);
     expect(replaceOrder).not.toHaveBeenCalled();
     expect(actionLines()).toEqual([]);
   });
 
-  it('AC5: writes exactly one log line per action', async () => {
+  it('AC5: writes exactly one log line per deleted thing (orders, menu, images, staff, shop)', async () => {
     const result = await executeWindDownShops({ now: at(91) });
     const lines = actionLines();
 
-    const actions = result.ordersAnonymised + result.productsDeleted + result.categoriesDeleted + result.shopsWoundDown;
+    // One line per anonymised order, product, category and staff account; one line for the whole
+    // image sweep (shop-1 has images); one for the shop itself.
+    const actions =
+      result.ordersAnonymised +
+      result.productsDeleted +
+      result.categoriesDeleted +
+      result.staffAccountsDeleted +
+      result.shopsWoundDown +
+      1; // the single images.delete line for shop-1
     expect(lines).toHaveLength(actions);
     const expected = [
       'action=order.anonymise shopId=shop-1 orderId=o-closed ',
@@ -274,13 +355,16 @@ describe('executeWindDownShops', () => {
       'action=product.delete shopId=shop-1 productId=p-old',
       'action=category.delete shopId=shop-1 categoryId=pasta',
       'action=category.delete shopId=shop-1 categoryId=drinks',
+      'action=images.delete shopId=shop-1 deleted=5',
+      'action=staff.delete shopId=shop-1 staffId=st-1',
+      'action=staff.delete shopId=shop-1 staffId=st-2',
       'action=shop.delete shopId=shop-1 ',
     ];
     for (const fragment of expected) {
       expect(lines.filter((l: string) => l.includes(fragment))).toHaveLength(1);
     }
-    // No personal data in the log lines.
-    expect(lines.join('\n')).not.toMatch(/Anna|Ben|@example\.com/);
+    // No personal data in the log lines: no name, no email, no username.
+    expect(lines.join('\n')).not.toMatch(/Anna|Ben|@example\.com|alice|bob/);
   });
 
   it('anonymises per row: one failing order does not stop the rest, and the shop is retried next run', async () => {
@@ -295,7 +379,7 @@ describe('executeWindDownShops', () => {
 
     db.failReplaceFor.clear();
     const second = await executeWindDownShops({ now: at(92) });
-    expect(second).toEqual({ shopsWoundDown: 1, ordersAnonymised: 1, productsDeleted: 0, categoriesDeleted: 0, failures: 0 });
+    expect(second).toEqual({ shopsWoundDown: 1, ordersAnonymised: 1, productsDeleted: 0, categoriesDeleted: 0, staffAccountsDeleted: 0, imagesDeleted: 0, failures: 0 });
     expect(db.orders.get('o-closed').customerName).toBe(ANONYMISED_CUSTOMER_NAME);
     expect(db.orders.get('o-open').anonymisedAt).toBe(at(91).toISOString()); // not rewritten
     expect(db.shops.has('shop-1')).toBe(false);
@@ -320,5 +404,51 @@ describe('executeWindDownShops', () => {
     expect(db.shops.has('shop-recent')).toBe(false);
     expect(db.shops.has('shop-1')).toBe(true); // due, but not asked for
     expect(logAudit).toHaveBeenCalledWith(expect.objectContaining({ shopId: 'shop-recent', actorType: 'superadmin', actorId: 'admin-1' }));
+  });
+
+  it('an image-sweep failure is counted, leaves the shop for the next run, and is retried', async () => {
+    db.failBlobsFor.add('shops/shop-1/');
+    const first = await executeWindDownShops({ now: at(91) });
+
+    expect(first.failures).toBe(1);
+    expect(first.shopsWoundDown).toBe(0);
+    expect(first.imagesDeleted).toBe(0);
+    expect(db.shops.has('shop-1')).toBe(true); // the shop document is the cursor
+    // The other steps still ran: menu and staff are gone, so the retry only has the blobs to do.
+    expect(db.products.size).toBe(1); // the other shop's only
+    expect(db.staff.size).toBe(1); // the other shop's only
+
+    db.failBlobsFor.clear();
+    const second = await executeWindDownShops({ now: at(92) });
+    expect(second).toEqual({ shopsWoundDown: 1, ordersAnonymised: 0, productsDeleted: 0, categoriesDeleted: 0, staffAccountsDeleted: 0, imagesDeleted: 5, failures: 0 });
+    expect(db.shops.has('shop-1')).toBe(false);
+  });
+
+  it('a staff-delete failure is counted and the shop is retried; the other rows still go', async () => {
+    db.failStaffFor.add('st-1');
+    const first = await executeWindDownShops({ now: at(91) });
+
+    expect(first.failures).toBe(1);
+    expect(first.shopsWoundDown).toBe(0);
+    expect(first.staffAccountsDeleted).toBe(1); // st-2 went
+    expect(db.staff.has('shop-1/st-1')).toBe(true);
+    expect(db.shops.has('shop-1')).toBe(true);
+    expect(first.imagesDeleted).toBe(5); // images are independent of the staff failure
+
+    db.failStaffFor.clear();
+    const second = await executeWindDownShops({ now: at(92) });
+    expect(second).toEqual({ shopsWoundDown: 1, ordersAnonymised: 0, productsDeleted: 0, categoriesDeleted: 0, staffAccountsDeleted: 1, imagesDeleted: 0, failures: 0 });
+    expect([...db.staff.values()]).toEqual([OTHER_SHOP_STAFF]);
+  });
+
+  it('the image sweep is scoped to the shop id exactly: shops/shop-1 never matches shops/shop-1extra', async () => {
+    const decoy = 'shops/shop-1extra/branding/logo.png';
+    db.blobs.add(decoy);
+
+    const result = await executeWindDownShops({ now: at(91) });
+
+    expect(result.imagesDeleted).toBe(5);
+    expect(db.blobs.has(decoy)).toBe(true);
+    expect([...db.blobs].sort()).toEqual([decoy, OTHER_SHOP_BLOB].sort());
   });
 });

@@ -118,6 +118,40 @@ export async function deleteBlob(blobPath: string): Promise<void> {
 }
 
 /**
+ * Container-relative prefix under which every image of one shop lives: `shops/{shopId}/`
+ * (product media under `products/`, cover and logo under `branding/`).
+ *
+ * Refuses a blank id: a prefix that is not scoped to a real shop could match other shops' blobs,
+ * and this prefix is used to delete everything beneath it. The trailing slash keeps `shops/abc`
+ * from also matching `shops/abcde/…`.
+ */
+export function shopBlobPrefix(shopId: string): string {
+  if (!shopId || shopId.trim() === '') {
+    throw new Error('shopId is required to build a shop blob prefix');
+  }
+  return `shops/${shopId}/`;
+}
+
+/**
+ * Delete every blob whose name begins with `prefix` (e.g. a whole shop's images); returns how many
+ * were deleted. Missing blobs are ignored, so a repeated run is a no-op. The caller is responsible
+ * for passing a prefix narrow enough that nothing it must keep falls under it (`shopBlobPrefix`).
+ */
+export async function deleteBlobsByPrefix(prefix: string): Promise<number> {
+  const serviceClient = new BlobServiceClient(
+    `https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net`,
+    sharedKeyCredential,
+  );
+  const container = serviceClient.getContainerClient(CONTAINER_NAME);
+  let deleted = 0;
+  for await (const blob of container.listBlobsFlat({ prefix })) {
+    await container.getBlockBlobClient(blob.name).deleteIfExists();
+    deleted++;
+  }
+  return deleted;
+}
+
+/**
  * Download the first `count` bytes (from `offset`) of a blob; null if the blob does not exist.
  * Used to read an image's header without downloading the whole file.
  */
