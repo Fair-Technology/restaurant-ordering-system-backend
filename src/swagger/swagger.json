@@ -551,14 +551,27 @@
         }
       },
       "get": {
+        "summary": "List plans",
+        "description": "Returns the visible plans for the customer plan selector. A platform operator (Platform.Owner/Support/ReadOnly) may pass includeHidden=true to receive every plan, including those hidden from customers.",
         "operationId": "getPlans",
         "tags": [
           "Plans"
         ],
         "security": [],
+        "parameters": [
+          {
+            "name": "includeHidden",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "description": "Platform operators only: include plans hidden from the customer selector."
+          }
+        ],
         "responses": {
           "200": {
-            "description": "Success",
+            "description": "Plans retrieved successfully",
             "content": {
               "application/json": {
                 "schema": {

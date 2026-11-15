@@ -9,7 +9,8 @@ app.http('getPlans', {
   route: 'plans',
   handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
     try {
-      const result = await executeGetPlans(request);
+      const includeHidden = request.query.get('includeHidden') === 'true';
+      const result = await executeGetPlans(request, { includeHidden });
       return mapResultToHttp(result);
     } catch (error) {
       return internalServerError('getPlans', error);
