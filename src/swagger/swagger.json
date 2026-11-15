@@ -3396,6 +3396,67 @@
         }
       }
     },
+    "/shops/{shopId}/invoices/archive": {
+      "get": {
+        "summary": "Download a month of invoices and correction invoices (owner)",
+        "description": "Owner only. The month query parameter (YYYY-MM) is the restaurant's local month; documents are grouped by the date they were issued, so a correction issued in November for an October order belongs to November. Returns one ZIP of PDFs (invoices, cancellation invoices and correction invoices), named invoices-YYYY-MM.zip, rendered from the stored snapshots. A month with no documents is 404.",
+        "operationId": "exportInvoiceArchive",
+        "tags": [
+          "Orders"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "shopId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "month",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-(0[1-9]|1[0-2])$"
+            },
+            "description": "The restaurant's local month, as YYYY-MM"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The ZIP as base64",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvoiceArchiveFileDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
     "/shops/{shopId}/legal": {
       "get": {
         "operationId": "getShopLegal",
@@ -8592,6 +8653,268 @@
         ],
         "additionalProperties": false
       },
+      "InvoiceDoc": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "shopId": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "const": "invoice"
+          },
+          "documentType": {
+            "$ref": "#/components/schemas/InvoiceDocumentType"
+          },
+          "number": {
+            "type": "string"
+          },
+          "templateVersion": {
+            "type": "string",
+            "const": "receipt-2026-10"
+          },
+          "issuedAt": {
+            "type": "string"
+          },
+          "supplyDate": {
+            "type": "string"
+          },
+          "timezone": {
+            "type": "string"
+          },
+          "seller": {
+            "$ref": "#/components/schemas/InvoiceSeller"
+          },
+          "buyer": {
+            "$ref": "#/components/schemas/InvoiceBuyer"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InvoiceLine"
+            }
+          },
+          "taxBreakdown": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TaxBreakdownEntry"
+            }
+          },
+          "totalCents": {
+            "type": "number"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "payment": {
+            "type": "object",
+            "properties": {
+              "method": {
+                "type": "string",
+                "const": "card"
+              },
+              "stripePaymentIntentId": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "method",
+              "stripePaymentIntentId"
+            ],
+            "additionalProperties": false
+          },
+          "orderRef": {
+            "type": "string"
+          },
+          "fulfilmentMode": {
+            "$ref": "#/components/schemas/FulfilmentMode"
+          },
+          "language": {
+            "$ref": "#/components/schemas/MenuLanguage"
+          },
+          "corrects": {
+            "type": "object",
+            "properties": {
+              "number": {
+                "type": "string"
+              },
+              "issuedAt": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "number",
+              "issuedAt"
+            ],
+            "additionalProperties": false,
+            "nullable": true
+          },
+          "reverses": {
+            "type": "object",
+            "properties": {
+              "number": {
+                "type": "string"
+              },
+              "issuedAt": {
+                "type": "string"
+              },
+              "documentType": {
+                "$ref": "#/components/schemas/InvoiceDocumentType"
+              }
+            },
+            "required": [
+              "number",
+              "issuedAt",
+              "documentType"
+            ],
+            "additionalProperties": false
+          },
+          "refundId": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "shopId",
+          "kind",
+          "documentType",
+          "number",
+          "templateVersion",
+          "issuedAt",
+          "supplyDate",
+          "timezone",
+          "seller",
+          "buyer",
+          "lines",
+          "taxBreakdown",
+          "totalCents",
+          "currency",
+          "payment",
+          "orderRef",
+          "fulfilmentMode",
+          "language",
+          "corrects",
+          "refundId"
+        ],
+        "additionalProperties": false
+      },
+      "InvoiceDocumentType": {
+        "type": "string",
+        "enum": [
+          "invoice",
+          "cancellation",
+          "correction"
+        ]
+      },
+      "InvoiceSeller": {
+        "type": "object",
+        "properties": {
+          "legalName": {
+            "type": "string"
+          },
+          "street": {
+            "type": "string"
+          },
+          "postcode": {
+            "type": "string"
+          },
+          "city": {
+            "type": "string"
+          },
+          "country": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "vatId": {
+            "type": "string"
+          },
+          "taxNumber": {
+            "type": "string"
+          },
+          "registerCourt": {
+            "type": "string"
+          },
+          "registerNumber": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "legalName",
+          "street",
+          "postcode",
+          "city",
+          "country",
+          "phone",
+          "email",
+          "vatId",
+          "taxNumber",
+          "registerCourt",
+          "registerNumber"
+        ],
+        "additionalProperties": false
+      },
+      "InvoiceBuyer": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "address": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CustomerAddress"
+              }
+            ]
+          }
+        },
+        "required": [
+          "name",
+          "address"
+        ],
+        "additionalProperties": false
+      },
+      "InvoiceLine": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "number"
+          },
+          "unitPriceCents": {
+            "type": "number"
+          },
+          "lineTotalCents": {
+            "type": "number"
+          },
+          "taxRateBasisPoints": {
+            "type": "number"
+          },
+          "taxCents": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "name",
+          "quantity",
+          "unitPriceCents",
+          "lineTotalCents",
+          "taxRateBasisPoints",
+          "taxCents"
+        ],
+        "additionalProperties": false
+      },
       "SubProcessor": {
         "type": "object",
         "properties": {
@@ -8828,14 +9151,6 @@
           "number"
         ],
         "additionalProperties": false
-      },
-      "InvoiceDocumentType": {
-        "type": "string",
-        "enum": [
-          "invoice",
-          "cancellation",
-          "correction"
-        ]
       },
       "OrderDto": {
         "type": "object",
@@ -12803,6 +13118,12 @@
             "items": {
               "$ref": "#/components/schemas/ExportCustomer"
             }
+          },
+          "invoices": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InvoiceDoc"
+            }
           }
         },
         "required": [
@@ -12812,7 +13133,8 @@
           "categories",
           "products",
           "orders",
-          "customers"
+          "customers",
+          "invoices"
         ],
         "additionalProperties": false
       },
@@ -13564,6 +13886,27 @@
           "customerName",
           "customerEmail",
           "customerPhone"
+        ],
+        "additionalProperties": false
+      },
+      "InvoiceArchiveFileDto": {
+        "type": "object",
+        "properties": {
+          "fileName": {
+            "type": "string"
+          },
+          "contentType": {
+            "type": "string",
+            "const": "application/zip"
+          },
+          "contentBase64": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "fileName",
+          "contentType",
+          "contentBase64"
         ],
         "additionalProperties": false
       },

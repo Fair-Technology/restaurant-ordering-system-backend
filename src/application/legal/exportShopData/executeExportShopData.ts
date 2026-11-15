@@ -3,6 +3,7 @@ import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepo
 import { findCategoriesByShopId } from '../../../infrastructure/cosmos/category/CosmosCategoryRepository';
 import { findProductsByShopId } from '../../../infrastructure/cosmos/product/CosmosProductRepository';
 import { findOrdersByShopId } from '../../../infrastructure/cosmos/order/CosmosOrderRepository';
+import { findInvoiceDocumentsByShopId } from '../../../infrastructure/cosmos/invoice/CosmosInvoiceRepository';
 import { legalOf } from '../../../domain/legal/legalTexts';
 import { menuLanguagesOf } from '../../../domain/menu/menuLanguage';
 import { logAudit } from '../../_shared/auditHelpers';
@@ -32,10 +33,11 @@ export async function executeExportShopData(
       return { ok: false, code: 'FORBIDDEN', error: OWNER_ONLY_ERROR };
     }
 
-    const [categories, products, orders] = await Promise.all([
+    const [categories, products, orders, invoices] = await Promise.all([
       findCategoriesByShopId(shop.id),
       findProductsByShopId(shop.id),
       findOrdersByShopId(shop.id),
+      findInvoiceDocumentsByShopId(shop.id),
     ]);
 
     const legal = legalOf(shop);
@@ -77,6 +79,7 @@ export async function executeExportShopData(
       products: products.filter((p) => !p.isDeleted).map(stripCosmosMeta),
       orders: exportOrders,
       customers: deriveCustomers(orders),
+      invoices: [...invoices].sort((a, b) => a.issuedAt.localeCompare(b.issuedAt) || a.number.localeCompare(b.number)),
     };
 
     await logAudit({

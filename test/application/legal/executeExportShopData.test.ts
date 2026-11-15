@@ -12,6 +12,9 @@ vi.mock('../../../src/infrastructure/cosmos/product/CosmosProductRepository', ()
   findProductsByShopId: vi.fn(),
 }));
 vi.mock('../../../src/infrastructure/cosmos/order/CosmosOrderRepository', () => ({ findOrdersByShopId: vi.fn() }));
+vi.mock('../../../src/infrastructure/cosmos/invoice/CosmosInvoiceRepository', () => ({
+  findInvoiceDocumentsByShopId: vi.fn(),
+}));
 vi.mock('../../../src/application/_shared/auditHelpers', () => ({ logAudit: vi.fn() }));
 
 import { authorizeShopAction } from '../../../src/application/_shared/shopAccess';
@@ -19,6 +22,7 @@ import { findShopById } from '../../../src/infrastructure/cosmos/shop/CosmosShop
 import { findCategoriesByShopId } from '../../../src/infrastructure/cosmos/category/CosmosCategoryRepository';
 import { findProductsByShopId } from '../../../src/infrastructure/cosmos/product/CosmosProductRepository';
 import { findOrdersByShopId } from '../../../src/infrastructure/cosmos/order/CosmosOrderRepository';
+import { findInvoiceDocumentsByShopId } from '../../../src/infrastructure/cosmos/invoice/CosmosInvoiceRepository';
 import { executeExportShopData } from '../../../src/application/legal/exportShopData/executeExportShopData';
 
 const o1 = {
@@ -53,6 +57,18 @@ describe('executeExportShopData', () => {
     ]);
     (findProductsByShopId as any).mockResolvedValue([]);
     (findOrdersByShopId as any).mockResolvedValue([o2, o1, o3]);
+    (findInvoiceDocumentsByShopId as any).mockResolvedValue([
+      { id: 'o1-c1', kind: 'invoice', documentType: 'correction', number: 'R-2026-00002', issuedAt: '2026-10-05T12:00:00Z' },
+      { id: 'o1', kind: 'invoice', documentType: 'invoice', number: 'R-2026-00001', issuedAt: '2026-10-05T10:05:00Z' },
+    ]);
+  });
+
+  it('carries invoices and corrections, oldest first, and no counter', async () => {
+    const r: any = await executeExportShopData({ shopId: 'shop-1' }, {} as any);
+    expect(findInvoiceDocumentsByShopId).toHaveBeenCalledWith('shop-1');
+    expect(r.data.invoices.map((d: any) => d.documentType)).toEqual(['invoice', 'correction']);
+    expect(r.data.invoices.some((d: any) => d.kind === 'counter')).toBe(false);
+    expect(r.data.formatVersion).toBe(1);
   });
 
   it('owner export omits order notes', async () => {

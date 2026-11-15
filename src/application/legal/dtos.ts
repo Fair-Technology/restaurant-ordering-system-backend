@@ -3,6 +3,7 @@ import { ImpressumFieldKey, ImpressumFields, ImpressumLine, LegalLanguage } from
 import { PlatformLegalIdentity } from '../../domain/legal/PlatformLegalIdentity';
 import { SubProcessor } from '../../domain/legal/platformDocuments';
 import { PrivacyNotice } from '../../domain/legal/privacyNotice';
+import { InvoiceDoc } from '../../domain/invoice/invoice';
 import { Order } from '../../domain/order/Order';
 import { Product } from '../../domain/product/Product';
 import { MenuLanguage } from '../../domain/reference/ReferenceLists';
@@ -97,6 +98,8 @@ export interface ShopDataExportDto {
   products: Product[];
   orders: ExportOrder[]; // all, newest first, same key removal
   customers: ExportCustomer[]; // sorted lastOrderAt desc
+  /** The shop's invoice and correction-invoice snapshots (all documentTypes), oldest first. */
+  invoices: InvoiceDoc[];
 }
 
 export interface EraseCustomerBody {

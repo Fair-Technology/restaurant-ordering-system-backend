@@ -56,6 +56,7 @@ import './functions/order/acceptOrder/index';
 import './functions/order/rejectOrder/index';
 import './functions/order/refundOrder/index';
 import './functions/order/getOrderDocument/index';
+import './functions/order/exportInvoiceArchive/index';
 import './functions/order/viewCustomerDocument/index';
 import './functions/order/markOrderReady/index';
 import './functions/order/completeOrder/index';

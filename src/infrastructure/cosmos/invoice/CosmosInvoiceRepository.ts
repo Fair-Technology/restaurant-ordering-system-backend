@@ -59,3 +59,32 @@ export async function commitInvoice(
   }
   throw new Error(`Invoice batch failed (counter ${counterStatus}, document ${docStatus})`);
 }
+
+/** Every invoice, cancellation and correction of a shop, oldest first. The partition also holds the `counter` document, which is never returned. */
+export async function findInvoiceDocumentsByShopId(shopId: string): Promise<InvoiceDoc[]> {
+  const querySpec = {
+    query: "SELECT * FROM c WHERE c.shopId = @shopId AND c.kind = 'invoice' ORDER BY c.issuedAt ASC",
+    parameters: [{ name: '@shopId', value: shopId }],
+  };
+  const { resources } = await invoiceContainer.items.query<InvoiceDoc>(querySpec, { partitionKey: shopId }).fetchAll();
+  return resources;
+}
+
+/** The documents issued in `[fromIso, toIso)` (ISO instants compare correctly as strings), oldest first. */
+export async function findInvoiceDocumentsIssuedBetween(
+  shopId: string,
+  fromIso: string,
+  toIso: string,
+): Promise<InvoiceDoc[]> {
+  const querySpec = {
+    query:
+      "SELECT * FROM c WHERE c.shopId = @shopId AND c.kind = 'invoice' AND c.issuedAt >= @from AND c.issuedAt < @to ORDER BY c.issuedAt ASC",
+    parameters: [
+      { name: '@shopId', value: shopId },
+      { name: '@from', value: fromIso },
+      { name: '@to', value: toIso },
+    ],
+  };
+  const { resources } = await invoiceContainer.items.query<InvoiceDoc>(querySpec, { partitionKey: shopId }).fetchAll();
+  return resources;
+}
