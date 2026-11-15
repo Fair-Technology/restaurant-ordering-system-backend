@@ -222,6 +222,15 @@
             "type": "string"
           },
           "description": "Shop ID to filter products"
+        },
+        {
+          "name": "includeUncategorized",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "boolean"
+          },
+          "description": "Include products that have no category (e.g. dishes created by the bulk menu import)"
         }
       ],
       "responseDescription": "Products retrieved successfully"
