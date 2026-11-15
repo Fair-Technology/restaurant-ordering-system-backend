@@ -844,6 +844,34 @@
       "tags": [
         "Webhooks"
       ]
+    },
+    "GET /shops/{shopId}/realtime/negotiate": {
+      "tags": [
+        "Orders"
+      ],
+      "summary": "Open the live order channel",
+      "description": "Returns a Web PubSub client URL and access token (valid 60 minutes) for the hub `orders`, joined to the group named by the shop id. The client receives `{\"type\":\"new-order\",\"orderId\":\"...\"}` and refetches the order queue. Both fields are null when Web PubSub is not configured; the client then keeps polling."
+    },
+    "GET /shops/{shopId}/push/public-key": {
+      "tags": [
+        "Orders"
+      ],
+      "summary": "Get the Web Push (VAPID) public key",
+      "description": "The application server key a browser needs to subscribe to push notifications. `publicKey` is null when push is not configured."
+    },
+    "POST /shops/{shopId}/push/subscriptions": {
+      "tags": [
+        "Orders"
+      ],
+      "summary": "Register a device for new-order push notifications",
+      "description": "Stores a browser push subscription for the shop. Idempotent per endpoint; a removed subscription is revived. Answers 503 when push is not configured."
+    },
+    "DELETE /shops/{shopId}/push/subscriptions": {
+      "tags": [
+        "Orders"
+      ],
+      "summary": "Remove a device from new-order push notifications",
+      "description": "Soft-deletes the push subscription with the given endpoint. Succeeds even if it was not registered."
     }
   }
 }

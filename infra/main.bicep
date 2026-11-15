@@ -99,6 +99,7 @@ var containers = [
   { name: 'shop_subscriptions', pk: '/id', uniqueKeys: [] }
   { name: 'shop_usage', pk: '/id', uniqueKeys: [] }
   { name: 'auditLogs', pk: '/id', uniqueKeys: [] }
+  { name: 'push_subscriptions', pk: '/id', uniqueKeys: [] }
   { name: 'system_config', pk: '/id', uniqueKeys: [] }
   { name: 'staff_accounts', pk: '/shopId', uniqueKeys: [ '/username' ] }
   { name: 'invoices', pk: '/shopId', uniqueKeys: [ '/number' ] }
@@ -107,6 +108,15 @@ var containers = [
 var staticApps = ['storefront', 'admin', 'superadmin']
 
 // ── Data ──────────────────────────────────────────────────────────────────────
+
+// Live order channel: the kitchen board holds a WebSocket here and refetches on a signal.
+// Free tier in dev; Standard otherwise.
+resource webPubSub 'Microsoft.SignalRService/webPubSub@2024-03-01' = {
+  name: '${prefix}-wps-${env}'
+  location: location
+  sku: { name: env == 'dev' ? 'Free_F1' : 'Standard_S1', capacity: 1 }
+  properties: {}
+}
 
 // Serverless: this bills per request rather than per provisioned throughput,
 // which is the right shape for an environment that is idle most of the day.
@@ -304,6 +314,8 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
         { name: 'COSMOS_SUBSCRIPTIONS_CONTAINER', value: 'shop_subscriptions' }
         { name: 'COSMOS_USAGE_CONTAINER', value: 'shop_usage' }
         { name: 'COSMOS_CHECKOUT_SESSION_CONTAINER', value: 'checkout_sessions' }
+        { name: 'COSMOS_PUSH_SUBSCRIPTIONS_CONTAINER', value: 'push_subscriptions' }
+        { name: 'WEB_PUBSUB_CONNECTION_STRING', value: webPubSub.listKeys().primaryConnectionString }
         { name: 'STORAGE_ACCOUNT_NAME', value: storageName }
         // Host state (timer leases) over the identity, so no storage key sits in the template.
         { name: 'AzureWebJobsStorage__accountName', value: storageName }
@@ -314,7 +326,7 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
         // Injected-clock routes (e.g. the 90-day wind-down "as of" a date) exist only in dev.
         // Fail-closed: anything but the exact string 'true' leaves them unregistered (404).
         { name: 'ENABLE_TEST_CLOCK_ROUTES', value: env == 'dev' ? 'true' : 'false' }
-        // Secrets — COSMOS_DB_KEY, STORAGE_ACCOUNT_KEY, ENTRA_*, STRIPE_* — are
+        // Secrets — COSMOS_DB_KEY, STORAGE_ACCOUNT_KEY, ENTRA_*, STRIPE_*, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT (mailto:) — are
         // set after deployment from the vault .env, never committed here.
       ]
     }
