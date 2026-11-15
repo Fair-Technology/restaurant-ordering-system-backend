@@ -15,6 +15,7 @@ import { acceptPlacedOrder } from '../_shared/acceptPlacedOrder';
 import { releaseClosedOrderPayment } from '../_shared/releasePayment';
 import { fixSlotPlace } from '../_shared/slotPlaces';
 import { notifyCustomer } from '../notifications/notifyOrder';
+import { notifyShopNewOrder } from '../notifications/notifyShop';
 import { buildPlacedOrderFromSession } from './buildPlacedOrderFromSession';
 import { errorBrief } from '../../_shared/errorBrief';
 
@@ -85,6 +86,8 @@ export async function executeHandlePaymentAuthorized(input: {
     await notifyCustomer('order_rejected', released.order ?? toWrite, shop);
     return 'declined_shop_unavailable';
   }
+  // The order is live: signal the open kitchen boards and installed devices (never throws).
+  if (inLiveQueue) await notifyShopNewOrder(order, shop);
   // The card is reserved: the booked place is kept for good, even if its hold lapsed meanwhile.
   if (order.scheduledFor) await fixSlotPlace({ shop, orderId: order.id, slot: order.scheduledFor, now });
 
