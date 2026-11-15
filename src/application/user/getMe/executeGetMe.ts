@@ -29,7 +29,6 @@ export async function executeGetMe(
           id: principal.userId,
           email: principal.email ?? existing?.email,
           name: principal.name ?? existing?.name,
-          systemRole: 'superadmin',
           platformAccess,
           createdAt: existing?.createdAt ?? now,
           updatedAt: existing?.updatedAt ?? now,
@@ -41,7 +40,6 @@ export async function executeGetMe(
       id: principal.userId,
       email: principal.email,
       name: principal.name,
-      systemRole: 'user',
       createdAt: now,
       updatedAt: now,
     });
@@ -52,7 +50,6 @@ export async function executeGetMe(
         id: profile.id,
         email: profile.email,
         name: profile.name,
-        systemRole: profile.systemRole,
         createdAt: profile.createdAt,
         updatedAt: profile.updatedAt,
       },

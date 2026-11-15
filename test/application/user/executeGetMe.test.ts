@@ -39,7 +39,6 @@ describe('executeGetMe', () => {
 
     expect(res.ok).toBe(true);
     if (res.ok) {
-      expect(res.data.systemRole).toBe('superadmin');
       expect(res.data.id).toBe('staff-1');
       expect(res.data.email).toBe('op@example.com');
     }
@@ -54,7 +53,6 @@ describe('executeGetMe', () => {
       id: 'staff-1',
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-02-02T00:00:00.000Z',
-      systemRole: 'superadmin',
     } as never);
 
     const res = await executeGetMe(http);
@@ -70,14 +68,13 @@ describe('executeGetMe', () => {
       id: 'cust-1',
       email: 'owner@example.com',
       name: 'Owner',
-      systemRole: 'user',
       createdAt: '2026-03-03T00:00:00.000Z',
       updatedAt: '2026-03-03T00:00:00.000Z',
     } as never);
 
     const res = await executeGetMe(http);
 
-    expect(res.ok && res.data.systemRole).toBe('user');
+    expect(res.ok && res.data.id).toBe('cust-1');
     expect(upsertUser).toHaveBeenCalledTimes(1);
   });
 
@@ -110,13 +107,12 @@ describe('executeGetMe', () => {
     const res = await executeGetMe(http);
 
     expect(res.ok && res.data.platformAccess).toBe(level);
-    expect(res.ok && res.data.systemRole).toBe('superadmin');
     expect(upsertUser).not.toHaveBeenCalled();
   });
 
   it('reports no platformAccess for an app user', async () => {
     vi.mocked(getPrincipalFromAuth).mockResolvedValue(customer as never);
-    vi.mocked(upsertUser).mockResolvedValue({ id: 'cust-1', systemRole: 'user', createdAt: 'a', updatedAt: 'b' } as never);
+    vi.mocked(upsertUser).mockResolvedValue({ id: 'cust-1', createdAt: 'a', updatedAt: 'b' } as never);
 
     const res = await executeGetMe(http);
 

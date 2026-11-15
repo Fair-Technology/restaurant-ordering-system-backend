@@ -21,9 +21,9 @@ const ROWS = [
 ];
 
 // The decision comes from the verified identity's platform role, so drive it with a real principal.
-const asUser = (systemRole: string) =>
+const asCaller = (caller: 'platform' | 'customer') =>
   vi.mocked(getPrincipalFromAuth).mockResolvedValue(
-    systemRole === 'superadmin'
+    caller === 'platform'
       ? ({ kind: 'entra', userId: 'sa', issuer: 'platform', roles: ['Platform.Owner'] } as any)
       : ({ kind: 'entra', userId: 'u1', issuer: 'customer', roles: [] } as any),
   );
@@ -37,14 +37,14 @@ describe('executeGetPlanPricing', () => {
   });
 
   it('superadmin gets all rows with Stripe ids, even on a hidden plan', async () => {
-    asUser('superadmin');
+    asCaller('platform');
     withPlan(false);
     const r = await executeGetPlanPricing('p', {} as any);
     expect(r).toEqual({ ok: true, data: ROWS });
   });
 
   it('owner gets active rows of a visible plan with Stripe ids nulled', async () => {
-    asUser('user');
+    asCaller('customer');
     withPlan(true);
     const r = await executeGetPlanPricing('p', {} as any);
     expect(r.ok).toBe(true);
@@ -57,14 +57,14 @@ describe('executeGetPlanPricing', () => {
   });
 
   it('owner on a hidden plan gets NOT_FOUND', async () => {
-    asUser('user');
+    asCaller('customer');
     withPlan(false);
     const r = await executeGetPlanPricing('p', {} as any);
     expect(r).toMatchObject({ ok: false, code: 'NOT_FOUND' });
   });
 
   it('unknown plan gets NOT_FOUND', async () => {
-    asUser('superadmin');
+    asCaller('platform');
     vi.mocked(findPlanById).mockResolvedValue(null as any);
     const r = await executeGetPlanPricing('nope', {} as any);
     expect(r).toMatchObject({ ok: false, code: 'NOT_FOUND' });

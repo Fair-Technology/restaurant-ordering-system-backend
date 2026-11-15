@@ -20,9 +20,9 @@ export async function getActorFromAuth(
   // our own staff: they have no profile in the users container, and creating one
   // would put them in shop-facing user data.
   if (issuer === 'customer') {
-    // Fire-and-forget: ensure a user profile exists; never downgrades an existing superadmin
+    // Fire-and-forget: ensure a user profile exists
     const now = new Date().toISOString();
-    upsertUser({ id: oid, email, name, systemRole: 'user', createdAt: now, updatedAt: now }).catch(
+    upsertUser({ id: oid, email, name, createdAt: now, updatedAt: now }).catch(
       (err) => {
         console.error('[auditHelpers] Failed to upsert user profile:', err?.message);
       },
