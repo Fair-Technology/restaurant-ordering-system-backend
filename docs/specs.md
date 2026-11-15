@@ -1824,8 +1824,17 @@ deliberate differences:
   `records-archive` container (timestamped JSONL + manifest, verified against
   the manifest's SHA-256 checksums after upload), using the deployment
   identity's Cosmos data read and blob write. Still open: the 2922-day retention
-  policy is unlocked, and the Cosmos point-in-time restore drill has not yet
-  been run against the live account.
+  policy is unlocked. The Cosmos point-in-time restore drill **was run on
+  2026-11-15** against the dev account `restaurant-ordering-system-db-dev`
+  (continuous / `Continuous30Days`, serverless, West Europe): `az cosmosdb
+  restore` into a temp account at `2026-11-15T08:25:00Z` finished `Succeeded`
+  (`restoreMode: PointInTime`, whole command ≈19 min), and the restored data
+  matched the source as of that timestamp — 527 documents across the 14 declared
+  containers (plus an empty undeclared `items`), with the only source-side
+  differences being documents written after 08:25Z. The temp account was deleted
+  afterwards (`ResourceNotFound` confirmed) and the source account left
+  untouched. Still owed: the same drill on the **production** account once it
+  exists (only dev exists today).
 - **Email:** without Azure Communication Services configured, order emails and
   invoice PDFs are only logged, never sent, and diners would receive nothing.
   Going live with real email is an explicit go-live decision, with the sending
