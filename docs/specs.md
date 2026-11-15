@@ -1814,11 +1814,29 @@ deliberate differences:
 
 ### Release pipeline
 
-Work merges into `dev` first; a release is `dev` merged into `main`; production
-receives the **same artifact dev built and tested** for that commit (artifacts
-are kept 90 days, so an older commit cannot be promoted — push a fresh one
-through dev). Promotion waits for the `production` environment's required
-reviewer. It **fails closed**: production reads its identity or deployment token
+**The branch flow is not the same in all four repos** (corrected 2026-11-15,
+card `t_0ba138d2`; the earlier "all four repos use `dev` → `main`" wording was
+false for the three front-ends):
+
+- **`rs-backend` — `dev` → `main`.** Work merges into `dev` first; a release is
+  `dev` merged into `main`. `main_restaurant-ordering-system.yml` triggers on
+  both branches: a push to `dev` builds, tests and deploys the dev Function App,
+  a push to `main` builds and tests the promotable artifact. The `dev` branch
+  exists on `origin` (created 2026-11-15 at `origin/main`).
+- **`rs-admin`, `rs-superadmin`, `rs-storefront` — `main` → dev environment →
+  promote.** There is no `dev` branch in these repos; `main` is their only
+  integration branch. `azure-static-web-apps.yml` triggers on `push` and
+  `pull_request` for `main` only and deploys that build to the dev Static Web
+  App; `promote.yml` takes a successful `main` run of that workflow
+  (`workflow_run`, `branches: [main]`) and rebuilds the commit for production
+  behind the `production` environment's reviewer. The front-ends have no
+  separate pre-`main` integration branch, and none is planned: `main` already
+  deploys to the dev environment, so a second branch would add no safety.
+
+For `rs-backend`, production receives the **same artifact dev built and tested**
+for that commit (artifacts are kept 90 days, so an older commit cannot be
+promoted — push a fresh one through dev). Promotion waits for the `production`
+environment's required reviewer. It **fails closed**: production reads its identity or deployment token
 from a secret name that exists only on the production environment (the backend's
 `AZURE_CLIENT_ID_PROD`, each front-end's deployment token), because GitHub falls
 back to a repo-level secret of the same name and a same-name secret would
@@ -1924,11 +1942,18 @@ notice-and-action mini-slice → 6 → 9. Slice numbers below are unchanged.
    - **Own Stripe account** in live mode for this product (TODO), webhooks
      pointed at production. (Dev already has its own test sandbox, separate
      from copyshop's, since 2026-10-06.)
-   - **Branches and deploys** (Manish, 2026-10-01) — in all four repos, `dev`
-     deploys to the dev environment (already wired) and `main` deploys to
-     production (to be wired here). Work merges into `dev` first; a release is
-     `dev` merged into `main`. No hand-deploys. No separate `test` branch for
-     now.
+   - **Branches and deploys** (Manish, 2026-10-01; flow corrected 2026-11-15,
+     card `t_0ba138d2`) — `main` deploys to production in all four repos (via
+     `promote.yml` in each; still to be enabled here). What triggers the dev
+     environment differs per repo, and the older "in all four repos, `dev`
+     deploys to the dev environment (already wired)" wording was false for
+     three of them — see §20 "Release pipeline":
+     - `rs-backend` — work merges into `dev` first and a release is `dev`
+       merged into `main`; a `dev` push deploys the dev Function App.
+     - `rs-admin`, `rs-superadmin`, `rs-storefront` — no `dev` branch; `main`
+       is the only integration branch, a `main` push deploys the dev Static Web
+       App, and that same `main` run is what `promote.yml` can promote.
+     No hand-deploys. No separate `test` branch for now.
    - **Error monitoring and alerts** — backend failures (especially order
      intake and payment webhooks) alert Manish before a restaurant notices.
    - **Backups with a tested restore** — orders and invoice snapshots are
