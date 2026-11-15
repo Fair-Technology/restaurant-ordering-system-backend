@@ -29,8 +29,9 @@
 # reads repo-level AZURE_CLIENT_ID — so a same-name environment secret would silently fall
 # back to the dev identity and the guard could never fire. A distinct name fails closed.
 # AZURE_TENANT_ID and AZURE_SUBSCRIPTION_ID are the same account as dev and stay repo-level
-# (runbook B4). Until AZURE_CLIENT_ID_PROD exists on the `production` environment this
-# workflow is EXPECTED TO FAIL at the guard step. That is by design.
+# (docs/specs.md §20, "Release pipeline"). Until AZURE_CLIENT_ID_PROD exists on the
+# `production` environment this workflow is EXPECTED TO FAIL at the guard step. That is
+# by design.
 
 name: Promote artifact to production
 

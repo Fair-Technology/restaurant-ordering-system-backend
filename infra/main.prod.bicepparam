@@ -5,7 +5,7 @@ using 'main.bicep'
 
 param env = 'prod'
 
-// Germany West Central for compute, data and telemetry (runbook §1).
+// Germany West Central for compute, data and telemetry (docs/specs.md §20, "Production environment").
 param location = 'germanywestcentral'
 // Static Web Apps are not offered in Germany West Central.
 param staticWebAppLocation = 'westeurope'
