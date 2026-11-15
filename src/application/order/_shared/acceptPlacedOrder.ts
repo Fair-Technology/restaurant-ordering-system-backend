@@ -233,7 +233,12 @@ export async function acceptPlacedOrder(input: {
       console.error('[accept:error] captured but not recorded', orderId);
       return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to accept order' };
     }
-    return moved ?? { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to accept order' };
+    if (!moved) {
+      // Unreachable in practice (the loop runs at least once); a NOT_FOUND / CONFLICT from the transition is returned as is.
+      console.error('[accept:error] transition did not move the order', orderId);
+      return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to accept order' };
+    }
+    return moved;
   }
 
   try {
