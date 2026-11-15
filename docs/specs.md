@@ -1512,15 +1512,18 @@ token or any path text — reverting to the baseline on non-shop routes).
 - **`noindex` is derived from the path alone**, on every `/shops/*` and
   `/legal/*` response, unconditionally and before any backend call — so a backend
   outage can never strip it, and the diner's order-page URL (which carries the
-  secret token in `?t=`) is never indexable. The front page `/` is not routed
-  through it and stays indexable (it is the sales site); whether a pasted
-  front-page URL should unfurl with a platform card is an open product call.
-- **Link-preview tags appear only on exactly `/shops/<slug>`:** title = shop
+  secret token in `?t=`) is never indexable. The front page `/` is routed through
+  the Function too but is the exception: it **stays indexable** (it is the sales
+  site) and serves a generic **platform** card — the route rule is path-exact
+  `/`, never `/*` (which would swallow `/assets/*` and break the site).
+- **Link-preview tags:** a shop card on exactly `/shops/<slug>` — title = shop
   name, description = name plus city (a fixed fallback string when there is no
   city, never empty, never "undefined"), image = hero, else logo, else a static
   raster card (social crawlers do not render SVG), always an absolute https
-  URL, with the canonical URL; all values HTML-escaped. Checkout, order and legal
-  pages get no card.
+  URL, with the canonical URL; all values HTML-escaped. The front page `/` gets a
+  generic **platform** card: `og:title` = the platform name (§15), a generic
+  description, a static raster image, canonical URL = the bare origin — and no
+  `noindex`. Checkout, order and legal pages get no card.
 - **It fails open:** every failure (shop read slow or failing, shell fetch failing,
   malformed data) still answers **200** with `noindex` at the same URL — never a
   3xx (a redirect to `/index.html` would escape `noindex`) and never a 5xx; if both
@@ -1847,7 +1850,8 @@ false for the three front-ends):
 For `rs-backend`, production receives the **same artifact dev built and tested**
 for that commit (artifacts are kept 90 days, so an older commit cannot be
 promoted — push a fresh one through dev). Promotion waits for the `production`
-environment's required reviewer. It **fails closed**: production reads its identity or deployment token
+environment's required reviewer.
+It **fails closed**: production reads its identity or deployment token
 from a secret name that exists only on the production environment (the backend's
 `AZURE_CLIENT_ID_PROD`, each front-end's deployment token), because GitHub falls
 back to a repo-level secret of the same name and a same-name secret would
