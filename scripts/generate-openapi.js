@@ -34,6 +34,9 @@ const OVERLAY_FILE = path.join(SWAGGER_DIR, 'overlay.json');
 const args = process.argv.slice(2);
 const DRY = args.includes('--dry');
 
+/** Hand-written prose and the few contract details code cannot express; keyed by operationId (and schema). */
+const overlay = fs.existsSync(OVERLAY_FILE) ? JSON.parse(fs.readFileSync(OVERLAY_FILE, 'utf8')) : {};
+
 /**
  * The few HTTP functions whose contract cannot be read off an application
  * service. Everything here is deliberate and should stay short; if this list
@@ -467,8 +470,27 @@ for (const [type, schema] of Object.entries(rawSchemas)) {
 /** A ref to a generated schema, going through the same rename map. */
 const schemaRef = (name) => `#/components/schemas/${nameMap.get(name) || sanitizeName(name)}`;
 
+// ── 4b. Schema constraint patches ───────────────────────────────────────────
+//
+// The generator runs with jsDoc:'none', so a DTO cannot carry an annotation like
+// @pattern into the spec. Where a field's *value* — not just its type — is part of
+// the contract, the constraint is declared in overlay.json under `schemas`, keyed
+// `<Schema>.<property>`, and merged over the generated property here.
+//
+// A patch naming a schema or property the code no longer has fails generation
+// instead of quietly vanishing from the published contract.
+for (const [target, patch] of Object.entries(overlay.schemas || {})) {
+  const [schemaName, property, ...rest] = target.split('.');
+  const schema = components[schemaName];
+  const existing = schema && schema.properties && schema.properties[property];
+  if (!existing || rest.length) {
+    console.error(`✗ overlay.json schemas: "${target}" is not a property of a generated schema`);
+    process.exit(1);
+  }
+  schema.properties[property] = { ...existing, ...patch };
+}
+
 // ── 5. Build paths ──────────────────────────────────────────────────────────
-const overlay = fs.existsSync(OVERLAY_FILE) ? JSON.parse(fs.readFileSync(OVERLAY_FILE, 'utf8')) : {};
 const operations = overlay.operations || {};
 
 /** The statuses mapResultToHttp can produce, so every operation documents them. */

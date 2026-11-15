@@ -13558,7 +13558,10 @@
             "type": "string"
           },
           "contentUrl": {
-            "type": "string"
+            "type": "string",
+            "format": "uri",
+            "pattern": "^[Hh][Tt][Tt][Pp][Ss]?://",
+            "description": "Absolute http(s) URL supplied by the reporter, when one was given. Constrained on the write path (see SubmitContentReportBody.contentUrl); rows written before that constraint existed are not migrated."
           },
           "reporterName": {
             "type": "string"
@@ -13661,7 +13664,10 @@
             "type": "string"
           },
           "contentUrl": {
-            "type": "string"
+            "type": "string",
+            "format": "uri",
+            "pattern": "^[Hh][Tt][Tt][Pp][Ss]?://",
+            "description": "Absolute http(s) URL of the reported content. The submit route is public (no sign-in) and the platform console renders this value as a link an operator clicks, so the server accepts nothing else: any other scheme (javascript:, data:, blob:, file:) or a non-absolute URL (relative or protocol-relative) is refused with 400. Omit or send blank to report without a URL."
           },
           "reporterName": {
             "type": "string"

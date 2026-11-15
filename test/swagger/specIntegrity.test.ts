@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { swaggerSpec } from '../../src/swagger/swaggerSpec';
+import { isHttpUrl } from '../../src/application/contentReport/submitContentReport/executeSubmitContentReport';
 
 /**
  * Guards on the generated spec itself. Every check here corresponds to a defect that
@@ -81,5 +82,39 @@ describe('generated spec integrity', () => {
     };
     walk(swaggerSpec, '');
     expect(offenders).toEqual([]);
+  });
+});
+
+/**
+ * The public content-report route renders contentUrl as a link in the platform console,
+ * so the published contract must carry the same http(s)-only rule the handler enforces.
+ * The pattern is declared in overlay.json (the generator runs with jsDoc off); this
+ * keeps it from drifting away from isHttpUrl in the submit use case.
+ */
+describe('content-report contentUrl contract', () => {
+  const contentUrl = (schemas.SubmitContentReportBody as any).properties.contentUrl as {
+    format?: string;
+    pattern?: string;
+  };
+  const published = new RegExp(contentUrl.pattern ?? '');
+
+  it('constrains the public submit body to an absolute http(s) URL', () => {
+    expect(contentUrl.format).toBe('uri');
+    expect(contentUrl.pattern).toBeTruthy();
+    expect((schemas.ContentReport as any).properties.contentUrl.pattern).toBe(contentUrl.pattern);
+  });
+
+  it.each([
+    'https://x.example/p/1',
+    'http://x.example/p/1',
+    'HTTPS://X.EXAMPLE/p/1',
+    'javascript:alert(document.domain)',
+    'data:text/html,<script>document.title="pwned"</script>',
+    '/products/mapasta',
+    '//evil.example/x',
+    'ftp://x.example/f',
+    'mailto:a@b.example',
+  ])('the published pattern agrees with isHttpUrl for %s', (value) => {
+    expect(published.test(value)).toBe(isHttpUrl(value));
   });
 });

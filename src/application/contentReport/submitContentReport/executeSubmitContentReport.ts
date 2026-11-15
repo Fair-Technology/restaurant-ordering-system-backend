@@ -13,6 +13,25 @@ import { logServiceFailure } from '../../_shared/logServiceFailure';
 import { SubmitContentReportBody, SubmitContentReportResultDto } from './dtos';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const WEB_PROTOCOLS = new Set(['http:', 'https:']);
+
+export const CONTENT_URL_ERROR = 'contentUrl must be an http(s) URL';
+
+/**
+ * This route is public (no sign-in) and the platform console renders the stored value
+ * as a link an operator clicks, so the submitter must not be able to choose the scheme.
+ * An allow-list, not a blocklist: `new URL` rejects relative and protocol-relative input
+ * ('/x', '//evil'), and anything left that is not http(s) — javascript:, data:, blob:,
+ * file: — is refused. Today only React 19 and Chrome's URL policy stop those payloads
+ * from executing; that is the frontend's accident, not a guarantee this API can rely on.
+ */
+export function isHttpUrl(value: string): boolean {
+  try {
+    return WEB_PROTOCOLS.has(new URL(value).protocol);
+  } catch {
+    return false;
+  }
+}
 
 type OptionalText = { ok: true; value: string | undefined } | { ok: false; error: string };
 
@@ -56,6 +75,10 @@ export async function executeSubmitContentReport(
 
   const contentUrl = readOptionalText(body.contentUrl, 'contentUrl', CONTENT_REPORT_URL_MAX_LENGTH);
   if (!contentUrl.ok) return { ok: false, code: 'INVALID_INPUT', error: contentUrl.error };
+  // Blank is still accepted (it never reaches the console as a link); a non-blank value must be web.
+  if (contentUrl.value !== undefined && !isHttpUrl(contentUrl.value)) {
+    return { ok: false, code: 'INVALID_INPUT', error: CONTENT_URL_ERROR };
+  }
   const reporterName = readOptionalText(body.reporterName, 'reporterName', CONTENT_REPORTER_NAME_MAX_LENGTH);
   if (!reporterName.ok) return { ok: false, code: 'INVALID_INPUT', error: reporterName.error };
   const reporterEmail = readOptionalText(body.reporterEmail, 'reporterEmail', CONTENT_REPORTER_EMAIL_MAX_LENGTH);
