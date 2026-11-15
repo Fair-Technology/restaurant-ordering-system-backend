@@ -1,5 +1,6 @@
 import { HttpRequest } from '@azure/functions';
 import Stripe from 'stripe';
+import { createStripeClient } from '../../../infrastructure/stripe/stripeClient';
 import {
   findShopById,
   patchShopPath,
@@ -110,7 +111,7 @@ export async function executeGetGoLiveStatus(
     if (shop.stripe?.connectAccountId) {
       const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
       if (stripeSecretKey) {
-        const stripe = new Stripe(stripeSecretKey);
+        const stripe = createStripeClient(stripeSecretKey);
         let stripeAccount: Stripe.Account | null = null;
         try {
           stripeAccount = await stripe.accounts.retrieve(shop.stripe.connectAccountId);

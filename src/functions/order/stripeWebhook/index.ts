@@ -1,5 +1,7 @@
 import { app, HttpRequest, HttpResponseInit } from '@azure/functions';
 import Stripe from 'stripe';
+import { createStripeClient } from '../../../infrastructure/stripe/stripeClient';
+import { isUnrestrictedLiveStripeKey } from '../../../infrastructure/stripe/restrictedKey';
 import { errorBrief } from '../../../application/_shared/errorBrief';
 import { logStripeFailure } from '../../../infrastructure/stripe/stripeErrorDiagnostics';
 import { executeHandleBillingSubscriptionEvent } from '../../../application/subscription/handleBillingSubscriptionEvent/executeHandleBillingSubscriptionEvent';
@@ -22,7 +24,15 @@ app.http('stripeWebhook', {
       };
     }
 
-    const stripe = new Stripe(stripeSecretKey);
+    if (isUnrestrictedLiveStripeKey(stripeSecretKey)) {
+      console.error('[webhook:stripe] refused: STRIPE_SECRET_KEY is an unrestricted live key; a restricted live key is required');
+      return {
+        status: 500,
+        jsonBody: { error: 'Stripe is not configured' },
+      };
+    }
+
+    const stripe = createStripeClient(stripeSecretKey);
 
     // Read raw bytes — must NOT use request.json() as it breaks Stripe signature verification
     const rawBody = Buffer.from(await request.arrayBuffer());

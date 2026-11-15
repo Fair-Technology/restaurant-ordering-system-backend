@@ -1,12 +1,19 @@
 import Stripe from 'stripe';
 import type { StripeRefundSummary } from '../../domain/order/externalRefunds';
+import { assertNotUnrestrictedLiveKey } from './restrictedKey';
 
-export function getStripe(): Stripe {
-  const key = process.env.STRIPE_SECRET_KEY;
-  if (!key) {
+/** The one place a Stripe client is built. Reads STRIPE_SECRET_KEY (or the key given), refuses a missing key
+ *  and refuses the account's own unrestricted live key (sk_live_…). */
+export function createStripeClient(key?: string): Stripe {
+  const resolved = key ?? process.env.STRIPE_SECRET_KEY;
+  if (!resolved) {
     throw new Error('STRIPE_SECRET_KEY is not configured');
   }
-  return new Stripe(key);
+  return new Stripe(assertNotUnrestrictedLiveKey(resolved));
+}
+
+export function getStripe(): Stripe {
+  return createStripeClient();
 }
 
 export interface CreatePaymentIntentInput {

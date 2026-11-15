@@ -774,6 +774,41 @@ automatically** in production: registration is best-effort, fails harmlessly,
 and wallets need the domain registered per connected account in the Stripe
 dashboard (a product decision, not yet taken).
 
+### The restricted key's permission list
+
+The platform account is driven by one **restricted** live key (`rk_live_…`), created in the Stripe
+dashboard with exactly the permissions below and nothing more. The list is derived from the project's
+own Stripe SDK calls (Stripe's documented way: map each call to a Dashboard permission). The Connect
+resources must have their **connected-accounts** permission enabled, because the payment, refund and
+account calls run with the restaurant's account (`Stripe-Account`).
+
+| What the code does | Stripe call | Permission in the Dashboard |
+|---|---|---|
+| Reserve the money at checkout (direct charge on the restaurant's account) | `paymentIntents.create` with `Stripe-Account` | Payment Intents: Write (for connected accounts) |
+| Read a payment (reconcile, verify a capture) | `paymentIntents.retrieve` | Payment Intents: Read (for connected accounts) |
+| Read the charge behind a payment (`expand: ['latest_charge']`) | `charges` via expand | Charges: Read (for connected accounts) |
+| Take the money on accept | `paymentIntents.capture` | Payment Intents: Write (for connected accounts) |
+| Release the hold on reject | `paymentIntents.cancel` | Payment Intents: Write (for connected accounts) |
+| Refund an order | `refunds.create` with `Stripe-Account` | Charges: Write (for connected accounts) |
+| List a payment's refunds | `refunds.list` with `Stripe-Account` | Charges: Read (for connected accounts) |
+| Create a restaurant's connected account during onboarding | `accounts.create` | Connected Accounts: Write |
+| Read a connected account's status | `accounts.retrieve` | Connected Accounts: Read |
+| Embedded onboarding session | `accountSessions.create` | Account Sessions: Write |
+| Start a subscription checkout | `checkout.sessions.create` | Checkout Sessions: Write |
+| Read a checkout session (confirm the subscription) | `checkout.sessions.retrieve` | Checkout Sessions: Read |
+| Read a subscription (current period, price) | `subscriptions.retrieve` | Subscriptions: Read |
+| Change, cancel, resume or schedule a subscription | `subscriptions.update`, `subscriptions.cancel` | Subscriptions: Write |
+| Pay an open invoice (retry a failed payment) | `invoices.pay` | Invoices: Write |
+| Open the billing portal | `billingPortal.sessions.create` | Customer portal: Write |
+| **Not granted —** register the wallet domain | `paymentMethodDomains.list` / `.create` | none. Stripe refuses this endpoint to restricted keys by design, so it is deliberately omitted; the code skips it for restricted keys. |
+| **Not needed —** verify a webhook signature | `webhooks.constructEvent` | none. It uses the endpoint signing secret, not the API key. |
+
+Every call above is issued on the **platform account**, but the Connect ones are scoped to the
+restaurant's connected account, so enable the connected-accounts permission for Payment Intents, Charges,
+Connected Accounts and Account Sessions. When the key is created, cross-check this list against the key's
+**request log** in the Dashboard (Developers → API keys → the key → View request logs): a `403` on any
+call means a permission is missing, and never-used permissions can be removed.
+
 ### Direct charges, zero fee
 
 Stripe Connect direct charges into the restaurant's own connected account. The

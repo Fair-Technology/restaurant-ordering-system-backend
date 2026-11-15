@@ -1,5 +1,6 @@
 import { HttpRequest } from '@azure/functions';
-import Stripe from 'stripe';
+import { createStripeClient } from '../../../infrastructure/stripe/stripeClient';
+import { isUnrestrictedLiveStripeKey } from '../../../infrastructure/stripe/restrictedKey';
 import {
   findShopById,
   updateShop,
@@ -27,6 +28,14 @@ export async function executeCreateStripeAccountSession(
     console.error('[service:failure] site=createStripeAccountSession cause=STRIPE_SECRET_KEY is not set');
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Stripe is not configured' };
   }
+  if (isUnrestrictedLiveStripeKey(stripeSecretKey)) {
+    console.error('[service:failure] site=createStripeAccountSession cause=STRIPE_SECRET_KEY is an unrestricted live key');
+    return {
+      ok: false,
+      code: 'INTERNAL_ERROR',
+      error: 'Stripe is configured with an unrestricted live key; a restricted live key (rk_live_… ) is required',
+    };
+  }
 
   try {
     let shop = await findShopById(request.shopId.trim());
@@ -37,7 +46,7 @@ export async function executeCreateStripeAccountSession(
     const access = await authorizeShopAction(httpRequest, shop, 'manage_billing');
     if (!access.ok) return access;
 
-    const stripe = new Stripe(stripeSecretKey);
+    const stripe = createStripeClient(stripeSecretKey);
 
     // Create a Connect account if one does not exist yet
     if (!shop.stripe?.connectAccountId) {

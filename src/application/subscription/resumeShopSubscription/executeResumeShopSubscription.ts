@@ -1,6 +1,7 @@
 import { logServiceFailure } from '../../_shared/logServiceFailure';
 import { HttpRequest } from '@azure/functions';
-import Stripe from 'stripe';
+import { createStripeClient } from '../../../infrastructure/stripe/stripeClient';
+import { isUnrestrictedLiveStripeKey } from '../../../infrastructure/stripe/restrictedKey';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import {
   findSubscriptionByShopId,
@@ -40,8 +41,15 @@ export async function executeResumeShopSubscription(
     if (!stripeSecretKey) {
       return { ok: false, code: 'INTERNAL_ERROR', error: 'Stripe is not configured' };
     }
+    if (isUnrestrictedLiveStripeKey(stripeSecretKey)) {
+      return {
+        ok: false,
+        code: 'INTERNAL_ERROR',
+        error: 'Stripe is configured with an unrestricted live key; a restricted live key (rk_live_… ) is required',
+      };
+    }
 
-    const stripe = new Stripe(stripeSecretKey);
+    const stripe = createStripeClient(stripeSecretKey);
     await stripe.subscriptions.update(subscription.billingSubscriptionId, {
       cancel_at_period_end: false,
     });

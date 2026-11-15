@@ -1,5 +1,6 @@
 import { HttpRequest } from '@azure/functions';
-import Stripe from 'stripe';
+import { createStripeClient } from '../../../infrastructure/stripe/stripeClient';
+import { isUnrestrictedLiveStripeKey } from '../../../infrastructure/stripe/restrictedKey';
 import { logStripeFailure } from '../../../infrastructure/stripe/stripeErrorDiagnostics';
 import {
   findShopById,
@@ -70,8 +71,16 @@ export async function executeDeleteShop(
         console.error('[service:failure] site=deleteShop cause=STRIPE_SECRET_KEY is not set');
         return { ok: false, code: 'INTERNAL_ERROR', error: 'Stripe is not configured' };
       }
+      if (isUnrestrictedLiveStripeKey(stripeSecretKey)) {
+        console.error('[service:failure] site=deleteShop cause=STRIPE_SECRET_KEY is an unrestricted live key');
+        return {
+          ok: false,
+          code: 'INTERNAL_ERROR',
+          error: 'Stripe is configured with an unrestricted live key; a restricted live key (rk_live_… ) is required',
+        };
+      }
       try {
-        await new Stripe(stripeSecretKey).subscriptions.cancel(subscription.billingSubscriptionId);
+        await createStripeClient(stripeSecretKey).subscriptions.cancel(subscription.billingSubscriptionId);
       } catch (err: any) {
         // Already gone on Stripe's side is the state we want; anything else aborts the delete.
         if (err?.code !== 'resource_missing') {
