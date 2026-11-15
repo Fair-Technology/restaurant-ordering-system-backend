@@ -3,7 +3,7 @@ import { extractText, getDocumentProxy } from 'unpdf';
 import { describe, expect, it } from 'vitest';
 import { buildCorrection, buildInvoice } from '../../src/domain/invoice/invoice';
 import { renderInvoicePdf } from '../../src/infrastructure/pdf/invoicePdf';
-import { ACCEPTED_CARD_ORDER, CARD_SHOP } from '../fixtures/orders';
+import { ACCEPTED_CARD_ORDER, CARD_SHOP, DISCOUNTED_ORDER } from '../fixtures/orders';
 
 const now = new Date('2026-10-05T10:05:00Z');
 const invoice = () => buildInvoice({ order: ACCEPTED_CARD_ORDER, shop: CARD_SHOP, number: 'R-2026-00001', now });
@@ -126,5 +126,34 @@ describe('renderInvoicePdf', () => {
     expect(last.y).toBeLessThan(first.y);
     expect(cola.y).toBeLessThan(last.y);
     expect(items.some((x) => x.str.includes('Pizza') && x.str.includes('Ende'))).toBe(false);
+  });
+
+  describe('discounted orders', () => {
+    const discounted = () => buildInvoice({ order: DISCOUNTED_ORDER, shop: CARD_SHOP, number: 'R-2026-00001', now });
+
+    it('prints the discount line and the discounted gross total', async () => {
+      const bytes = await renderInvoicePdf(discounted());
+      expect((await PDFDocument.load(bytes)).getTitle()).toBe('Rechnung R-2026-00001');
+      const text = await pdfText(bytes);
+      expect(text).toContain('Rabatt WELCOME10');
+      expect(text).toContain('Gesamtbetrag (brutto): 12,60 €');
+    });
+
+    it('prints the share of discount on an item-refund correction', async () => {
+      const correction = buildCorrection({
+        original: discounted(),
+        refunds: [{ amountCents: 315, lines: [{ lineIndex: 1, quantity: 1, grossCents: 315, taxRateBasisPoints: 1900 }] }],
+        index: 0,
+        refundId: 'r1',
+        number: 'R-2026-00002',
+        now,
+      });
+      const bytes = await renderInvoicePdf(correction);
+      expect((await PDFDocument.load(bytes)).getTitle()).toBe('Rechnungskorrektur R-2026-00002');
+      const text = await pdfText(bytes);
+      expect(text).toContain('Anteiliger Rabatt');
+      expect(text).toContain('1 × Cola');
+      expect(text).toContain('Korrekturbetrag (brutto): -3,15 €');
+    });
   });
 });
