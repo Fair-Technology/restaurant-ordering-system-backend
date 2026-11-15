@@ -4,7 +4,7 @@ import type { FulfilmentMode, OrderItem, TaxBreakdownEntry } from '../../../doma
 import { COMBO_CHOICES_ERROR } from '../../../domain/order/orderErrors';
 import { buildTaxBreakdown, effectiveTaxClassId, extractVatCents } from '../../../domain/order/tax';
 import { BEVERAGE_TAX_CLASS_ID, splitComboUnit } from '../../../domain/product/combo';
-import { isDeclared, Product } from '../../../domain/product/Product';
+import { isDeclared, isSoldOut, Product } from '../../../domain/product/Product';
 import { MenuLanguage, ReferenceListsDoc, requireTaxRateBasisPoints } from '../../../domain/reference/ReferenceLists';
 import type { Shop } from '../../../domain/shop/Shop';
 import { isProductScheduleActive } from '../../_shared/scheduleUtils';
@@ -111,9 +111,14 @@ function hasEnabledCategory(p: Product, categories: Category[]): boolean {
   return own.length === 0 || own.some((c) => c.isAvailable !== false);
 }
 
-/** The dish is on offer at `at`: one of its categories is inside its times, and its own schedule (if any) is running. */
+/** The dish is on offer at `at`: one of its categories is inside its times, its own schedule (if any) is running,
+ *  and it is not inside a sold-out window. */
 export function isServedAt(p: Product, categories: Category[], timezone: string, at: Date): boolean {
-  return hasLiveCategory(p, categories, timezone, at) && !(p.schedule && !isProductScheduleActive(p.schedule, timezone, at));
+  return (
+    hasLiveCategory(p, categories, timezone, at) &&
+    !(p.schedule && !isProductScheduleActive(p.schedule, timezone, at)) &&
+    !isSoldOut(p, at)
+  );
 }
 
 const lineProductIds = (item: BasketItemInput): string[] => [item.productId, ...(item.comboChoices ?? []).map((c) => c.productId)];
@@ -126,11 +131,17 @@ export function lineServedAt(item: BasketItemInput, products: Map<string, Produc
   });
 }
 
-/** A line whose availability can depend on the time: one of its dishes has its own schedule or sits in a category with times. */
+/** A line whose availability can depend on the time: one of its dishes has its own schedule, a sold-out window,
+ *  or sits in a category with times. */
 export function lineIsTimed(item: BasketItemInput, products: Map<string, Product>, categories: Category[]): boolean {
   return lineProductIds(item).some((id) => {
     const p = products.get(id);
-    return !!p && (!!p.schedule || categories.some((c) => !c.isDeleted && !!c.schedule && (p.categoryIds ?? []).includes(c.id)));
+    return (
+      !!p &&
+      (!!p.schedule ||
+        !!p.unavailableUntil ||
+        categories.some((c) => !c.isDeleted && !!c.schedule && (p.categoryIds ?? []).includes(c.id)))
+    );
   });
 }
 

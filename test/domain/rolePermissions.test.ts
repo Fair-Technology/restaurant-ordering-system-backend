@@ -1,10 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import { DEFAULT_ROLE_PERMISSIONS, permissionsForRole } from '../../src/domain/system/RolePermissions';
+import { ALL_SHOP_PERMISSIONS } from '../../src/domain/shop/Shop';
 
 describe('permissionsForRole', () => {
   it('owner gets every permission', () => {
     const result = permissionsForRole('owner', { manager: [], staff: [] });
-    expect(result).toHaveLength(8);
+    expect(result).toEqual([...ALL_SHOP_PERMISSIONS]);
   });
 
   it('manager with defaults', () => {
@@ -30,7 +31,12 @@ describe('permissionsForRole', () => {
 
   it('owner ignores the stored doc', () => {
     const result = permissionsForRole('owner', { manager: [], staff: [] });
-    expect(result).toHaveLength(8);
+    expect(result).toEqual([...ALL_SHOP_PERMISSIONS]);
+  });
+
+  it('managers can mark a dish sold out by default, staff cannot', () => {
+    expect(DEFAULT_ROLE_PERMISSIONS.manager).toContain('manage_stock');
+    expect(DEFAULT_ROLE_PERMISSIONS.staff).not.toContain('manage_stock');
   });
 
   it('managers see reports by default, staff never', () => {

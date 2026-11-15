@@ -34,6 +34,7 @@ export interface UpdateProductResultDto extends ProductMenuFieldsDto {
   description: string;
   price: number;
   isAvailable: boolean;
+  unavailableUntil: string | null;
   isDeleted: boolean;
   schedule?: ProductSchedule | null;
   createdAt: string;

@@ -267,6 +267,7 @@ export async function executeUpdateProduct(
       description: result.description,
       price: result.price,
       isAvailable: result.isAvailable,
+      unavailableUntil: result.unavailableUntil ?? null,
       isDeleted: result.isDeleted,
       schedule: result.schedule ?? null,
       createdAt: result.createdAt,

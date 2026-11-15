@@ -50,6 +50,9 @@ export interface CatalogProductDto {
   variants: CatalogVariantGroupDto[];
   addons: CatalogAddonGroupDto[];
   isAvailable: boolean;
+  unavailableUntil: string | null; // end of the sold-out window; null = none set
+  /** Inside a sold-out window right now: show the dish but do not let it be ordered. */
+  soldOut: boolean;
   allergens: CatalogLabelDto[];
   additives: CatalogAdditiveDto[];
   dietaryTags: CatalogLabelDto[];
