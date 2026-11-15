@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+vi.mock('../../../src/infrastructure/cosmos/optionGroup/CosmosShopOptionGroupRepository', () => ({ findShopOptionGroupsByShopId: vi.fn(async () => []) }));
 vi.mock('../../../src/application/_shared/shopAccess', () => ({
   authorizeShopAction: vi.fn(),
   toAuditActor: (actor: any) => ({ actorType: actor.actorType, actorId: actor.actorId }),

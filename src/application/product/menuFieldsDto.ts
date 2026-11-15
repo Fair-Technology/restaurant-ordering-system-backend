@@ -14,6 +14,7 @@ export interface ProductMenuFieldsDto {
   unavailableModes: FulfilmentMode[];
   taxClassId: string | null;
   isDeclared: boolean;
+  optionGroupRefs: string[];
 }
 
 export function toMenuFieldsDto(p: Product): ProductMenuFieldsDto {
@@ -28,5 +29,6 @@ export function toMenuFieldsDto(p: Product): ProductMenuFieldsDto {
     unavailableModes: p.unavailableModes ?? [],
     taxClassId: p.taxClassId ?? null,
     isDeclared: isDeclared(p),
+    optionGroupRefs: p.optionGroupRefs ?? [],
   };
 }

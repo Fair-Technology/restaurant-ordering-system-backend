@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 const store = vi.hoisted(() => ({ product: null as any }));
 
+vi.mock('../../../src/infrastructure/cosmos/optionGroup/CosmosShopOptionGroupRepository', () => ({ findShopOptionGroupsByShopId: vi.fn(async () => []) }));
 vi.mock('../../../src/application/_shared/shopAccess', () => ({
   authorizeShopAction: vi.fn(async () => ({ ok: true, actor: { actorType: 'owner', actorId: 'u1' }, permissions: ['manage_menu'] })),
   toAuditActor: (actor: any) => ({ actorType: actor.actorType, actorId: actor.actorId }),

@@ -13,6 +13,7 @@ import { deleteBlob } from '../../../infrastructure/storage/blobStorageHelpers';
 import { ownedBlobPath, productImageFolder } from '../../../infrastructure/storage/blobUrls';
 import { UpdateProductRequestDto, UpdateProductResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
+import { findShopOptionGroupsByShopId } from '../../../infrastructure/cosmos/optionGroup/CosmosShopOptionGroupRepository';
 import { validateMenuFields } from '../menuFields';
 import { toMenuFieldsDto } from '../menuFieldsDto';
 import { PRODUCT_IMAGE_REQUIRED, mergeProductImages, unknownOrChangedImage, wouldRemoveLastProductImage } from '../../../domain/images/imageRules';
@@ -81,9 +82,10 @@ export async function executeUpdateProduct(
 
     // Authorization and the reference lists are independent reads too —
     // both only need `shop`, not each other's result.
-    const [access, refs] = await Promise.all([
+    const [access, refs, optionGroups] = await Promise.all([
       authorizeShopAction(httpRequest, shop, 'manage_menu'),
       getReferenceLists(shop.countryCode ?? ''),
+      findShopOptionGroupsByShopId(shopId),
     ]);
     if (!access.ok) return access;
 
@@ -101,7 +103,7 @@ export async function executeUpdateProduct(
       if (imageError) return { ok: false, code: 'INVALID_INPUT', error: imageError };
     }
 
-    const menu = validateMenuFields(request, refs, product);
+    const menu = validateMenuFields(request, refs, product, new Map(optionGroups.map((g) => [g.id, g])));
     if ('error' in menu) {
       return { ok: false, code: 'INVALID_INPUT', error: menu.error };
     }
@@ -227,6 +229,7 @@ export async function executeUpdateProduct(
       [
         'variantGroups',
         'addonGroups',
+        'optionGroupRefs',
         'schedule',
         'allergenIds',
         'additiveIds',

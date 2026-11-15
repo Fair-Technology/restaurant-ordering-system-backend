@@ -1,4 +1,5 @@
 import { FULFILMENT_MODES, FulfilmentMode } from '../../domain/order/Order';
+import { ShopOptionGroup } from '../../domain/optionGroup/ShopOptionGroup';
 import { DELIVERY_TAX_CLASS_FOR_DISHES_ERROR, UNAVAILABLE_MODES_ERROR } from '../../domain/order/orderErrors';
 import { dietaryConflict, DIETARY_TAGS, SpiceLevel } from '../../domain/product/dietary';
 import { normaliseTranslations, TranslationMap } from '../../domain/menu/menuLanguage';
@@ -17,6 +18,7 @@ export interface MenuFieldsInput {
   taxClassId?: unknown;
   variantGroups?: ProductVariantGroup[];
   addonGroups?: ProductAddonGroup[];
+  optionGroupRefs?: unknown;
 }
 
 export interface ValidMenuFields {
@@ -31,10 +33,13 @@ export interface ValidMenuFields {
   taxClassId?: string | null;
   variantGroups?: ProductVariantGroup[];
   addonGroups?: ProductAddonGroup[];
+  optionGroupRefs?: string[];
 }
 
 export const OPTION_ALLERGENS_ERROR = "Each option's allergenIds must be a list of allergen ids";
 export const OPTION_ADDITIVES_ERROR = "Each option's additiveIds must be a list of additive ids";
+
+export const OPTION_GROUP_REFS_SHAPE_ERROR = 'optionGroupRefs must be an array of option group ids';
 
 const SPICE_VALUES: ReadonlyArray<SpiceLevel | null> = [null, 'mild', 'medium', 'hot'];
 
@@ -110,6 +115,7 @@ export function validateMenuFields(
     variantGroups?: ProductVariantGroup[];
     addonGroups?: ProductAddonGroup[];
   } | null,
+  optionGroups: ReadonlyMap<string, ShopOptionGroup> = new Map(),
 ): ValidMenuFields | { error: string } {
   const out: ValidMenuFields = {};
 
@@ -186,6 +192,15 @@ export function validateMenuFields(
     const result = normaliseTranslations(input.descriptionTranslations, 2000);
     if (typeof result === 'string') return { error: result };
     out.descriptionTranslations = result;
+  }
+
+  if (input.optionGroupRefs !== undefined) {
+    if (!Array.isArray(input.optionGroupRefs)) return { error: OPTION_GROUP_REFS_SHAPE_ERROR };
+    for (const id of input.optionGroupRefs) {
+      const group = typeof id === 'string' ? optionGroups.get(id) : undefined;
+      if (typeof id !== 'string' || !group || group.isDeleted) return { error: `Unknown option group: ${id}` };
+    }
+    out.optionGroupRefs = dedupe(input.optionGroupRefs as string[]);
   }
 
   if (input.variantGroups) {

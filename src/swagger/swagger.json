@@ -1657,6 +1657,12 @@
                       "$ref": "#/components/schemas/ProductVariantGroup"
                     }
                   },
+                  "optionGroupRefs": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
                   "addonGroups": {
                     "type": "array",
                     "items": {
@@ -8572,6 +8578,12 @@
               "$ref": "#/components/schemas/ProductVariantGroup"
             }
           },
+          "optionGroupRefs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
           "addonGroups": {
             "type": "array",
             "items": {
@@ -10995,6 +11007,12 @@
           "isDeclared": {
             "type": "boolean"
           },
+          "optionGroupRefs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
           "id": {
             "type": "string"
           },
@@ -11094,6 +11112,7 @@
           "isDeleted",
           "name",
           "nameTranslations",
+          "optionGroupRefs",
           "prepMinutes",
           "price",
           "shopId",
@@ -15733,6 +15752,12 @@
           "isDeclared": {
             "type": "boolean"
           },
+          "optionGroupRefs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
           "id": {
             "type": "string"
           },
@@ -15782,6 +15807,7 @@
           "isDeleted",
           "name",
           "nameTranslations",
+          "optionGroupRefs",
           "prepMinutes",
           "price",
           "shopId",
@@ -15871,6 +15897,12 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/ProductVariantGroup"
+            }
+          },
+          "optionGroupRefs": {
+            "type": "array",
+            "items": {
+              "type": "string"
             }
           },
           "addonGroups": {
@@ -16031,6 +16063,12 @@
           "isDeclared": {
             "type": "boolean"
           },
+          "optionGroupRefs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
           "id": {
             "type": "string"
           },
@@ -16130,6 +16168,7 @@
           "isDeleted",
           "name",
           "nameTranslations",
+          "optionGroupRefs",
           "prepMinutes",
           "price",
           "shopId",
@@ -16229,6 +16268,12 @@
           "isDeclared": {
             "type": "boolean"
           },
+          "optionGroupRefs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
           "id": {
             "type": "string"
           },
@@ -16282,6 +16327,7 @@
           "isDeleted",
           "name",
           "nameTranslations",
+          "optionGroupRefs",
           "prepMinutes",
           "price",
           "shopId",
@@ -16375,6 +16421,12 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/ProductVariantGroup"
+            }
+          },
+          "optionGroupRefs": {
+            "type": "array",
+            "items": {
+              "type": "string"
             }
           },
           "addonGroups": {

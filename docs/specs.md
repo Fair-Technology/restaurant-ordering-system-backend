@@ -490,6 +490,16 @@ step one so a simple dish is four fields and a save.
 These already exist in the code and are the one thing that cannot be bolted on
 later, because every historic order references them.
 
+**Shop-level option-group library.** A group ("Choose a drink") can be defined
+once per shop (`option_groups` container; `GET/POST/PUT/DELETE
+/shops/{shopId}/option-groups`, plus `PATCH .../options/{optionId}` for the one
+availability switch) and a dish reuses it through `optionGroupRefs`. On every
+read that matters (storefront catalog, quote and checkout pricing) the referenced
+groups are materialised alongside the dish's own inline groups, so everything
+downstream is unchanged, and an option switched off in the library ("out of
+Coke") disappears from every dish that uses it. Unknown or deleted refs are
+skipped on read. Inline variant/add-on groups remain supported.
+
 ### Allergens and additives are mandatory
 
 **Platform-owned fixed lists per country** (§13), ticked per dish. Germany
@@ -2213,9 +2223,11 @@ bringing it back means undoing a decision something else depends on.
 - **Parked from the 2026-10-13 triage (real but someday):** a dish
   `unavailableUntil` plus a stock-only staff permission (`manage_stock`) — today
   availability is a plain flag editable only with `manage_menu`, and declining
-  with "item unavailable" does not touch the dish; a shop-wide library of option
-  groups so one "out of Coke" switch covers every dish (option groups are copied
-  per dish today); a monthly batch download of invoices
+  with "item unavailable" does not touch the dish; the admin UI for the
+  shop-wide option-group library (the backend is built, §6 "Sizes and extras":
+  one "out of Coke" switch covers every dish that references the group; the
+  admin screens to manage the library and attach groups to dishes are pending);
+  a monthly batch download of invoices
   and corrections (§10); removing a logo once set; resolving staff and shop
   names, instead of ids, in the activity log.
 - **Dependency majors held back:** admin i18next 26 / react-i18next 17 /
