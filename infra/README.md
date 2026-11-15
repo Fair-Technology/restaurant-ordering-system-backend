@@ -41,8 +41,41 @@ az functionapp config appsettings set \
              ENTRA_TENANT_ID=… ENTRA_CLIENT_ID=… ENTRA_TENANT_NAME=… \
              STRIPE_SECRET_KEY=… STRIPE_WEBHOOK_SECRET=… \
              STRIPE_CONNECT_WEBHOOK_SECRET=… \
-             STAFF_JWT_SECRET=…
+             STAFF_JWT_SECRET=… \
+             VAPID_PUBLIC_KEY=… VAPID_PRIVATE_KEY=… \
+             VAPID_SUBJECT='mailto:…' \
+             WEB_PUBSUB_CONNECTION_STRING=…
 ```
+
+Vault keys for the last four: `RESTAURANT_ORDERING_<ENV>_VAPID_PUBLIC_KEY`,
+`RESTAURANT_ORDERING_<ENV>_VAPID_PRIVATE_KEY`,
+`RESTAURANT_ORDERING_<ENV>_VAPID_SUBJECT` and
+`RESTAURANT_ORDERING_<ENV>_WEB_PUBSUB_CONNECTION_STRING`.
+
+**The live order channel loses its settings quietly.** The kitchen board holds
+a WebSocket to Web PubSub and receives Web Push on installed devices; both are
+configured only by these app settings. If they are missing, `negotiate` answers
+`{ "url": null, "accessToken": null }` and the board falls back to polling —
+no error, no failed request, nothing in the logs. The board just stops updating
+on its own. Check `GET /api/shops/{shopId}/realtime/negotiate` after any
+deployment; a healthy channel returns a `wss://…/client/hubs/orders` URL.
+
+- `WEB_PUBSUB_CONNECTION_STRING` — a fresh template deploy sets this itself
+  from the resource's own key (`webPubSub.listKeys()` in `main.bicep`); it is
+  listed here because dev is not redeployed from the template and because the
+  value can always be re-read from Azure rather than regenerated:
+  `az rest --method post --url "https://management.azure.com/subscriptions/<sub>/resourceGroups/rg-restaurant-ordering-system-<env>/providers/Microsoft.SignalRService/webPubSub/restaurant-ordering-system-wps-<env>/listKeys?api-version=2024-03-01"`.
+- `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` — the template never
+  sets these. The **private key cannot be regenerated without invalidating every
+  browser push subscription already stored** (each one is bound to that key), so
+  it must be in the vault `.env` *before* any template redeploy. The public key
+  is derived from the private one (P-256, uncompressed point, base64url), so it
+  is never a separate secret to keep. `VAPID_SUBJECT` is a `mailto:` address.
+
+The template picks the Web PubSub tier by environment: `Free_F1` for dev (20
+concurrent connections, 20 000 messages a day, $0) and `Standard_S1` otherwise.
+A dev channel that outgrows those limits needs a paid tier — change the `sku`
+line in `main.bicep`, or the board starts dropping its connection.
 
 **2. The GitHub deployment credential — optional, the template can create it.**
 Set `githubFederatedSubject` (the classic form, e.g.
@@ -101,7 +134,9 @@ Function App. The dev app already has it.
 
 **Warning: redeploying `main.bicep` replaces the Function App's whole app
 settings list.** Every hand-set secret and the settings above would be wiped.
-Re-apply them from the vault `.env` straight after any deployment.
+Re-apply them from the vault `.env` straight after any deployment — including
+the Web PubSub and VAPID settings in step 1, whose absence disables the live
+order channel without any error.
 
 ## Eight-year archive timer
 
