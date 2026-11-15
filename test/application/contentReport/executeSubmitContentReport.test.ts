@@ -7,7 +7,7 @@ vi.mock('../../../src/infrastructure/cosmos/contentReport/CosmosContentReportRep
 
 import { findShopById } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
 import { createContentReport } from '../../../src/infrastructure/cosmos/contentReport/CosmosContentReportRepository';
-import { executeSubmitContentReport } from '../../../src/application/contentReport/submitContentReport/executeSubmitContentReport';
+import { executeSubmitContentReport, CONTENT_URL_ERROR } from '../../../src/application/contentReport/submitContentReport/executeSubmitContentReport';
 import { CONTENT_REPORT_REASON_MAX_LENGTH, CONTENT_REPORT_URL_MAX_LENGTH } from '../../../src/domain/contentReport/ContentReport';
 
 const SHOP = { id: 'shop-1', slug: 'pizzeria', name: 'Pizzeria', isDeleted: false };
@@ -81,11 +81,47 @@ describe('executeSubmitContentReport', () => {
     ['bad email', 'shop-1', { category: 'other', reason: 'x', reporterEmail: 'not-an-email' }],
     ['non-string name', 'shop-1', { category: 'other', reason: 'x', reporterName: 5 }],
     ['oversized url', 'shop-1', { category: 'other', reason: 'x', contentUrl: 'h'.repeat(CONTENT_REPORT_URL_MAX_LENGTH + 1) }],
+    // This route is public and the console renders contentUrl as a link: no non-web scheme,
+    // no relative path. These are the exact payloads the console was verified against (D2).
+    ['javascript: url', 'shop-1', { category: 'other', reason: 'x', contentUrl: 'javascript:alert(document.domain)' }],
+    ['data: url', 'shop-1', { category: 'other', reason: 'x', contentUrl: 'data:text/html,<script>document.title="pwned"</script>' }],
+    ['vbscript: url', 'shop-1', { category: 'other', reason: 'x', contentUrl: 'vbscript:msgbox(1)' }],
+    ['file: url', 'shop-1', { category: 'other', reason: 'x', contentUrl: 'file:///etc/passwd' }],
+    ['relative path', 'shop-1', { category: 'other', reason: 'x', contentUrl: '/products/mapasta' }],
+    ['protocol-relative path', 'shop-1', { category: 'other', reason: 'x', contentUrl: '//evil.example/x' }],
+    ['scheme with no host', 'shop-1', { category: 'other', reason: 'x', contentUrl: 'https://' }],
   ])('rejects %s with INVALID_INPUT', async (_label, shopId, body) => {
     const r = await executeSubmitContentReport(shopId as string, body as any);
     expect(r).toMatchObject({ ok: false, code: 'INVALID_INPUT' });
     expect(findShopById).not.toHaveBeenCalled();
     expect(createContentReport).not.toHaveBeenCalled();
+  });
+
+  it('states the http(s) requirement for a rejected contentUrl', async () => {
+    const r = await executeSubmitContentReport('shop-1', {
+      category: 'other',
+      reason: 'x',
+      contentUrl: 'javascript:alert(1)',
+    });
+    expect(r).toEqual({ ok: false, code: 'INVALID_INPUT', error: CONTENT_URL_ERROR });
+  });
+
+  it.each([
+    ['https', 'https://x.example/p/1'],
+    ['http', 'http://x.example/p/1'],
+    ['upper-case scheme', 'HTTPS://X.EXAMPLE/p/1'],
+    ['url with query and fragment', 'https://x.example/p/1?ref=a&x=b#top'],
+  ])('accepts a %s contentUrl', async (_label, contentUrl) => {
+    const r = await executeSubmitContentReport('shop-1', { category: 'other', reason: 'x', contentUrl });
+    expect(r.ok).toBe(true);
+    expect(createContentReport).toHaveBeenCalledWith(expect.objectContaining({ contentUrl }));
+  });
+
+  it.each([[''], ['   '], [undefined], [null]])('still treats %p contentUrl as absent', async (contentUrl) => {
+    const r = await executeSubmitContentReport('shop-1', { category: 'other', reason: 'x', contentUrl } as any);
+    expect(r.ok).toBe(true);
+    const saved = (createContentReport as any).mock.calls[0][0];
+    expect('contentUrl' in saved).toBe(false);
   });
 
   it('returns INTERNAL_ERROR when the repository fails', async () => {
