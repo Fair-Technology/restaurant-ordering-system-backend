@@ -112,6 +112,53 @@ az staticwebapp secrets list -g rg-restaurant-ordering-system-test \
   -n restaurant-ordering-system-admin-test --query properties.apiKey -o tsv
 ```
 
+## Adding a container: container first, always
+
+A container the code reads must exist in an environment **before** the code that
+reads it is deployed there. Neither pipeline creates containers: the deploy
+workflow ships the Function App package only, and dev is not redeployed from the
+template (see "Two things to know" below), so a container added to `main.bicep`
+arrives nowhere on its own.
+
+Getting this wrong does not degrade gracefully. Code that treats a container as
+*optional* still fails the whole request when the container is missing: dev had
+no `option_groups`, and `GET /api/shops/{shopId}/catalog` answered
+`500 Internal server error` for a live shop whose menu used no option groups at
+all. The storefront is the read path diners hit first.
+
+Release order for any change that adds a container:
+
+1. **Merge the `main.bicep` change** so the shape of record is in `main`.
+2. **Create the container in every live environment** from that shape — a
+   template deploy where the environment *is* template-managed, a targeted
+   creation where it is not (`<env>` = `dev`, and later `prod`):
+
+   ```bash
+   az cosmosdb sql container create \
+     -g rg-restaurant-ordering-system-<env> \
+     -a restaurant-ordering-system-db-<env> \
+     -d restaurant-ordering-system-db \
+     -n option_groups --partition-key-path "/shopId" --throughput 400
+   ```
+
+   Match the bicep line exactly: the `pk` path, `kind: 'Hash'`, the unique-key
+   policy (omit it when `uniqueKeys` is empty), and `defaultTtl` — only
+   `checkout_sessions` carries `-1`; everything else is left unset.
+3. **Read it back** and check the partition key path, not just that the command
+   exited 0:
+
+   ```bash
+   az cosmosdb sql container show \
+     -g rg-restaurant-ordering-system-<env> \
+     -a restaurant-ordering-system-db-<env> \
+     -d restaurant-ordering-system-db -n option_groups \
+     --query "resource.partitionKey.paths" -o tsv
+   ```
+
+4. **Then deploy the code**, and probe the read path that uses the container.
+5. **Add the name to the container list in [AGENTS.md](../AGENTS.md)** so the
+   next reader does not have to diff bicep against the live account.
+
 ## Order emails and timer
 
 Order emails (received, accepted, ready, declined, cancelled, and the
