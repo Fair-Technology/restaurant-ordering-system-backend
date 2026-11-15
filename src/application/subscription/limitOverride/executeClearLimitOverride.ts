@@ -5,6 +5,7 @@ import { logAudit } from '../../_shared/auditHelpers';
 import { ApplicationResult } from '../../_shared/types';
 import { LimitOverrideResultDto } from './dtos';
 import { verifySuperAdminToken } from '../../../infrastructure/auth/superAdminAuthHelpers';
+import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 
 /** Superadmin: remove a restaurant's limit override so its plan limits apply again. */
 export async function executeClearLimitOverride(
@@ -21,6 +22,11 @@ export async function executeClearLimitOverride(
       return { ok: false, code: 'FORBIDDEN', error: 'Superadmin access required' };
     }
 
+    const shop = await findShopById(shopId);
+    if (!shop) {
+      return { ok: false, code: 'NOT_FOUND', error: 'Shop not found' };
+    }
+
     const current = await findSubscriptionByShopId(shopId);
     if (!current?.limitOverride) {
       return { ok: false, code: 'NOT_FOUND', error: 'No limit override' };
@@ -35,7 +41,7 @@ export async function executeClearLimitOverride(
       action: 'subscription.limit_override_clear',
       entityType: 'subscription',
       entityId: shopId,
-      entityName: `Shop ${shopId}`,
+      entityName: shop.name,
       changes: [],
     });
 
