@@ -93,6 +93,11 @@ import './functions/combo/updateCombo/index';
 // Audit endpoints
 import './functions/audit/getAuditEntries/index';
 
+// Content reports (notice-and-action)
+import './functions/contentReport/submitContentReport/index';
+import './functions/contentReport/listContentReports/index';
+import './functions/contentReport/decideContentReport/index';
+
 // User endpoints
 import './functions/user/getMe/index';
 

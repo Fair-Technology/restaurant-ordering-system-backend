@@ -541,6 +541,33 @@
         "Plans"
       ]
     },
+    "GET /platform/content-reports": {
+      "operationId": "listContentReports",
+      "summary": "List content reports (platform staff)",
+      "description": "Newest first. Optional status filter: received, actioned, dismissed.",
+      "tags": [
+        "Content Reports"
+      ],
+      "responseDescription": "Content reports"
+    },
+    "POST /platform/content-reports/{reportId}/decision": {
+      "operationId": "decideContentReport",
+      "summary": "Record the platform's decision on a content report (platform staff, write)",
+      "description": "Records the decision and writes an audit entry. A report can be decided once. Taking the shop down is the separate suspend switch: POST /shops/{shopId}/superadmin-offline.",
+      "tags": [
+        "Content Reports"
+      ],
+      "responseDescription": "Decision recorded"
+    },
+    "POST /shops/{shopId}/content-reports": {
+      "operationId": "submitContentReport",
+      "summary": "Report illegal content on a storefront (public; no sign-in)",
+      "description": "A reachable notice-and-action path: anyone may report content on a shop's storefront. Anonymous reports are accepted. Returns a receipt (reportId) which is the acknowledgement of receipt.",
+      "tags": [
+        "Content Reports"
+      ],
+      "responseDescription": "Report received"
+    },
     "GET /platform/config": {
       "tags": [
         "Platform"

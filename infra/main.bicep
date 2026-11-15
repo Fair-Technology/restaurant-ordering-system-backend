@@ -103,6 +103,7 @@ var containers = [
   { name: 'system_config', pk: '/id', uniqueKeys: [] }
   { name: 'staff_accounts', pk: '/shopId', uniqueKeys: [ '/username' ] }
   { name: 'invoices', pk: '/shopId', uniqueKeys: [ '/number' ] }
+  { name: 'content_reports', pk: '/id', uniqueKeys: [] }
 ]
 
 var staticApps = ['storefront', 'admin', 'superadmin']
