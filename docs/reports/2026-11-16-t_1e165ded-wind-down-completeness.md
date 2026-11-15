@@ -1,7 +1,7 @@
 # t_1e165ded: wind-down completeness — images, staff accounts, commercial records
 
 - Branch: `kanban/t_1e165ded`, based on `origin/main` @ `86b8eec`
-- Merge commit: (filled in after the merge; see the board)
+- Merge commit: `131fcc9` (merged into `main` and pushed)
 
 ## What this covers
 
