@@ -528,9 +528,10 @@ the menu. Decision: [[option-allergens-undeclared-adds-nothing]].
   Category times are **deliberately one window per day, no overnight window, and
   23:59 as an end time is never live**; widen only when a shop needs a
   late-night-only or split-lunch section (reuse the opening-hours format).
-- **Offer labels** (a dish window's "Angebot des Tages") hold one string and are
-  shown untranslated to diners of another language; names, descriptions, option
-  and category names are translated (§12).
+- **Offer labels** (a dish window's "Angebot des Tages") are translated like the
+  other menu text: the shop stores one per menu language and a diner of another
+  language sees it. A one-language shop shows the original string, as does any
+  language the shop has not translated (§12).
 
 ### Combos
 
@@ -1136,6 +1137,16 @@ nobody. **Each restaurant chooses which languages it offers.** When a restaurant
 language it is expected to translate its dishes; anything left untranslated
 **shows its original text**, and the gaps are flagged to the owner in admin.
 Nothing is ever hidden from a customer because of missing data entry.
+
+**What carries translations, and in what shape.** Every restaurant-typed menu
+text can be translated, and the translations are stored as a map of language
+code → string: `nameTranslations` and `descriptionTranslations` on a dish,
+`offerLabelTranslations` on a dish window's offer label, `nameTranslations` on a
+size, extra, option or category, and both on a combo. Each translation is
+capped: 120 characters for a dish, size, extra, option or category name, 2,000
+for a dish or combo description, 60 for a combo's choice-step name, 50 for an
+offer label. The map is read only where the shop's menu offers that language; a
+field the shop has not translated returns the original text, as above.
 
 Platform-owned lists (allergens, additives, tax classes) are translated
 centrally and appear correctly in every offered language.
@@ -2159,7 +2170,7 @@ bringing it back means undoing a decision something else depends on.
   availability is a plain flag editable only with `manage_menu`, and declining
   with "item unavailable" does not touch the dish; a shop-wide library of option
   groups so one "out of Coke" switch covers every dish (option groups are copied
-  per dish today); translated offer labels; a monthly batch download of invoices
+  per dish today); a monthly batch download of invoices
   and corrections (§10); removing a logo once set; resolving staff and shop
   names, instead of ids, in the activity log.
 - **Dependency majors held back:** admin i18next 26 / react-i18next 17 /
