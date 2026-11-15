@@ -886,6 +886,145 @@
         }
       }
     },
+    "/platform/content-reports": {
+      "get": {
+        "summary": "List content reports (platform staff)",
+        "description": "Newest first. Optional status filter: received, actioned, dismissed.",
+        "operationId": "listContentReports",
+        "tags": [
+          "Content Reports"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/ContentReportStatus"
+                },
+                {
+                  "type": "string",
+                  "const": ""
+                }
+              ]
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Content reports",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ContentReport"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/platform/content-reports/{reportId}/decision": {
+      "post": {
+        "summary": "Record the platform's decision on a content report (platform staff, write)",
+        "description": "Records the decision and writes an audit entry. A report can be decided once. Taking the shop down is the separate suspend switch: POST /shops/{shopId}/superadmin-offline.",
+        "operationId": "decideContentReport",
+        "tags": [
+          "Content Reports"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "reportId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecideContentReportBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Decision recorded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentReport"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
     "/platform/legal-identity": {
       "get": {
         "operationId": "getPlatformLegalIdentity",
@@ -2804,6 +2943,67 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ComboDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/shops/{shopId}/content-reports": {
+      "post": {
+        "summary": "Report illegal content on a storefront (public; no sign-in)",
+        "description": "A reachable notice-and-action path: anyone may report content on a shop's storefront. Anonymous reports are accepted. Returns a receipt (reportId) which is the acknowledgement of receipt.",
+        "operationId": "submitContentReport",
+        "tags": [
+          "Content Reports"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "shopId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmitContentReportBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Report received",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubmitContentReportResultDto"
                 }
               }
             }
@@ -7557,6 +7757,53 @@
           "id",
           "url",
           "createdAt"
+        ],
+        "additionalProperties": false
+      },
+      "ContentReportCategory": {
+        "type": "string",
+        "enum": [
+          "illegal_goods",
+          "fraud_or_scam",
+          "hate_or_harassment",
+          "copyright_or_trademark",
+          "personal_data",
+          "other"
+        ]
+      },
+      "ContentReportStatus": {
+        "type": "string",
+        "enum": [
+          "received",
+          "actioned",
+          "dismissed"
+        ]
+      },
+      "ContentReportDecision": {
+        "type": "object",
+        "properties": {
+          "decision": {
+            "type": "string",
+            "enum": [
+              "actioned",
+              "dismissed"
+            ]
+          },
+          "reason": {
+            "type": "string"
+          },
+          "decidedBy": {
+            "type": "string"
+          },
+          "decidedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "decision",
+          "reason",
+          "decidedBy",
+          "decidedAt"
         ],
         "additionalProperties": false
       },
@@ -12603,6 +12850,146 @@
           "groups",
           "createdAt",
           "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "ContentReport": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "shopId": {
+            "type": "string"
+          },
+          "shopSlug": {
+            "type": "string"
+          },
+          "shopName": {
+            "type": "string"
+          },
+          "category": {
+            "$ref": "#/components/schemas/ContentReportCategory"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "contentUrl": {
+            "type": "string"
+          },
+          "reporterName": {
+            "type": "string"
+          },
+          "reporterEmail": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ContentReportStatus"
+          },
+          "receivedAt": {
+            "type": "string"
+          },
+          "decision": {
+            "$ref": "#/components/schemas/ContentReportDecision"
+          }
+        },
+        "required": [
+          "id",
+          "shopId",
+          "shopSlug",
+          "shopName",
+          "category",
+          "reason",
+          "status",
+          "receivedAt"
+        ],
+        "additionalProperties": false
+      },
+      "DecideContentReportBody": {
+        "type": "object",
+        "properties": {
+          "decision": {
+            "type": "string",
+            "enum": [
+              "actioned",
+              "dismissed"
+            ]
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "decision",
+          "reason"
+        ],
+        "additionalProperties": false
+      },
+      "ListContentReportsRequestDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ContentReportStatus"
+              },
+              {
+                "type": "string",
+                "const": ""
+              }
+            ]
+          },
+          "page": {
+            "type": "number"
+          },
+          "pageSize": {
+            "type": "number"
+          }
+        },
+        "additionalProperties": false
+      },
+      "SubmitContentReportResultDto": {
+        "type": "object",
+        "properties": {
+          "reportId": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ContentReportStatus"
+          },
+          "receivedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "reportId",
+          "status",
+          "receivedAt"
+        ],
+        "additionalProperties": false
+      },
+      "SubmitContentReportBody": {
+        "type": "object",
+        "properties": {
+          "category": {
+            "$ref": "#/components/schemas/ContentReportCategory"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "contentUrl": {
+            "type": "string"
+          },
+          "reporterName": {
+            "type": "string"
+          },
+          "reporterEmail": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "category",
+          "reason"
         ],
         "additionalProperties": false
       },
