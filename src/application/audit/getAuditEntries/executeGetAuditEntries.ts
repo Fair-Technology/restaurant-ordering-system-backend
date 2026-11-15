@@ -4,7 +4,7 @@ import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepo
 import { findUserById } from '../../../infrastructure/cosmos/user/CosmosUserRepository';
 import { findStaffAccountById } from '../../../infrastructure/cosmos/staff/CosmosStaffAccountRepository';
 import { authorizeShopAction } from '../../_shared/shopAccess';
-import { resolveActorLabels } from '../../_shared/buildAuditEntry';
+import { resolveActorLabels, resolveStaffTargetNames } from '../../_shared/buildAuditEntry';
 import { GetAuditEntriesRequestDto, GetAuditEntriesResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 import { logServiceFailure } from '../../_shared/logServiceFailure';
@@ -44,7 +44,13 @@ export async function executeGetAuditEntries(
     );
     const owners = new Map(ownerEntries);
 
-    const staffIds = [...new Set(entries.filter((e) => e.actorType === 'staff').map((e) => e.actorId))];
+    // One lookup per staff id serves both staff actors and staff targets.
+    const staffIds = [
+      ...new Set([
+        ...entries.filter((e) => e.actorType === 'staff').map((e) => e.actorId),
+        ...entries.filter((e) => e.entityType === 'staff').map((e) => e.entityId),
+      ]),
+    ];
     const staffEntries = await Promise.all(
       staffIds.map(async (id): Promise<[string, string | null]> => {
         const acc = await findStaffAccountById(request.shopId.trim(), id);
@@ -54,6 +60,8 @@ export async function executeGetAuditEntries(
     const staff = new Map(staffEntries);
 
     const actorLabels = resolveActorLabels(entries, { owners, staff });
+    // Staff use cases persist the staff id as entityName; show the name instead (read-time only).
+    resolveStaffTargetNames(entries, staff);
 
     return {
       ok: true,

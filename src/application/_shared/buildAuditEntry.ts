@@ -34,3 +34,13 @@ export function resolveActorLabels(
   }
   return out;
 }
+
+export function resolveStaffTargetNames(
+  entries: AuditEntry[],
+  staff: Map<string, string | null>,
+): void {
+  for (const e of entries) {
+    if (e.entityType !== 'staff') continue;
+    e.entityName = staff.get(e.entityId) ?? 'Deleted staff account';
+  }
+}
