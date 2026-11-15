@@ -207,6 +207,54 @@
       ],
       "responseDescription": "Applied"
     },
+    "GET /shops/{shopId}/option-groups": {
+      "operationId": "getOptionGroups",
+      "summary": "List the shop's option-group library",
+      "tags": [
+        "OptionGroups"
+      ],
+      "responseDescription": "Option groups retrieved successfully"
+    },
+    "POST /shops/{shopId}/option-groups": {
+      "operationId": "createOptionGroup",
+      "summary": "Create a shop-wide option group",
+      "tags": [
+        "OptionGroups"
+      ],
+      "responseDescription": "Option group created successfully"
+    },
+    "GET /shops/{shopId}/option-groups/{groupId}": {
+      "operationId": "getOptionGroup",
+      "summary": "Get an option group by ID",
+      "tags": [
+        "OptionGroups"
+      ],
+      "responseDescription": "Option group retrieved successfully"
+    },
+    "PUT /shops/{shopId}/option-groups/{groupId}": {
+      "operationId": "updateOptionGroup",
+      "summary": "Replace an option group (kind is immutable)",
+      "tags": [
+        "OptionGroups"
+      ],
+      "responseDescription": "Option group updated successfully"
+    },
+    "DELETE /shops/{shopId}/option-groups/{groupId}": {
+      "operationId": "deleteOptionGroup",
+      "summary": "Delete an option group (soft delete)",
+      "tags": [
+        "OptionGroups"
+      ],
+      "responseDescription": "Option group deleted successfully"
+    },
+    "PATCH /shops/{shopId}/option-groups/{groupId}/options/{optionId}": {
+      "operationId": "setOptionAvailability",
+      "summary": "Switch one option on or off everywhere it is used",
+      "tags": [
+        "OptionGroups"
+      ],
+      "responseDescription": "Option availability updated"
+    },
     "GET /products": {
       "operationId": "getProductsByShop",
       "summary": "Get products by shop",

@@ -59,3 +59,6 @@ export const pushSubscriptionsContainer: Container = database.container(pushSubs
 
 const contentReportsContainerId = process.env.COSMOS_CONTENT_REPORTS_CONTAINER || 'content_reports';
 export const contentReportContainer: Container = database.container(contentReportsContainerId);
+
+const optionGroupContainerId = process.env.COSMOS_OPTION_GROUP_CONTAINER || 'option_groups';
+export const optionGroupContainer: Container = database.container(optionGroupContainerId);

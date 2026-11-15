@@ -44,6 +44,14 @@ import './functions/category/updateCategory/index';
 import './functions/category/deleteCategory/index';
 import './functions/category/applyCategoryTaxClass/index';
 
+// Option group endpoints
+import './functions/optionGroup/getOptionGroups/index';
+import './functions/optionGroup/createOptionGroup/index';
+import './functions/optionGroup/getOptionGroup/index';
+import './functions/optionGroup/updateOptionGroup/index';
+import './functions/optionGroup/deleteOptionGroup/index';
+import './functions/optionGroup/setOptionAvailability/index';
+
 // Order endpoints
 import './functions/order/checkout/index';
 import './functions/order/stripeWebhook/index';

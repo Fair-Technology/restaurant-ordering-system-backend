@@ -91,6 +91,7 @@ var containers = [
   { name: 'shops', pk: '/id', uniqueKeys: [] }
   { name: 'products', pk: '/shopId', uniqueKeys: [] }
   { name: 'categories', pk: '/shopId', uniqueKeys: [] }
+  { name: 'option_groups', pk: '/shopId', uniqueKeys: [] }
   { name: 'orders', pk: '/id', uniqueKeys: [] }
   { name: 'checkout_sessions', pk: '/id', uniqueKeys: [] }
   { name: 'users', pk: '/id', uniqueKeys: [] }
@@ -309,6 +310,7 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
         { name: 'COSMOS_SHOP_CONTAINER', value: 'shops' }
         { name: 'COSMOS_PRODUCT_CONTAINER', value: 'products' }
         { name: 'COSMOS_CATEGORY_CONTAINER', value: 'categories' }
+        { name: 'COSMOS_OPTION_GROUP_CONTAINER', value: 'option_groups' }
         { name: 'COSMOS_USERS_CONTAINER', value: 'users' }
         { name: 'COSMOS_PLANS_CONTAINER', value: 'plans' }
         { name: 'COSMOS_PLAN_PRICING_CONTAINER', value: 'plan_pricing' }
