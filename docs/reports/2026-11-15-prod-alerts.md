@@ -12,6 +12,10 @@ PR #35 (the D4 scaffolding) is now **merged** (`1520cda`), so this branch was re
 four D4 payloads against the new `main`. The rebuild takes `main`'s D4 files as-is (plus the dead-`runbook`-pointer
 fix) and adds only this card's two payloads, the README rows and the §20 bullet. PR #35 needs no further action.
 
+The rule queries were re-validated after the rebuild, on 2026-11-15, against the dev component
+(`restaurant-ordering-system-dev`, role literal swapped to `-dev`): webhook query — 1 row in P7D (a real HTTP 400
+POST to `/api/webhooks/stripe`, `2026-11-09T13:20:19Z`); Stripe query with its role filter — accepted, 0 rows in P30D.
+
 ## Change
 
 - `infra/alerts/alert-prod-webhook-non2xx.json` and `alert-prod-stripe-credential-failure.json` —
@@ -32,8 +36,8 @@ platform alert for when `PLATFORM_ALERT_EMAIL` is unset.
 
 | Rule | In Azure | Evidence |
 |---|---|---|
-| `alert-prod-webhook-non2xx` | **no** (prod RG does not exist) | JSON valid; dry-run prints URL + summary; query accepted via dev endpoint, 0 rows / P7D |
-| `alert-prod-stripe-credential-failure` | **no** | same; query accepted, 0 rows / P7D |
+| `alert-prod-webhook-non2xx` | **no** (prod RG does not exist) | JSON valid; `prod --dry-run` prints URL + summary; query accepted by the dev component with only the role literal swapped to `-dev` — **1 row in P7D**: a real HTTP `400` POST to `/api/webhooks/stripe` (`2026-11-09T13:20:19Z`) |
+| `alert-prod-stripe-credential-failure` | **no** | same, with the role filter in place — query accepted, **0 rows in P30D** |
 
 ## Decisions
 
@@ -68,6 +72,7 @@ outcome (non-zero, nothing present), different message. Script behaviour left un
   `cloud_RoleName` value was observed. That `restaurant-ordering-system` is the real prod role name is
   taken from the brief.
 - No alert was seen to fire. "Query parses + 0 rows" (run against the **dev** component with only the
-  role-name literal for the webhook rule swapped to the prod value) is not a firing test. The Stripe
-  query as now written, with its role filter, was not itself run; only the filter-free form was.
+  role-name literal for the webhook rule swapped to the prod value) is not a firing test. The
+  role-filtered Stripe query **was** run against the dev component (accepted, 0 rows in P30D), but "query parses
+  + 0 rows" is a definition check, not a firing test.
 - The payloads have not been PUT to ARM, so ARM acceptance of them is unproven.
