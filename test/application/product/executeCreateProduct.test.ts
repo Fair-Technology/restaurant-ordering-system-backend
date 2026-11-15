@@ -122,4 +122,35 @@ describe('executeCreateProduct menu fields', () => {
     await executeCreateProduct({ ...base, categoryIds: [] } as any, {} as any);
     expect(createProduct).toHaveBeenCalledWith(expect.objectContaining({ taxClassId: null }));
   });
+
+  it("stores the offer label's translations with the schedule", async () => {
+    (findCategoriesByShopId as any).mockResolvedValue([{ id: 'c1', shopId: 'shop-1', isDeleted: false, taxClassId: 'food' }]);
+    const schedule = { startDate: '2026-09-01', offerPrice: 700, offerLabel: 'Angebot des Tages', offerLabelTranslations: { en: " Today's special " } };
+    const result = await executeCreateProduct({ ...base, schedule } as any, {} as any);
+
+    expect(result.ok).toBe(true);
+    expect(createProduct).toHaveBeenCalledWith(
+      expect.objectContaining({ schedule: { ...schedule, offerLabelTranslations: { en: "Today's special" } } }),
+    );
+  });
+
+  it('stores an empty translation map for a schedule sent without one', async () => {
+    (findCategoriesByShopId as any).mockResolvedValue([{ id: 'c1', shopId: 'shop-1', isDeleted: false, taxClassId: 'food' }]);
+    const schedule = { startDate: '2026-09-01', offerPrice: 700, offerLabel: 'Angebot des Tages' };
+    await executeCreateProduct({ ...base, schedule } as any, {} as any);
+    expect(createProduct).toHaveBeenCalledWith(expect.objectContaining({ schedule: { ...schedule, offerLabelTranslations: {} } }));
+  });
+
+  it.each([
+    ['a non-object', 'Today', 'translations must be an object keyed by language code'],
+    ['an unsupported language', { xx: 'Today' }, 'Unsupported language: xx'],
+    ['an over-long translation', { en: 'x'.repeat(51) }, 'Translation for en must be at most 50 characters'],
+  ])("rejects %s as the offer label's translations", async (_, offerLabelTranslations, error) => {
+    (findCategoriesByShopId as any).mockResolvedValue([{ id: 'c1', shopId: 'shop-1', isDeleted: false, taxClassId: 'food' }]);
+    const schedule = { startDate: '2026-09-01', offerPrice: 700, offerLabel: 'Angebot des Tages', offerLabelTranslations };
+    const result = await executeCreateProduct({ ...base, schedule } as any, {} as any);
+
+    expect(result).toEqual({ ok: false, code: 'INVALID_INPUT', error });
+    expect(createProduct).not.toHaveBeenCalled();
+  });
 });

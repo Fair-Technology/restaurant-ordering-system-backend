@@ -126,7 +126,7 @@ export function buildCatalog(input: {
           description: L(p.description, p.descriptionTranslations),
           price: p.price,
           offerPrice: activeBasePriceCents(p) < p.price ? activeBasePriceCents(p) : null,
-          offerLabel: p.schedule?.offerLabel ?? null,
+          offerLabel: p.schedule?.offerLabel ? L(p.schedule.offerLabel, p.schedule.offerLabelTranslations) : null,
           images: (p.images ?? []).map((img) => ({
             id: img.id,
             url: img.url,

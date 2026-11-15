@@ -12,6 +12,7 @@ export interface ProductSchedule {
   // Optional special pricing during this window
   offerPrice?: number | null; // cents; must be < product.price when set
   offerLabel?: string | null; // optional display label, max 50 chars
+  offerLabelTranslations?: TranslationMap; // offerLabel in the shop's other menu languages, max 50 chars each (SPECS §12)
 }
 
 export interface ProductImage {

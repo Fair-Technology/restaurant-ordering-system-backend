@@ -14,6 +14,7 @@ import { ownedBlobPath, productImageFolder } from '../../../infrastructure/stora
 import { UpdateProductRequestDto, UpdateProductResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 import { validateMenuFields } from '../menuFields';
+import { normaliseTranslations } from '../../../domain/menu/menuLanguage';
 import { toMenuFieldsDto } from '../menuFieldsDto';
 import { PRODUCT_IMAGE_REQUIRED, mergeProductImages, unknownOrChangedImage, wouldRemoveLastProductImage } from '../../../domain/images/imageRules';
 import { diffFields, logAudit } from '../../_shared/auditHelpers';
@@ -190,6 +191,16 @@ export async function executeUpdateProduct(
       }
     }
 
+    // The offer label's translations, checked like a dish name's (same cap as offerLabel itself)
+    let schedule = request.schedule;
+    if (request.schedule) {
+      const offerLabelTranslations = normaliseTranslations(request.schedule.offerLabelTranslations, 50);
+      if (typeof offerLabelTranslations === 'string') {
+        return { ok: false, code: 'INVALID_INPUT', error: offerLabelTranslations };
+      }
+      schedule = { ...request.schedule, offerLabelTranslations };
+    }
+
     // Update only provided fields
     const updatedProduct = {
       ...product,
@@ -205,7 +216,7 @@ export async function executeUpdateProduct(
       ...(request.isAvailable !== undefined && {
         isAvailable: request.isAvailable,
       }),
-      ...(request.schedule !== undefined && { schedule: request.schedule }),
+      ...(schedule !== undefined && { schedule }),
       ...menu,
       updatedAt: new Date().toISOString(),
     };
