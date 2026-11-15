@@ -1714,6 +1714,83 @@
         }
       }
     },
+    "/products/{productId}/availability": {
+      "patch": {
+        "summary": "Mark a dish sold out (or back on sale)",
+        "description": "Stock-only write: sets isAvailable and/or the sold-out window unavailableUntil (ISO-8601 instant, or null to clear). Nothing else about the dish can be changed here. Allowed with the manage_stock or manage_menu permission. A dish inside its sold-out window stays on the menu marked sold out but cannot be ordered.",
+        "operationId": "updateProductAvailability",
+        "tags": [
+          "Products"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "productId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "shopId": {
+                    "type": "string"
+                  },
+                  "isAvailable": {
+                    "type": "boolean"
+                  },
+                  "unavailableUntil": {
+                    "type": "string",
+                    "nullable": true
+                  }
+                },
+                "required": [
+                  "shopId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Dish availability updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateProductAvailabilityResultDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
     "/reference-lists/{countryCode}": {
       "get": {
         "operationId": "getReferenceLists",
@@ -7444,6 +7521,13 @@
           "isAvailable": {
             "type": "boolean"
           },
+          "unavailableUntil": {
+            "type": "string",
+            "nullable": true
+          },
+          "soldOut": {
+            "type": "boolean"
+          },
           "allergens": {
             "type": "array",
             "items": {
@@ -7503,6 +7587,8 @@
           "variants",
           "addons",
           "isAvailable",
+          "unavailableUntil",
+          "soldOut",
           "allergens",
           "additives",
           "dietaryTags",
@@ -8121,6 +8207,10 @@
           },
           "isAvailable": {
             "type": "boolean"
+          },
+          "unavailableUntil": {
+            "type": "string",
+            "nullable": true
           },
           "isDeleted": {
             "type": "boolean"
@@ -10413,6 +10503,10 @@
           "isAvailable": {
             "type": "boolean"
           },
+          "unavailableUntil": {
+            "type": "string",
+            "nullable": true
+          },
           "isDeleted": {
             "type": "boolean"
           },
@@ -10444,6 +10538,7 @@
           "spiceLevel",
           "taxClassId",
           "unavailableModes",
+          "unavailableUntil",
           "updatedAt"
         ],
         "additionalProperties": false
@@ -11575,6 +11670,7 @@
         "enum": [
           "view_orders",
           "manage_menu",
+          "manage_stock",
           "manage_shop",
           "manage_staff",
           "manage_billing",
@@ -15201,6 +15297,10 @@
           "isAvailable": {
             "type": "boolean"
           },
+          "unavailableUntil": {
+            "type": "string",
+            "nullable": true
+          },
           "isDeleted": {
             "type": "boolean"
           },
@@ -15284,6 +15384,7 @@
           "spiceLevel",
           "taxClassId",
           "unavailableModes",
+          "unavailableUntil",
           "updatedAt"
         ],
         "additionalProperties": false
@@ -15394,6 +15495,10 @@
           "isAvailable": {
             "type": "boolean"
           },
+          "unavailableUntil": {
+            "type": "string",
+            "nullable": true
+          },
           "isDeleted": {
             "type": "boolean"
           },
@@ -15431,6 +15536,7 @@
           "spiceLevel",
           "taxClassId",
           "unavailableModes",
+          "unavailableUntil",
           "updatedAt"
         ],
         "additionalProperties": false
@@ -15535,6 +15641,62 @@
                 "$ref": "#/components/schemas/ProductSchedule"
               }
             ]
+          }
+        },
+        "required": [
+          "productId",
+          "shopId"
+        ],
+        "additionalProperties": false
+      },
+      "UpdateProductAvailabilityResultDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "shopId": {
+            "type": "string"
+          },
+          "isAvailable": {
+            "type": "boolean"
+          },
+          "unavailableUntil": {
+            "type": "string",
+            "nullable": true
+          },
+          "soldOut": {
+            "type": "boolean"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "shopId",
+          "isAvailable",
+          "unavailableUntil",
+          "soldOut",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "UpdateProductAvailabilityRequestDto": {
+        "type": "object",
+        "properties": {
+          "productId": {
+            "type": "string"
+          },
+          "shopId": {
+            "type": "string"
+          },
+          "isAvailable": {
+            "type": "boolean"
+          },
+          "unavailableUntil": {
+            "type": "string",
+            "nullable": true
           }
         },
         "required": [

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { resolveShopAccess, ShopAccessDeps } from '../../src/application/_shared/shopAccess';
-import { Shop } from '../../src/domain/shop/Shop';
+import { Shop, ALL_SHOP_PERMISSIONS } from '../../src/domain/shop/Shop';
 import { Principal } from '../../src/infrastructure/auth/principal';
 import { StaffAccount } from '../../src/domain/staff/StaffAccount';
 import { DEFAULT_ROLE_PERMISSIONS } from '../../src/domain/system/RolePermissions';
@@ -27,7 +27,7 @@ describe('resolveShopAccess', () => {
     const principal: Principal = { kind: 'entra', userId: 'u-owner', issuer: 'customer', roles: [] };
     const access = await resolveShopAccess(principal, shop, makeDeps(false));
     expect(access?.actor).toEqual({ actorType: 'owner', actorId: 'u-owner', role: 'owner' });
-    expect(access?.permissions).toHaveLength(8);
+    expect(access?.permissions).toHaveLength(ALL_SHOP_PERMISSIONS.length);
   });
 
   it('inactive owner is refused', async () => {
@@ -105,7 +105,7 @@ describe('resolveShopAccess (staff)', () => {
       makeStaffDeps({ ...baseAccount, role: 'manager' }),
     );
     expect(access?.actor).toEqual({ actorType: 'staff', actorId: 'st-1', role: 'manager' });
-    expect(access?.permissions).toEqual(['view_orders', 'manage_menu', 'manage_staff', 'view_audit', 'refund_orders', 'view_reports']);
+    expect(access?.permissions).toEqual(['view_orders', 'manage_menu', 'manage_stock', 'manage_staff', 'view_audit', 'refund_orders', 'view_reports']);
   });
 
   it('other restaurant refused', async () => {

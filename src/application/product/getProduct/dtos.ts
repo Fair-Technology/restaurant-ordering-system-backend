@@ -13,6 +13,7 @@ export interface GetProductResultDto extends ProductMenuFieldsDto {
   description: string;
   price: number;
   isAvailable: boolean;
+  unavailableUntil: string | null;
   isDeleted: boolean;
   createdAt: string;
   updatedAt: string;

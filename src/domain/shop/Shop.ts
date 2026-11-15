@@ -16,6 +16,7 @@ export type ShopRoleKey = 'owner' | 'manager' | 'staff';
 export type ShopPermission =
   | 'view_orders'
   | 'manage_menu'
+  | 'manage_stock'
   | 'manage_shop'
   | 'manage_staff'
   | 'manage_billing'
@@ -26,6 +27,7 @@ export type ShopPermission =
 export const ALL_SHOP_PERMISSIONS: readonly ShopPermission[] = [
   'view_orders',
   'manage_menu',
+  'manage_stock',
   'manage_shop',
   'manage_staff',
   'manage_billing',

@@ -95,6 +95,10 @@ export interface Product {
 
   // Availability & lifecycle
   isAvailable: boolean; // visible/purchasable if true
+  // Sold-out-until: ISO instant while which the dish cannot be ordered, without touching isAvailable.
+  // null/absent = nothing scheduled, isAvailable governs alone. The value is stored as an instant; the shop
+  // timezone only decides which instant a UI writes (e.g. end of its service day).
+  unavailableUntil?: string | null;
   isDeleted: boolean; // soft delete flag
 
   // Audit
@@ -104,6 +108,25 @@ export interface Product {
 
 export function isDeclared(p: { allergenIds?: string[] | null; additiveIds?: string[] | null }): boolean {
   return Array.isArray(p.allergenIds) && Array.isArray(p.additiveIds);
+}
+
+/**
+ * True while the dish is marked sold out: `unavailableUntil` is still in the future. A malformed value is
+ * ignored (treated as no sold-out window) rather than hiding a dish forever.
+ */
+export function isSoldOut(p: { unavailableUntil?: string | null }, now: Date): boolean {
+  const until = p.unavailableUntil;
+  if (!until) return false;
+  const at = Date.parse(until);
+  return Number.isFinite(at) && at > now.getTime();
+}
+
+/** The dish can be ordered at `now`: switched on, and not inside a sold-out window. */
+export function isAvailableNow(
+  p: { isAvailable: boolean; unavailableUntil?: string | null },
+  now: Date,
+): boolean {
+  return p.isAvailable && !isSoldOut(p, now);
 }
 
 export function isOnMenu(p: {
