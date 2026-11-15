@@ -52,6 +52,7 @@ const OVERRIDES = {
   // Injected-clock route: does not exist in production (ENABLE_TEST_CLOCK_ROUTES), so the spec,
   // which ships in the same artifact, must not reveal it either.
   runShopWindDownWithClock: { skip: true },
+  runRetentionWithClock: { skip: true },
   getOrderByPaymentIntent: { response: 'GetOrderByPaymentIntentResultDto' },
   viewCustomerDocument: { response: { type: 'object', additionalProperties: true } },
   generateShopCoverImageUploadUrl: { response: { type: 'object', additionalProperties: true } },
