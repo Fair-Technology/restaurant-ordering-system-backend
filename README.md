@@ -126,8 +126,8 @@ drifting apart.
 
 The spec is shared and lives in the **rs-backend** repo:
 
-- in a checkout with the standard layout: `docs/spec.md` in this repo
-- on GitHub: https://github.com/Fair-Technology/restaurant-ordering-system-backend/blob/main/docs/spec.md
+- in a checkout with the standard layout: `docs/specs.md` in this repo
+- on GitHub: https://github.com/Fair-Technology/restaurant-ordering-system-backend/blob/main/docs/specs.md
 
 Don't restate product rules here — a frontend only hides controls a user cannot
 use; the rules are enforced in the backend. If you learn something new about how

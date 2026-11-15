@@ -31,11 +31,11 @@ Swagger JSON: `http://localhost:7071/api/swagger.json`
 
 ## Tests
 
-`npm test` runs the whole vitest suite (161 files, ~1,470 tests, a few seconds). There is no vitest config: vitest's defaults pick up every `*.test.ts`, and they live under `test/`, mirroring the source layers (`test/domain`, `test/application/<area>`, `test/infrastructure`, `test/swagger`, `test/scripts`; fixtures in `test/fixtures`). Run one file with `npx vitest run test/domain/<file>.test.ts`. Tests need no Azure, Cosmos, Stripe or `local.settings.json`.
+`npm test` runs the whole vitest suite (175 files, ~1,636 tests, ~10 s). There is no vitest config: vitest's defaults pick up every `*.test.ts`, and they live under `test/`, mirroring the source layers (`test/domain`, `test/application/<area>`, `test/infrastructure`, `test/swagger`, `test/scripts`; fixtures in `test/fixtures`). Run one file with `npx vitest run test/domain/<file>.test.ts`. Tests need no Azure, Cosmos, Stripe or `local.settings.json`.
 
 CI is [.github/workflows/main_restaurant-ordering-system.yml](.github/workflows/main_restaurant-ordering-system.yml) ("Build, test and deploy (dev)"): on every push to `main` and every pull request to `main` it runs `npm ci` → `npm run build` → `npm test`, and the "Deploy to dev" job only runs if that job passes.
 
-Production promotion is a **separate** workflow that ships the same artifact the dev run built — [.github/workflows/promote.yml](.github/workflows/promote.yml), by manual dispatch or a `v*` tag. It cannot authenticate yet: see [docs/platform-identity.md](docs/platform-identity.md) for the deployment identity and the credential it still needs.
+Production promotion is a **separate** workflow that ships the same artifact the dev run built — [.github/workflows/promote.yml](.github/workflows/promote.yml), by manual dispatch or a `v*` tag. It cannot authenticate yet: see [docs/specs.md](docs/specs.md) §20 ("Production environment", "Release pipeline") for the deployment identity and the credential it still needs.
 
 No linter is configured. Prettier is used for formatting (`.prettierrc`: single quotes, trailing commas, semicolons).
 
@@ -76,9 +76,9 @@ All functions are registered in [src/index.ts](src/index.ts).
 - **Auto-generated slugs**: Shop slugs are derived from the name and validated for uniqueness
 - **Partition key**: Cosmos DB containers use `/id` — point reads are `.item(id, id)`, *not* `.item(id, shopId)`
 - **Image uploads**: Products use Azure Blob Storage SAS URLs (generate → upload from client → register URL)
-- **Authentication**: **implemented.** Platform-staff access is an Entra app role in the workforce tenant rather than a database flag — see [docs/platform-identity.md](docs/platform-identity.md). The legacy CIAM `systemRole: 'superadmin'` path is still honoured, for migration only.
+- **Authentication**: **implemented.** Platform-staff access is an Entra app role in the workforce tenant rather than a database flag — see [docs/specs.md](docs/specs.md) §11 ("Superadmin"). There is no database flag that grants platform access: the old customer-tenant `systemRole: 'superadmin'` route was removed 2026-11-10, so a customer-tenant token can never reach the platform API.
 - **Injected-clock routes**: routes that run a timer job "as of" a supplied date (e.g. `POST /api/platform/test-clock/shops/{shopId}/wind-down`) are registered only when the app setting `ENABLE_TEST_CLOCK_ROUTES` is exactly `true` (dev, via `infra/main.bicep`); otherwise they do not exist (404). Do not key this on `AZURE_FUNCTIONS_ENVIRONMENT` — it is `Production` on every deployed app, dev included. See [src/functions/_shared/testClockRoutes.ts](src/functions/_shared/testClockRoutes.ts).
-- **Payments**: card only, as Stripe Connect **direct charges** on the restaurant's own account with **manual capture** — money is reserved at checkout and captured when the restaurant accepts, so an order does not exist until Stripe confirms the reservation. See [docs/spec.md](docs/spec.md) §8.
+- **Payments**: card only, as Stripe Connect **direct charges** on the restaurant's own account with **manual capture** — money is reserved at checkout and captured when the restaurant accepts, so an order does not exist until Stripe confirms the reservation. See [docs/specs.md](docs/specs.md) §8.
 
 ### Infrastructure
 
@@ -100,6 +100,6 @@ Local development settings (Cosmos endpoint, keys, storage account) are in `loca
 
 ## Where documentation lives
 
-- **Durable, project-specific decisions → `docs/` in this repo**, committed, and citable from code. That is the established pattern: the product spec is [docs/spec.md](docs/spec.md) (code cites it as `SPECS §…`), with [docs/platform-identity.md](docs/platform-identity.md), [docs/deferred.md](docs/deferred.md), [docs/audit-2026-08-27.md](docs/audit-2026-08-27.md) and the `legal/` and `privacy/` packs beside it. The three frontends' READMEs point here.
+- **Durable, project-specific decisions → `docs/` in this repo**, committed, and citable from code. That is the established pattern: everything durable now lives in one file, [docs/specs.md](docs/specs.md) (code cites it as `SPECS §…`; the section numbers are stable, so an existing `§N` keeps meaning what it meant), with the `legal/` pack beside it. The three frontends' READMEs point here.
 - **Never commit**: local settings, keys, investigation logs, handoffs or session notes. A decision a teammate cannot read is not yet recorded — but a scratch file sitting beside the code is one `git add -A` away from publishing whatever is in it.
 - **Cross-product decisions** (release-pipeline shape, conventions shared with the copyshop and invoice products) belong with code the team reads, not in a personal note. If it concerns several repos, put it in the hub repo's `docs/` and link to it rather than duplicating it.
