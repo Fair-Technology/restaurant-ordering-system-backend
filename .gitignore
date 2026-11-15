@@ -155,3 +155,7 @@ __azurite_db*__.json
 
 # Git worktrees created inside the repo (other agents' working copies)
 .worktrees/
+
+# A backup of local.settings.json holds real keys — never commit it.
+local.settings.json.bak
+*.settings.json.bak

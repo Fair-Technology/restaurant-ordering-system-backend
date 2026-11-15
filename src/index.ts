@@ -50,6 +50,10 @@ import './functions/order/stripeWebhook/index';
 import './functions/order/stripeConnectWebhook/index';
 import './functions/order/getOrderByPaymentIntent/index';
 import './functions/order/getOrdersByShop/index';
+import './functions/order/realtimeNegotiate/index';
+import './functions/order/pushPublicKey/index';
+import './functions/order/pushSubscribe/index';
+import './functions/order/pushUnsubscribe/index';
 import './functions/order/quoteBasket/index';
 import './functions/order/getOrderQueue/index';
 import './functions/order/acceptOrder/index';
@@ -91,6 +95,11 @@ import './functions/combo/updateCombo/index';
 
 // Audit endpoints
 import './functions/audit/getAuditEntries/index';
+
+// Content reports (notice-and-action)
+import './functions/contentReport/submitContentReport/index';
+import './functions/contentReport/listContentReports/index';
+import './functions/contentReport/decideContentReport/index';
 
 // User endpoints
 import './functions/user/getMe/index';

@@ -1474,6 +1474,13 @@ and is the restaurant's own content. This section is only about what a
 - **Notice-and-action:** a reachable way to report illegal content on a
   storefront, a recorded decision, and the suspend switch — the EU hosting
   liability shield depends on acting once notified.
+  Built (mini-slice before slice 6): a public `POST /shops/{shopId}/content-reports`
+  (anonymous; returns a receipt id as the acknowledgement of receipt) writes a record
+  to the `content_reports` container; platform staff read them with
+  `GET /platform/content-reports` and record the decision once with
+  `POST /platform/content-reports/{reportId}/decision`, which is audit-logged
+  (`content_report.decided`). The suspend switch is the existing
+  `POST /shops/{shopId}/superadmin-offline`.
 
 ### Cookies
 

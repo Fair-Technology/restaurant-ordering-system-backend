@@ -53,3 +53,9 @@ export const subscriptionContainer: Container = database.container(subscriptionC
 export const usageContainer: Container = database.container(usageContainerId);
 export const systemConfigContainer: Container = database.container(systemConfigContainerId);
 export const staffAccountsContainer: Container = database.container(staffAccountsContainerId);
+
+const pushSubscriptionsContainerId = process.env.COSMOS_PUSH_SUBSCRIPTIONS_CONTAINER || 'push_subscriptions';
+export const pushSubscriptionsContainer: Container = database.container(pushSubscriptionsContainerId);
+
+const contentReportsContainerId = process.env.COSMOS_CONTENT_REPORTS_CONTAINER || 'content_reports';
+export const contentReportContainer: Container = database.container(contentReportsContainerId);

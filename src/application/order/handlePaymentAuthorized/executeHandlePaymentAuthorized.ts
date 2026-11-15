@@ -15,6 +15,7 @@ import { acceptPlacedOrder } from '../_shared/acceptPlacedOrder';
 import { releaseClosedOrderPayment } from '../_shared/releasePayment';
 import { fixSlotPlace } from '../_shared/slotPlaces';
 import { notifyCustomer } from '../notifications/notifyOrder';
+import { notifyShopNewOrder } from '../notifications/notifyShop';
 import { buildPlacedOrderFromSession } from './buildPlacedOrderFromSession';
 import { errorBrief } from '../../_shared/errorBrief';
 
@@ -102,5 +103,7 @@ export async function executeHandlePaymentAuthorized(input: {
     }
   }
   if (sendReceived) await notifyCustomer('order_received', order, shop);
+  // The order is live and capture has been attempted: signal the open kitchen boards and installed devices (never throws).
+  if (inLiveQueue) await notifyShopNewOrder(order, shop);
   return 'created';
 }

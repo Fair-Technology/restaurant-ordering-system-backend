@@ -82,7 +82,7 @@ All functions are registered in [src/index.ts](src/index.ts).
 
 ### Infrastructure
 
-- **Azure Cosmos DB** — NoSQL, SQL API. Containers: `shops`, `products`, `categories`, `orders`, `checkout_sessions`, `invoices`, `users`, `plans`, `plan_pricing`, `shop_subscriptions`, `shop_usage`, `auditLogs`, `staff_accounts`.
+- **Azure Cosmos DB** — NoSQL, SQL API. Containers: `shops`, `products`, `categories`, `orders`, `checkout_sessions`, `invoices`, `users`, `plans`, `plan_pricing`, `shop_subscriptions`, `shop_usage`, `auditLogs`, `staff_accounts`, `content_reports`.
 - **Azure Blob Storage** — product media, plus the Functions host's own state. The host transacts with it continuously, so an idle environment is not a free one.
 - **Azure App Insights** — configured in `host.json`
 

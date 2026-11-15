@@ -71,6 +71,11 @@ export function mapResultToHttp<T>(result: ApplicationResult<T>): HttpResponseIn
         status: 400,
         jsonBody: { error: result.error, code: result.code }
       };
+    case 'NOT_CONFIGURED':
+      return {
+        status: 503,
+        jsonBody: { error: result.error }
+      };
     case 'LIMIT_REACHED':
       return {
         status: 422,

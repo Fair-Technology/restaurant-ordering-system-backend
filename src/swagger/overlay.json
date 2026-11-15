@@ -555,6 +555,33 @@
         "Plans"
       ]
     },
+    "GET /platform/content-reports": {
+      "operationId": "listContentReports",
+      "summary": "List content reports (platform staff)",
+      "description": "Newest first. Optional status filter: received, actioned, dismissed.",
+      "tags": [
+        "Content Reports"
+      ],
+      "responseDescription": "Content reports"
+    },
+    "POST /platform/content-reports/{reportId}/decision": {
+      "operationId": "decideContentReport",
+      "summary": "Record the platform's decision on a content report (platform staff, write)",
+      "description": "Records the decision and writes an audit entry. A report can be decided once. Taking the shop down is the separate suspend switch: POST /shops/{shopId}/superadmin-offline.",
+      "tags": [
+        "Content Reports"
+      ],
+      "responseDescription": "Decision recorded"
+    },
+    "POST /shops/{shopId}/content-reports": {
+      "operationId": "submitContentReport",
+      "summary": "Report illegal content on a storefront (public; no sign-in)",
+      "description": "A reachable notice-and-action path: anyone may report content on a shop's storefront. Anonymous reports are accepted. Returns a receipt (reportId) which is the acknowledgement of receipt.",
+      "tags": [
+        "Content Reports"
+      ],
+      "responseDescription": "Report received"
+    },
     "GET /platform/config": {
       "tags": [
         "Platform"
@@ -844,6 +871,34 @@
       "tags": [
         "Webhooks"
       ]
+    },
+    "GET /shops/{shopId}/realtime/negotiate": {
+      "tags": [
+        "Orders"
+      ],
+      "summary": "Open the live order channel",
+      "description": "Returns a Web PubSub client URL and access token (valid 60 minutes) for the hub `orders`, joined to the group named by the shop id. The client receives `{\"type\":\"new-order\",\"orderId\":\"...\"}` and refetches the order queue. Both fields are null when Web PubSub is not configured; the client then keeps polling."
+    },
+    "GET /shops/{shopId}/push/public-key": {
+      "tags": [
+        "Orders"
+      ],
+      "summary": "Get the Web Push (VAPID) public key",
+      "description": "The application server key a browser needs to subscribe to push notifications. `publicKey` is null when push is not configured."
+    },
+    "POST /shops/{shopId}/push/subscriptions": {
+      "tags": [
+        "Orders"
+      ],
+      "summary": "Register a device for new-order push notifications",
+      "description": "Stores a browser push subscription for the shop. Idempotent per endpoint; a removed subscription is revived. Answers 503 when push is not configured."
+    },
+    "DELETE /shops/{shopId}/push/subscriptions": {
+      "tags": [
+        "Orders"
+      ],
+      "summary": "Remove a device from new-order push notifications",
+      "description": "Soft-deletes the push subscription with the given endpoint. Succeeds even if it was not registered."
     }
   }
 }

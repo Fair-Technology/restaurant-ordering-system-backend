@@ -899,6 +899,145 @@
         }
       }
     },
+    "/platform/content-reports": {
+      "get": {
+        "summary": "List content reports (platform staff)",
+        "description": "Newest first. Optional status filter: received, actioned, dismissed.",
+        "operationId": "listContentReports",
+        "tags": [
+          "Content Reports"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/ContentReportStatus"
+                },
+                {
+                  "type": "string",
+                  "const": ""
+                }
+              ]
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Content reports",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ContentReport"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/platform/content-reports/{reportId}/decision": {
+      "post": {
+        "summary": "Record the platform's decision on a content report (platform staff, write)",
+        "description": "Records the decision and writes an audit entry. A report can be decided once. Taking the shop down is the separate suspend switch: POST /shops/{shopId}/superadmin-offline.",
+        "operationId": "decideContentReport",
+        "tags": [
+          "Content Reports"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "reportId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecideContentReportBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Decision recorded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentReport"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
     "/platform/legal-identity": {
       "get": {
         "operationId": "getPlatformLegalIdentity",
@@ -2817,6 +2956,67 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ComboDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/shops/{shopId}/content-reports": {
+      "post": {
+        "summary": "Report illegal content on a storefront (public; no sign-in)",
+        "description": "A reachable notice-and-action path: anyone may report content on a shop's storefront. Anonymous reports are accepted. Returns a receipt (reportId) which is the acknowledgement of receipt.",
+        "operationId": "submitContentReport",
+        "tags": [
+          "Content Reports"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "shopId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmitContentReportBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Report received",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubmitContentReportResultDto"
                 }
               }
             }
@@ -4884,6 +5084,219 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/PromotionsDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/shops/{shopId}/push/public-key": {
+      "get": {
+        "summary": "Get the Web Push (VAPID) public key",
+        "description": "The application server key a browser needs to subscribe to push notifications. `publicKey` is null when push is not configured.",
+        "operationId": "getPushPublicKey",
+        "tags": [
+          "Orders"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "shopId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PushPublicKeyDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/shops/{shopId}/push/subscriptions": {
+      "post": {
+        "summary": "Register a device for new-order push notifications",
+        "description": "Stores a browser push subscription for the shop. Idempotent per endpoint; a removed subscription is revived. Answers 503 when push is not configured.",
+        "operationId": "subscribePush",
+        "tags": [
+          "Orders"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "shopId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubscribePushResultDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Remove a device from new-order push notifications",
+        "description": "Soft-deletes the push subscription with the given endpoint. Succeeds even if it was not registered.",
+        "operationId": "unsubscribePush",
+        "tags": [
+          "Orders"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "shopId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnsubscribePushResultDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/shops/{shopId}/realtime/negotiate": {
+      "get": {
+        "summary": "Open the live order channel",
+        "description": "Returns a Web PubSub client URL and access token (valid 60 minutes) for the hub `orders`, joined to the group named by the shop id. The client receives `{\"type\":\"new-order\",\"orderId\":\"...\"}` and refetches the order queue. Both fields are null when Web PubSub is not configured; the client then keeps polling.",
+        "operationId": "negotiateRealtime",
+        "tags": [
+          "Orders"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "shopId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RealtimeConnectionDto"
                 }
               }
             }
@@ -7357,6 +7770,53 @@
           "id",
           "url",
           "createdAt"
+        ],
+        "additionalProperties": false
+      },
+      "ContentReportCategory": {
+        "type": "string",
+        "enum": [
+          "illegal_goods",
+          "fraud_or_scam",
+          "hate_or_harassment",
+          "copyright_or_trademark",
+          "personal_data",
+          "other"
+        ]
+      },
+      "ContentReportStatus": {
+        "type": "string",
+        "enum": [
+          "received",
+          "actioned",
+          "dismissed"
+        ]
+      },
+      "ContentReportDecision": {
+        "type": "object",
+        "properties": {
+          "decision": {
+            "type": "string",
+            "enum": [
+              "actioned",
+              "dismissed"
+            ]
+          },
+          "reason": {
+            "type": "string"
+          },
+          "decidedBy": {
+            "type": "string"
+          },
+          "decidedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "decision",
+          "reason",
+          "decidedBy",
+          "decidedAt"
         ],
         "additionalProperties": false
       },
@@ -12406,6 +12866,146 @@
         ],
         "additionalProperties": false
       },
+      "ContentReport": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "shopId": {
+            "type": "string"
+          },
+          "shopSlug": {
+            "type": "string"
+          },
+          "shopName": {
+            "type": "string"
+          },
+          "category": {
+            "$ref": "#/components/schemas/ContentReportCategory"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "contentUrl": {
+            "type": "string"
+          },
+          "reporterName": {
+            "type": "string"
+          },
+          "reporterEmail": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ContentReportStatus"
+          },
+          "receivedAt": {
+            "type": "string"
+          },
+          "decision": {
+            "$ref": "#/components/schemas/ContentReportDecision"
+          }
+        },
+        "required": [
+          "id",
+          "shopId",
+          "shopSlug",
+          "shopName",
+          "category",
+          "reason",
+          "status",
+          "receivedAt"
+        ],
+        "additionalProperties": false
+      },
+      "DecideContentReportBody": {
+        "type": "object",
+        "properties": {
+          "decision": {
+            "type": "string",
+            "enum": [
+              "actioned",
+              "dismissed"
+            ]
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "decision",
+          "reason"
+        ],
+        "additionalProperties": false
+      },
+      "ListContentReportsRequestDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ContentReportStatus"
+              },
+              {
+                "type": "string",
+                "const": ""
+              }
+            ]
+          },
+          "page": {
+            "type": "number"
+          },
+          "pageSize": {
+            "type": "number"
+          }
+        },
+        "additionalProperties": false
+      },
+      "SubmitContentReportResultDto": {
+        "type": "object",
+        "properties": {
+          "reportId": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ContentReportStatus"
+          },
+          "receivedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "reportId",
+          "status",
+          "receivedAt"
+        ],
+        "additionalProperties": false
+      },
+      "SubmitContentReportBody": {
+        "type": "object",
+        "properties": {
+          "category": {
+            "$ref": "#/components/schemas/ContentReportCategory"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "contentUrl": {
+            "type": "string"
+          },
+          "reporterName": {
+            "type": "string"
+          },
+          "reporterEmail": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "category",
+          "reason"
+        ],
+        "additionalProperties": false
+      },
       "ShopLegalSettingsDto": {
         "type": "object",
         "properties": {
@@ -13695,6 +14295,44 @@
         ],
         "additionalProperties": false
       },
+      "PushPublicKeyDto": {
+        "type": "object",
+        "properties": {
+          "publicKey": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "publicKey"
+        ],
+        "additionalProperties": false
+      },
+      "SubscribePushResultDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "UnsubscribePushResultDto": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "const": true
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "additionalProperties": false
+      },
       "BasketQuoteDto": {
         "type": "object",
         "properties": {
@@ -13888,6 +14526,24 @@
         "required": [
           "shopId",
           "items"
+        ],
+        "additionalProperties": false
+      },
+      "RealtimeConnectionDto": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "nullable": true
+          },
+          "accessToken": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "url",
+          "accessToken"
         ],
         "additionalProperties": false
       },
