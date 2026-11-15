@@ -1890,6 +1890,18 @@ deliberate differences:
   endpoints (connected-account events and platform events) each with its own
   signing secret — mixing them up rejects every webhook, so a non-2xx-on-webhook
   alert exists in production.
+- **Monitoring alerts:** prod must carry four Azure Monitor scheduled-query rules,
+  all severity 1, `PT5M`/`PT5M`, firing on count `> 0` — non-2xx on
+  `/api/webhooks/*`, Stripe credential failure (`kind=permission_or_config`),
+  order-intake 5xx, and paid-without-order. The payloads live in `infra/alerts/`
+  and are applied and read back with `scripts/alerts/apply-alerts.sh prod`. Every
+  query filters on `cloud_RoleName == 'restaurant-ordering-system'`, which must
+  equal the app name or the rule can never fire. Prod's Stripe rule matches the
+  greppable `[stripe:failure] … kind=permission_or_config` line (the form dev
+  already deploys, plus the role filter), not the app's own `[alert:platform]
+  kind=stripe_permission_or_config` line. `ag-restaurant-prod-webhooks`
+  (one email receiver) must exist first, because ARM rejects a rule pointing at
+  a missing action group.
 - **Hardening dev lacks:** HTTPS-only function app, 30-day blob soft-delete,
   Cosmos delete lock, Cosmos TLS 1.2, no localhost CORS origin.
 - **Backups:** Cosmos **continuous 30-day point-in-time restore** (not periodic —

@@ -1,0 +1,38 @@
+{
+  "location": "germanywestcentral",
+  "properties": {
+    "displayName": "prod: non-2xx on /api/webhooks/*",
+    "description": "Any request to /api/webhooks/* on the prod Function App that did not return 2xx (incl. resultCode 0 = host-level failure). A wrong webhook signing secret makes Stripe retry silently and orders never appear.",
+    "severity": 1,
+    "enabled": true,
+    "autoMitigate": true,
+    "scopes": [
+      "/subscriptions/c115d7d2-2778-4d1d-8ac8-e234f5a95f17/resourceGroups/rg-restaurant-ordering-system-prod/providers/Microsoft.Insights/components/restaurant-ordering-system-prod"
+    ],
+    "targetResourceTypes": ["Microsoft.Insights/components"],
+    "evaluationFrequency": "PT5M",
+    "windowSize": "PT5M",
+    "criteria": {
+      "allOf": [
+        {
+          "query": "requests\n| where cloud_RoleName == 'restaurant-ordering-system'\n| where url has '/api/webhooks/'\n| where not(resultCode startswith '2')",
+          "timeAggregation": "Count",
+          "operator": "GreaterThan",
+          "threshold": 0,
+          "failingPeriods": {
+            "numberOfEvaluationPeriods": 1,
+            "minFailingPeriodsToAlert": 1
+          }
+        }
+      ]
+    },
+    "actions": {
+      "actionGroups": [
+        "/subscriptions/c115d7d2-2778-4d1d-8ac8-e234f5a95f17/resourceGroups/rg-restaurant-ordering-system-prod/providers/microsoft.insights/actionGroups/ag-restaurant-prod-webhooks"
+      ],
+      "customProperties": {
+        "runbook": "docs/specs.md"
+      }
+    }
+  }
+}

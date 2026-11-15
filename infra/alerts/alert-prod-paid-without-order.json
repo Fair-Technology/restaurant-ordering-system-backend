@@ -31,7 +31,7 @@
         "/subscriptions/c115d7d2-2778-4d1d-8ac8-e234f5a95f17/resourceGroups/rg-restaurant-ordering-system-prod/providers/microsoft.insights/actionGroups/ag-restaurant-prod-webhooks"
       ],
       "customProperties": {
-        "runbook": "docs/prod-runbook.md"
+        "runbook": "docs/specs.md"
       }
     }
   }
