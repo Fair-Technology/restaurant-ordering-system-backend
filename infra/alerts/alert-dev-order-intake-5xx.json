@@ -1,0 +1,38 @@
+{
+  "location": "westeurope",
+  "properties": {
+    "displayName": "dev: 5xx from order intake (POST /api/orders)",
+    "description": "Order intake failed: the checkout function answered 5xx (or the host failed the invocation, resultCode 0). 4xx is diner input and is not alerted.",
+    "severity": 2,
+    "enabled": true,
+    "autoMitigate": true,
+    "scopes": [
+      "/subscriptions/c115d7d2-2778-4d1d-8ac8-e234f5a95f17/resourceGroups/rg-restaurant-ordering-system-dev/providers/Microsoft.Insights/components/restaurant-ordering-system-dev"
+    ],
+    "targetResourceTypes": ["Microsoft.Insights/components"],
+    "evaluationFrequency": "PT5M",
+    "windowSize": "PT5M",
+    "criteria": {
+      "allOf": [
+        {
+          "query": "requests\n| where cloud_RoleName == 'restaurant-ordering-system-dev'\n| where name == 'checkout'\n| where resultCode startswith '5' or resultCode == '0'",
+          "timeAggregation": "Count",
+          "operator": "GreaterThan",
+          "threshold": 0,
+          "failingPeriods": {
+            "numberOfEvaluationPeriods": 1,
+            "minFailingPeriodsToAlert": 1
+          }
+        }
+      ]
+    },
+    "actions": {
+      "actionGroups": [
+        "/subscriptions/c115d7d2-2778-4d1d-8ac8-e234f5a95f17/resourceGroups/rg-restaurant-ordering-system-dev/providers/microsoft.insights/actionGroups/ag-restaurant-dev-webhooks"
+      ],
+      "customProperties": {
+        "runbook": "docs/prod-runbook.md"
+      }
+    }
+  }
+}
