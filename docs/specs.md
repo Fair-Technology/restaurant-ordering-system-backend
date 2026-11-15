@@ -562,7 +562,9 @@ computed from the components (§2).
 - **A combo has one photo** (4:3, same crop and size check as a dish); the admin
   won't save a combo without one. **Its name, description and choice-step names
   can be translated** into the second menu language. *(Built 2026-10-11.)*
-- Not yet: time windows, offer prices or per-mode switches for combos.
+- Not yet: time windows, offer prices or per-mode switches for combos. All three
+  are **later, not v1** (decided 2026-11-16, §22): a combo is a fixed offer at a
+  fixed price with no per-mode variant.
 
 *Built 8e (2026-10-09, code-tested and pushed; browser checks pending). Why:
 [[combo-pricing-and-refunds]].*
@@ -1746,7 +1748,12 @@ house between businesses.
   rate, CSV. "Professional but not everything." An order counts on the day it
   was accepted (restaurant's time zone); a refund on the day it was made; VAT
   per rate matches the invoices and correction invoices to the cent. Owners
-  and managers (`view_reports`), never staff. *Built 8f (2026-10-09,
+  and managers (`view_reports`), never staff. **One consolidated report, not
+  five** (confirmed 2026-11-16): the audit's five separate reports were
+  deliberately merged into this one report plus the owner Overview — they read
+  from the same order data and an owner who wants takings, top dishes and VAT
+  wants them together. Splitting them again needs a reason from a real owner.
+  *Built 8f (2026-10-09,
   code-tested and pushed; browser checks pending).* Why:
   [[sales-reports-and-owner-overview]].
 
@@ -2214,6 +2221,11 @@ bringing it back means undoing a decision something else depends on.
   diners). The moderation argument for not having one still applies.
 - **Thermal printers** (§5) and **secret per-table codes** (§3).
 - **Business buyers and e-invoices** (§10).
+- **Combos with time windows, offer prices or per-mode switches** (§6). Decided
+  later, not v1 (2026-11-16): a combo stays one fixed offer at a fixed price.
+  Revisit only if a restaurant asks for a lunch-only or per-mode combo, and do it
+  without touching the combo price rule — an item refund still takes the whole
+  combo (§7).
 - **Ideas parked on 2026-10-11 (Manish chose these for later):** an "add a
   drink?" upsell before checkout; menu search on the storefront (Ma Pasta has 50
   items); diet and allergen filters for diners; an "order again" that refills the
