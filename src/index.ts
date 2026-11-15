@@ -158,6 +158,11 @@ import './functions/legal/getPlatformLegal/index';
 import './functions/legal/exportShopData/index';
 import './functions/legal/eraseCustomer/index';
 
+// Automatic retention clean-up of diner delivery addresses (SPECS §15). The timer is registered
+// always; the injected-clock route registers itself only where ENABLE_TEST_CLOCK_ROUTES=true.
+import './functions/legal/deliveryAddressRetentionTimer/index';
+import './functions/legal/runRetentionWithClock/index';
+
 // User admin endpoints
 import './functions/user/updateUserLimits/index';
 

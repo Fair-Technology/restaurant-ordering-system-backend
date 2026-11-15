@@ -75,6 +75,16 @@ export async function countOrdersByShopId(shopId: string): Promise<number> {
   return resources[0] ?? 0;
 }
 
+/** Delivery orders old enough for the retention sweep to consider: address still present, created at or before the cutoff. */
+export async function findOrdersWithDeliveryAddressCreatedBefore(cutoffIso: string): Promise<Order[]> {
+  const querySpec = {
+    query: 'SELECT * FROM c WHERE IS_DEFINED(c.deliveryAddress) AND c.createdAt <= @cutoff',
+    parameters: [{ name: '@cutoff', value: cutoffIso }],
+  };
+  const { resources } = await orderContainer.items.query<Order>(querySpec).fetchAll();
+  return resources;
+}
+
 export async function findOrdersByShopIdPaginated(
   shopId: string,
   page: number,

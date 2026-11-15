@@ -327,6 +327,10 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
         // Injected-clock routes (e.g. the 90-day wind-down "as of" a date) exist only in dev.
         // Fail-closed: anything but the exact string 'true' leaves them unregistered (404).
         { name: 'ENABLE_TEST_CLOCK_ROUTES', value: env == 'dev' ? 'true' : 'false' }
+        // Delivery-address retention window in days (SPECS section 15). 180 is PROVISIONAL pending
+        // owner confirmation; a setting so the confirmed figure needs no code change (the job
+        // defaults to 180 when this is unset).
+        { name: 'DELIVERY_ADDRESS_RETENTION_DAYS', value: '180' }
         // Secrets — COSMOS_DB_KEY, STORAGE_ACCOUNT_KEY, ENTRA_*, STRIPE_*, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT (mailto:) — are
         // set after deployment from the vault .env, never committed here.
       ]
