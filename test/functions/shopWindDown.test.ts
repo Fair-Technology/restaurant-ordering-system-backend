@@ -26,7 +26,8 @@ vi.mock('../../src/infrastructure/auth/principal', async (importOriginal) => ({
 vi.mock('../../src/infrastructure/cosmos/cosmosClient');
 vi.mock('../../src/application/shop/windDown/executeWindDownShops', () => ({
   executeWindDownShops: vi.fn(async () => ({
-    shopsWoundDown: 1, ordersAnonymised: 2, productsDeleted: 3, categoriesDeleted: 2, failures: 0,
+    shopsWoundDown: 1, ordersAnonymised: 2, productsDeleted: 3, categoriesDeleted: 2,
+    staffAccountsDeleted: 1, imagesDeleted: 4, failures: 0,
   })),
 }));
 
@@ -144,7 +145,7 @@ describe('injected-clock wind-down route', () => {
       m.principal = SUPERADMIN;
       const res = await m.http.runShopWindDownWithClock.handler(req({ now: '2026-11-01T00:00:00.000Z' }, 'shop-9'));
       expect(res.status).toBe(200);
-      expect(res.jsonBody).toEqual({ shopsWoundDown: 1, ordersAnonymised: 2, productsDeleted: 3, categoriesDeleted: 2, failures: 0 });
+      expect(res.jsonBody).toEqual({ shopsWoundDown: 1, ordersAnonymised: 2, productsDeleted: 3, categoriesDeleted: 2, staffAccountsDeleted: 1, imagesDeleted: 4, failures: 0 });
       expect(executeWindDownShops).toHaveBeenCalledWith({
         now: new Date('2026-11-01T00:00:00.000Z'),
         onlyShopIds: ['shop-9'],

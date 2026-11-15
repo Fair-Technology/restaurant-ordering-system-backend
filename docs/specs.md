@@ -1409,6 +1409,19 @@ and is the restaurant's own content. This section is only about what a
 - **A cancelled restaurant:** data kept 90 days fully intact and reactivatable;
   then storefront and menu deleted, order records retained anonymised, invoice
   snapshots retained eight years (§10).
+  - **What "storefront and menu deleted" covers** (wind-down completeness,
+    2026-11-16): the **images go too** — every blob under `shops/{shopId}/` in
+    the `product-media` container (product media, cover and logo), so storage
+    stops billing and "menu deleted" is not a half-truth. The shop's **staff
+    logins are hard-deleted** (`staff_accounts`): usernames and password hashes
+    are the last shop-scoped personal data, so they are **erased, not
+    anonymised**; deleting the row (not anonymising in place) is also what frees
+    the `/username` unique key. **Commercial records are kept** — promotions,
+    `shop_subscriptions` and `shop_usage` are not personal data and the
+    wind-down does not touch them. `checkout_sessions` are left alone;
+    unfinished checkouts self-clean on the container's 3600-second TTL. Shops
+    soft-deleted before `deletedAt` existed are **not backfilled**:
+    `isDueForWindDown` keeps failing safe for them.
 - **A customer erasure request** (which goes to the restaurant, not the
   platform): **anonymise, never delete.** The order survives with its amounts
   and dishes; the person becomes "deleted customer". Tax law requires the
