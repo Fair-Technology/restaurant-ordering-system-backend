@@ -31,7 +31,7 @@ export async function createPaymentIntent(
     {
       amount: input.amountCents,
       currency: input.currency.toLowerCase(),
-      payment_method_types: [...DINER_PAYMENT_METHOD_TYPES],
+      allowed_payment_method_types: [...DINER_PAYMENT_METHOD_TYPES],
       capture_method: 'manual',
       description: input.description,
       metadata: { orderRef: input.orderRef, sessionId: input.sessionId },
@@ -61,7 +61,7 @@ export async function capturePaymentIntent(input: {
     let status: string | undefined;
     try {
       status = (
-        await stripe.paymentIntents.retrieve(input.paymentIntentId, { stripeAccount: input.connectAccountId })
+        await stripe.paymentIntents.retrieve(input.paymentIntentId, {}, { stripeAccount: input.connectAccountId })
       ).status;
     } catch {
       throw err;
@@ -85,7 +85,7 @@ export async function releaseAuthorization(input: {
     await stripe.paymentIntents.cancel(input.paymentIntentId, {}, options);
     return 'canceled';
   } catch (err: unknown) {
-    const current = await stripe.paymentIntents.retrieve(input.paymentIntentId, {
+    const current = await stripe.paymentIntents.retrieve(input.paymentIntentId, {}, {
       stripeAccount: input.connectAccountId,
     });
     if (current.status === 'succeeded') return 'already_captured';

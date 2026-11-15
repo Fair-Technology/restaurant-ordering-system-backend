@@ -27,7 +27,7 @@
     "jose": "^6.2.12",
     "pdf-lib": "^1.17.1",
     "sharp": "^0.35.5",
-    "stripe": "^20.4.1",
+    "stripe": "^23.1.0",
     "subset-font": "^2.9.0"
   },
   "devDependencies": {
