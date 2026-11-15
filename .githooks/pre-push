@@ -1,0 +1,19 @@
+#!/usr/bin/env sh
+# Pre-push backstop for rs-backend.
+#
+# This project merges LOCALLY and opens no pull requests, so this hook is the
+# pre-merge gate a PR used to provide. It must stay fast: it runs on every push,
+# including the bots'.
+#
+#   Emergency bypass:  SKIP_GUARD=1 git push
+#
+if [ "${SKIP_GUARD:-}" = "1" ]; then
+  echo "[pre-push] rs-backend: guard skipped (SKIP_GUARD=1)"
+  exit 0
+fi
+
+echo "[pre-push] rs-backend: build..."
+npm run --silent build || { echo "[pre-push] rs-backend: BUILD FAILED -> push blocked."; echo "[pre-push] fix it, or bypass with SKIP_GUARD=1 git push"; exit 1; }
+echo "[pre-push] rs-backend: tests..."
+npm test --silent || { echo "[pre-push] rs-backend: TESTS FAILED -> push blocked."; echo "[pre-push] fix it, or bypass with SKIP_GUARD=1 git push"; exit 1; }
+echo "[pre-push] rs-backend: all guards passed."
