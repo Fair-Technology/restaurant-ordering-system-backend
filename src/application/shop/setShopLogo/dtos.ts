@@ -7,3 +7,7 @@ export interface SetShopLogoRequestDto {
 }
 
 export type SetShopLogoResultDto = Pick<Shop, 'id' | 'slug' | 'name' | 'isDeleted' | 'createdAt' | 'updatedAt' | 'branding'>;
+
+export function toLogoResult(s: Shop): SetShopLogoResultDto {
+  return { id: s.id, slug: s.slug, name: s.name, isDeleted: s.isDeleted, createdAt: s.createdAt, updatedAt: s.updatedAt, branding: s.branding };
+}

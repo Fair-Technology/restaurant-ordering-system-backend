@@ -1682,8 +1682,7 @@ four-colour branding is reduced to one.
 preview, remove; JPG/PNG/WebP up to 10 MB; guidance for a ~3:1 banner); the
 storefront ships its own default cover instead of loading Unsplash. Resize,
 re-encode and orientation on upload are done server-side for cover and dish
-photos (§6). A restaurant can set a logo but not yet remove one (the cover
-can be removed).
+photos (§6). A restaurant can set and remove a logo, and set and remove a cover.
 
 **How banner and logo are shown (Manish, 2026-10-10, decided live in the UI;
 merged to `dev` in storefront + admin, not yet pushed):**
@@ -2277,7 +2276,7 @@ bringing it back means undoing a decision something else depends on.
   one "out of Coke" switch covers every dish that references the group; the
   admin screens to manage the library and attach groups to dishes are pending);
   a monthly batch download of invoices
-  and corrections (§10); removing a logo once set; resolving staff and shop
+  and corrections (§10); resolving staff and shop
   names, instead of ids, in the activity log.
 - **Dependency majors held back:** admin i18next 26 / react-i18next 17 /
   i18next-http-backend 4 (translation breakage only shows at runtime, so it needs

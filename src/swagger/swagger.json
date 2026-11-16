@@ -3793,6 +3793,55 @@
       }
     },
     "/shops/{shopId}/logo": {
+      "delete": {
+        "summary": "Remove shop logo",
+        "description": "Clears the shop logo (branding.logoUrl) and deletes the stored file. Succeeds without changes if no logo is set.",
+        "operationId": "removeShopLogo",
+        "tags": [
+          "Shop Logo"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "shopId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Shop logo removed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetShopLogoResultDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
       "post": {
         "summary": "Set shop logo",
         "description": "Registers the uploaded logo blob URL on the shop. Deletes the previous logo blob if one existed.",
@@ -18135,59 +18184,6 @@
         ],
         "additionalProperties": false
       },
-      "RequestShopNameChangeResultDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "pendingNameChange": {
-            "type": "object",
-            "properties": {
-              "requestedName": {
-                "type": "string"
-              },
-              "requestedSlug": {
-                "type": "string"
-              },
-              "requestedBy": {
-                "type": "string"
-              },
-              "requestedAt": {
-                "type": "string"
-              }
-            },
-            "required": [
-              "requestedName",
-              "requestedSlug",
-              "requestedBy",
-              "requestedAt"
-            ],
-            "additionalProperties": false
-          }
-        },
-        "required": [
-          "id",
-          "pendingNameChange"
-        ],
-        "additionalProperties": false
-      },
-      "RequestShopNameChangeRequestDto": {
-        "type": "object",
-        "properties": {
-          "shopId": {
-            "type": "string"
-          },
-          "requestedName": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "shopId",
-          "requestedName"
-        ],
-        "additionalProperties": false
-      },
       "SetShopLogoResultDto": {
         "type": "object",
         "properties": {
@@ -18246,6 +18242,71 @@
           "shopId",
           "imageId",
           "url"
+        ],
+        "additionalProperties": false
+      },
+      "RemoveShopLogoRequestDto": {
+        "type": "object",
+        "properties": {
+          "shopId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "shopId"
+        ],
+        "additionalProperties": false
+      },
+      "RequestShopNameChangeResultDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "pendingNameChange": {
+            "type": "object",
+            "properties": {
+              "requestedName": {
+                "type": "string"
+              },
+              "requestedSlug": {
+                "type": "string"
+              },
+              "requestedBy": {
+                "type": "string"
+              },
+              "requestedAt": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "requestedName",
+              "requestedSlug",
+              "requestedBy",
+              "requestedAt"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "id",
+          "pendingNameChange"
+        ],
+        "additionalProperties": false
+      },
+      "RequestShopNameChangeRequestDto": {
+        "type": "object",
+        "properties": {
+          "shopId": {
+            "type": "string"
+          },
+          "requestedName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "shopId",
+          "requestedName"
         ],
         "additionalProperties": false
       },
