@@ -40,6 +40,9 @@ vi.mock('../../../src/infrastructure/cosmos/shop/CosmosShopRepository', () => ({
 vi.mock('../../../src/infrastructure/cosmos/category/CosmosCategoryRepository', () => ({
   findCategoriesByShopId: vi.fn(async () => []),
 }));
+vi.mock('../../../src/infrastructure/cosmos/invoice/CosmosInvoiceRepository', () => ({
+  findInvoiceDocumentsByShopId: vi.fn(async () => []),
+}));
 vi.mock('../../../src/infrastructure/cosmos/product/CosmosProductRepository', () => ({
   findProductsByShopId: vi.fn(async () => []),
 }));
