@@ -588,8 +588,10 @@ SVG and anything undecodable are refused), applies the EXIF orientation,
 centre-crops to the exact stored size (§16), re-encodes in the declared format
 and drops all metadata, including GPS. The minimum source size is judged after
 orientation. The upload link still issues only JPG, PNG and WebP; accepting
-other declared types is a product decision, not made. The logo has no fixed
-target size and is not yet size-capped or normalised on upload.
+other declared types is a product decision, not made. **The logo** (built
+2026-11-15) gets the same 10 MB cap, JPG/PNG/WebP type check and decode, EXIF
+orientation and metadata drop, but is never cropped: it is shrunk to fit inside
+640 x 96 px (2x its §16 display box), never upscaled, with no minimum size.
 
 ### Where a dish lives
 
