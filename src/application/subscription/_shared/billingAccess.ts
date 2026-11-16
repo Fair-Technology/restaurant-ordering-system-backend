@@ -25,7 +25,10 @@ export async function authorizeBilling(
 
 export function stripeFromEnv(): Stripe | ApplicationError {
   const key = process.env.STRIPE_SECRET_KEY;
-  if (!key) return { ok: false, code: 'INTERNAL_ERROR', error: 'Stripe is not configured' };
+  if (!key) {
+    console.error('[config:error] STRIPE_SECRET_KEY is not configured');
+    return { ok: false, code: 'INTERNAL_ERROR', error: 'Stripe is not configured' };
+  }
   return new Stripe(key);
 }
 
@@ -35,7 +38,10 @@ export function isApplicationError(v: unknown): v is ApplicationError {
 
 export function adminSubscriptionUrl(shopId: string): string | ApplicationError {
   const base = process.env.ADMIN_APP_URL;
-  if (!base) return { ok: false, code: 'INTERNAL_ERROR', error: 'Admin app URL is not configured' };
+  if (!base) {
+    console.error('[config:error] ADMIN_APP_URL is not configured');
+    return { ok: false, code: 'INTERNAL_ERROR', error: 'Admin app URL is not configured' };
+  }
   return `${base}/shops/${shopId}/subscription`;
 }
 
