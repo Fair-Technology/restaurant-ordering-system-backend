@@ -1,5 +1,7 @@
 import { HttpRequest } from '@azure/functions';
-import Stripe from 'stripe';
+import type Stripe from 'stripe';
+import { createStripeClient } from '../../../infrastructure/stripe/stripeClient';
+import { isUnrestrictedLiveStripeKey } from '../../../infrastructure/stripe/restrictedKey';
 import type { Shop } from '../../../domain/shop/Shop';
 import type { Plan } from '../../../domain/plan/Plan';
 import type { ShopSubscription } from '../../../domain/subscription/ShopSubscription';
@@ -29,7 +31,14 @@ export function stripeFromEnv(): Stripe | ApplicationError {
     console.error('[config:error] STRIPE_SECRET_KEY is not configured');
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Stripe is not configured' };
   }
-  return new Stripe(key);
+  if (isUnrestrictedLiveStripeKey(key)) {
+    return {
+      ok: false,
+      code: 'INTERNAL_ERROR',
+      error: 'Stripe is configured with an unrestricted live key; a restricted live key (rk_live_… ) is required',
+    };
+  }
+  return createStripeClient(key);
 }
 
 export function isApplicationError(v: unknown): v is ApplicationError {
