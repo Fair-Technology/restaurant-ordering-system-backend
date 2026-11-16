@@ -46,19 +46,20 @@ describe('executeGetShopSubscription', () => {
     (upsertSubscription as any).mockImplementation(async (s: unknown) => s);
   });
 
-  it('a missing subscription starts on the default plan and reports what is in force', async () => {
+  // The GET is a covered read: it derives the default plan in memory and never persists it, for
+  // any caller. The document is created by createShop and by the billing write flows.
+  it('a missing subscription reports the derived default and writes nothing', async () => {
     (findSubscriptionByShopId as any).mockResolvedValue(null);
     const res = await executeGetShopSubscription('shop-1', {} as HttpRequest);
-    expect(upsertSubscription).toHaveBeenCalledWith(expect.objectContaining({ planId: 'plan-basic' }));
+    expect(upsertSubscription).not.toHaveBeenCalled();
     expect(res.ok).toBe(true);
     if (res.ok) {
+      expect(res.data.subscription.planId).toBe('plan-basic');
       expect(res.data.entitlements.planId).toBe('plan-basic');
       expect(res.data.entitlements.limits.ORDERS_PER_MONTH).toBe(30);
     }
   });
 
-  // The lazy init is a write. A platform operator (the ReadOnly list includes it) must not
-  // trigger it: see test/application/platformReadOnlyShopScoped.test.ts for the route-level pin.
   it('a platform operator reads the derived default without creating the document', async () => {
     (authorizeShopAction as any).mockResolvedValue({
       ok: true,

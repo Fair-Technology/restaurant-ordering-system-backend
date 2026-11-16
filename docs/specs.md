@@ -1091,9 +1091,9 @@ back-fill or sync a record. Read-level: the platform lists (shops, plans, plan
 pricing, usage, rejection watch, system config, role permissions, platform legal
 identity, "me") and shop-scoped reads of a single shop (shop, products,
 categories, orders, queue, order documents, order limit, subscription, audit
-entries, sales report, staff list, shop legal, promotions, combos). A platform
-operator reading a shop's subscription gets the derived default plan without it
-being stored. **Deliberately not read-level:** the go-live status check (it syncs
+entries, sales report, staff list, shop legal, promotions, combos). Any caller
+reading a shop's subscription gets the derived default plan without it being
+stored. **Deliberately not read-level:** the go-live status check (it syncs
 Stripe and patches the shop) and the owner data export (it exports customer
 personal data and writes an audit entry). The API returns the operator's level
 so a console can hide write controls; the API enforces it regardless.
