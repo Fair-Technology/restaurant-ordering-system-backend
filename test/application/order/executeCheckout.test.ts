@@ -687,6 +687,28 @@ describe('executeCheckout card placement', () => {
       expect((upsertCheckoutSession as any).mock.calls[0][0]).not.toHaveProperty('loyaltyOptIn');
     });
 
+    it('the loyalty consent persists one boolean and no extra personal data', async () => {
+      const res = await executeCheckout(
+        {
+          ...cardRequest,
+          loyaltyOptIn: true,
+          dateOfBirth: '1990-01-01',
+          marketingProfile: { interests: ['pizza'] },
+          loyaltyBalanceCents: 999,
+          idNumber: 'X123',
+        } as any,
+        { now: NOW_OPEN },
+      );
+      expect(res.ok).toBe(true);
+      expect((upsertCheckoutSession as any).mock.calls).toHaveLength(1);
+      const session = (upsertCheckoutSession as any).mock.calls[0][0];
+      expect(session.loyaltyOptIn).toBe(true);
+      for (const key of ['dateOfBirth', 'marketingProfile', 'loyaltyBalanceCents', 'idNumber']) {
+        expect(Object.prototype.hasOwnProperty.call(session, key)).toBe(false);
+      }
+      expect(Object.keys(session).filter((k) => k.toLowerCase().includes('loyalty'))).toEqual(['loyaltyOptIn']);
+    });
+
     it('refuses a malformed code or tick', async () => {
       expect(await executeCheckout({ ...cardRequest, discountCode: 'a b' }, { now: NOW_OPEN })).toEqual({
         ok: false, code: 'INVALID_INPUT', error: DISCOUNT_CODE_FORMAT_ERROR,
