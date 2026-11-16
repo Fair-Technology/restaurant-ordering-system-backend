@@ -73,7 +73,7 @@ describe('stripeClient', () => {
       {
         amount: 1400,
         currency: 'eur',
-        payment_method_types: ['card'],
+        allowed_payment_method_types: ['card'],
         capture_method: 'manual',
         description: 'Ma Pasta AB3-K7P',
         metadata: { orderRef: 'AB3-K7P', sessionId: 'sess-1' },
