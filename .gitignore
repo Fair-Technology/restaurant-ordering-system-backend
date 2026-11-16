@@ -159,3 +159,4 @@ __azurite_db*__.json
 # A backup of local.settings.json holds real keys — never commit it.
 local.settings.json.bak
 *.settings.json.bak
+*.bak
