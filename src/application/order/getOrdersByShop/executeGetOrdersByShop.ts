@@ -14,6 +14,17 @@ import {
 import { ApplicationResult } from '../../_shared/types';
 import { logServiceFailure } from '../../_shared/logServiceFailure';
 
+const ISO_INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$/;
+
+/** Blank/undefined => absent (null result, valid). Otherwise a strict ISO-8601 date-time normalised to UTC, or 'invalid'. */
+function normaliseInstant(value: string | undefined): string | undefined | 'invalid' {
+  if (value === undefined || value === null || String(value).trim() === '') return undefined;
+  const trimmed = String(value).trim();
+  if (!ISO_INSTANT.test(trimmed)) return 'invalid';
+  const date = new Date(trimmed);
+  return Number.isNaN(date.getTime()) ? 'invalid' : date.toISOString();
+}
+
 export async function executeGetOrdersByShop(
   request: GetOrdersByShopRequestDto,
   httpRequest: HttpRequest,
@@ -40,6 +51,15 @@ export async function executeGetOrdersByShop(
     return { ok: false, code: 'INVALID_INPUT', error: 'pageSize must be a positive integer no greater than 100' };
   }
 
+  const fromIso = normaliseInstant(request.from);
+  if (fromIso === 'invalid') {
+    return { ok: false, code: 'INVALID_INPUT', error: 'from must be an ISO-8601 UTC instant' };
+  }
+  const toIso = normaliseInstant(request.to);
+  if (toIso === 'invalid') {
+    return { ok: false, code: 'INVALID_INPUT', error: 'to must be an ISO-8601 UTC instant' };
+  }
+
   try {
     const shopId = request.shopId.trim();
 
@@ -52,8 +72,8 @@ export async function executeGetOrdersByShop(
     if (!access.ok) return access;
 
     const [orders, total] = await Promise.all([
-      findOrdersByShopIdPaginated(shopId, page, pageSize),
-      countOrdersByShopId(shopId),
+      findOrdersByShopIdPaginated(shopId, page, pageSize, fromIso, toIso),
+      countOrdersByShopId(shopId, fromIso, toIso),
     ]);
 
     const now = new Date();

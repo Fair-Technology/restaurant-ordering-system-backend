@@ -66,10 +66,26 @@ export async function findOrdersByShopId(shopId: string): Promise<Order[]> {
   return resources;
 }
 
-export async function countOrdersByShopId(shopId: string): Promise<number> {
+/** WHERE clause + parameters for a shop's orders, optionally bounded on createdAt (from inclusive, to exclusive). */
+function shopOrdersFilter(shopId: string, fromIso?: string, toIso?: string) {
+  let where = 'c.shopId = @shopId';
+  const parameters: Array<{ name: string; value: string }> = [{ name: '@shopId', value: shopId }];
+  if (fromIso) {
+    where += ' AND c.createdAt >= @from';
+    parameters.push({ name: '@from', value: fromIso });
+  }
+  if (toIso) {
+    where += ' AND c.createdAt < @to';
+    parameters.push({ name: '@to', value: toIso });
+  }
+  return { where, parameters };
+}
+
+export async function countOrdersByShopId(shopId: string, fromIso?: string, toIso?: string): Promise<number> {
+  const { where, parameters } = shopOrdersFilter(shopId, fromIso, toIso);
   const querySpec = {
-    query: 'SELECT VALUE COUNT(1) FROM c WHERE c.shopId = @shopId',
-    parameters: [{ name: '@shopId', value: shopId }],
+    query: `SELECT VALUE COUNT(1) FROM c WHERE ${where}`,
+    parameters,
   };
   const { resources } = await orderContainer.items.query<number>(querySpec).fetchAll();
   return resources[0] ?? 0;
@@ -89,11 +105,14 @@ export async function findOrdersByShopIdPaginated(
   shopId: string,
   page: number,
   pageSize: number,
+  fromIso?: string,
+  toIso?: string,
 ): Promise<Order[]> {
   const offset = (page - 1) * pageSize;
+  const { where, parameters } = shopOrdersFilter(shopId, fromIso, toIso);
   const querySpec = {
-    query: `SELECT * FROM c WHERE c.shopId = @shopId ORDER BY c.createdAt DESC OFFSET ${offset} LIMIT ${pageSize}`,
-    parameters: [{ name: '@shopId', value: shopId }],
+    query: `SELECT * FROM c WHERE ${where} ORDER BY c.createdAt DESC OFFSET ${offset} LIMIT ${pageSize}`,
+    parameters,
   };
   const { resources } = await orderContainer.items.query<Order>(querySpec).fetchAll();
   return resources;

@@ -12,11 +12,15 @@ app.http('getOrdersByShop', {
       const shopId = request.params.shopId;
       const pageParam = request.query.get('page');
       const pageSizeParam = request.query.get('pageSize');
+      const fromParam = request.query.get('from');
+      const toParam = request.query.get('to');
       const result = await executeGetOrdersByShop(
         {
           shopId,
           page: pageParam ? Number(pageParam) : undefined,
           pageSize: pageSizeParam ? Number(pageSizeParam) : undefined,
+          from: fromParam ?? undefined,
+          to: toParam ?? undefined,
         },
         request,
       );
