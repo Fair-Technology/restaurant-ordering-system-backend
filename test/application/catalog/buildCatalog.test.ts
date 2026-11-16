@@ -204,4 +204,24 @@ describe('buildCatalog combos', () => {
     expect(product.variants[0].options[0].allergens).toEqual([{ id: 'milk', label: 'Milch (einschließlich Laktose)' }]);
     expect(product.allergens).toEqual([]);
   });
+
+  it("shows a dish window's offer label in the diner language", () => {
+    const withLabel = (schedule: Product['schedule']): Product => ({ ...p1, schedule });
+    const window = { startDate: '2026-09-01', startTime: '08:00', endTime: '18:00', offerPrice: 250 };
+    const labelOf = (p: Product, lang: 'de' | 'en') =>
+      buildCatalog({ shop, categories: [category], products: [p], refs: DE_REFERENCE_LISTS, lang, now })
+        .categories[0].products[0].offerLabel;
+
+    const translated = withLabel({ ...window, offerLabel: 'Angebot des Tages', offerLabelTranslations: { en: "Today's special" } });
+    expect(labelOf(translated, 'en')).toBe("Today's special");
+    expect(labelOf(translated, 'de')).toBe('Angebot des Tages');
+
+    const untranslated = withLabel({ ...window, offerLabel: 'Angebot des Tages' });
+    expect(labelOf(untranslated, 'en')).toBe('Angebot des Tages');
+    expect(labelOf(untranslated, 'de')).toBe('Angebot des Tages');
+
+    const unlabelled = withLabel({ ...window, offerLabel: null, offerLabelTranslations: { en: "Today's special" } });
+    expect(labelOf(unlabelled, 'en')).toBeNull();
+    expect(labelOf(withLabel({ ...window }), 'de')).toBeNull();
+  });
 });

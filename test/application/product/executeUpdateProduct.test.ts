@@ -169,4 +169,33 @@ describe('executeUpdateProduct menu fields', () => {
       }),
     );
   });
+
+  it("stores the offer label's translations with the schedule", async () => {
+    const schedule = { startDate: '2026-09-01', offerPrice: 700, offerLabel: 'Angebot des Tages', offerLabelTranslations: { en: " Today's special " } };
+    const result = await executeUpdateProduct({ productId: 'p1', shopId: 'shop-1', schedule } as any, {} as any);
+
+    expect(result.ok).toBe(true);
+    expect(updateProduct).toHaveBeenCalledWith(
+      expect.objectContaining({ schedule: { ...schedule, offerLabelTranslations: { en: "Today's special" } } }),
+    );
+  });
+
+  it('still clears a schedule with null', async () => {
+    (findProductById as any).mockResolvedValue(storedProduct({ schedule: { startDate: '2026-09-01', offerLabel: 'Angebot' } }));
+    const result = await executeUpdateProduct({ productId: 'p1', shopId: 'shop-1', schedule: null } as any, {} as any);
+    expect(result.ok).toBe(true);
+    expect(updateProduct).toHaveBeenCalledWith(expect.objectContaining({ schedule: null }));
+  });
+
+  it.each([
+    ['a non-object', ['Today'], 'translations must be an object keyed by language code'],
+    ['an unsupported language', { xx: 'Today' }, 'Unsupported language: xx'],
+    ['an over-long translation', { en: 'x'.repeat(51) }, 'Translation for en must be at most 50 characters'],
+  ])("rejects %s as the offer label's translations", async (_, offerLabelTranslations, error) => {
+    const schedule = { startDate: '2026-09-01', offerPrice: 700, offerLabel: 'Angebot des Tages', offerLabelTranslations };
+    const result = await executeUpdateProduct({ productId: 'p1', shopId: 'shop-1', schedule } as any, {} as any);
+
+    expect(result).toEqual({ ok: false, code: 'INVALID_INPUT', error });
+    expect(updateProduct).not.toHaveBeenCalled();
+  });
 });

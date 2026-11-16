@@ -8824,6 +8824,9 @@
           "offerLabel": {
             "type": "string",
             "nullable": true
+          },
+          "offerLabelTranslations": {
+            "$ref": "#/components/schemas/TranslationMap"
           }
         },
         "required": [

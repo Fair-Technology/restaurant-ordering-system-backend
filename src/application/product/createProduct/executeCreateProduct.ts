@@ -11,6 +11,7 @@ import { ApplicationResult } from '../../_shared/types';
 import { Product } from '../../../domain/product/Product';
 import { findShopOptionGroupsByShopId } from '../../../infrastructure/cosmos/optionGroup/CosmosShopOptionGroupRepository';
 import { validateMenuFields } from '../menuFields';
+import { normaliseTranslations } from '../../../domain/menu/menuLanguage';
 import { toMenuFieldsDto } from '../menuFieldsDto';
 import { CREATE_WITH_PHOTOS_ERROR } from '../../../domain/images/imageRules';
 import { logAudit } from '../../_shared/auditHelpers';
@@ -113,6 +114,16 @@ export async function executeCreateProduct(
       }
     }
 
+    // The offer label's translations, checked like a dish name's (same cap as offerLabel itself)
+    let schedule: Product['schedule'] = null;
+    if (request.schedule) {
+      const offerLabelTranslations = normaliseTranslations(request.schedule.offerLabelTranslations, 50);
+      if (typeof offerLabelTranslations === 'string') {
+        return { ok: false, code: 'INVALID_INPUT', error: offerLabelTranslations };
+      }
+      schedule = { ...request.schedule, offerLabelTranslations };
+    }
+
     if (!shop) {
       return { ok: false, code: 'NOT_FOUND', error: 'Shop not found' };
     }
@@ -162,7 +173,7 @@ export async function executeCreateProduct(
         ? (request.isAvailable ?? true)
         : false,
       isDeleted: false,
-      schedule: request.schedule ?? null,
+      schedule,
       createdAt: now,
       updatedAt: now,
     };
