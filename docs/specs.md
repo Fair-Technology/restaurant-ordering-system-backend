@@ -1011,10 +1011,14 @@ exportable as CSV for an accountant, searchable.
 **Kept for eight years** — the retention German tax law imposes on invoices
 since 1 January 2025 (it was ten). The archive outlives the restaurant's account
 and any customer anonymisation (§15): an invoice is a tax record the restaurant
-is legally required to hold. Owners can download any invoice from admin; a
-month's batch of invoices and correction invoices in one download, and invoices
-and corrections inside the owner's data export, come later (needs a ZIP-or-CSV
-decision; single downloads already meet the legal need).
+is legally required to hold. Owners can download any invoice from admin, and a
+month's invoices and correction invoices in one download: a ZIP of the PDFs
+(`invoices-YYYY-MM.zip`, owner only) rendered from the snapshots, grouped by the
+date each document was issued in the restaurant's local month, so a November
+correction for an October order is in November's batch. The ZIP of the documents
+was chosen over a CSV of the data: it replaces fetching the same single PDFs one
+by one, and the receipt is the record to keep. Invoices and corrections are also
+inside the owner's data export.
 
 **Backup is not archive.** The database's 30-day point-in-time restore (§20)
 does not satisfy the eight-year duty. Orders and invoice snapshots are
@@ -2275,8 +2279,7 @@ bringing it back means undoing a decision something else depends on.
   shop-wide option-group library (the backend is built, §6 "Sizes and extras":
   one "out of Coke" switch covers every dish that references the group; the
   admin screens to manage the library and attach groups to dishes are pending);
-  a monthly batch download of invoices
-  and corrections (§10); resolving staff and shop
+  translated offer labels; removing a logo once set; resolving staff and shop
   names, instead of ids, in the activity log.
 - **Dependency majors held back:** admin i18next 26 / react-i18next 17 /
   i18next-http-backend 4 (translation breakage only shows at runtime, so it needs

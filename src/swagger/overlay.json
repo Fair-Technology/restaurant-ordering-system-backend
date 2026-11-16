@@ -538,6 +538,27 @@
       ],
       "responseDescription": "Refund recorded; returns the updated order"
     },
+    "GET /shops/{shopId}/invoices/archive": {
+      "operationId": "exportInvoiceArchive",
+      "summary": "Download a month of invoices and correction invoices (owner)",
+      "description": "Owner only. The month query parameter (YYYY-MM) is the restaurant's local month; documents are grouped by the date they were issued, so a correction issued in November for an October order belongs to November. Returns one ZIP of PDFs (invoices, cancellation invoices and correction invoices), named invoices-YYYY-MM.zip, rendered from the stored snapshots. A month with no documents is 404.",
+      "tags": [
+        "Orders"
+      ],
+      "parameters": [
+        {
+          "name": "month",
+          "in": "query",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^\\d{4}-(0[1-9]|1[0-2])$"
+          },
+          "description": "The restaurant's local month, as YYYY-MM"
+        }
+      ],
+      "responseDescription": "The ZIP as base64"
+    },
     "GET /shops/{shopId}/orders/{orderId}/documents/{documentId}": {
       "operationId": "getOrderDocument",
       "summary": "Download an invoice or correction invoice (staff or platform operator)",
