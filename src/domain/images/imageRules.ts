@@ -21,14 +21,6 @@ export const DISH_IMAGE_MIN_SOURCE: ExactImageSize = { width: 800, height: 600 }
 export const COVER_IMAGE_WRONG_SIZE = 'COVER_IMAGE_WRONG_SIZE';
 export const PRODUCT_IMAGE_WRONG_SIZE = 'PRODUCT_IMAGE_WRONG_SIZE';
 
-export function isExactSize(actual: ExactImageSize, expected: ExactImageSize): boolean {
-  return actual.width === expected.width && actual.height === expected.height;
-}
-
-export function wrongSizeMessage(what: string, expected: ExactImageSize): string {
-  return `${what} must be exactly ${expected.width} x ${expected.height} px`;
-}
-
 export function tooSmallMessage(what: string, min: ExactImageSize): string {
   return `${what} source must be at least ${min.width} x ${min.height} px`;
 }
