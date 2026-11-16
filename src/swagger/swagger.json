@@ -5047,6 +5047,24 @@
               "type": "integer"
             },
             "description": "Number of orders per page (default: 20, max: 100)"
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Inclusive lower bound on the order's createdAt, an ISO-8601 UTC instant (e.g. 2026-11-16T00:00:00.000Z). `total` is scoped by the same filter."
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Exclusive upper bound on the order's createdAt, an ISO-8601 UTC instant (e.g. 2026-11-17T00:00:00.000Z). `total` is scoped by the same filter."
           }
         ],
         "responses": {
@@ -15032,6 +15050,12 @@
           },
           "pageSize": {
             "type": "number"
+          },
+          "from": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
           }
         },
         "required": [

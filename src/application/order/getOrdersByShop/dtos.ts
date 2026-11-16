@@ -15,6 +15,8 @@ export type GetOrdersByShopRequestDto = {
   shopId: string;
   page?: number;
   pageSize?: number;
+  from?: string; // inclusive lower bound on createdAt, ISO-8601 UTC instant
+  to?: string; // exclusive upper bound on createdAt, ISO-8601 UTC instant
 };
 
 export type OrderItemDto = {
