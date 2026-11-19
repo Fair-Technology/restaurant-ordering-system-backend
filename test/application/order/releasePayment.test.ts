@@ -132,7 +132,7 @@ describe('releaseClosedOrderPayment', () => {
     });
     expect(sendEmail).toHaveBeenCalledTimes(1);
     expect(sendEmail).toHaveBeenCalledWith(
-      expect.objectContaining({ subject: 'Zahlung für Bestellung AB3-K7P konnte nicht freigegeben werden' }),
+      expect.objectContaining({ subject: 'Ma Pasta: Zahlung für Bestellung AB3-K7P konnte nicht freigegeben werden' }),
     );
 
     const later = new Date('2026-10-05T10:20:00Z');
