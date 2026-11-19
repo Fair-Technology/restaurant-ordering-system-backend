@@ -111,7 +111,7 @@ export function resolveDishAllergensAndAdditives(dish: SeedDish): { allergenIds:
 
 const PASTA: SeedGroup = {
   kind: 'variant',
-  name: 'Deine Pasta',
+  name: 'Ihre Pasta',
   minSelectable: 1,
   maxSelectable: 1,
   options: [
@@ -136,7 +136,7 @@ const TEIG: SeedGroup = {
 
 const EXTRAS: SeedGroup = {
   kind: 'addon',
-  name: 'Deine Extras',
+  name: 'Ihre Extras',
   minSelectable: 0,
   maxSelectable: 12,
   options: [
