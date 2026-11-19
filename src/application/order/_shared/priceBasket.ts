@@ -175,6 +175,8 @@ function priceSelection(
   p: Product,
   variantId: string | undefined,
   addonIdsIn: string[] | undefined,
+  language: MenuLanguage,
+  originalLanguage: MenuLanguage,
 ): Selection | 'unavailable' | 'invalid_options' {
   // The schedule window is also the offer window, and a dish outside it was rejected before, so reaching
   // here with an offer price means the offer is on. Size and extra surcharges are added on top unchanged.
@@ -184,7 +186,7 @@ function priceSelection(
     const option = (p.variantGroups ?? []).flatMap((g) => g.options).find((o) => o.id === variantId);
     if (!option || !option.isAvailable) return 'unavailable';
     unitPriceCents += option.priceDelta;
-    variantName = option.name;
+    variantName = localize(option.name, option.nameTranslations, language, originalLanguage);
   }
 
   const addonIds = Array.isArray(addonIdsIn) ? addonIdsIn : [];
@@ -194,7 +196,7 @@ function priceSelection(
     const option = (p.addonGroups ?? []).flatMap((g) => g.options).find((o) => o.id === id);
     if (!option || !option.isAvailable) return 'unavailable';
     unitPriceCents += option.priceDelta;
-    addonNames.push(option.name);
+    addonNames.push(localize(option.name, option.nameTranslations, language, originalLanguage));
   }
   for (const group of p.addonGroups ?? []) {
     const count = group.options.filter((o) => addonIds.includes(o.id)).length;
@@ -249,7 +251,7 @@ export function priceBasket(input: {
         const dish = products.get(picked[0].productId);
         if (dish?.combo) return reject('invalid_options');
         if (!isOrderable(dish, mode, shop.timezone, now, categories, checkTimes)) return reject('unavailable');
-        const sel = priceSelection(dish, picked[0].selectedVariantOptionId, picked[0].selectedAddonOptionIds);
+        const sel = priceSelection(dish, picked[0].selectedVariantOptionId, picked[0].selectedAddonOptionIds, language, originalLanguage);
         if (typeof sel === 'string') return reject(sel);
         const classId = effectiveTaxClassId(dish, categories, refs.defaultTaxClassId);
         const rate = classId ? requireTaxRateBasisPoints(refs.taxRates, classId, mode, now) : 0;
@@ -264,11 +266,12 @@ export function priceBasket(input: {
         parts.map((x) => ({ weightCents: x.sel.unitPriceCents, isDrink: x.classId === BEVERAGE_TAX_CLASS_ID })),
         p.combo.bmfDrinkShare,
       );
+      const comboDisplayName = localize(p.name, p.nameTranslations, language, originalLanguage);
       const components: OrderItem[] = parts.map((x, k) => {
         const lineTotalCents = shares[k] * entry.quantity;
         return {
           productId: x.dish.id,
-          productName: `${p.name}: ${x.dish.name}`,
+          productName: `${comboDisplayName}: ${localize(x.dish.name, x.dish.nameTranslations, language, originalLanguage)}`,
           quantity: entry.quantity,
           unitPriceCents: shares[k],
           selectedVariantOptionId: x.choice.selectedVariantOptionId,
@@ -279,7 +282,7 @@ export function priceBasket(input: {
           taxClassId: x.classId,
           taxRateBasisPoints: x.rate,
           taxCents: extractVatCents(lineTotalCents, x.rate),
-          combo: { line: index, productId: p.id, name: p.name },
+          combo: { line: index, productId: p.id, name: comboDisplayName },
         };
       });
       const changed = entry.expectedUnitPriceCents !== undefined && entry.expectedUnitPriceCents !== unitPriceCents;
@@ -294,7 +297,7 @@ export function priceBasket(input: {
       };
     }
 
-    const sel = priceSelection(p, entry.selectedVariantOptionId, entry.selectedAddonOptionIds);
+    const sel = priceSelection(p, entry.selectedVariantOptionId, entry.selectedAddonOptionIds, language, originalLanguage);
     if (typeof sel === 'string') return reject(sel);
     const unitPriceCents = sel.unitPriceCents;
     const lineTotalCents = unitPriceCents * entry.quantity;
@@ -302,7 +305,7 @@ export function priceBasket(input: {
     const rate = taxClassId ? requireTaxRateBasisPoints(refs.taxRates, taxClassId, mode, now) : 0;
     const item: OrderItem = {
       productId: p.id,
-      productName: p.name,
+      productName: localize(p.name, p.nameTranslations, language, originalLanguage),
       quantity: entry.quantity,
       unitPriceCents,
       selectedVariantOptionId: entry.selectedVariantOptionId,

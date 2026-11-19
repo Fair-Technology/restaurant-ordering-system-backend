@@ -156,7 +156,7 @@ export interface OrderItem {
 export interface OrderItemCombo {
   line: number; // index of the basket line the combo came from (unique within the order)
   productId: string; // the combo's product id
-  name: string; // the combo's name at placement, original menu language
+  name: string; // the combo's name at placement, in the order's menu language
 }
 
 export type OrderDiscountKind = 'code' | 'voucher';

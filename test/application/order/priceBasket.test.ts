@@ -94,13 +94,13 @@ describe('priceBasket', () => {
     expect(price([{ productId: 'p3', quantity: 1, selectedAddonOptionIds: ['oil'] }]).lines[0].status).toBe('ok');
   });
 
-  it('localises the display name but keeps the original for the kitchen', () => {
+  it('localises the display name and the name stored on the order to the menu language', () => {
     const r = price([{ productId: 'p1', quantity: 1 }], {
       shop: { ...SHOP, menuLanguages: ['de', 'en'] },
       language: 'en',
     });
     expect(r.lines[0].displayName).toBe('Carbonara (EN)');
-    expect(r.items[0].productName).toBe('Carbonara');
+    expect(r.items[0].productName).toBe('Carbonara (EN)');
   });
 
   describe('offer prices', () => {
@@ -280,5 +280,49 @@ describe('a missing tax rate (audit row 5)', () => {
   it('still prices the mode that has a rate', () => {
     const r = price([{ productId: 'p1', quantity: 1 }], { refs: SNACK_REFS, mode: 'collection' }, [{ ...P_PASTA, taxClassId: 'snacks' }]);
     expect(r.items[0].taxRateBasisPoints).toBe(700);
+  });
+
+  describe('names follow the order menu language', () => {
+    const SHOP_DE_EN = { ...SHOP, menuLanguages: ['de' as const, 'en' as const] };
+    const pasta: Product = {
+      ...P_PASTA,
+      nameTranslations: { en: 'Pomodoro English' },
+      variantGroups: [
+        { id: 'vg', name: 'Größe', options: [{ id: 'big', name: 'Groß', nameTranslations: { en: 'Large' }, priceDelta: 300, isAvailable: true }] },
+      ],
+      addonGroups: [
+        {
+          id: 'ag',
+          name: 'Extras',
+          minSelectable: 0,
+          maxSelectable: 2,
+          options: [{ id: 'parm', name: 'Parmesan', nameTranslations: { en: 'Parmesan cheese' }, priceDelta: 100, isAvailable: true }],
+        },
+      ],
+    };
+    const en = { shop: SHOP_DE_EN, language: 'en' as const };
+
+    it('snapshots the translated dish, size and extra names', () => {
+      const r = price([{ productId: 'p1', quantity: 1, selectedVariantOptionId: 'big', selectedAddonOptionIds: ['parm'] }], en, [pasta]);
+      expect(r.items[0]).toMatchObject({
+        productName: 'Pomodoro English',
+        selectedVariantOptionName: 'Large',
+        selectedAddonOptionNames: ['Parmesan cheese'],
+      });
+    });
+
+    it('keeps the base names in the original language', () => {
+      const r = price([{ productId: 'p1', quantity: 1, selectedVariantOptionId: 'big', selectedAddonOptionIds: ['parm'] }], { shop: SHOP_DE_EN }, [pasta]);
+      expect(r.items[0]).toMatchObject({ productName: 'Carbonara', selectedVariantOptionName: 'Groß', selectedAddonOptionNames: ['Parmesan'] });
+    });
+
+    it('names a combo and its component lines in the menu language', () => {
+      const combo: Product = { ...P_COMBO, name: 'Mittagsmenü', nameTranslations: { en: 'Lunch deal' } };
+      const r = price([{ productId: 'p9', quantity: 1, comboChoices: COMBO_CHOICES }], en, [combo, pasta, P_COLA]);
+      expect(r.items).toHaveLength(2);
+      for (const item of r.items) expect(item.combo?.name).toBe('Lunch deal');
+      expect(r.items[0].productName).toBe('Lunch deal: Pomodoro English');
+      expect(r.items[1].productName.startsWith('Lunch deal: ')).toBe(true);
+    });
   });
 });
