@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { buildTaxBreakdownWithCharges } from '../../src/domain/order/tax';
 import {
   buildSalesReport,
   datesBetween,
@@ -83,6 +84,32 @@ describe('salesReport', () => {
       { rateBasisPoints: 700, grossCents: 1195, taxCents: 78, netCents: 1117 },
       { rateBasisPoints: 1900, grossCents: 1050, taxCents: 168, netCents: 882 },
     ]);
+  });
+
+  it('VAT-by-rate gross equals Sales (the fee is counted once), per day and in the totals', () => {
+    const r = report();
+    const sum = (b: { grossCents: number }[]) => b.reduce((s, e) => s + e.grossCents, 0);
+    // O2 carries the delivery fee; before refunds the day is 2910 and its rates also add up to 2910.
+    for (const d of [...r.days, r.totals]) expect(sum(d.byRate)).toBe(d.grossCents - d.refundCents);
+  });
+
+  it('a day of collection and delivery orders built like checkout: byRate gross equals gross, the 2,50 fee once', () => {
+    const fee = [{ kind: 'delivery_fee' as const, grossCents: 250, taxRateBasisPoints: 700, taxCents: 16 }];
+    const order = (id: string, mode: 'collection' | 'delivery', lineCents: number, charges: typeof fee | []): ReportOrderRow => {
+      const items = [{ ...carbonara, productId: id, quantity: 1, unitPriceCents: lineCents, lineTotalCents: lineCents, taxCents: Math.round((lineCents * 700) / 10700) }];
+      const feeCents = charges.reduce((s, c) => s + c.grossCents, 0);
+      return {
+        id, createdAt: '2026-10-08T09:00:00.000Z', acceptedAt: '2026-10-08T09:01:00.000Z', fulfilmentMode: mode, payment: paid,
+        subtotalCents: lineCents, totalCents: lineCents + feeCents, charges: [...charges], items,
+        taxBreakdown: buildTaxBreakdownWithCharges(items, charges), refunds: [],
+      };
+    };
+    const rows = [order('a', 'collection', 1000, []), order('b', 'collection', 1250, []), order('c', 'delivery', 1300, fee), order('d', 'delivery', 1300, [])];
+    const r = buildSalesReport({ shopId: 'shop-1', from: '2026-10-08', to: '2026-10-08', timezone: TZ, currency: 'EUR', rows });
+    expect(r.days[0]).toMatchObject({ grossCents: 5100, deliveryFeeCents: 250, takingsCents: 5100 });
+    expect(r.days[0].byRate).toHaveLength(1);
+    expect(r.days[0].byRate[0].grossCents).toBe(5100);
+    expect(r.totals.byRate[0].grossCents).toBe(r.totals.grossCents);
   });
 
   it('an order for later counts at its booked hour', () => {
