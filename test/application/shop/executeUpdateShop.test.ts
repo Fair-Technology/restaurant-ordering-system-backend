@@ -36,6 +36,8 @@ import { findCategoriesByShopId } from '../../../src/infrastructure/cosmos/categ
 import { ACCEPTED_DPA, COMPLETE_LEGAL } from '../../fixtures/legal';
 import { GO_LIVE_TAX_ID_ERROR } from '../../../src/domain/order/orderErrors';
 import { executeUpdateShop } from '../../../src/application/shop/updateShop/executeUpdateShop';
+import { isOpenForAsapOrder } from '../../../src/domain/order/openingHours';
+import { listSlots } from '../../../src/domain/order/scheduling';
 
 const ownerAccess = {
   ok: true,
@@ -430,5 +432,93 @@ describe('executeUpdateShop opening hours', () => {
       {} as any,
     );
     expect(res.ok).toBe(true);
+  });
+});
+
+describe('executeUpdateShop closures', () => {
+  const now = new Date('2026-10-01T08:00:00Z');
+  // Monday 2026-10-05, 12:00–14:00 in Berlin (UTC+2)
+  const closure = { id: 'c1', start: '2026-10-05T12:00:00+02:00', end: '2026-10-05T14:00:00+02:00', reason: 'Event' };
+  const run = (closures: unknown) => executeUpdateShop({ shopId: 'shop-1', closures } as any, {} as any, { now });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (authorizeShopAction as any).mockResolvedValue(ownerAccess);
+    (findShopById as any).mockResolvedValue(
+      makeShop({ closures: [{ id: 'old', start: '2026-12-01T00:00:00Z', end: '2026-12-02T00:00:00Z' }] }),
+    );
+    (updateShop as any).mockImplementation(async (s: any) => s);
+  });
+
+  it('saves a list, replacing what the shop had', async () => {
+    const result = await run([closure]);
+    expect(result.ok).toBe(true);
+    expect(updateShop).toHaveBeenCalledWith(expect.objectContaining({ closures: [closure] }));
+  });
+
+  it('clears every closure with []', async () => {
+    const result = await run([]);
+    expect(result.ok).toBe(true);
+    expect(updateShop).toHaveBeenCalledWith(expect.objectContaining({ closures: [] }));
+  });
+
+  it('leaves closures untouched when absent', async () => {
+    const result = await executeUpdateShop({ shopId: 'shop-1', isPaused: true } as any, {} as any, { now });
+    expect(result.ok).toBe(true);
+    const saved = (updateShop as any).mock.calls[0][0];
+    expect(saved.closures).toHaveLength(1);
+    expect(saved.closures[0].id).toBe('old');
+  });
+
+  it('does not write a closures key it was not given', async () => {
+    (findShopById as any).mockResolvedValue(makeShop());
+    await executeUpdateShop({ shopId: 'shop-1', isPaused: true } as any, {} as any, { now });
+    expect(updateShop).toHaveBeenCalledWith(expect.not.objectContaining({ closures: expect.anything() }));
+  });
+
+  it.each([
+    ['non-array', 'x'],
+    ['too many entries', Array(51).fill({ start: closure.start, end: closure.end })],
+    ['non-object entry', [null]],
+    ['date-only start', [{ start: '2026-10-05', end: closure.end }]],
+    ['bad end', [{ start: closure.start, end: 'soon' }]],
+    ['end not after start', [{ start: closure.start, end: closure.start }]],
+    ['end in the past', [{ start: '2026-09-01T10:00:00Z', end: '2026-09-01T12:00:00Z' }]],
+    ['non-string reason', [{ ...closure, reason: 7 }]],
+    ['over-long reason', [{ ...closure, reason: 'a'.repeat(201) }]],
+    ['non-string id', [{ ...closure, id: 7 }]],
+  ])('rejects %s', async (_name, closures) => {
+    const result = await run(closures);
+    expect(result).toMatchObject({ ok: false, code: 'INVALID_INPUT' });
+    expect(updateShop).not.toHaveBeenCalled();
+  });
+
+  it('fills a missing or blank id and keeps a provided one', async () => {
+    await run([{ start: closure.start, end: closure.end }, { ...closure, id: '' }, closure]);
+    const saved = (updateShop as any).mock.calls[0][0].closures;
+    expect(saved[0].id).toBeTruthy();
+    expect(saved[1].id).toBeTruthy();
+    expect(saved[2].id).toBe('c1');
+  });
+
+  it('is honoured by the real ordering and slot logic', async () => {
+    (findShopById as any).mockResolvedValue(
+      makeShop({
+        timezone: 'Europe/Berlin',
+        orderSettings: { scheduledOrders: true },
+        openingHours: { mon: [{ open: '09:00', close: '17:00' }] },
+      }),
+    );
+    await run([closure]);
+    const saved = (updateShop as any).mock.calls[0][0];
+
+    const during = new Date('2026-10-05T10:30:00Z'); // 12:30 Berlin, inside the closure
+    const outside = new Date('2026-10-05T12:30:00Z'); // 14:30 Berlin, after it
+    expect(isOpenForAsapOrder(saved.openingHours, saved.closures, saved.timezone, during, 0)).toBe(false);
+    expect(isOpenForAsapOrder(saved.openingHours, saved.closures, saved.timezone, outside, 0)).toBe(true);
+
+    const slots = listSlots(saved, 'collection', new Date('2026-10-05T05:00:00Z'));
+    expect(slots).not.toContain('2026-10-05T10:30:00.000Z');
+    expect(slots).toContain('2026-10-05T12:30:00.000Z');
   });
 });

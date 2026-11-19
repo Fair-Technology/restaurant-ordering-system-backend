@@ -10,6 +10,7 @@ import { UpdateShopRequestDto, UpdateShopResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 import { diffFields, logAudit } from '../../_shared/auditHelpers';
 import { ORDERS_PAUSED_MESSAGE_MAX_LENGTH, Shop, stripeReady } from '../../../domain/shop/Shop';
+import { validateClosures } from '../../../domain/shop/closures';
 import { ORDERS_PAUSE_DURATIONS, ordersPauseEndAt } from '../../../domain/shop/ordersPause';
 import { resetMissedOrderStreak } from '../../order/_shared/missedOrders';
 import { validateAccentColor } from '../../_shared/contrast';
@@ -181,6 +182,15 @@ export async function executeUpdateShop(
     }
   }
 
+  let nextClosures: Shop['closures'] = [];
+  if (request.closures !== undefined) {
+    const closures = validateClosures(request.closures, now);
+    if (!closures.ok) {
+      return { ok: false, code: 'INVALID_INPUT', error: closures.error };
+    }
+    nextClosures = closures.value;
+  }
+
   try {
     const shop = await findShopById(request.shopId.trim());
 
@@ -247,6 +257,7 @@ export async function executeUpdateShop(
       }),
       ...(request.branding !== undefined && { branding: request.branding }),
       ...(request.openingHours !== undefined && { openingHours: request.openingHours }),
+      ...(request.closures !== undefined && { closures: nextClosures }),
       ...(nextLanguages && { menuLanguages: nextLanguages }),
       updatedAt: now.toISOString(),
     };
@@ -257,7 +268,7 @@ export async function executeUpdateShop(
       shop as unknown as Record<string, unknown>,
       updatedShop as unknown as Record<string, unknown>,
       ['isPaused', 'pausedMessage', 'ordersPaused', 'ordersPausedUntil', 'ordersPausedMessage', 'minOrderAmountCents', 'currency', 'timezone'],
-      ['openingHours', 'branding', 'address', 'menuLanguages'],
+      ['openingHours', 'branding', 'address', 'menuLanguages', 'closures'],
     );
     // Switching the banner on or off is its own readable line, besides the generic branding entry.
     const heroBefore = shop.branding?.showHero !== false;
