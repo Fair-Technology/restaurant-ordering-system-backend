@@ -87,6 +87,10 @@ function validateOpeningHours(openingHours: unknown): string | null {
       if (typeof s.close !== 'string' || !TIME_PATTERN.test(s.close)) {
         return `openingHours.${day} has invalid close time — expected HH:mm`;
       }
+      // would read as 24 hours
+      if (s.open === s.close && s.open !== '00:00') {
+        return `openingHours.${day} has equal open and close times — use 00:00–00:00 for open all day`;
+      }
     }
     if (slots.length > 0) hasOpenDay = true;
   }
