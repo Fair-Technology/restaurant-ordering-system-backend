@@ -23,6 +23,12 @@ export interface UpdateShopRequestDto {
     'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun',
     Array<{ open: string; close: string }>
   >;
+  closures?: Array<{
+    id?: string;
+    start: string; // ISO datetime
+    end: string; // ISO datetime
+    reason?: string;
+  }>;
 }
 
 export interface UpdateShopResultDto {
