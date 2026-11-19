@@ -70,7 +70,7 @@ export async function executeUpdateProductAvailability(
     const productId = request.productId.trim();
 
     const [product, shop] = await Promise.all([findProductById(productId, shopId), findShopById(shopId)]);
-    if (!product) return { ok: false, code: 'NOT_FOUND', error: 'Product not found' };
+    if (!product || product.isDeleted) return { ok: false, code: 'NOT_FOUND', error: 'Product not found' };
     if (!shop) return { ok: false, code: 'NOT_FOUND', error: 'Shop not found' };
 
     const access = await authorizeShopAction(httpRequest, shop, null);
