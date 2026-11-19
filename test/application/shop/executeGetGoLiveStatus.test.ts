@@ -122,6 +122,31 @@ describe('executeGetGoLiveStatus stripe_connected criterion', () => {
   });
 });
 
+describe('executeGetGoLiveStatus profile_address per country', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (authorizeShopAction as any).mockResolvedValue(ownerAccess);
+    (findProductsByShopId as any).mockResolvedValue([]);
+    (findCategoriesByShopId as any).mockResolvedValue([]);
+  });
+
+  const addressMet = async (shop: any) => {
+    (findShopById as any).mockResolvedValue(shop);
+    const result = await executeGetGoLiveStatus({ shopId: 'shop-1' } as any, {} as any);
+    if (!result.ok) throw new Error('expected ok');
+    return result.data.criteria.find((c) => c.key === 'profile_address')!.met;
+  };
+  const addr = { street: 'S 1', city: 'München', postcode: '80331', country: 'Germany' };
+
+  it('is met for a German shop with a Bundesland', async () => {
+    expect(await addressMet(makeShop({ countryCode: 'DE', address: { ...addr, state: 'Bayern' } }))).toBe(true);
+  });
+
+  it('is not met for a German shop without a state', async () => {
+    expect(await addressMet(makeShop({ countryCode: 'DE', address: addr }))).toBe(false);
+  });
+});
+
 describe('executeGetGoLiveStatus logo', () => {
   beforeEach(() => {
     vi.clearAllMocks();

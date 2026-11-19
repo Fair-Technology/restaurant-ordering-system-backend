@@ -17,6 +17,8 @@ import { validateAccentColor } from '../../_shared/contrast';
 import { GO_LIVE_STRIPE_ERROR, GO_LIVE_TAX_ID_ERROR } from '../../../domain/order/orderErrors';
 import { menuLanguagesOf, validateMenuLanguagesChange } from '../../../domain/menu/menuLanguage';
 import { MenuLanguage } from '../../../domain/reference/ReferenceLists';
+import { isShopAddressComplete } from '../../../domain/shop/addressReadiness';
+import { countryRequiresState } from '../../../domain/reference/subdivisions';
 import { isOnMenu } from '../../../domain/product/Product';
 import { LEGAL_GO_LIVE_ERRORS, legalCriteria } from '../../../domain/legal/legalReadiness';
 import { hasInvoiceTaxId } from '../../../domain/legal/legalTexts';
@@ -24,21 +26,16 @@ import { getPlatformLegalIdentity } from '../../../infrastructure/cosmos/system/
 import { logServiceFailure } from '../../_shared/logServiceFailure';
 
 async function validateGoLiveCriteria(shop: Shop): Promise<string | null> {
-  const addr = shop.address ?? {};
   if (!stripeReady(shop)) {
     return GO_LIVE_STRIPE_ERROR;
   }
   if (!shop.name?.trim()) {
     return 'Shop name is required';
   }
-  if (
-    !addr.street?.trim() ||
-    !addr.city?.trim() ||
-    !addr.state?.trim() ||
-    !addr.postcode?.trim() ||
-    !addr.country?.trim()
-  ) {
-    return 'Full shop address is required (street, city, state, postcode, country)';
+  if (!isShopAddressComplete(shop.address, shop.countryCode)) {
+    return countryRequiresState(shop.countryCode)
+      ? 'Full shop address is required (street, city, state, postcode, country)'
+      : 'Full shop address is required (street, city, postcode, country)';
   }
   const hasOpeningHours = Object.values(shop.openingHours ?? {}).some(
     (slots) => Array.isArray(slots) && slots.length > 0,

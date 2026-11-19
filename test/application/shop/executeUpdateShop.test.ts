@@ -279,6 +279,31 @@ describe('executeUpdateShop go-live', () => {
     expect(result.ok).toBe(true);
     expect(updateShop).toHaveBeenCalledWith(expect.not.objectContaining({ paymentPolicy: expect.anything() }));
   });
+
+  describe('address state per country', () => {
+    const arrange = (address: any) => {
+      (findShopById as any).mockResolvedValue(makeGoLiveReadyShop({ countryCode: 'DE', address }));
+      (findProductsByShopId as any).mockResolvedValue([
+        { isAvailable: true, isDeleted: false, allergenIds: [], additiveIds: [] },
+      ]);
+      (findCategoriesByShopId as any).mockResolvedValue([{ isDeleted: false }]);
+    };
+    const de = { street: 'Main St 1', city: 'München', postcode: '80331', country: 'Germany' };
+
+    it('goes live with a complete German address including the state', async () => {
+      arrange({ ...de, state: 'Bayern' });
+      const result = await executeUpdateShop({ shopId: 'shop-1', isPaused: false } as any, {} as any);
+      expect(result.ok).toBe(true);
+    });
+
+    it('refuses to go live with a German address missing the state', async () => {
+      arrange(de);
+      const result = await executeUpdateShop({ shopId: 'shop-1', isPaused: false } as any, {} as any);
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.code).toBe('INVALID_INPUT');
+      expect(updateShop).not.toHaveBeenCalled();
+    });
+  });
 });
 
 describe('executeUpdateShop pausing orders', () => {

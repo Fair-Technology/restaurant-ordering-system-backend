@@ -16,6 +16,7 @@ import {
   GoLiveCriterion,
 } from './dtos';
 import { Shop, stripeReady } from '../../../domain/shop/Shop';
+import { isShopAddressComplete, shopAddressRequirement } from '../../../domain/shop/addressReadiness';
 import { isOnMenu } from '../../../domain/product/Product';
 import { legalCriteria } from '../../../domain/legal/legalReadiness';
 import { hasInvoiceTaxId } from '../../../domain/legal/legalTexts';
@@ -29,13 +30,7 @@ function buildCriteria(
   hasCategories: boolean,
   identity: PlatformLegalIdentity,
 ): GoLiveCriterion[] {
-  const addr = shop.address ?? {};
-  const addressComplete =
-    !!(addr.street?.trim()) &&
-    !!(addr.city?.trim()) &&
-    !!(addr.state?.trim()) &&
-    !!(addr.postcode?.trim()) &&
-    !!(addr.country?.trim());
+  const addressComplete = isShopAddressComplete(shop.address, shop.countryCode);
 
   const hasOpeningHours = Object.values(shop.openingHours ?? {}).some(
     (slots) => Array.isArray(slots) && slots.length > 0,
@@ -72,7 +67,7 @@ function buildCriteria(
     {
       key: 'profile_address',
       met: addressComplete,
-      description: 'Full address is filled in (street, city, state, postcode, country)',
+      description: shopAddressRequirement(shop.countryCode),
     },
     {
       key: 'opening_hours',
