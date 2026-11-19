@@ -169,6 +169,21 @@ describe('order emails', () => {
     expect(build('order_escalation', PLACED_TABLE_ORDER).text).toContain('Tisch: 7');
   });
 
+  it('the waiting-order email subject starts with the restaurant name', () => {
+    expect(build('order_escalation', PLACED_CARD_ORDER).subject).toBe(
+      'Ma Pasta: Bestellung AB3-K7P wartet seit 3 Minuten auf Annahme',
+    );
+    expect(
+      buildOrderEmail({
+        kind: 'order_escalation',
+        order: { ...PLACED_CARD_ORDER, language: 'en' },
+        shop: { ...CARD_SHOP, menuLanguages: ['en'] },
+        customerOrderUrl,
+        adminOrdersUrl,
+      }).subject,
+    ).toBe('Ma Pasta: Order AB3-K7P has been waiting 3 minutes');
+  });
+
   it('delivery accepted email gives the delivery time, fee and address', () => {
     const mail = build('order_accepted', ACCEPTED_DELIVERY_ORDER);
     expect(mail.subject).toBe('Ma Pasta: Bestellung AB3-K7P angenommen – Lieferung gegen 12:50');

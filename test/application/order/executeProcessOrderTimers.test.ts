@@ -327,7 +327,7 @@ describe('executeProcessOrderTimers', () => {
     expect(sendEmail).toHaveBeenCalledWith(
       expect.objectContaining({
         to: ['info@mapasta.example'],
-        subject: 'Bestellung AB3-K7P wartet seit 3 Minuten auf Annahme',
+        subject: 'Ma Pasta: Bestellung AB3-K7P wartet seit 3 Minuten auf Annahme',
       }),
     );
     expect(res).toEqual({ escalated: 1, autoRejected: 0, autoCompleted: 0, ...NO_EXTRAS });
@@ -628,7 +628,7 @@ describe('executeProcessOrderTimers', () => {
       expect(alert.escalated).toBe(1);
       expect(sendEmail).toHaveBeenCalledWith(
         expect.objectContaining({
-          subject: 'Bestellung AB3-K7P wartet seit 3 Minuten auf Annahme',
+          subject: 'Ma Pasta: Bestellung AB3-K7P wartet seit 3 Minuten auf Annahme',
           text: expect.stringContaining('Vorbestellt für: Montag, 5. Oktober, 18:00'),
         }),
       );
