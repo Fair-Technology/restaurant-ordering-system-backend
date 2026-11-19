@@ -19,6 +19,7 @@ vi.mock('../../../src/application/_shared/auditHelpers', async (io) => ({
 import { authorizeShopAction } from '../../../src/application/_shared/shopAccess';
 import { findProductById, updateProduct } from '../../../src/infrastructure/cosmos/product/CosmosProductRepository';
 import { logAudit } from '../../../src/application/_shared/auditHelpers';
+import { DEFAULT_ROLE_PERMISSIONS, permissionsForRole } from '../../../src/domain/system/RolePermissions';
 import { executeUpdateProductAvailability } from '../../../src/application/product/updateProductAvailability/executeUpdateProductAvailability';
 
 const accessWith = (permissions: string[]) => ({
@@ -92,6 +93,20 @@ describe('executeUpdateProductAvailability', () => {
 
     expect(result.ok).toBe(true);
     expect(updateProduct).toHaveBeenCalledWith(expect.objectContaining({ isAvailable: false }));
+  });
+
+  it('the Staff default role grants access end-to-end (spec §11)', async () => {
+    (authorizeShopAction as any).mockResolvedValue(
+      accessWith(permissionsForRole('staff', DEFAULT_ROLE_PERMISSIONS)),
+    );
+
+    const result = await executeUpdateProductAvailability(
+      { productId: 'p1', shopId: 'shop-1', isAvailable: false },
+      {} as any,
+    );
+
+    expect(result.ok).toBe(true);
+    expect(updateProduct).toHaveBeenCalled();
   });
 
   it('refuses a staff member with neither permission', async () => {

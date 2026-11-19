@@ -2288,9 +2288,9 @@ bringing it back means undoing a decision something else depends on.
   board (the dish returns by itself next morning); "popular" badges from the
   sales report; suggested translations on a two-language menu.
 - **Parked from the 2026-10-13 triage (real but someday):** a dish
-  `unavailableUntil` plus a stock-only staff permission (`manage_stock`) — today
-  availability is a plain flag editable only with `manage_menu`, and declining
-  with "item unavailable" does not touch the dish; the admin UI for the
+  `unavailableUntil` — today availability is a plain flag editable with
+  `manage_stock` (granted to Staff and Manager by default) or `manage_menu`, and
+  declining with "item unavailable" does not touch the dish; the admin UI for the
   shop-wide option-group library (the backend is built, §6 "Sizes and extras":
   one "out of Coke" switch covers every dish that references the group; the
   admin screens to manage the library and attach groups to dishes are pending);

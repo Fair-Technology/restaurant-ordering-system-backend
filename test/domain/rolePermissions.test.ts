@@ -34,9 +34,10 @@ describe('permissionsForRole', () => {
     expect(result).toEqual([...ALL_SHOP_PERMISSIONS]);
   });
 
-  it('managers can mark a dish sold out by default, staff cannot', () => {
+  it('managers and staff can mark a dish sold out by default (spec §11)', () => {
     expect(DEFAULT_ROLE_PERMISSIONS.manager).toContain('manage_stock');
-    expect(DEFAULT_ROLE_PERMISSIONS.staff).not.toContain('manage_stock');
+    expect(DEFAULT_ROLE_PERMISSIONS.staff).toContain('manage_stock');
+    expect(DEFAULT_ROLE_PERMISSIONS.staff).not.toContain('manage_menu');
   });
 
   it('managers see reports by default, staff never', () => {
