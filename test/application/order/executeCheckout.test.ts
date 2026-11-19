@@ -68,6 +68,7 @@ import { executeCheckout } from '../../../src/application/order/checkout/execute
 import { CheckoutRequestDto } from '../../../src/application/order/checkout/dtos';
 import {
   ADDRESS_INVALID_ERROR,
+  CUSTOMER_PHONE_ERROR,
   ADDRESS_REQUIRED_ERROR,
   BASKET_CHANGED_ERROR,
   TAX_RATE_MISSING_ERROR,
@@ -340,6 +341,33 @@ describe('executeCheckout card placement', () => {
   it('requires an email', async () => {
     const res = await executeCheckout({ ...cardRequest, customerEmail: '' }, { now: NOW_OPEN });
     expect(res).toEqual({ ok: false, code: 'INVALID_INPUT', error: 'customerEmail is required' });
+  });
+
+  it('rejects a whitespace-only name', async () => {
+    const res = await executeCheckout({ ...cardRequest, customerName: '   ' }, { now: NOW_OPEN });
+    expect(res).toEqual({ ok: false, code: 'INVALID_INPUT', error: 'customerName is required' });
+  });
+
+  it('stores the trimmed name', async () => {
+    const res = await executeCheckout({ ...cardRequest, customerName: '  Anna  ' }, { now: NOW_OPEN });
+    expect(res.ok).toBe(true);
+    expect((upsertCheckoutSession as any).mock.calls.at(-1)[0].customerName).toBe('Anna');
+  });
+
+  it('requires a phone', async () => {
+    const res = await executeCheckout({ ...cardRequest, customerPhone: '' }, { now: NOW_OPEN });
+    expect(res).toEqual({ ok: false, code: 'INVALID_INPUT', error: 'customerPhone is required' });
+  });
+
+  it.each(['abc', '<b>x</b> ;;', '12'])('rejects the implausible phone %j', async (customerPhone) => {
+    const res = await executeCheckout({ ...cardRequest, customerPhone }, { now: NOW_OPEN });
+    expect(res).toEqual({ ok: false, code: 'INVALID_INPUT', error: CUSTOMER_PHONE_ERROR });
+  });
+
+  it('accepts a phone with punctuation and stores it trimmed', async () => {
+    const res = await executeCheckout({ ...cardRequest, customerPhone: '  +49 (30) 123-4567 ' }, { now: NOW_OPEN });
+    expect(res.ok).toBe(true);
+    expect((upsertCheckoutSession as any).mock.calls.at(-1)[0].customerPhone).toBe('+49 (30) 123-4567');
   });
 
   it('requires an idempotency key', async () => {

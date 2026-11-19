@@ -24,6 +24,8 @@ export const ORDER_EXPIRED_ERROR =
 export const WAITING_PAYMENT_ERRORS: readonly string[] = [PAYMENT_SERVICE_UNAVAILABLE_ERROR, PAYMENT_CONFIG_UNAVAILABLE_ERROR];
 export const ADDRESS_INVALID_ERROR =
   'customerAddress must have street, postcode, city and country of at most 200 characters each';
+export const CUSTOMER_PHONE_ERROR =
+  'customerPhone must be a phone number: digits, spaces, and + - ( ) . only, with 6 to 15 digits';
 export const ADDRESS_REQUIRED_ERROR = 'An address is required for orders over 250 €';
 export const REFUND_MODE_ERROR = 'Send either items or amountCents, not both';
 export const REFUND_ITEMS_ERROR = 'items must list order lines with whole quantities, each line once';
