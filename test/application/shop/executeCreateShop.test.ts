@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('../../../src/infrastructure/cosmos/shop/CosmosShopRepository', () => ({
   createShop: vi.fn(async (s: any) => s),
-  findShopBySlug: vi.fn(async () => null),
+  isSlugReservedByAnother: vi.fn(async () => false),
   findOwnedShopIds: vi.fn(async () => []),
 }));
 vi.mock('../../../src/infrastructure/auth/authHelpers', () => ({
@@ -27,7 +27,7 @@ vi.mock('../../../src/infrastructure/cosmos/plan/CosmosPlanRepository', () => ({
   findDefaultPlan: vi.fn(async () => ({ id: 'plan-free' })),
 }));
 
-import { createShop as createShopInRepo } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
+import { createShop as createShopInRepo, isSlugReservedByAnother } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
 import { CURRENT_DPA } from '../../../src/domain/legal/platformDocuments';
 import { executeCreateShop } from '../../../src/application/shop/createShop/executeCreateShop';
 
@@ -126,6 +126,20 @@ describe('executeCreateShop primary menu language', () => {
     const result = await executeCreateShop(baseRequest({ menuLanguage: 'fr' }), {} as any);
 
     expect(result).toEqual({ ok: false, code: 'INVALID_INPUT', error: 'menuLanguage must be one of: de, en' });
+    expect(createShopInRepo).not.toHaveBeenCalled();
+  });
+});
+
+describe('executeCreateShop reserved slugs', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('refuses a name whose web address is live or retired on another shop', async () => {
+    (isSlugReservedByAnother as any).mockResolvedValueOnce(true);
+    const result = await executeCreateShop(baseRequest(), {} as any);
+
+    expect(result).toEqual({ ok: false, code: 'INVALID_INPUT', error: 'A shop with this name already exists' });
     expect(createShopInRepo).not.toHaveBeenCalled();
   });
 });

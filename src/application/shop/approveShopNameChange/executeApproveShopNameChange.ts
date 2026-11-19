@@ -34,10 +34,16 @@ export async function executeApproveShopNameChange(
 
     const { requestedName, requestedSlug } = shop.pendingNameChange;
 
+    // Every slug this shop has ever had, minus the one about to go live again (a reclaim).
+    const previousSlugs = Array.from(new Set([...(shop.previousSlugs ?? []), shop.slug])).filter(
+      (s) => s !== requestedSlug,
+    );
+
     const updatedShop = {
       ...shop,
       name: requestedName,
       slug: requestedSlug,
+      previousSlugs,
       pendingNameChange: null,
       updatedAt: new Date().toISOString(),
     };
@@ -55,6 +61,7 @@ export async function executeApproveShopNameChange(
       changes: [
         { field: 'name', from: shop.name, to: requestedName },
         { field: 'slug', from: shop.slug, to: requestedSlug },
+        { field: 'previousSlugs', from: shop.previousSlugs ?? [], to: previousSlugs },
       ],
     });
 

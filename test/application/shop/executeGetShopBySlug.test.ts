@@ -1,13 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('../../../src/infrastructure/cosmos/shop/CosmosShopRepository', () => ({ findShopBySlug: vi.fn() }));
+vi.mock('../../../src/infrastructure/cosmos/shop/CosmosShopRepository', () => ({
+  findShopBySlug: vi.fn(),
+  findShopByPreviousSlug: vi.fn(async () => null),
+}));
 vi.mock('../../../src/application/usage/orderLimitStatus', () => ({
   loadOrderLimitStatus: vi.fn(async () => ({ periodKey: '2026-10', acceptedOrderCount: 0, limit: 30, warningLevel: 0, limitReached: false })),
 }));
 
 import { loadOrderLimitStatus } from '../../../src/application/usage/orderLimitStatus';
 import { executeGetShopBySlug } from '../../../src/application/shop/getShopBySlug/executeGetShopBySlug';
-import { findShopBySlug } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
+import { findShopBySlug, findShopByPreviousSlug } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
 import { CARD_SHOP, DELIVERY_SHOP, DINE_IN_SHOP } from '../../fixtures/orders';
 
 describe('executeGetShopBySlug', () => {
@@ -99,5 +102,19 @@ describe('executeGetShopBySlug', () => {
     (findShopBySlug as any).mockResolvedValue({ ...CARD_SHOP, branding });
     const unset = await executeGetShopBySlug({ slug: 'mapasta' });
     expect(unset.ok && unset.data.branding?.showHero).toBeUndefined();
+  });
+  it('a retired slug resolves to the live shop, which reports its current slug', async () => {
+    (findShopBySlug as any).mockResolvedValue(null);
+    (findShopByPreviousSlug as any).mockResolvedValueOnce({ ...CARD_SHOP, slug: 'new-name', previousSlugs: ['old-name'] });
+    const res = await executeGetShopBySlug({ slug: 'old-name' });
+    expect(res.ok).toBe(true);
+    expect(res.ok && res.data.slug).toBe('new-name');
+  });
+
+  it('an unknown slug is not found', async () => {
+    (findShopBySlug as any).mockResolvedValue(null);
+    (findShopByPreviousSlug as any).mockResolvedValue(null);
+    const res = await executeGetShopBySlug({ slug: 'nope' });
+    expect(res).toMatchObject({ ok: false, code: 'NOT_FOUND' });
   });
 });

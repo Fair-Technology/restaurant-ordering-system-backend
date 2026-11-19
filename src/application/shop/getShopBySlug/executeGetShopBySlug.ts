@@ -4,7 +4,7 @@ import { orderableModesFor } from '../../../domain/order/fulfilment';
 import { effectivePrepByMode } from '../../../domain/order/kitchenTiming';
 import { orderSettingsOf } from '../../../domain/order/orderSettings';
 import { legalOf } from '../../../domain/legal/legalTexts';
-import { findShopBySlug } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
+import { findShopBySlug, findShopByPreviousSlug } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { GetShopBySlugRequestDto, GetShopBySlugResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 import { loadOrderLimitStatus } from '../../usage/orderLimitStatus';
@@ -30,7 +30,11 @@ export async function executeGetShopBySlug(
 
   try {
     const now = options.now ?? new Date();
-    const shop = await findShopBySlug(request.slug.trim());
+    // A retired slug resolves to the live shop. The DTO's `slug` is the shop's current slug, so the
+    // storefront compares the requested slug with the returned one and issues the permanent redirect.
+    const shop =
+      (await findShopBySlug(request.slug.trim())) ??
+      (await findShopByPreviousSlug(request.slug.trim()));
 
     if (!shop) {
       return {

@@ -3,12 +3,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 vi.mock('../../../src/infrastructure/auth/superAdminAuthHelpers', () => ({ verifySuperAdminToken: vi.fn(async () => 'u1') }));
 vi.mock('../../../src/infrastructure/cosmos/shop/CosmosShopRepository', () => ({
   findShopById: vi.fn(),
-  findShopBySlug: vi.fn(async () => null),
+  isSlugReservedByAnother: vi.fn(async () => false),
   updateShop: vi.fn(async (s: any) => s),
 }));
 vi.mock('../../../src/application/_shared/auditHelpers', () => ({ logAudit: vi.fn() }));
 
-import { findShopById, findShopBySlug, updateShop } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
+import { findShopById, isSlugReservedByAnother, updateShop } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
 import { logAudit } from '../../../src/application/_shared/auditHelpers';
 import { executeRestoreShop } from '../../../src/application/shop/restoreShop/executeRestoreShop';
 import { verifySuperAdminToken } from '../../../src/infrastructure/auth/superAdminAuthHelpers';
@@ -46,7 +46,7 @@ describe('executeRestoreShop', () => {
 
   it('refuses when another live shop now uses the same web address', async () => {
     (findShopById as any).mockResolvedValue({ id: 'shop-1', name: 'Pizzeria', slug: 'pizzeria', isDeleted: true });
-    (findShopBySlug as any).mockResolvedValueOnce({ id: 'shop-2', slug: 'pizzeria', isDeleted: false });
+    (isSlugReservedByAnother as any).mockResolvedValueOnce(true);
     const r = await executeRestoreShop({ shopId: 'shop-1' }, {} as any);
     expect(r).toMatchObject({ ok: false, code: 'CONFLICT' });
     expect(updateShop).not.toHaveBeenCalled();
