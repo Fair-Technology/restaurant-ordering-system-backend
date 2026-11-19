@@ -69,7 +69,7 @@ export async function executeUpdateProduct(
       findCategoriesByShopId(shopId),
     ]);
 
-    if (!product) {
+    if (!product || product.isDeleted) {
       return {
         ok: false,
         code: 'NOT_FOUND',

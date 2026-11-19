@@ -602,7 +602,10 @@ itself. Categories are per shop and hierarchical. Every stored document shares
 one base contract (optional tenant marker, tags, metadata, version, soft
 deletion via `archivedAt`/`isDeleted`), so backups, analytics and compliance
 exports work the same across containers. Records are soft-deleted, never
-destroyed.
+destroyed. A soft-deleted dish is **not found** to every write — update,
+availability and delete each answer `NOT_FOUND` rather than silently editing or
+re-flagging it — while `findProductById` itself stays unfiltered so the combo
+and pricing paths can still tell a missing dish from a deleted one.
 
 ### Menu content is typed by hand
 

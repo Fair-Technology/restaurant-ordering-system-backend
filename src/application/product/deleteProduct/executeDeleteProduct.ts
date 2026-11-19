@@ -47,7 +47,7 @@ export async function executeDeleteProduct(
       request.shopId.trim(),
     );
 
-    if (!product) {
+    if (!product || product.isDeleted) {
       return {
         ok: false,
         code: 'NOT_FOUND',
