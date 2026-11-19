@@ -95,8 +95,8 @@ function buildEscalationEmail(order: Order, shop: Shop, adminOrdersUrl: string):
   const f = formatters(lang, order.currency, shop.timezone);
   const until = order.autoRejectAt ? f.time(order.autoRejectAt) : '';
   const subject = de
-    ? `Bestellung ${order.orderRef} wartet seit 3 Minuten auf Annahme`
-    : `Order ${order.orderRef} has been waiting 3 minutes`;
+    ? `${shop.name}: Bestellung ${order.orderRef} wartet seit 3 Minuten auf Annahme`
+    : `${shop.name}: Order ${order.orderRef} has been waiting 3 minutes`;
   return render(subject, [
     {
       type: 'p',
