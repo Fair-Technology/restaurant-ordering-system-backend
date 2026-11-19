@@ -1,10 +1,9 @@
 # Builds one artifact per commit, tests it and deploys it to the dev Function App.
 # Production is never built here: promote.yml ships this same artifact.
 #
-#   push to dev  -> npm ci, build, test -> artifact -> deploy to restaurant-ordering-system-dev
-#   push to main -> same build (the release merge commit), then promote.yml ships it to
-#                   production behind the `production` environment's required reviewer.
-#                   main also refreshes dev, so dev and prod run the same bytes after a release.
+#   push to main -> npm ci, build, test -> artifact -> deploy to restaurant-ordering-system-dev
+#                   then promote.yml ships that same artifact to production behind the
+#                   `production` environment's required reviewer.
 #
 # To go live:  git tag v0.1.0 && git push origin v0.1.0
 
@@ -13,11 +12,9 @@ name: Build, test and deploy (dev)
 on:
   push:
     branches:
-      - dev
       - main
   pull_request:
     branches:
-      - dev
       - main
   workflow_dispatch:
 
@@ -74,11 +71,11 @@ jobs:
   deploy_dev:
     name: Deploy to dev
     needs: build
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     # No `environment:` here on purpose: an environment-based OIDC subject
     # (...:environment:dev) does not match this app's federated identity credential,
-    # which is registered for the branch subject (...:ref:refs/heads/dev).
+    # which is registered for the branch subject (...:ref:refs/heads/main).
     permissions:
       id-token: write #This is required for requesting the JWT
       contents: read #This is required for actions/checkout

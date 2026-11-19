@@ -15,7 +15,7 @@
 #     `repo:Fair-Technology/restaurant-ordering-system-backend:environment:production`.
 #     This job sets `environment: production` (for its approval gate), which yields an
 #     *environment* subject. The identity's credentials today are branch-scoped
-#     (`ref:refs/heads/{dev,main}`), so they do not match it — the dev workflow omits
+#     (`ref:refs/heads/main`), so they do not match it — the dev workflow omits
 #     `environment:` for exactly this reason.
 # Until both are true this workflow stops at "Login to Azure" with AADSTS700213. That is
 # expected, not a misconfiguration.
@@ -36,7 +36,7 @@
 name: Promote artifact to production
 
 on:
-  # A release is `dev` merged into `main` (spec §21-5a). Once the dev workflow has built and
+  # A release is a push to `main`. Once the dev workflow has built and
   # tested that main commit, this workflow ships the same artifact — still behind the
   # `production` environment's required reviewer.
   workflow_run:
