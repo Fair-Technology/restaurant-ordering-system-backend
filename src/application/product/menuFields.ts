@@ -1,5 +1,5 @@
 import { FULFILMENT_MODES, FulfilmentMode } from '../../domain/order/Order';
-import { ShopOptionGroup } from '../../domain/optionGroup/ShopOptionGroup';
+import { addonSelectionError, isValidPriceDelta, ShopOptionGroup } from '../../domain/optionGroup/ShopOptionGroup';
 import { DELIVERY_TAX_CLASS_FOR_DISHES_ERROR, UNAVAILABLE_MODES_ERROR } from '../../domain/order/orderErrors';
 import { dietaryConflict, DIETARY_TAGS, SpiceLevel } from '../../domain/product/dietary';
 import { normaliseTranslations, TranslationMap } from '../../domain/menu/menuLanguage';
@@ -37,6 +37,7 @@ export interface ValidMenuFields {
 }
 
 export const OPTION_ALLERGENS_ERROR = "Each option's allergenIds must be a list of allergen ids";
+export const OPTION_PRICE_DELTA_ERROR = "Each option's priceDelta must be a whole number of cents from 0 to 100000";
 export const OPTION_ADDITIVES_ERROR = "Each option's additiveIds must be a list of additive ids";
 
 export const OPTION_GROUP_REFS_SHAPE_ERROR = 'optionGroupRefs must be an array of option group ids';
@@ -83,6 +84,7 @@ function optionIdList(
 }
 
 function validateGroup(
+  kind: 'variant' | 'addon',
   group: ProductVariantGroup | ProductAddonGroup,
   known: { allergens: ReadonlySet<string>; additives: ReadonlySet<string> },
   previous: ReadonlyMap<string, ProductOption>,
@@ -94,6 +96,7 @@ function validateGroup(
   for (const option of group.options) {
     const optionTranslations = normaliseTranslations(option.nameTranslations, 120);
     if (typeof optionTranslations === 'string') return optionTranslations;
+    if (!isValidPriceDelta(option.priceDelta)) return OPTION_PRICE_DELTA_ERROR;
     const prev = previous.get(option.id);
     const raw = option as unknown as { allergenIds?: unknown; additiveIds?: unknown };
     const a = optionIdList(raw.allergenIds, prev?.allergenIds, known.allergens, 'allergenIds', 'allergen', OPTION_ALLERGENS_ERROR);
@@ -101,6 +104,15 @@ function validateGroup(
     const d = optionIdList(raw.additiveIds, prev?.additiveIds, known.additives, 'additiveIds', 'additive', OPTION_ADDITIVES_ERROR);
     if (!Array.isArray(d)) return d.error;
     options.push({ ...option, nameTranslations: optionTranslations, allergenIds: a, additiveIds: d });
+  }
+
+  if (kind === 'addon') {
+    const addon = group as ProductAddonGroup;
+    const min = addon.minSelectable ?? 0;
+    const max = addon.maxSelectable ?? options.length;
+    const selectionError = addonSelectionError(min, max, options.length);
+    if (selectionError) return selectionError;
+    return { ...addon, nameTranslations, options, minSelectable: min, maxSelectable: max };
   }
 
   return { ...group, nameTranslations, options } as ProductVariantGroup | ProductAddonGroup;
@@ -206,7 +218,7 @@ export function validateMenuFields(
   if (input.variantGroups) {
     const groups: ProductVariantGroup[] = [];
     for (const group of input.variantGroups) {
-      const result = validateGroup(group, known, optionsOf(existing?.variantGroups));
+      const result = validateGroup('variant', group, known, optionsOf(existing?.variantGroups));
       if (typeof result === 'string') return { error: result };
       groups.push(result as ProductVariantGroup);
     }
@@ -216,7 +228,7 @@ export function validateMenuFields(
   if (input.addonGroups) {
     const groups: ProductAddonGroup[] = [];
     for (const group of input.addonGroups) {
-      const result = validateGroup(group, known, optionsOf(existing?.addonGroups));
+      const result = validateGroup('addon', group, known, optionsOf(existing?.addonGroups));
       if (typeof result === 'string') return { error: result };
       groups.push(result as ProductAddonGroup);
     }

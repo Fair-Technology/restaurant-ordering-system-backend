@@ -156,17 +156,17 @@ describe('executeUpdateProduct menu fields', () => {
       storedProduct({
         allergenIds: [],
         additiveIds: [],
-        addonGroups: [{ id: 'a1', name: 'Extras', minSelectable: 0, maxSelectable: 2, options: [{ id: 'x1', name: 'Thunfisch', priceDelta: 150, isAvailable: true, allergenIds: ['fish'], additiveIds: [] }] }],
+        addonGroups: [{ id: 'a1', name: 'Extras', minSelectable: 0, maxSelectable: 1, options: [{ id: 'x1', name: 'Thunfisch', priceDelta: 150, isAvailable: true, allergenIds: ['fish'], additiveIds: [] }] }],
       }),
     );
     const result = await executeUpdateProduct(
-      { productId: 'p1', shopId: 'shop-1', addonGroups: [{ id: 'a1', name: 'Extras', minSelectable: 0, maxSelectable: 2, options: [{ id: 'x1', name: 'Thunfisch', priceDelta: 200, isAvailable: true }] }] } as any,
+      { productId: 'p1', shopId: 'shop-1', addonGroups: [{ id: 'a1', name: 'Extras', minSelectable: 0, maxSelectable: 1, options: [{ id: 'x1', name: 'Thunfisch', priceDelta: 200, isAvailable: true }] }] } as any,
       {} as any,
     );
     expect(result.ok).toBe(true);
     expect(updateProduct).toHaveBeenCalledWith(
       expect.objectContaining({
-        addonGroups: [{ id: 'a1', name: 'Extras', nameTranslations: {}, minSelectable: 0, maxSelectable: 2, options: [{ id: 'x1', name: 'Thunfisch', nameTranslations: {}, priceDelta: 200, isAvailable: true, allergenIds: ['fish'], additiveIds: [] }] }],
+        addonGroups: [{ id: 'a1', name: 'Extras', nameTranslations: {}, minSelectable: 0, maxSelectable: 1, options: [{ id: 'x1', name: 'Thunfisch', nameTranslations: {}, priceDelta: 200, isAvailable: true, allergenIds: ['fish'], additiveIds: [] }] }],
       }),
     );
   });
