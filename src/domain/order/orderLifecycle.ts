@@ -12,7 +12,7 @@ export type TransitionResult = { ok: true; order: Order } | { ok: false; error: 
 
 const EDGES: Record<StoredOrderState, StoredOrderState[]> = {
   PLACED: ['ACCEPTED', 'REJECTED', 'CANCELLED'],
-  ACCEPTED: ['READY', 'OUT_FOR_DELIVERY', 'CANCELLED'],
+  ACCEPTED: ['READY', 'OUT_FOR_DELIVERY', 'CANCELLED', 'COMPLETED'],
   READY: ['COMPLETED'],
   OUT_FOR_DELIVERY: ['COMPLETED'],
   COMPLETED: [],
@@ -80,6 +80,9 @@ export function applyTransition(order: Order, to: OrderState, ctx: TransitionCon
       if (!reason) return fail('A reason is required');
       if (target === 'CANCELLED' && order.state === 'ACCEPTED' && deriveDisplayState(order, ctx.now) !== 'ACCEPTED')
         return fail('Cannot cancel once preparation has started');
+      break;
+    case 'COMPLETED':
+      reason = ctx.reason?.trim();
       break;
     case 'READY':
       if (order.fulfilmentMode === 'delivery') return fail('READY is only for collection and dine-in orders');

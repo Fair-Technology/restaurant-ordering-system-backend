@@ -68,10 +68,28 @@ describe('order rules', () => {
     ]);
   });
 
-  it('delivered orders complete after local midnight', () => {
+  it('delivered orders complete four hours after their ready time', () => {
     const o = { state: 'OUT_FOR_DELIVERY' as const, readyAt: '2026-10-05T19:00:00.000Z', updatedAt: 'x' };
-    expect(isDueForAutoComplete(o, new Date('2026-10-05T21:59:00Z'), 'Europe/Berlin')).toBe(false);
-    expect(isDueForAutoComplete(o, new Date('2026-10-05T22:00:00Z'), 'Europe/Berlin')).toBe(true);
+    expect(isDueForAutoComplete(o, new Date('2026-10-05T22:59:59Z'))).toBe(false);
+    expect(isDueForAutoComplete(o, new Date('2026-10-05T23:00:00Z'))).toBe(true);
+  });
+
+  it('an accepted order nobody marked ready completes four hours after its ready time', () => {
+    const o = { state: 'ACCEPTED' as const, readyAt: '2026-10-05T23:45:00.000Z', updatedAt: 'x' };
+    expect(isDueForAutoComplete(o, new Date('2026-10-06T03:44:59Z'))).toBe(false);
+    expect(isDueForAutoComplete(o, new Date('2026-10-06T03:45:00Z'))).toBe(true);
+  });
+
+  it('a ready order is not closed at midnight, only four hours after its ready time', () => {
+    const o = { state: 'READY' as const, readyAt: '2026-10-05T23:50:00.000Z', updatedAt: 'x' };
+    expect(isDueForAutoComplete(o, new Date('2026-10-06T00:00:00.000Z'))).toBe(false);
+    expect(isDueForAutoComplete(o, new Date('2026-10-06T03:50:00.000Z'))).toBe(true);
+  });
+
+  it('a completed or placed order is never due for auto-complete', () => {
+    const now = new Date('2030-01-01T00:00:00Z');
+    expect(isDueForAutoComplete({ state: 'COMPLETED', readyAt: '2026-10-05T19:00:00.000Z', updatedAt: 'x' }, now)).toBe(false);
+    expect(isDueForAutoComplete({ state: 'PLACED', readyAt: '2026-10-05T19:00:00.000Z', updatedAt: 'x' }, now)).toBe(false);
   });
 
   it('an address is needed only above 250 euros', () => {
@@ -123,10 +141,10 @@ describe('order rules', () => {
     );
   });
 
-  it('ready orders complete after local midnight', () => {
+  it('ready orders complete four hours after their ready time', () => {
     const o = { state: 'READY' as const, readyAt: '2026-10-05T19:00:00.000Z', updatedAt: 'x' };
-    expect(isDueForAutoComplete(o, new Date('2026-10-05T21:59:00Z'), 'Europe/Berlin')).toBe(false);
-    expect(isDueForAutoComplete(o, new Date('2026-10-05T22:00:00Z'), 'Europe/Berlin')).toBe(true);
+    expect(isDueForAutoComplete(o, new Date('2026-10-05T22:59:59Z'))).toBe(false);
+    expect(isDueForAutoComplete(o, new Date('2026-10-05T23:00:00Z'))).toBe(true);
   });
 
   it('escalation goes to the Impressum and alert addresses', () => {

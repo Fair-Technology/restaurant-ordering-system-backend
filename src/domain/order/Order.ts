@@ -42,7 +42,7 @@ export interface OrderHistoryEntry {
   to: StoredOrderState;
   at: string; // ISO
   actor: OrderActor;
-  reason?: string; // present only on REJECTED / CANCELLED
+  reason?: string; // present on REJECTED / CANCELLED, and on a system auto-complete
 }
 
 export const REJECT_REASON_CODES = ['too_busy', 'item_unavailable', 'closing_soon', 'other'] as const;

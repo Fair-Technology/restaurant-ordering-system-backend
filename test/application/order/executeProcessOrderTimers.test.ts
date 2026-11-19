@@ -411,7 +411,7 @@ describe('executeProcessOrderTimers', () => {
     expect(sendEmail).not.toHaveBeenCalled();
   });
 
-  it('completes a ready order after midnight', async () => {
+  it('completes a ready order four hours after its ready time', async () => {
     const ready = {
       ...PLACED_CARD_ORDER,
       state: 'READY' as const,
@@ -421,21 +421,59 @@ describe('executeProcessOrderTimers', () => {
     (findPlacedOrdersCreatedBefore as any).mockResolvedValue([]);
     (findOrdersInState as any).mockImplementation(async (s: string) => (s === 'READY' ? [ready] : []));
     storedOrder(ready);
-    const res = await executeProcessOrderTimers({ now: new Date('2026-10-05T22:00:00Z') });
+    const res = await executeProcessOrderTimers({ now: new Date('2026-10-05T23:00:00Z') });
     const written = (replaceOrderIfMatch as any).mock.calls[0][0];
     expect(written.state).toBe('COMPLETED');
     expect(written.payment.status).toBe('paid');
     expect(res.autoCompleted).toBe(1);
   });
 
-  it('completes an order out for delivery after midnight', async () => {
+  it('completes an order out for delivery four hours after its ready time', async () => {
     const out = { ...ACCEPTED_DELIVERY_ORDER, state: 'OUT_FOR_DELIVERY' as const, readyAt: '2026-10-05T19:00:00.000Z' };
     (findPlacedOrdersCreatedBefore as any).mockResolvedValue([]);
     (findOrdersInState as any).mockImplementation(async (s: string) => (s === 'OUT_FOR_DELIVERY' ? [out] : []));
     storedOrder(out);
-    const res = await executeProcessOrderTimers({ now: new Date('2026-10-05T22:00:00Z') });
+    const res = await executeProcessOrderTimers({ now: new Date('2026-10-05T23:00:00Z') });
     expect((replaceOrderIfMatch as any).mock.calls[0][0].state).toBe('COMPLETED');
     expect(res.autoCompleted).toBe(1);
+  });
+
+  it('completes an accepted order nobody marked ready', async () => {
+    const accepted = { ...ACCEPTED_CARD_ORDER, readyAt: '2026-10-05T23:45:00.000Z' };
+    (findPlacedOrdersCreatedBefore as any).mockResolvedValue([]);
+    (findOrdersInState as any).mockImplementation(async (s: string) => (s === 'ACCEPTED' ? [accepted] : []));
+    const store = storedOrder(accepted);
+    const res = await executeProcessOrderTimers({ now: new Date('2026-10-06T03:45:00Z') });
+    expect(store.current.state).toBe('COMPLETED');
+    expect(res.autoCompleted).toBe(1);
+    expect(store.current.history.at(-1)).toMatchObject({
+      to: 'COMPLETED',
+      actor: { type: 'system' },
+      reason: 'auto-completed by system, not marked ready',
+    });
+  });
+
+  it('does not complete an accepted order before four hours', async () => {
+    const accepted = { ...ACCEPTED_CARD_ORDER, readyAt: '2026-10-05T23:45:00.000Z' };
+    (findPlacedOrdersCreatedBefore as any).mockResolvedValue([]);
+    (findOrdersInState as any).mockImplementation(async (s: string) => (s === 'ACCEPTED' ? [accepted] : []));
+    const store = storedOrder(accepted);
+    const res = await executeProcessOrderTimers({ now: new Date('2026-10-06T03:44:59Z') });
+    expect(store.current.state).toBe('ACCEPTED');
+    expect(res.autoCompleted).toBe(0);
+  });
+
+  it('a ready order at 23:50 is not closed at midnight', async () => {
+    const ready = { ...ACCEPTED_CARD_ORDER, state: 'READY' as const, readyAt: '2026-10-05T23:50:00.000Z' };
+    (findPlacedOrdersCreatedBefore as any).mockResolvedValue([]);
+    (findOrdersInState as any).mockImplementation(async (s: string) => (s === 'READY' ? [ready] : []));
+    const store = storedOrder(ready);
+    const early = await executeProcessOrderTimers({ now: new Date('2026-10-06T00:00:00Z') });
+    expect(early.autoCompleted).toBe(0);
+    expect(store.current.state).toBe('READY');
+    const later = await executeProcessOrderTimers({ now: new Date('2026-10-06T03:50:00Z') });
+    expect(later.autoCompleted).toBe(1);
+    expect(store.current.state).toBe('COMPLETED');
   });
 
   it('issues a missing invoice, emails it once and looks back 7 days', async () => {
