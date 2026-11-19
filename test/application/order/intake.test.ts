@@ -62,6 +62,7 @@ import { notifyOrderLimitThresholds } from '../../../src/application/usage/order
 import { sendEmail } from '../../../src/infrastructure/email/emailSender';
 import {
   ORDER_CHANGED_ERROR,
+  ORDER_EXPIRED_ERROR,
   ORDER_NOT_FOUND_ERROR,
   PAYMENT_CAPTURE_FAILED_ERROR,
   PAYMENT_SERVICE_UNAVAILABLE_ERROR,
@@ -484,6 +485,40 @@ describe('kitchen intake', () => {
     ]);
   });
 
+
+  describe('decline time', () => {
+    it('accepts just before the decline time', async () => {
+      const store = storedOrder();
+      const res = await executeAcceptOrder(ids, http, { now: new Date('2026-10-05T10:09:59Z') });
+      expect(res.ok).toBe(true);
+      expect(store.current.state).toBe('ACCEPTED');
+      expect(capturePaymentIntent).toHaveBeenCalledTimes(1);
+    });
+
+    it('declines instead of accepting at the decline time', async () => {
+      const store = storedOrder();
+      const res = await executeAcceptOrder(ids, http, { now: new Date('2026-10-05T10:10:00Z') });
+      expect(res).toEqual({ ok: false, code: 'CONFLICT', error: ORDER_EXPIRED_ERROR });
+      expect(capturePaymentIntent).not.toHaveBeenCalled();
+      expect(store.current.state).toBe('REJECTED');
+      expect(store.current.history.at(-1)).toMatchObject({ actor: { type: 'system' }, reason: 'no_response' });
+      expect(releaseAuthorization).toHaveBeenCalled();
+      expect(sendEmail).toHaveBeenCalledWith(expect.objectContaining({ tag: 'order_rejected' }));
+      expect(incrementAcceptedOrders).not.toHaveBeenCalled();
+    });
+
+    it('declines a held order past the decline time as payment_unavailable', async () => {
+      const store = storedOrder({
+        ...PLACED_CARD_ORDER,
+        captureConfigFailure: { at: '2026-10-05T10:00:00.000Z', attempts: 1 },
+      });
+      const res = await executeAcceptOrder(ids, http, { now: new Date('2026-10-05T10:10:00Z') });
+      expect(res).toEqual({ ok: false, code: 'CONFLICT', error: ORDER_EXPIRED_ERROR });
+      expect(capturePaymentIntent).not.toHaveBeenCalled();
+      expect(store.current.state).toBe('REJECTED');
+      expect(store.current.history.at(-1)).toMatchObject({ actor: { type: 'system' }, reason: 'payment_unavailable' });
+    });
+  });
 
   describe('capacity', () => {
     const HELD = { orderId: 'x', slot: '2026-10-05T10:15:00.000Z', heldUntil: null };

@@ -19,6 +19,8 @@ export const PAYMENT_SERVICE_UNAVAILABLE_ERROR =
 export const PAYMENT_CONFIG_UNAVAILABLE_ERROR =
   'The payment service refused the request because of a platform setup problem, not the card. The order is still waiting and nothing was charged — try again once the platform has fixed it.';
 /** Accept failures that leave the order PLACED and waiting for the timer. */
+export const ORDER_EXPIRED_ERROR =
+  'This order is past its decline time and can no longer be accepted. It has been declined and the customer told; nothing was charged.';
 export const WAITING_PAYMENT_ERRORS: readonly string[] = [PAYMENT_SERVICE_UNAVAILABLE_ERROR, PAYMENT_CONFIG_UNAVAILABLE_ERROR];
 export const ADDRESS_INVALID_ERROR =
   'customerAddress must have street, postcode, city and country of at most 200 characters each';

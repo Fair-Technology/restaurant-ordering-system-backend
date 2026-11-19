@@ -3,6 +3,7 @@ import { effectivePrepMinutes } from '../../../domain/order/kitchenTiming';
 import { isUpcoming, readyAtFor } from '../../../domain/order/scheduling';
 import {
   ORDER_CHANGED_ERROR,
+  ORDER_EXPIRED_ERROR,
   ORDER_NOT_FOUND_ERROR,
   PAYMENT_CAPTURE_FAILED_ERROR,
   PAYMENT_CONFIG_UNAVAILABLE_ERROR,
@@ -11,6 +12,7 @@ import {
 } from '../../../domain/order/orderErrors';
 import { applyTransition } from '../../../domain/order/orderLifecycle';
 import type { TransitionResult } from '../../../domain/order/orderLifecycle';
+import { isPastDeclineTime } from '../../../domain/order/orderTimers';
 import { hasFreshCaptureClaim } from '../../../domain/order/payment';
 import type { Shop } from '../../../domain/shop/Shop';
 import { invoiceFileName, invoiceTitle } from '../../../domain/invoice/invoice';
@@ -35,6 +37,7 @@ import { notifyCustomer } from '../notifications/notifyOrder';
 import type { AttachedDocument } from '../notifications/emailTemplates';
 import { resetMissedOrderStreak } from './missedOrders';
 import { releaseClosedOrderPayment } from './releasePayment';
+import { rejectTimedOutOrder } from './rejectTimedOutOrder';
 import { transitionOrder } from './transitionOrder';
 import { errorBrief } from '../../_shared/errorBrief';
 
@@ -133,6 +136,11 @@ export async function acceptPlacedOrder(input: {
   const found = await findOrderWithEtag(orderId);
   if (!found || found.order.shopId !== shop.id) {
     return { ok: false, code: 'NOT_FOUND', error: ORDER_NOT_FOUND_ERROR };
+  }
+  // Past the decline time the order can no longer be accepted (spec §5/§8): decline it now instead of charging it.
+  if (isPastDeclineTime(found.order, now)) {
+    const declined = await rejectTimedOutOrder({ orderId, shop, now });
+    return { ok: false, code: 'CONFLICT', error: declined.rejected ? ORDER_EXPIRED_ERROR : ORDER_CHANGED_ERROR };
   }
   const takesMoney = found.order.payment.method === 'card' && found.order.payment.status === 'authorized';
   const usagePeriodKey = periodKeyFor(now, shop.timezone);

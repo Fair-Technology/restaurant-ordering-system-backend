@@ -11,8 +11,13 @@ export function isDueForEscalation(
   return now.getTime() - Date.parse(o.queuedAt ?? o.createdAt) >= ESCALATE_AFTER_MINUTES * 60_000;
 }
 
+/** True once the order's decline time has passed — the accept path's stop sign, whatever the state. */
+export function isPastDeclineTime(o: Pick<Order, 'autoRejectAt'>, now: Date): boolean {
+  return !!o.autoRejectAt && now.getTime() >= Date.parse(o.autoRejectAt);
+}
+
 export function isDueForAutoReject(o: Pick<Order, 'state' | 'autoRejectAt'>, now: Date): boolean {
-  return o.state === 'PLACED' && !!o.autoRejectAt && now.getTime() >= Date.parse(o.autoRejectAt);
+  return o.state === 'PLACED' && isPastDeclineTime(o, now);
 }
 
 export function localDate(iso: string | Date, timeZone: string): string {

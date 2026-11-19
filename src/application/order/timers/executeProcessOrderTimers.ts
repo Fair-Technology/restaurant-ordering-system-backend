@@ -2,7 +2,7 @@ import { invoiceFileName, invoiceTitle } from '../../../domain/invoice/invoice';
 import type { InvoiceDoc } from '../../../domain/invoice/invoice';
 import type { Order } from '../../../domain/order/Order';
 import { applyTransition } from '../../../domain/order/orderLifecycle';
-import { hasFreshCaptureClaim, isDueForReleaseRetry } from '../../../domain/order/payment';
+import { isDueForReleaseRetry } from '../../../domain/order/payment';
 import {
   isDueForAutoComplete,
   isDueForAutoReject,
@@ -24,6 +24,7 @@ import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepo
 import { issueCorrectionForRefund, issueInvoiceForOrder, needsInvoice } from '../invoices/issueInvoice';
 import { notifyCustomer, notifyRestaurantEscalation } from '../notifications/notifyOrder';
 import { acceptPlacedOrder } from '../_shared/acceptPlacedOrder';
+import { rejectTimedOutOrder } from '../_shared/rejectTimedOutOrder';
 import { recordMissedOrder } from '../_shared/missedOrders';
 import { releaseClosedOrderPayment } from '../_shared/releasePayment';
 import { renderInvoicePdf } from '../../../infrastructure/pdf/invoicePdf';
@@ -131,6 +132,20 @@ export async function executeProcessOrderTimers(input: { now: Date }): Promise<O
         o = entered.order;
         result.queued++;
       }
+      // The decline time comes first: an order past it is never accepted, even if Stripe has recovered.
+      if (isDueForAutoReject(o, now)) {
+        const declined = await rejectTimedOutOrder({ orderId: o.id, shop, now });
+        if (declined.rejected) {
+          result.autoRejected++;
+          // Held by a platform fault: the shop did not miss it, so it is not counted against the shop.
+          const pausedShop = declined.heldByConfig ? null : await recordMissedOrder(shop, now);
+          if (pausedShop) {
+            shops.set(shop.id, pausedShop);
+            result.autoPaused++;
+          }
+        }
+        continue;
+      }
       // An offline shop has nobody cooking: its orders wait for staff or the timeout instead of being charged. A pause only stops new orders, so orders placed before it still go through.
       if (autoAcceptsOrder(shop, o) && !isShopOffline(shop)) {
         const accepted = await acceptPlacedOrder({ orderId: o.id, shop, actor: { type: 'system' }, now });
@@ -140,32 +155,7 @@ export async function executeProcessOrderTimers(input: { now: Date }): Promise<O
         }
         // Not accepted (service down, declined card, lost race): what is still waiting falls through to the checks below.
       }
-      if (isDueForAutoReject(o, now)) {
-        // Held by a platform key/permission fault: the shop did not miss it, so it is not counted against the shop.
-        let heldByConfig = false;
-        const moved = await transitionOrder({
-          orderId: o.id,
-          shopId: o.shopId,
-          change: (x) =>
-            hasFreshCaptureClaim(x, now)
-              ? { ok: false, error: 'skip' } // an accept is taking the money right now
-              : applyTransition(x, 'REJECTED', {
-                  now,
-                  actor: { type: 'system' },
-                  reason: (heldByConfig = !!x.captureConfigFailure) ? 'payment_unavailable' : 'no_response',
-                }),
-        });
-        if (moved.ok) {
-          const released = await releaseClosedOrderPayment(moved.order.id, shop, now);
-          await notifyCustomer('order_rejected', released.order ?? moved.order, shop);
-          result.autoRejected++;
-          const pausedShop = heldByConfig ? null : await recordMissedOrder(shop, now);
-          if (pausedShop) {
-            shops.set(shop.id, pausedShop);
-            result.autoPaused++;
-          }
-        }
-      } else if (isDueForEscalation(o, now)) {
+      if (isDueForEscalation(o, now)) {
         // Written before sending: a crash in between loses one email instead of repeating it every minute.
         const moved = await transitionOrder({
           orderId: o.id,

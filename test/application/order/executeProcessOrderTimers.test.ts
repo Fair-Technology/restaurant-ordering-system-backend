@@ -242,6 +242,40 @@ describe('executeProcessOrderTimers', () => {
     vi.restoreAllMocks();
   });
 
+  describe('decline time before auto-accept', () => {
+    it('auto-accepts just before the deadline', async () => {
+      (findShopById as any).mockResolvedValue(DEFAULT_SHOP);
+      const store = storedOrder();
+      const res = await executeProcessOrderTimers({ now: new Date('2026-10-05T10:09:59Z') });
+      expect(capturePaymentIntent).toHaveBeenCalledTimes(1);
+      expect(store.current.state).toBe('ACCEPTED');
+      expect(res.autoAccepted).toBe(1);
+    });
+
+    it('does not capture a recovered key past the deadline', async () => {
+      (findShopById as any).mockResolvedValue(DEFAULT_SHOP);
+      const held = { ...PLACED_CARD_ORDER, captureConfigFailure: { at: '2026-10-05T10:01:00.000Z', attempts: 1 } };
+      (findPlacedOrdersCreatedBefore as any).mockResolvedValue([held]);
+      const store = storedOrder(held);
+      const res = await executeProcessOrderTimers({ now: new Date('2026-10-05T10:10:00Z') });
+      expect(capturePaymentIntent).not.toHaveBeenCalled();
+      expect(store.current.state).toBe('REJECTED');
+      expect(res.autoRejected).toBe(1);
+      expect(store.current.history.at(-1)).toMatchObject({ actor: { type: 'system' }, reason: 'payment_unavailable' });
+      expect(releaseAuthorization).toHaveBeenCalled();
+    });
+
+    it('declines an ordinary order past the deadline instead of accepting it', async () => {
+      (findShopById as any).mockResolvedValue(DEFAULT_SHOP);
+      const store = storedOrder();
+      const res = await executeProcessOrderTimers({ now: new Date('2026-10-05T10:10:00Z') });
+      expect(capturePaymentIntent).not.toHaveBeenCalled();
+      expect(store.current.state).toBe('REJECTED');
+      expect(store.current.history.at(-1)).toMatchObject({ actor: { type: 'system' }, reason: 'no_response' });
+      expect(res.autoRejected).toBe(1);
+    });
+  });
+
   it('a fixed key accepts the held order and drops the marker', async () => {
     (findShopById as any).mockResolvedValue(DEFAULT_SHOP);
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
