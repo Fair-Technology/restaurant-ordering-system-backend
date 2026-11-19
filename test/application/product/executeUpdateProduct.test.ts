@@ -32,6 +32,7 @@ import { findCategoriesByShopId } from '../../../src/infrastructure/cosmos/categ
 import { getReferenceLists } from '../../../src/infrastructure/cosmos/reference/CosmosReferenceListsRepository';
 import { executeUpdateProduct } from '../../../src/application/product/updateProduct/executeUpdateProduct';
 import { DE_REFERENCE_LISTS } from '../../../src/domain/reference/ReferenceLists';
+import { PRODUCT_PRICE_ERROR } from '../../../src/domain/product/price';
 
 const ownerAccess = {
   ok: true,
@@ -197,5 +198,29 @@ describe('executeUpdateProduct menu fields', () => {
 
     expect(result).toEqual({ ok: false, code: 'INVALID_INPUT', error });
     expect(updateProduct).not.toHaveBeenCalled();
+  });
+});
+
+describe('executeUpdateProduct price', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (authorizeShopAction as any).mockResolvedValue(ownerAccess);
+    (updateProduct as any).mockImplementation(async (p: any) => p);
+    (getReferenceLists as any).mockResolvedValue(DE_REFERENCE_LISTS);
+    (findProductById as any).mockResolvedValue(storedProduct());
+  });
+
+  it.each([12.5, NaN, 'abc', -3])('rejects the price %s', async (price) => {
+    const result = await executeUpdateProduct({ productId: 'p1', shopId: 'shop-1', price } as any, {} as any);
+
+    expect(result).toEqual({ ok: false, code: 'INVALID_INPUT', error: PRODUCT_PRICE_ERROR });
+    expect(updateProduct).not.toHaveBeenCalled();
+  });
+
+  it.each([0, 900, 100000])('accepts the price %s', async (price) => {
+    const result = await executeUpdateProduct({ productId: 'p1', shopId: 'shop-1', price } as any, {} as any);
+
+    expect(result.ok).toBe(true);
+    expect(updateProduct).toHaveBeenCalledWith(expect.objectContaining({ price }));
   });
 });
