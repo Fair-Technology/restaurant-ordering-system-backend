@@ -26,11 +26,20 @@ export function localDate(iso: string | Date, timeZone: string): string {
   );
 }
 
-/** A ready or delivered order nobody marked as handed over completes once the restaurant's local day has ended. */
+/** How long after the promised/ready time an order nobody finished is closed by the system. */
+export const AUTO_COMPLETE_AFTER_MINUTES = 4 * 60;
+
+/**
+ * An order nobody marked as handed over completes once it is four hours past its promised ready time,
+ * whatever the restaurant's day looks like (so a 24/7 restaurant works too). ACCEPTED counts because a
+ * never-marked-ready order has no other timer.
+ */
 export function isDueForAutoComplete(
   o: Pick<Order, 'state' | 'readyAt' | 'updatedAt'>,
   now: Date,
-  timeZone: string,
 ): boolean {
-  return (o.state === 'READY' || o.state === 'OUT_FOR_DELIVERY') && localDate(o.readyAt ?? o.updatedAt, timeZone) < localDate(now, timeZone);
+  if (o.state !== 'ACCEPTED' && o.state !== 'READY' && o.state !== 'OUT_FOR_DELIVERY') return false;
+  const anchor = o.readyAt ?? o.updatedAt;
+  if (!anchor) return false;
+  return now.getTime() - Date.parse(anchor) >= AUTO_COMPLETE_AFTER_MINUTES * 60_000;
 }

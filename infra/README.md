@@ -175,8 +175,8 @@ App settings, all set by hand (the template does not create them):
 | `ACS_EMAIL_SENDER` | The sender address of the Azure email domain. |
 | `STOREFRONT_BASE_URL` | Base URL of the storefront; the order link in each email is built from it. |
 
-The one-minute order timer (3-minute alert, auto-decline, auto-complete at
-local midnight) is a timer trigger, so it needs `AzureWebJobsStorage` on the
+The one-minute order timer (3-minute alert, auto-decline, auto-complete four
+hours after the ready time) is a timer trigger, so it needs `AzureWebJobsStorage` on the
 Function App. The dev app already has it.
 
 **Warning: redeploying `main.bicep` replaces the Function App's whole app
