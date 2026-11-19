@@ -173,7 +173,7 @@ describe('executeRecordStripeRefunds', () => {
       expect(m.store.current.payment.status).toBe('paid');
       expect(m.sendEmail).toHaveBeenCalledTimes(1);
       expect(m.sendEmail).toHaveBeenCalledWith(
-        expect.objectContaining({ subject: 'Erstattung für Bestellung AB3-K7P wurde nicht ausgeführt' }),
+        expect.objectContaining({ subject: 'Ma Pasta: Erstattung für Bestellung AB3-K7P wurde nicht ausgeführt' }),
       );
       expect(m.logAudit).toHaveBeenCalledWith(
         expect.objectContaining({ changes: [{ field: 'refundedCents', from: 300, to: 0 }] }),

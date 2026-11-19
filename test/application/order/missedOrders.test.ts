@@ -54,7 +54,7 @@ describe('recordMissedOrder', () => {
       expect.objectContaining({
         tag: 'orders_auto_paused',
         to: escalationRecipients(CARD_SHOP),
-        subject: 'Bestellungen pausiert: 3 Bestellungen in Folge nicht rechtzeitig angenommen',
+        subject: 'Ma Pasta: Bestellungen pausiert: 3 Bestellungen in Folge nicht rechtzeitig angenommen',
       }),
     );
     expect(logAudit).toHaveBeenCalledWith(expect.objectContaining({ action: 'shop.orders_auto_paused', actorType: 'system' }));
@@ -65,7 +65,7 @@ describe('recordMissedOrder', () => {
     (incrementMissedStreak as any).mockResolvedValue(1);
     await recordMissedOrder({ ...CARD_SHOP, missedOrdersPauseLimit: 1 }, now);
     expect(sendEmail).toHaveBeenCalledWith(
-      expect.objectContaining({ subject: 'Bestellungen pausiert: 1 Bestellung nicht rechtzeitig angenommen' }),
+      expect.objectContaining({ subject: 'Ma Pasta: Bestellungen pausiert: 1 Bestellung nicht rechtzeitig angenommen' }),
     );
   });
 
@@ -74,7 +74,7 @@ describe('recordMissedOrder', () => {
     (incrementMissedStreak as any).mockResolvedValue(3);
     await recordMissedOrder(CARD_SHOP, now);
     expect(sendEmail).toHaveBeenCalledWith(
-      expect.objectContaining({ subject: 'Orders paused: 3 orders in a row were not accepted in time' }),
+      expect.objectContaining({ subject: 'Ma Pasta: Orders paused: 3 orders in a row were not accepted in time' }),
     );
   });
 

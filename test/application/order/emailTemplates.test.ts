@@ -92,7 +92,7 @@ describe('order emails', () => {
         { id: 'v', amountCents: -300, reason: 'stripe_refund_failed', at: 'x', actor: { type: 'system' }, stripeRefundId: 're_1', reversesIndex: 0 },
       ],
     });
-    expect(mail.subject).toBe('Erstattung für Bestellung AB3-K7P wurde nicht ausgeführt');
+    expect(mail.subject).toBe('Ma Pasta: Erstattung für Bestellung AB3-K7P wurde nicht ausgeführt');
     expect(mail.text).toContain('Stripe hat die Erstattung von 3,00 € für Bestellung AB3-K7P nicht ausgeführt.');
     expect(mail.text).toContain(adminOrdersUrl);
   });
@@ -146,9 +146,35 @@ describe('order emails', () => {
       customerOrderUrl,
       adminOrdersUrl,
     });
-    expect(mail.subject).toBe('Zahlung für Bestellung AB3-K7P konnte nicht freigegeben werden');
+    expect(mail.subject).toBe('Ma Pasta: Zahlung für Bestellung AB3-K7P konnte nicht freigegeben werden');
     expect(mail.text).toContain('Stripe meldet: API down.');
     expect(mail.text).toContain(adminOrdersUrl);
+  });
+
+  it('staff release/refund failure subjects carry the restaurant name in English too', () => {
+    const englishShop = { ...CARD_SHOP, menuLanguages: ['en' as const] };
+    const refundFailed = buildOrderEmail({
+      kind: 'refund_failed',
+      order: {
+        ...ACCEPTED_CARD_ORDER,
+        refunds: [
+          { id: 'a', amountCents: 300, reason: 'x', at: 'x', actor: { type: 'system' }, stripeRefundId: 're_1' },
+          { id: 'v', amountCents: -300, reason: 'stripe_refund_failed', at: 'x', actor: { type: 'system' }, stripeRefundId: 're_1', reversesIndex: 0 },
+        ],
+      },
+      shop: englishShop,
+      customerOrderUrl,
+      adminOrdersUrl,
+    });
+    expect(refundFailed.subject).toBe('Ma Pasta: Refund for order AB3-K7P was not carried out');
+    const releaseFailed = buildOrderEmail({
+      kind: 'payment_release_failed',
+      order: { ...PLACED_CARD_ORDER, releaseFailure: { at: 'x', message: 'API down', notifiedAt: null } },
+      shop: englishShop,
+      customerOrderUrl,
+      adminOrdersUrl,
+    });
+    expect(releaseFailed.subject).toBe('Ma Pasta: Payment for order AB3-K7P could not be released');
   });
 
   it("a table order's email names the table and leaves out the pickup address", () => {

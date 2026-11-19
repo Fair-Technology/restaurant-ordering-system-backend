@@ -122,11 +122,11 @@ export function buildAutoPausedEmail(shop: Shop, missedOrders: number, shopStatu
   const n = missedOrders;
   const subject = de
     ? n === 1
-      ? 'Bestellungen pausiert: 1 Bestellung nicht rechtzeitig angenommen'
-      : `Bestellungen pausiert: ${n} Bestellungen in Folge nicht rechtzeitig angenommen`
+      ? `${shop.name}: Bestellungen pausiert: 1 Bestellung nicht rechtzeitig angenommen`
+      : `${shop.name}: Bestellungen pausiert: ${n} Bestellungen in Folge nicht rechtzeitig angenommen`
     : n === 1
-      ? 'Orders paused: 1 order was not accepted in time'
-      : `Orders paused: ${n} orders in a row were not accepted in time`;
+      ? `${shop.name}: Orders paused: 1 order was not accepted in time`
+      : `${shop.name}: Orders paused: ${n} orders in a row were not accepted in time`;
   return render(subject, [
     {
       type: 'p',
@@ -146,7 +146,9 @@ function buildReleaseFailedEmail(order: Order, shop: Shop, adminOrdersUrl: strin
   const ref = order.orderRef;
   const message = order.releaseFailure?.message ?? '';
   return render(
-    de ? `Zahlung für Bestellung ${ref} konnte nicht freigegeben werden` : `Payment for order ${ref} could not be released`,
+    de
+      ? `${shop.name}: Zahlung für Bestellung ${ref} konnte nicht freigegeben werden`
+      : `${shop.name}: Payment for order ${ref} could not be released`,
     [
       {
         type: 'p',
@@ -166,7 +168,9 @@ function buildRefundFailedEmail(order: Order, shop: Shop, adminOrdersUrl: string
   const money = formatters(lang, order.currency, shop.timezone).money(-((order.refunds ?? []).at(-1)?.amountCents ?? 0));
   const ref = order.orderRef;
   return render(
-    de ? `Erstattung für Bestellung ${ref} wurde nicht ausgeführt` : `Refund for order ${ref} was not carried out`,
+    de
+      ? `${shop.name}: Erstattung für Bestellung ${ref} wurde nicht ausgeführt`
+      : `${shop.name}: Refund for order ${ref} was not carried out`,
     [
       {
         type: 'p',
