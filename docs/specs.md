@@ -155,17 +155,20 @@ already taken, which is the one thing that cannot be undone.
 - Collection and delivery are both "taken away"; dine-in is "eaten in". Kept as
   distinct modes even though Germany treats them alike.
 - Delivery fees and any surcharge carry their own rate, set by the restaurant.
-- **To build (decided 2026-10-13):** a separate **"Delivery" tax class at 19 %**
-  becomes the default for delivery fees, replacing the Speisen 7 % default below.
-  Its own class, not Getränke, so each rate can change alone. See
+- **Built (decided 2026-10-13):** a separate **"Delivery" tax class at 19 %** is
+  the default for delivery fees, replacing the Speisen 7 % default. Its own
+  class, not Getränke, so each rate can change alone. See
   [[delivery-fee-tax-class]].
 
-> **Built: 8b (2026-10-09, pushed and deployed to dev).** The delivery fee's tax
-> class is picked in Settings → Delivery (default: the country's default class,
-> "Speisen (7 %)" in Germany); the fee is its own invoice line with its own rate.
+> **Built: 8b (2026-10-09, pushed and deployed to dev); Delivery class always
+> used since 2026-10-13.** The delivery fee is its own invoice line, always at
+> the country's **Delivery** class ("Delivery (19 %)" in Germany) — never
+> Speisen. The per-shop setting `deliveryFeeTaxClassId` is deprecated and always
+> null; the Settings → Delivery class picker is retired.
 
-**Germany's seeded classes: two.** *Food* at 7% and *Beverage* at 19%, and that
-is the whole table — **no beverage gets the reduced rate.** Not milk-based
+**Germany's seeded classes: three.** *Food* at 7%, *Beverage* at 19% and
+*Delivery* at 19% (the delivery fee's own class) — and that is the whole table —
+**no beverage gets the reduced rate.** Not milk-based
 drinks, not tap water.
 
 This was an open question and is now settled. Published guidance disagreed,
@@ -387,10 +390,9 @@ A web page in the admin app, run on a tablet in the kitchen. No native app in
 v1 (React Native later, against the same API). It provides:
 
 1. **An instant on-screen badge** over an open connection — new orders appear
-   without a refresh. **Until slice 5a the screen checks for new orders every
-   10 seconds instead** (slice 4a); the connection indicator turns red after
-   30 s without contact. The open connection (Azure Web PubSub) and push
-   notifications (item 3) arrive in 5a with the real-tablet test.
+   without a refresh, with a 10-second poll kept as a fallback; the connection
+   indicator turns red after 30 s without contact. The open connection (Azure
+   Web PubSub) and push notifications (item 3) are **built**.
 2. **A looping alarm sound.** Browsers refuse audio until the page has been
    interacted with, so the screen asks for one "enable sound" tap at the start
    of each shift, then rings freely.
@@ -474,7 +476,8 @@ built (§22).
 **Required:** name and description (per offered language, §12), price, one or
 more categories, allergens, additives, and an available flag. **Optional:**
 photo, dietary and spice tags, sizes, extras, availability window, preparation
-time, per-mode availability, sort order. Tax class comes from the category.
+time, per-mode availability, sort order. **The dish owns its own tax class**; a
+category's class is only the suggestion for a new dish (§2).
 
 The existing admin app has a multi-step product wizard; keep it — essentials on
 step one so a simple dish is four fields and a save.
@@ -520,7 +523,8 @@ the menu. Decision: [[option-allergens-undeclared-adds-nothing]].
 
 ### Availability
 
-- **Sold-out switch** per dish, and per size or extra option.
+- **Sold-out switch** per dish, and per size or extra option, with an optional
+  **`unavailableUntil`** window after which the dish returns by itself.
 - **Time-limited availability:** date range, days of week, daily time window
   (a lunch menu 11:00–15:00), with an optional offer price and label for that
   window. Already exists. **The offer price is now actually charged** — before
@@ -571,9 +575,11 @@ computed from the components (§2).
 
 ### Also in the core design
 
-Dietary and spice tags (vegan, halal, gluten-free, mild/hot), customer notes on
-a line ("no onions"), checkout upsells ("add a drink?"), per-item preparation
-time.
+**Dietary tags are built:** vegan, vegetarian, halal, gluten-free and
+lactose-free. **Spice level is built too**, as its own per-dish field
+(`spiceLevel`: mild / medium / hot), not as a dietary tag. Customer notes on a
+line ("no onions") and per-item preparation time are built. **Checkout upsell
+("add a drink?") is parked — see §22.**
 
 ### Photos
 
@@ -598,7 +604,7 @@ orientation and metadata drop, but is never cropped: it is shrunk to fit inside
 A product belongs to exactly one shop — never to a user — and carries its own
 variants, extras, media, tags and allergen data. There is no separate
 shop-to-product mapping: availability, price and ordering are edited on the dish
-itself. Categories are per shop and hierarchical. Every stored document shares
+itself. Categories are per shop and flat (no nesting). Every stored document shares
 one base contract (optional tenant marker, tags, metadata, version, soft
 deletion via `archivedAt`/`isDeleted`), so backups, analytics and compliance
 exports work the same across containers. Records are soft-deleted, never
@@ -632,7 +638,8 @@ CANCELLED    → (end)
 `ACCEPTED` carries a ready-time. `REJECTED` and `CANCELLED` carry a reason and a
 timestamp. `IN_PREPARATION` is derived (accepted and within prep time), not
 pressed. `READY` only for collection and dine-in; `OUT_FOR_DELIVERY` only for
-delivery. An uncollected `READY` order auto-completes at end of day.
+delivery. An uncollected `READY` order auto-completes by age — **4 hours after
+its promised time**, not at end of day.
 
 Every transition is appended to the order's history with who and when.
 
@@ -1098,10 +1105,11 @@ English-speaking manager work on the same restaurant in their own languages.
 ### Superadmin
 
 Only Manish at first, with the full set: see everything, change subscriptions,
-suspend a restaurant, edit a restaurant's content, impersonate an owner —
-**every use written to the audit log and visible to that restaurant.** A
-superadmin permission model exists from the start, everyone defaulting to full
-access, so an invited helper can be restricted later without a rewrite.
+suspend a restaurant, edit a restaurant's content — **every use written to the
+audit log and visible to that restaurant.** A superadmin permission model exists
+from the start, everyone defaulting to full access, so an invited helper can be
+restricted later without a rewrite. **Impersonating an owner is not offered**
+(parked, §22).
 
 **Who counts as platform staff is decided by where the identity comes from.**
 The API trusts two token issuers and they mean different things: the **customer
@@ -1259,9 +1267,10 @@ Managed in superadmin, **per country**, translated centrally, referenced by id:
   antioxidant, flavour enhancer, sulphured, blackened, waxed, phosphate,
   sweetener, phenylalanine source, caffeine, quinine, taurine).
 - **Tax classes** and each country's class × fulfilment mode → rate table, every
-  row carrying an effective-from date (§2). Germany has exactly two classes —
-  *Food* 7% and *Beverage* 19% — identical across all three fulfilment modes. No
-  beverage gets the reduced rate.
+  row carrying an effective-from date (§2). Germany has three classes — *Food*
+  7%, *Beverage* 19% and *Delivery* 19% (the delivery fee's own class). Food and
+  Beverage are identical across all three fulfilment modes; no beverage gets the
+  reduced rate.
 
 A legal change is one edit by Manish, never a thousand restaurants updating
 their menus.
@@ -1493,8 +1502,10 @@ and is the restaurant's own content. This section is only about what a
 - **The delivery address is handled like the billing address** (slice 8b): shown
   to the restaurant's order staff on delivery orders, in the diner's own order
   page and emails, included in the owner's export, removed by erasure; **never
-  on the invoice and never in the activity log.** No automatic blanking after a
-  period yet (that is slice 5a's retention clean-up).
+  on the invoice and never in the activity log.** A daily timer
+  (`deliveryAddressRetention`) blanks it **180 days** after the order is placed
+  (confirmed by the owner 2026-11-19); it clears that one field only and never
+  writes `anonymisedAt`.
 - **Erasure also removes the kitchen notes** on that customer's orders; the
   personal fields are anonymised and the order itself stays for the restaurant's
   records.
@@ -1631,10 +1642,12 @@ already set it.
 
 Every restaurant has a switch. **Off** — the storefront shows the restaurant's
 name and "not currently taking orders"; no menu, no basket; the link never
-looks broken. **On** — refuses to switch unless the minimums exist: one
-published dish, opening hours, one fulfilment mode, a contact phone number, the
-legal pages, a **connected Stripe account** (every order is paid online —
-§8), and a **tax number or VAT ID** for its invoices (§10).
+looks broken. **On** — refuses to switch unless the minimums exist: a shop
+**name**, one published dish, **at least one category**, opening hours, one
+fulfilment mode, a contact phone number, **a full address (street, town,
+postcode and the country's state field where the country uses one)**, the legal
+pages, a **connected Stripe account** (every order is paid online — §8), and a
+**tax number or VAT ID** for its invoices (§10).
 The legal pages are five checks (slice 3): current DPA accepted, Impressum
 complete, terms published, withdrawal policy published, privacy notice
 generatable. A restaurant already live isn't switched off by them, but checkout
@@ -1709,7 +1722,8 @@ merged to `dev` in storefront + admin, not yet pushed):**
 - **Dish photos — same approach, 4:3** (same date and status): stored exactly
   **1200 × 900**, min source 800 × 600, cropped in the same crop window with a centre-square
   "Phone list" area; backend refuses others (`PRODUCT_IMAGE_WRONG_SIZE`). The dish popup
-  shows the photo at 4:3. Combos have no photo upload, so nothing changed there.
+  shows the photo at 4:3. A combo also has a required photo, cropped and stored
+4:3 like a dish (§6).
 - **Logo when uploaded:**
   - Shown whole, bare (no border, rounding or background) and with **no name beside it** in the header.
   - Height is 48 px, or 40 px on phones.
@@ -1755,10 +1769,12 @@ be swapped without touching a template.
 **The per-restaurant display name can't be done** (found in slice 4a): Azure
 Communication Services fixes the sender name per configured sender address, not
 per email. So mail arrives from the platform's fixed sender name; instead the
-**subject starts with the restaurant's name** and **reply-to is the
-restaurant's Impressum email**. Diner emails use the language the diner browsed
-in and end with the restaurant's Impressum. Without email configured, emails
-are written to the log only (kind and order ref, never contents or addresses).
+**subject starts with the restaurant's name**. **Diner emails** are sent with the
+**restaurant's Impressum email as reply-to**, use the language the diner browsed
+in and end with the restaurant's Impressum. **Staff emails** (escalation, limit
+warnings) also carry the restaurant's name in the subject but are sent with **no
+reply-to**. Without email configured, emails are written to the log only (kind
+and order ref, never contents or addresses).
 
 ---
 
@@ -1768,7 +1784,8 @@ All per restaurant, always — platform-wide value would make Manish a clearing
 house between businesses.
 
 - **Discount codes and promotions.** Per restaurant: percentage or fixed,
-  optional minimum, dates, total limit and per-diner limit (default 1), on/off;
+  optional minimum, dates, total limit and per-email limit (default 1; counted
+  per customer e-mail address), on/off;
   not editable once made. One code per order; never off the delivery fee; at
   least €0.50 always charged. On the invoice each dish keeps its menu price and
   the discount is one "Rabatt CODE" line per VAT rate. *Built 8d (2026-10-09).*
@@ -1816,9 +1833,9 @@ The kitchen tablet is a real design constraint: glanceable at arm's length,
 big touch targets, readable with greasy hands and bad lighting. Those rules
 live in the shared components, not in a note everyone forgets by screen twelve.
 
-The move from Tailwind 3 to 4 is a migration, not a version bump, and is done
-together with this design pass (as is the React-hooks lint plugin's compiler
-rules, which would fail today's clean lint gate in the storefront).
+Tailwind 4 is already in use in all four apps. The React-hooks lint plugin is at
+7.x in admin and superadmin; the storefront stays on 5.x until this design pass,
+because 7.x's compiler rules would fail its current clean lint gate.
 
 ---
 
@@ -1843,9 +1860,8 @@ rules, which would fail today's clean lint gate in the storefront).
 
   ⛔ The product has its own Stripe **test** sandbox (since 2026-10-06), but its
   own **live** account is not yet set up. No real payment can be taken until it
-  is. The backend's Stripe library is held at major 20 (current is 23) because
-  newer majors change the Stripe API version and a break would only show at
-  runtime; that can now be exercised in the dev sandbox. The storefront's Stripe
+  is. The backend's Stripe library is on **major 23** (since 2026-11-15, tested
+  against the dev sandbox); it is no longer held at 20. The storefront's Stripe
   packages follow the backend's bump, never precede it.
 - **Same Azure subscription, its own resource group**, EU region.
 - **The dev environment was recreated in `westeurope`** on 2026-09-23 under
@@ -1945,11 +1961,10 @@ deliberate differences:
 card `t_0ba138d2`; the earlier "all four repos use `dev` → `main`" wording was
 false for the three front-ends):
 
-- **`rs-backend` — `dev` → `main`.** Work merges into `dev` first; a release is
-  `dev` merged into `main`. `main_restaurant-ordering-system.yml` triggers on
-  both branches: a push to `dev` builds, tests and deploys the dev Function App,
-  a push to `main` builds and tests the promotable artifact. The `dev` branch
-  exists on `origin` (created 2026-11-15 at `origin/main`).
+- **`rs-backend` — `main` → dev environment → promote, same as the front-ends.**
+  There is **no `dev` branch** on `origin`; `main` is the only integration
+  branch. A `main` push builds, tests and deploys the dev Function App, and that
+  same `main` run is the artifact `promote.yml` promotes to production.
 - **`rs-admin`, `rs-superadmin`, `rs-storefront` — `main` → dev environment →
   promote.** There is no `dev` branch in these repos; `main` is their only
   integration branch. `azure-static-web-apps.yml` triggers on `push` and
@@ -1978,6 +1993,12 @@ API with the test Stripe key. **No front-end is promoted to production until its
 promote job rebuilds the tagged commit under the production environment's
 variables.** Every variable a front-end reads must also be mapped in its
 workflow's build step, or it silently becomes `undefined`.
+
+### Dev-only test-clock routes
+
+The backend exposes `POST /platform/test-clock/...` routes that advance the
+platform clock in tests. They are registered **only** when the
+`ENABLE_TEST_CLOCK_ROUTES` setting is `true`, so they never exist in production.
 
 ### Observability
 
@@ -2071,16 +2092,13 @@ notice-and-action mini-slice → 6 → 9. Slice numbers below are unchanged.
      pointed at production. (Dev already has its own test sandbox, separate
      from copyshop's, since 2026-10-06.)
    - **Branches and deploys** (Manish, 2026-10-01; flow corrected 2026-11-15,
-     card `t_0ba138d2`) — `main` deploys to production in all four repos (via
-     `promote.yml` in each; still to be enabled here). What triggers the dev
-     environment differs per repo, and the older "in all four repos, `dev`
-     deploys to the dev environment (already wired)" wording was false for
-     three of them — see §20 "Release pipeline":
-     - `rs-backend` — work merges into `dev` first and a release is `dev`
-       merged into `main`; a `dev` push deploys the dev Function App.
-     - `rs-admin`, `rs-superadmin`, `rs-storefront` — no `dev` branch; `main`
-       is the only integration branch, a `main` push deploys the dev Static Web
-       App, and that same `main` run is what `promote.yml` can promote.
+     card `t_0ba138d2`; `dev` branch removed 2026-11-19, card `t_3d37bfe7`) —
+     `main` is the only integration branch in **all four repos** and deploys to
+     production via `promote.yml` (still to be enabled here). There is **no
+     `dev` branch anywhere**: a `main` push deploys the dev environment (the dev
+     Function App for the backend, the dev Static Web App for the three
+     front-ends) and that same `main` run is what `promote.yml` can promote. See
+     §20 "Release pipeline".
      No hand-deploys. No separate `test` branch for now.
    - **Error monitoring and alerts** — backend failures (especially order
      intake and payment webhooks) alert Manish before a restaurant notices.
@@ -2113,8 +2131,9 @@ notice-and-action mini-slice → 6 → 9. Slice numbers below are unchanged.
      all repos and deployed to dev. Optional deployed check D1 (auto-accept by hours on a real card
      order) still open.
    - **8b** delivery — **built 2026-10-09**: postcode zones with their own fee
-     and minimum, the fee as its own invoice line at 7 %, delivery address and
-     phone for all order staff, "Out for delivery" → "Delivered" on the board.
+     and minimum, the fee as its own invoice line at its own Delivery class
+     (19 %), delivery address and phone for all order staff, "Out for delivery"
+     → "Delivered" on the board.
      Merged into `dev` (backend `86acb0f`, storefront `9f9d6f1`, admin
      `ae7731b`, superadmin `c8e11cb`), code-tester PASS, **pushed by Manish
      2026-10-09** in all four repos and deployed to dev. Deployed checks D1–D3
@@ -2253,9 +2272,14 @@ bringing it back means undoing a decision something else depends on.
 - **Reservations and deposits.** Cut from v1 after detailed design: deposit
   charged to the restaurant's own Stripe account, auto-refunded when staff mark
   the party arrived, kept on a no-show after a grace period.
-- **Superadmin roles** beyond Manish (§11) and **owner-editable role
-  permissions**: per-restaurant editing waits until real owners say which
-  permission they wanted to move.
+- **Owner-editable role permissions**: per-restaurant editing waits until real
+  owners say which permission they wanted to move. (The platform's own roles —
+  `Platform.Owner`, `Platform.Support`, `Platform.ReadOnly` — exist, §11, so
+  "superadmin roles beyond Manish" is no longer parked.)
+- **Superadmin impersonating an owner** (§11): a large, security-sensitive
+  feature nobody needs yet, and it sits against §8's rule that superadmin never
+  acts on a restaurant's behalf. If support later needs it, start with a
+  read-only view-as-owner, audit-logged.
 - **Per-item preparation times driving the ready-time estimate**: captured from
   day one, but a computed estimate is only as good as numbers nobody fills in
   accurately at signup; it earns its place once there is real data (§5).
@@ -2287,17 +2311,34 @@ bringing it back means undoing a decision something else depends on.
   basket from the order's secret link; "sold out until tomorrow" from the order
   board (the dish returns by itself next morning); "popular" badges from the
   sales report; suggested translations on a two-language menu.
-- **Parked from the 2026-10-13 triage (real but someday):** a dish
-  `unavailableUntil` — today availability is a plain flag editable with
-  `manage_stock` (granted to Staff and Manager by default) or `manage_menu`, and
-  declining with "item unavailable" does not touch the dish; the admin UI for the
-  shop-wide option-group library (the backend is built, §6 "Sizes and extras":
-  one "out of Coke" switch covers every dish that references the group; the
-  admin screens to manage the library and attach groups to dishes are pending);
-  translated offer labels; removing a logo once set; resolving staff and shop
-  names, instead of ids, in the activity log.
-- **Dependency majors held back:** admin i18next 26 / react-i18next 17 /
-  i18next-http-backend 4 (translation breakage only shows at runtime, so it needs
-  a browser pass in both languages); unpinning the admin's React-hooks lint
-  plugin from 7.0.1 (the original blocker is gone and the lint count is
-  unchanged); the Stripe majors (§20) and Tailwind 4 (§19).
+- **Parked from the 2026-10-13 triage (real but someday):** resolving staff and
+  shop names, instead of ids, in the activity log. (Since built, so no longer
+  parked: a dish `unavailableUntil` and its `manage_stock` availability window;
+  the option-group library admin screens; translated offer labels; removing a
+  logo once set — see §6.)
+- **Dependency majors:** admin i18next 26 / react-i18next 17 /
+  i18next-http-backend 4 are **adopted** (browser pass done, commit `83deaad`);
+  the backend is on Stripe **23** (§20); Tailwind **4** is in use in all four
+  apps (§19). The storefront's React-hooks lint plugin stays on **5.x** until the
+  §19 design pass (admin and superadmin are on 7.x).
+
+---
+
+## 23. Configuration numbers held only in the code
+
+Product numbers that live in the code and were not written into the sections
+above. Recorded here so a change to one is noticed:
+
+| What | Value |
+|---|---|
+| Busy-mode minutes | 5 to 120 (default 20) |
+| Auto-reject timeout | 5 to 30 minutes (default 10) |
+| Delivery postcode, non-Germany | 3 to 10 letters, digits or dashes |
+| Delivery zones per shop | at most 200 |
+| Discount codes per shop | at most 50 |
+| Loyalty rule | every 2 to 20 orders, reward €1.00 to €50.00 |
+| Discount per-email limit | 1 to 100 |
+| Staff lockout after failed logins | 15 minutes |
+| Failed-payment warning emails | on days 0, 3 and 6 after a failure |
+| Default manager permissions | also `view_audit` and `manage_stock` |
+| Table label | must start with a letter or digit |

@@ -15,15 +15,15 @@ import { Order } from '../order/Order';
 export const DELIVERY_ADDRESS_RETENTION_DAYS_SETTING = 'DELIVERY_ADDRESS_RETENTION_DAYS';
 
 /**
- * Days after an order is placed before its delivery address is blanked. 180 is a PROVISIONAL default
- * (the card-network dispute window of 120 days plus a resolution tail) pending owner confirmation;
- * it lives behind a setting precisely so the confirmed figure can change without touching code.
+ * Days after an order is placed before its delivery address is blanked. 180 is the CONFIRMED default
+ * (owner, 2026-11-19) — the card-network dispute window of 120 days plus a resolution tail; it
+ * lives behind a setting so a future change needs no code change.
  */
 export const DEFAULT_DELIVERY_ADDRESS_RETENTION_DAYS = 180;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-/** The configured retention window in days, or the provisional default when unset or unreadable. */
+/** The configured retention window in days, or the confirmed default when unset or unreadable. */
 export function deliveryAddressRetentionDays(env: NodeJS.ProcessEnv = process.env): number {
   const raw = env[DELIVERY_ADDRESS_RETENTION_DAYS_SETTING];
   if (raw === undefined || String(raw).trim() === '') return DEFAULT_DELIVERY_ADDRESS_RETENTION_DAYS;
