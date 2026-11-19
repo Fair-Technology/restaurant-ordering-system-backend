@@ -19,6 +19,7 @@ import { loyaltyOffer, normaliseCode } from '../../../domain/promotion/promotion
 import { isOpenForAsapOrder } from '../../../domain/order/openingHours';
 import {
   ADDRESS_INVALID_ERROR,
+  CUSTOMER_PHONE_ERROR,
   ADDRESS_REQUIRED_ERROR,
   BASKET_CHANGED_ERROR,
   DELIVERY_ADDRESS_INVALID_ERROR,
@@ -84,6 +85,15 @@ import { CheckoutRequestDto, CheckoutResultDto } from './dtos';
 
 const MAX_NAME_CHARS = 200;
 const MAX_NOTES_CHARS = 500;
+const MAX_PHONE_CHARS = 30;
+const PHONE_CHARSET_PATTERN = /^[0-9+\-().\s]+$/;
+
+/** Allowed characters only, and a sensible count of digits for a real phone number. */
+function isPlausiblePhone(value: string): boolean {
+  if (!PHONE_CHARSET_PATTERN.test(value)) return false;
+  const digitCount = value.replace(/\D/g, '').length;
+  return digitCount >= 6 && digitCount <= 15;
+}
 
 const MAX_ADDRESS_FIELD_CHARS = 200;
 
@@ -117,10 +127,11 @@ export async function executeCheckout(
   const itemsError = validateBasketItems(request.items);
   if (itemsError) return { ok: false, code: 'INVALID_INPUT', error: itemsError };
 
-  if (!request.customerName || typeof request.customerName !== 'string') {
+  const customerName = typeof request.customerName === 'string' ? request.customerName.trim() : '';
+  if (!customerName) {
     return { ok: false, code: 'INVALID_INPUT', error: 'customerName is required' };
   }
-  if (request.customerName.length > MAX_NAME_CHARS) {
+  if (customerName.length > MAX_NAME_CHARS) {
     return { ok: false, code: 'INVALID_INPUT', error: `customerName must be at most ${MAX_NAME_CHARS} characters` };
   }
   if (!request.customerEmail || typeof request.customerEmail !== 'string') {
@@ -129,8 +140,12 @@ export async function executeCheckout(
   if (!EMAIL_PATTERN.test(request.customerEmail.trim())) {
     return { ok: false, code: 'INVALID_INPUT', error: 'customerEmail must be a valid email address' };
   }
-  if (!request.customerPhone || typeof request.customerPhone !== 'string') {
+  const customerPhone = typeof request.customerPhone === 'string' ? request.customerPhone.trim() : '';
+  if (!customerPhone) {
     return { ok: false, code: 'INVALID_INPUT', error: 'customerPhone is required' };
+  }
+  if (customerPhone.length > MAX_PHONE_CHARS || !isPlausiblePhone(customerPhone)) {
+    return { ok: false, code: 'INVALID_INPUT', error: CUSTOMER_PHONE_ERROR };
   }
   if (request.customerNotes !== undefined && request.customerNotes !== null) {
     if (typeof request.customerNotes !== 'string' || request.customerNotes.length > MAX_NOTES_CHARS) {
@@ -423,9 +438,9 @@ export async function executeCheckout(
       ...(discount ? { discount } : {}),
       ...(loyaltyOptIn ? { loyaltyOptIn: true as const } : {}),
       currency: shop.currency,
-      customerName: request.customerName,
+      customerName,
       customerEmail: request.customerEmail.trim(),
-      customerPhone: request.customerPhone,
+      customerPhone,
       customerNotes: request.customerNotes,
       ...(customerAddress ? { customerAddress } : {}),
       ...(table ? { table } : {}),
