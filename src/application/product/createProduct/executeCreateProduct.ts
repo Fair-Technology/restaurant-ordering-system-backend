@@ -16,6 +16,7 @@ import { toMenuFieldsDto } from '../menuFieldsDto';
 import { CREATE_WITH_PHOTOS_ERROR } from '../../../domain/images/imageRules';
 import { logAudit } from '../../_shared/auditHelpers';
 import { logServiceFailure } from '../../_shared/logServiceFailure';
+import { PRODUCT_PRICE_ERROR, isValidPriceCents } from '../../../domain/product/price';
 
 export async function executeCreateProduct(
   request: CreateProductRequestDto,
@@ -54,11 +55,11 @@ export async function executeCreateProduct(
     };
   }
 
-  if (typeof request.price !== 'number' || request.price < 0) {
+  if (!isValidPriceCents(request.price)) {
     return {
       ok: false,
       code: 'INVALID_INPUT',
-      error: 'price is required and must be a non-negative number',
+      error: PRODUCT_PRICE_ERROR,
     };
   }
 

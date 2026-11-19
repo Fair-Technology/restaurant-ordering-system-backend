@@ -20,6 +20,7 @@ import { toMenuFieldsDto } from '../menuFieldsDto';
 import { PRODUCT_IMAGE_REQUIRED, mergeProductImages, unknownOrChangedImage, wouldRemoveLastProductImage } from '../../../domain/images/imageRules';
 import { diffFields, logAudit } from '../../_shared/auditHelpers';
 import { logServiceFailure } from '../../_shared/logServiceFailure';
+import { PRODUCT_PRICE_ERROR, isValidPriceCents } from '../../../domain/product/price';
 
 export async function executeUpdateProduct(
   request: UpdateProductRequestDto,
@@ -47,6 +48,14 @@ export async function executeUpdateProduct(
       ok: false,
       code: 'INVALID_INPUT',
       error: 'shopId is required and must be a non-empty string',
+    };
+  }
+
+  if (request.price !== undefined && !isValidPriceCents(request.price)) {
+    return {
+      ok: false,
+      code: 'INVALID_INPUT',
+      error: PRODUCT_PRICE_ERROR,
     };
   }
 
