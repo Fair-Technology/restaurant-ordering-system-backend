@@ -33,6 +33,7 @@ import { getReferenceLists } from '../../../src/infrastructure/cosmos/reference/
 import { executeUpdateProduct } from '../../../src/application/product/updateProduct/executeUpdateProduct';
 import { DE_REFERENCE_LISTS } from '../../../src/domain/reference/ReferenceLists';
 import { PRODUCT_PRICE_ERROR } from '../../../src/domain/product/price';
+import { PRODUCT_NAME_ERROR, PRODUCT_DESCRIPTION_ERROR } from '../../../src/domain/product/naming';
 
 const ownerAccess = {
   ok: true,
@@ -222,5 +223,46 @@ describe('executeUpdateProduct price', () => {
 
     expect(result.ok).toBe(true);
     expect(updateProduct).toHaveBeenCalledWith(expect.objectContaining({ price }));
+  });
+});
+
+describe('executeUpdateProduct name and description', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (authorizeShopAction as any).mockResolvedValue(ownerAccess);
+    (updateProduct as any).mockImplementation(async (p: any) => p);
+    (getReferenceLists as any).mockResolvedValue(DE_REFERENCE_LISTS);
+    (findProductById as any).mockResolvedValue(storedProduct());
+  });
+
+  it.each(['', '   ', 123, null])('rejects the name %j', async (name) => {
+    const result = await executeUpdateProduct({ productId: 'p1', shopId: 'shop-1', name } as any, {} as any);
+
+    expect(result).toEqual({ ok: false, code: 'INVALID_INPUT', error: PRODUCT_NAME_ERROR });
+    expect(updateProduct).not.toHaveBeenCalled();
+  });
+
+  it.each(['', 123, null])('rejects the description %j', async (description) => {
+    const result = await executeUpdateProduct({ productId: 'p1', shopId: 'shop-1', description } as any, {} as any);
+
+    expect(result).toEqual({ ok: false, code: 'INVALID_INPUT', error: PRODUCT_DESCRIPTION_ERROR });
+    expect(updateProduct).not.toHaveBeenCalled();
+  });
+
+  it('stores a trimmed name and the description', async () => {
+    const result = await executeUpdateProduct(
+      { productId: 'p1', shopId: 'shop-1', name: '  Calzone  ', description: 'Folded' } as any,
+      {} as any,
+    );
+
+    expect(result.ok).toBe(true);
+    expect(updateProduct).toHaveBeenCalledWith(expect.objectContaining({ name: 'Calzone', description: 'Folded' }));
+  });
+
+  it('accepts a name-only update', async () => {
+    const result = await executeUpdateProduct({ productId: 'p1', shopId: 'shop-1', name: 'Calzone' } as any, {} as any);
+
+    expect(result.ok).toBe(true);
+    expect(updateProduct).toHaveBeenCalledWith(expect.objectContaining({ name: 'Calzone' }));
   });
 });

@@ -21,6 +21,7 @@ import { PRODUCT_IMAGE_REQUIRED, mergeProductImages, unknownOrChangedImage, woul
 import { diffFields, logAudit } from '../../_shared/auditHelpers';
 import { logServiceFailure } from '../../_shared/logServiceFailure';
 import { PRODUCT_PRICE_ERROR, isValidPriceCents } from '../../../domain/product/price';
+import { PRODUCT_NAME_ERROR, PRODUCT_DESCRIPTION_ERROR, isValidProductName, isValidProductDescription } from '../../../domain/product/naming';
 
 export async function executeUpdateProduct(
   request: UpdateProductRequestDto,
@@ -57,6 +58,13 @@ export async function executeUpdateProduct(
       code: 'INVALID_INPUT',
       error: PRODUCT_PRICE_ERROR,
     };
+  }
+
+  if (request.name !== undefined && !isValidProductName(request.name)) {
+    return { ok: false, code: 'INVALID_INPUT', error: PRODUCT_NAME_ERROR };
+  }
+  if (request.description !== undefined && !isValidProductDescription(request.description)) {
+    return { ok: false, code: 'INVALID_INPUT', error: PRODUCT_DESCRIPTION_ERROR };
   }
 
   try {
@@ -215,7 +223,7 @@ export async function executeUpdateProduct(
     // Update only provided fields
     const updatedProduct = {
       ...product,
-      ...(request.name !== undefined && { name: request.name }),
+      ...(request.name !== undefined && { name: request.name.trim() }),
       ...(request.description !== undefined && {
         description: request.description,
       }),

@@ -17,6 +17,7 @@ import { CREATE_WITH_PHOTOS_ERROR } from '../../../domain/images/imageRules';
 import { logAudit } from '../../_shared/auditHelpers';
 import { logServiceFailure } from '../../_shared/logServiceFailure';
 import { PRODUCT_PRICE_ERROR, isValidPriceCents } from '../../../domain/product/price';
+import { PRODUCT_NAME_ERROR, PRODUCT_DESCRIPTION_ERROR, isValidProductName, isValidProductDescription } from '../../../domain/product/naming';
 
 export async function executeCreateProduct(
   request: CreateProductRequestDto,
@@ -35,24 +36,12 @@ export async function executeCreateProduct(
     };
   }
 
-  if (
-    !request.name ||
-    typeof request.name !== 'string' ||
-    request.name.trim() === ''
-  ) {
-    return {
-      ok: false,
-      code: 'INVALID_INPUT',
-      error: 'name is required and must be a non-empty string',
-    };
+  if (!isValidProductName(request.name)) {
+    return { ok: false, code: 'INVALID_INPUT', error: PRODUCT_NAME_ERROR };
   }
 
-  if (!request.description || typeof request.description !== 'string') {
-    return {
-      ok: false,
-      code: 'INVALID_INPUT',
-      error: 'description is required and must be a string',
-    };
+  if (!isValidProductDescription(request.description)) {
+    return { ok: false, code: 'INVALID_INPUT', error: PRODUCT_DESCRIPTION_ERROR };
   }
 
   if (!isValidPriceCents(request.price)) {
