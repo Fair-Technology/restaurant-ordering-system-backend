@@ -1957,9 +1957,10 @@ deliberate differences:
 
 ### Release pipeline
 
-**The branch flow is not the same in all four repos** (corrected 2026-11-15,
-card `t_0ba138d2`; the earlier "all four repos use `dev` → `main`" wording was
-false for the three front-ends):
+**There is no `dev` branch in any of the four repos** (flow corrected
+2026-11-15, card `t_0ba138d2`; `dev` removed 2026-11-19, card `t_3d37bfe7`).
+`main` is the only integration branch in every repo, and a `main` push drives
+both the dev deploy and the artifact `promote.yml` promotes:
 
 - **`rs-backend` — `main` → dev environment → promote, same as the front-ends.**
   There is **no `dev` branch** on `origin`; `main` is the only integration
