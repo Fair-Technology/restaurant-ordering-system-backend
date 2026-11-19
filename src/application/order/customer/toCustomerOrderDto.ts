@@ -42,6 +42,7 @@ export function toCustomerOrderDto(order: Order, shop: Shop, now: Date): Custome
       lineTotalCents: i.lineTotalCents,
       selectedVariantOptionName: i.selectedVariantOptionName ?? null,
       selectedAddonOptionNames: i.selectedAddonOptionNames ?? [],
+      combo: i.combo ?? null,
     })),
     subtotalCents: order.subtotalCents,
     totalCents: chargedCents(order),

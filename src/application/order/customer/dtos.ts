@@ -39,6 +39,7 @@ export interface CustomerOrderDto {
     lineTotalCents: number;
     selectedVariantOptionName: string | null;
     selectedAddonOptionNames: string[];
+    combo?: { line: number; productId: string; name: string } | null;
   }>;
   subtotalCents: number;
   totalCents: number; // items plus delivery fee, minus discount
