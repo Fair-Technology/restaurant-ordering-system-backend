@@ -388,3 +388,47 @@ describe('executeUpdateShop pause durations', () => {
     expect(resetMissedOrderStreak).not.toHaveBeenCalled();
   });
 });
+
+describe('executeUpdateShop opening hours', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (authorizeShopAction as any).mockResolvedValue(ownerAccess);
+    (findShopById as any).mockResolvedValue(makeShop());
+    (updateShop as any).mockImplementation(async (s: any) => s);
+  });
+
+  it('rejects a window whose open equals close (would read as 24 hours)', async () => {
+    const res = await executeUpdateShop(
+      { shopId: 'shop-1', openingHours: { mon: [{ open: '11:00', close: '11:00' }] } } as any,
+      {} as any,
+    );
+    expect(res).toMatchObject({ ok: false, code: 'INVALID_INPUT' });
+    expect(updateShop).not.toHaveBeenCalled();
+  });
+
+  it('keeps 00:00–00:00 valid for open all day', async () => {
+    const openingHours = { mon: [{ open: '00:00', close: '00:00' }] };
+    const res = await executeUpdateShop({ shopId: 'shop-1', openingHours } as any, {} as any);
+    expect(res.ok).toBe(true);
+    expect(updateShop).toHaveBeenCalledWith(expect.objectContaining({ openingHours }));
+  });
+
+  it('still allows an overnight window', async () => {
+    const res = await executeUpdateShop(
+      { shopId: 'shop-1', openingHours: { sat: [{ open: '22:00', close: '02:00' }] } } as any,
+      {} as any,
+    );
+    expect(res.ok).toBe(true);
+  });
+
+  it('allows several windows per day', async () => {
+    const res = await executeUpdateShop(
+      {
+        shopId: 'shop-1',
+        openingHours: { mon: [{ open: '11:00', close: '14:30' }, { open: '17:00', close: '22:00' }] },
+      } as any,
+      {} as any,
+    );
+    expect(res.ok).toBe(true);
+  });
+});
