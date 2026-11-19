@@ -1,7 +1,7 @@
 import { HttpRequest } from '@azure/functions';
 import {
   findShopById,
-  findShopBySlug,
+  isSlugReservedByAnother,
   updateShop,
 } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { authorizeShopAction, toAuditActor } from '../../_shared/shopAccess';
@@ -51,8 +51,8 @@ export async function executeRequestShopNameChange(
       };
     }
 
-    const existing = await findShopBySlug(requestedSlug);
-    if (existing && existing.id !== shop.id) {
+    const reserved = await isSlugReservedByAnother(requestedSlug, shop.id);
+    if (reserved) {
       return { ok: false, code: 'CONFLICT', error: 'A shop with this name already exists' };
     }
 

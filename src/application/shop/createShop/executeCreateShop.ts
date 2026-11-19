@@ -1,7 +1,7 @@
 import { HttpRequest } from '@azure/functions';
 import {
   createShop as createShopInRepo,
-  findShopBySlug,
+  isSlugReservedByAnother,
   findOwnedShopIds,
 } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { getPrincipalFromAuth } from '../../../infrastructure/auth/authHelpers';
@@ -210,10 +210,7 @@ export async function executeCreateShop(
     }
 
     // Validate that slug generated from name is unique
-    const checkSlugExists = async (slug: string): Promise<boolean> => {
-      const existingShop = await findShopBySlug(slug);
-      return existingShop !== null;
-    };
+    const checkSlugExists = async (slug: string): Promise<boolean> => isSlugReservedByAnother(slug);
 
     const generatedSlug = await validateUniqueSlug(
       request.name.trim(),

@@ -47,6 +47,10 @@ export interface Shop {
   // Identity
   id: string; // UUID (Cosmos item id)
   slug: string; // globally unique, public identifier
+  // Slugs this shop used before an approved rename, newest last. Retired but still reserved and
+  // resolvable: a request for one finds this shop, and the storefront redirects to `slug` (SPECS §16).
+  // Absent on a shop that was never renamed.
+  previousSlugs?: string[];
   name: string;
 
   // Industry / business type

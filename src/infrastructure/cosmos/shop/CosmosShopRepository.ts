@@ -30,6 +30,33 @@ export async function findShopBySlug(slug: string): Promise<Shop | null> {
   }
 }
 
+/** The live shop that used `slug` before an approved rename. A retired slug still resolves to its shop (SPECS §16). */
+export async function findShopByPreviousSlug(slug: string): Promise<Shop | null> {
+  const { resources } = await shopContainer.items
+    .query<Shop>({
+      query: 'SELECT * FROM c WHERE c.isDeleted = false AND ARRAY_CONTAINS(c.previousSlugs, @slug)',
+      parameters: [{ name: '@slug', value: slug }],
+    })
+    .fetchAll();
+  return resources?.[0] ?? null;
+}
+
+/**
+ * True if a non-deleted shop other than `exceptShopId` has `slug` live or retired. Retired slugs
+ * stay reserved so nobody else can claim an old link; a shop may reclaim its own (pass its id).
+ */
+export async function isSlugReservedByAnother(slug: string, exceptShopId?: string): Promise<boolean> {
+  const parameters: { name: string; value: string }[] = [{ name: '@slug', value: slug }];
+  let query =
+    'SELECT VALUE COUNT(1) FROM c WHERE c.isDeleted = false AND (c.slug = @slug OR ARRAY_CONTAINS(c.previousSlugs, @slug))';
+  if (typeof exceptShopId === 'string' && exceptShopId !== '') {
+    query += ' AND c.id != @exceptShopId';
+    parameters.push({ name: '@exceptShopId', value: exceptShopId });
+  }
+  const { resources } = await shopContainer.items.query<number>({ query, parameters }).fetchAll();
+  return (resources?.[0] ?? 0) > 0;
+}
+
 export async function createShop(shop: Shop): Promise<Shop> {
   try {
     const { resource } = await shopContainer.items.create<Shop>(shop);
