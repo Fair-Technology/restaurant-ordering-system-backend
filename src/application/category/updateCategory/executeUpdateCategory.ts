@@ -44,6 +44,17 @@ export async function executeUpdateCategory(
     };
   }
 
+  if (
+    request.name !== undefined &&
+    (typeof request.name !== 'string' || request.name.trim() === '')
+  ) {
+    return {
+      ok: false,
+      code: 'INVALID_INPUT',
+      error: 'name is required and must be a non-empty string',
+    };
+  }
+
   try {
     const existingCategory = await findCategoryById(
       request.categoryId.trim(),
@@ -100,7 +111,7 @@ export async function executeUpdateCategory(
 
     const updatedCategory = {
       ...existingCategory,
-      name: request.name?.trim() || existingCategory.name,
+      name: request.name !== undefined ? request.name.trim() : existingCategory.name,
       nameTranslations,
       sortOrder:
         request.sortOrder !== undefined
