@@ -271,10 +271,12 @@ export async function executeUpdateShop(
     const heroBefore = shop.branding?.showHero !== false;
     const heroAfter = updatedShop.branding?.showHero !== false;
     if (heroBefore !== heroAfter) changes.push({ field: 'branding.showHero', from: heroBefore, to: heroAfter });
+    // The owner's online/offline switch sends only isPaused; give it its own key so the Activity feed can tell it from a settings save.
+    const action = changes.some((c) => c.field === 'isPaused') ? 'shop.online_toggle' : 'shop.update';
     await logAudit({
       shopId: result.id,
       ...toAuditActor(access.actor),
-      action: 'shop.update',
+      action,
       entityType: 'shop',
       entityId: result.id,
       entityName: result.name,

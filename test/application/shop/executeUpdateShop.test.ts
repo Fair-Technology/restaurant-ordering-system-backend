@@ -35,6 +35,7 @@ import { findProductsByShopId } from '../../../src/infrastructure/cosmos/product
 import { findCategoriesByShopId } from '../../../src/infrastructure/cosmos/category/CosmosCategoryRepository';
 import { ACCEPTED_DPA, COMPLETE_LEGAL } from '../../fixtures/legal';
 import { GO_LIVE_TAX_ID_ERROR } from '../../../src/domain/order/orderErrors';
+import { diffFields } from '../../../src/application/_shared/auditHelpers';
 import { executeUpdateShop } from '../../../src/application/shop/updateShop/executeUpdateShop';
 import { isOpenForAsapOrder } from '../../../src/domain/order/openingHours';
 import { listSlots } from '../../../src/domain/order/scheduling';
@@ -134,6 +135,51 @@ describe('executeUpdateShop banner switch', () => {
 
     const call = (logAudit as any).mock.calls[0][0];
     expect(call.changes.some((c: any) => c.field === 'branding.showHero')).toBe(false);
+  });
+});
+
+describe('executeUpdateShop audit action key', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (authorizeShopAction as any).mockResolvedValue(ownerAccess);
+    (updateShop as any).mockImplementation(async (s: any) => s);
+    // clearAllMocks keeps unused mockReturnValueOnce values, so reset diffFields explicitly.
+    (diffFields as any).mockReset();
+    (diffFields as any).mockReturnValue([]);
+    // An already-live shop, so the go-live gate does not apply to the isPaused: false calls.
+    (findShopById as any).mockResolvedValue(makeShop({ isPaused: false }));
+  });
+
+  it('logs shop.online_toggle when isPaused changed', async () => {
+    (diffFields as any).mockReturnValueOnce([{ field: 'isPaused', from: true, to: false }]);
+    await executeUpdateShop({ shopId: 'shop-1', isPaused: false } as any, {} as any);
+
+    expect(logAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'shop.online_toggle',
+        changes: expect.arrayContaining([{ field: 'isPaused', from: true, to: false }]),
+      }),
+    );
+  });
+
+  it('keeps shop.update for a settings save without an isPaused change', async () => {
+    (diffFields as any).mockReturnValueOnce([{ field: 'pausedMessage', from: null, to: 'Back soon' }]);
+    await executeUpdateShop({ shopId: 'shop-1', pausedMessage: 'Back soon' } as any, {} as any);
+
+    expect(logAudit).toHaveBeenCalledWith(expect.objectContaining({ action: 'shop.update' }));
+  });
+
+  it('logs shop.online_toggle and keeps every change when isPaused changes with another field', async () => {
+    const changes = [
+      { field: 'isPaused', from: true, to: false },
+      { field: 'minOrderAmountCents', from: 500, to: 1000 },
+    ];
+    (diffFields as any).mockReturnValueOnce(changes);
+    await executeUpdateShop({ shopId: 'shop-1', isPaused: false, minOrderAmountCents: 1000 } as any, {} as any);
+
+    expect(logAudit).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'shop.online_toggle', changes: expect.arrayContaining(changes) }),
+    );
   });
 });
 
