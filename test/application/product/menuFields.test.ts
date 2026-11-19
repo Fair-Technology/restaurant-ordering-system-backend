@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { validateMenuFields, OPTION_ALLERGENS_ERROR, OPTION_ADDITIVES_ERROR } from '../../../src/application/product/menuFields';
+import { validateMenuFields, OPTION_ALLERGENS_ERROR, OPTION_ADDITIVES_ERROR, OPTION_PRICE_DELTA_ERROR } from '../../../src/application/product/menuFields';
+import { SHOP_OPTION_GROUP_SELECTION_ERROR, SHOP_OPTION_GROUP_MAX_SELECTABLE_ERROR } from '../../../src/domain/optionGroup/ShopOptionGroup';
 import { DE_REFERENCE_LISTS } from '../../../src/domain/reference/ReferenceLists';
 
 import { DELIVERY_TAX_CLASS_FOR_DISHES_ERROR, UNAVAILABLE_MODES_ERROR } from '../../../src/domain/order/orderErrors';
@@ -131,7 +132,7 @@ describe('validateMenuFields', () => {
 
 describe('validateMenuFields option allergens and additives', () => {
   const X = { id: 'x1', name: 'Thunfisch', priceDelta: 150, isAvailable: true };
-  const group = (opts: any[]) => ({ id: 'a1', name: 'Extras', minSelectable: 0, maxSelectable: 2, options: opts });
+  const group = (opts: any[]) => ({ id: 'a1', name: 'Extras', minSelectable: 0, maxSelectable: 1, options: opts });
   const ok = (r: any) => {
     expect('error' in r).toBe(false);
     return r;
@@ -185,5 +186,44 @@ describe('validateMenuFields option allergens and additives', () => {
       addonGroups: [group([{ ...X, allergenIds: ['milk'] }])],
     }, refs, null);
     expect('error' in result).toBe(false);
+  });
+});
+
+describe('validateMenuFields inline option group validation', () => {
+  const opt = (id: string, priceDelta: unknown) => ({ id, name: `Opt ${id}`, priceDelta, isAvailable: true });
+  const variant = (priceDelta: unknown) => ({ variantGroups: [{ id: 'g1', name: 'Size', options: [opt('o1', priceDelta)] }] }) as any;
+  const addon = (extra: Record<string, unknown> = {}, options: any[] = [opt('o1', 100), opt('o2', 200)]) =>
+    ({ addonGroups: [{ id: 'a1', name: 'Extras', options, ...extra }] }) as any;
+
+  it.each([12.5, -1, '150', 100001, NaN])('rejects priceDelta %p in a variant group', (bad) => {
+    expect(validateMenuFields(variant(bad), refs, null)).toEqual({ error: OPTION_PRICE_DELTA_ERROR });
+  });
+  it.each([12.5, -1, '150', 100001, NaN])('rejects priceDelta %p in an addon group', (bad) => {
+    expect(validateMenuFields(addon({}, [opt('o1', bad)]), refs, null)).toEqual({ error: OPTION_PRICE_DELTA_ERROR });
+  });
+  it.each([0, 900, 100000])('accepts whole priceDelta %p', (good) => {
+    expect(validateMenuFields(variant(good), refs, null)).not.toHaveProperty('error');
+    expect(validateMenuFields(addon({}, [opt('o1', good)]), refs, null)).not.toHaveProperty('error');
+  });
+
+  it.each([
+    [0.5, 1],
+    [0, 1.5],
+    [-1, 1],
+    [0, -1],
+    [2, 1],
+  ])('rejects addon selection %p..%p', (min, max) => {
+    expect(validateMenuFields(addon({ minSelectable: min, maxSelectable: max }), refs, null)).toEqual({ error: SHOP_OPTION_GROUP_SELECTION_ERROR });
+  });
+  it('rejects maxSelectable above the option count', () => {
+    expect(validateMenuFields(addon({ minSelectable: 0, maxSelectable: 3 }), refs, null)).toEqual({ error: SHOP_OPTION_GROUP_MAX_SELECTABLE_ERROR });
+  });
+  it('accepts and stores a valid range', () => {
+    const r: any = validateMenuFields(addon({ minSelectable: 0, maxSelectable: 2 }), refs, null);
+    expect(r.addonGroups[0]).toMatchObject({ minSelectable: 0, maxSelectable: 2 });
+  });
+  it('defaults omitted min/max to 0 and the option count and writes them back', () => {
+    const r: any = validateMenuFields(addon(), refs, null);
+    expect(r.addonGroups[0]).toMatchObject({ minSelectable: 0, maxSelectable: 2 });
   });
 });

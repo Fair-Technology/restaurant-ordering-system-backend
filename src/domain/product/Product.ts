@@ -45,7 +45,7 @@ export interface ProductAddonGroup {
   name: string;
   nameTranslations?: TranslationMap;
   minSelectable: number; // e.g. 0 or 1
-  maxSelectable: number; // no unlimited; large number allowed
+  maxSelectable: number; // max picks; whole number, 0 <= minSelectable <= maxSelectable <= options.length
   options: ProductOption[];
 }
 

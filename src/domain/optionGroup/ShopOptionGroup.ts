@@ -102,6 +102,23 @@ function referenceIdList(
   return out;
 }
 
+/** True when `value` is a whole number of cents in 0..100000 — the shape every priceDelta must have. */
+export function isValidPriceDelta(value: unknown): value is number {
+  return isWholeNumber(value) && value >= 0 && value <= PRICE_DELTA_MAX;
+}
+
+/**
+ * Error message for an addon group's min/max pair, or null when valid:
+ * whole numbers with 0 <= min <= max, and max no greater than the option count.
+ */
+export function addonSelectionError(min: unknown, max: unknown, optionCount: number): string | null {
+  if (!isWholeNumber(min) || !isWholeNumber(max) || min < 0 || min > max) {
+    return SHOP_OPTION_GROUP_SELECTION_ERROR;
+  }
+  if (max > optionCount) return SHOP_OPTION_GROUP_MAX_SELECTABLE_ERROR;
+  return null;
+}
+
 /**
  * Validates and normalises the editable fields of an option group (a full replace).
  * `previous` are the options already stored (update): their ids are kept, and an
@@ -135,7 +152,7 @@ export function validateShopOptionGroupFields(
 
     const optionName = normaliseOptionGroupName(o.name);
     const priceDelta = o.priceDelta;
-    if (optionName === null || !isWholeNumber(priceDelta) || priceDelta < 0 || priceDelta > PRICE_DELTA_MAX) {
+    if (optionName === null || !isValidPriceDelta(priceDelta)) {
       return { error: SHOP_OPTION_GROUP_OPTIONS_ERROR };
     }
 
@@ -184,12 +201,10 @@ export function validateShopOptionGroupFields(
   if (kind === 'addon') {
     const min = input.minSelectable ?? 0;
     const max = input.maxSelectable ?? options.length;
-    if (!isWholeNumber(min) || !isWholeNumber(max) || min < 0 || min > max) {
-      return { error: SHOP_OPTION_GROUP_SELECTION_ERROR };
-    }
-    if (max > options.length) return { error: SHOP_OPTION_GROUP_MAX_SELECTABLE_ERROR };
-    minSelectable = min;
-    maxSelectable = max;
+    const selectionError = addonSelectionError(min, max, options.length);
+    if (selectionError) return { error: selectionError };
+    minSelectable = min as number;
+    maxSelectable = max as number;
   }
 
   return { name, nameTranslations, minSelectable, maxSelectable, options };
