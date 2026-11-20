@@ -109,7 +109,7 @@ describe('invoice rules', () => {
         kind: 'invoice',
         documentType: 'invoice',
         number: NUMBER,
-        templateVersion: 'receipt-2026-10',
+        templateVersion: 'invoice-2026-11',
         issuedAt: '2026-10-05T10:05:00.000Z',
         supplyDate: '2026-10-05T10:05:00.000Z',
         timezone: 'Europe/Berlin',
@@ -127,6 +127,8 @@ describe('invoice rules', () => {
         lines: [
           {
             name: 'Carbonara',
+            productName: 'Carbonara',
+            modifiers: [],
             quantity: 1,
             unitPriceCents: 1050,
             lineTotalCents: 1050,
@@ -314,6 +316,8 @@ describe('invoice rules', () => {
     expect(c.lines).toEqual([
       {
         name: 'Cola',
+        productName: 'Cola',
+        modifiers: [],
         quantity: 1,
         unitPriceCents: -350,
         lineTotalCents: -350,
@@ -531,7 +535,7 @@ describe('discounted invoices', () => {
       now,
     });
     expect(c.lines).toEqual([
-      { name: 'Cola', quantity: 1, unitPriceCents: -350, lineTotalCents: -350, taxRateBasisPoints: 1900, taxCents: -56 },
+      { name: 'Cola', productName: 'Cola', modifiers: [], quantity: 1, unitPriceCents: -350, lineTotalCents: -350, taxRateBasisPoints: 1900, taxCents: -56 },
       { name: 'Anteiliger Rabatt', quantity: 1, unitPriceCents: 35, lineTotalCents: 35, taxRateBasisPoints: 1900, taxCents: 6 },
     ]);
     expect(c.taxBreakdown).toEqual([{ rateBasisPoints: 1900, grossCents: -315, taxCents: -50 }]);
@@ -620,7 +624,7 @@ describe('reversal corrections', () => {
     expect(c.id).toBe('o1-c2');
     expect(c.documentType).toBe('correction');
     expect(c.lines).toEqual([
-      { name: 'Cola', quantity: 1, unitPriceCents: 350, lineTotalCents: 350, taxRateBasisPoints: 1900, taxCents: 56 },
+      { name: 'Cola', productName: 'Cola', modifiers: [], quantity: 1, unitPriceCents: 350, lineTotalCents: 350, taxRateBasisPoints: 1900, taxCents: 56 },
     ]);
     expect(c.taxBreakdown).toEqual([{ rateBasisPoints: 1900, grossCents: 350, taxCents: 56 }]);
     expect(c.totalCents).toBe(350);

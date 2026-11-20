@@ -14,7 +14,10 @@ import type { RefundShape } from '../order/refundAllocation';
 import { buildTaxBreakdown, extractVatCents } from '../order/tax';
 import { menuLanguagesOf } from '../menu/menuLanguage';
 
-export const INVOICE_TEMPLATE_VERSION = 'receipt-2026-10';
+export const INVOICE_TEMPLATE_VERSION_V1 = 'receipt-2026-10' as const;
+export const INVOICE_TEMPLATE_VERSION_V2 = 'invoice-2026-11' as const;
+/** The version stamped onto every newly built invoice (normal and correction). */
+export const INVOICE_TEMPLATE_VERSION = INVOICE_TEMPLATE_VERSION_V2;
 
 export type InvoiceDocumentType = 'invoice' | 'cancellation' | 'correction';
 
@@ -58,6 +61,12 @@ export interface InvoiceLine {
   lineTotalCents: number;
   taxRateBasisPoints: number;
   taxCents: number;
+  /** Variant then add-on display names, not pre-joined. Present only on lines built from an order item; V2 template only. */
+  modifiers?: string[];
+  /** The order item's own product name, without modifiers (V2 template only; `name` is what V1 prints). */
+  productName?: string;
+  /** Copy of OrderItem.combo.line when the line is one dish of a combo (V2 template only). */
+  comboLine?: number;
 }
 
 export interface InvoiceDoc {
@@ -66,7 +75,8 @@ export interface InvoiceDoc {
   kind: 'invoice';
   documentType: InvoiceDocumentType;
   number: string;
-  templateVersion: typeof INVOICE_TEMPLATE_VERSION;
+  templateVersion:
+    typeof INVOICE_TEMPLATE_VERSION_V1 | typeof INVOICE_TEMPLATE_VERSION_V2;
   issuedAt: string; // ISO
   supplyDate: string; // ISO
   timezone: string;
@@ -82,7 +92,11 @@ export interface InvoiceDoc {
   language: MenuLanguage;
   corrects: { number: string; issuedAt: string } | null;
   /** Only on a correction that cancels an earlier correction because Stripe did not carry out that refund. */
-  reverses?: { number: string; issuedAt: string; documentType: InvoiceDocumentType };
+  reverses?: {
+    number: string;
+    issuedAt: string;
+    documentType: InvoiceDocumentType;
+  };
   refundId: string | null;
 }
 
@@ -116,6 +130,13 @@ function itemName(item: OrderItem): string {
     ? ` + ${item.selectedAddonOptionNames.join(', ')}`
     : '';
   return `${item.productName}${variant}${addons}`;
+}
+
+function modifiersOf(item: OrderItem): string[] {
+  return [
+    ...(item.selectedVariantOptionName ? [item.selectedVariantOptionName] : []),
+    ...(item.selectedAddonOptionNames ?? []),
+  ];
 }
 
 /** Invoice line i is order item i, in the same order with no grouping: item refunds rely on it. Discount lines, then charges, follow the items. */
@@ -160,39 +181,49 @@ export function buildInvoice(input: {
       taxNumber: ids.taxNumber,
       registerCourt: impressum.registerCourt,
       registerNumber: impressum.registerNumber,
-      ...(invoiceExtras?.managingDirector ? { managingDirector: invoiceExtras.managingDirector } : {}),
+      ...(invoiceExtras?.managingDirector
+        ? { managingDirector: invoiceExtras.managingDirector }
+        : {}),
       ...(invoiceExtras?.court ? { invoiceCourt: invoiceExtras.court } : {}),
-      ...(invoiceExtras?.registerNumber ? { invoiceRegisterNumber: invoiceExtras.registerNumber } : {}),
+      ...(invoiceExtras?.registerNumber
+        ? { invoiceRegisterNumber: invoiceExtras.registerNumber }
+        : {}),
       ...(invoiceExtras?.iban ? { iban: invoiceExtras.iban } : {}),
       ...(invoiceExtras?.bic ? { bic: invoiceExtras.bic } : {}),
     },
     buyer: { name: order.customerName, address: order.customerAddress ?? null },
-    lines: order.items.map((item) => ({
-      name: itemName(item),
-      quantity: item.quantity,
-      unitPriceCents: item.unitPriceCents,
-      lineTotalCents: item.lineTotalCents,
-      taxRateBasisPoints: item.taxRateBasisPoints ?? 0,
-      taxCents: item.taxCents ?? 0,
-    })).concat(
-      (order.discount?.byRate ?? []).map((d) => ({
-        name: `${order.discount!.kind === 'voucher' ? (de ? 'Gutschein' : 'Voucher') : de ? 'Rabatt' : 'Discount'} ${order.discount!.code}`,
-        quantity: 1,
-        unitPriceCents: -d.grossCents,
-        lineTotalCents: -d.grossCents,
-        taxRateBasisPoints: d.rateBasisPoints,
-        taxCents: -d.taxCents,
-      })),
-    ).concat(
-      (order.charges ?? []).map((c) => ({
-        name: de ? 'Liefergebühr' : 'Delivery fee',
-        quantity: 1,
-        unitPriceCents: c.grossCents,
-        lineTotalCents: c.grossCents,
-        taxRateBasisPoints: c.taxRateBasisPoints,
-        taxCents: c.taxCents,
-      })),
-    ),
+    lines: order.items
+      .map((item): InvoiceLine => ({
+        name: itemName(item),
+        quantity: item.quantity,
+        unitPriceCents: item.unitPriceCents,
+        lineTotalCents: item.lineTotalCents,
+        taxRateBasisPoints: item.taxRateBasisPoints ?? 0,
+        taxCents: item.taxCents ?? 0,
+        productName: item.productName,
+        modifiers: modifiersOf(item),
+        ...(item.combo ? { comboLine: item.combo.line } : {}),
+      }))
+      .concat(
+        (order.discount?.byRate ?? []).map((d) => ({
+          name: `${order.discount!.kind === 'voucher' ? (de ? 'Gutschein' : 'Voucher') : de ? 'Rabatt' : 'Discount'} ${order.discount!.code}`,
+          quantity: 1,
+          unitPriceCents: -d.grossCents,
+          lineTotalCents: -d.grossCents,
+          taxRateBasisPoints: d.rateBasisPoints,
+          taxCents: -d.taxCents,
+        })),
+      )
+      .concat(
+        (order.charges ?? []).map((c) => ({
+          name: de ? 'Liefergebühr' : 'Delivery fee',
+          quantity: 1,
+          unitPriceCents: c.grossCents,
+          lineTotalCents: c.grossCents,
+          taxRateBasisPoints: c.taxRateBasisPoints,
+          taxCents: c.taxCents,
+        })),
+      ),
     taxBreakdown: order.taxBreakdown ?? buildTaxBreakdown(order.items),
     totalCents: chargedCents(order),
     currency: order.currency,
@@ -253,8 +284,16 @@ export function buildCorrection(input: {
   if (refund.reversesIndex !== undefined) {
     // A reversal mirrors the correction it cancels, every sign flipped.
     const j = refund.reversesIndex;
-    if (j < 0 || j >= index) throw new Error('A reversal must follow the refund it reverses');
-    const mirrored = buildCorrection({ original, refunds, index: j, refundId, number, now });
+    if (j < 0 || j >= index)
+      throw new Error('A reversal must follow the refund it reverses');
+    const mirrored = buildCorrection({
+      original,
+      refunds,
+      index: j,
+      refundId,
+      number,
+      now,
+    });
     return {
       ...mirrored,
       id: `${original.id}-c${index + 1}`,
@@ -268,7 +307,11 @@ export function buildCorrection(input: {
         lineTotalCents: -l.lineTotalCents,
         taxCents: -l.taxCents,
       })),
-      taxBreakdown: mirrored.taxBreakdown.map((e) => ({ ...e, grossCents: -e.grossCents, taxCents: -e.taxCents })),
+      taxBreakdown: mirrored.taxBreakdown.map((e) => ({
+        ...e,
+        grossCents: -e.grossCents,
+        taxCents: -e.taxCents,
+      })),
       totalCents: -refund.amountCents,
       ...(input.reverses ? { reverses: input.reverses } : {}),
     };
@@ -300,6 +343,11 @@ export function buildCorrection(input: {
         const share = listCents - l.grossCents; // 0 unless the order had a discount
         const item: InvoiceLine = {
           name: o.name,
+          ...(o.productName !== undefined
+            ? { productName: o.productName }
+            : {}),
+          ...(o.modifiers ? { modifiers: o.modifiers } : {}),
+          ...(o.comboLine !== undefined ? { comboLine: o.comboLine } : {}),
           quantity: l.quantity,
           unitPriceCents: -o.unitPriceCents,
           lineTotalCents: -listCents,
@@ -307,7 +355,13 @@ export function buildCorrection(input: {
           taxCents: -extractVatCents(listCents, l.taxRateBasisPoints),
         };
         if (share <= 0) {
-          return [{ ...item, lineTotalCents: -l.grossCents, taxCents: -extractVatCents(l.grossCents, l.taxRateBasisPoints) }];
+          return [
+            {
+              ...item,
+              lineTotalCents: -l.grossCents,
+              taxCents: -extractVatCents(l.grossCents, l.taxRateBasisPoints),
+            },
+          ];
         }
         return [
           item,
@@ -500,4 +554,258 @@ export function invoiceFileName(
 ): string {
   const title = invoiceTitle(inv.documentType, inv.language).replace(/ /g, '-');
   return `${title}-${inv.number.replace(/[^A-Za-z0-9._-]/g, '-')}.pdf`;
+}
+
+export interface InvoiceV2Row {
+  pos: number;
+  name: string;
+  /** Variant and add-ons joined with ', '; '' when none. */
+  modifiers: string;
+  quantity: number;
+  unit: string;
+  rate: string;
+  total: string;
+}
+
+export interface InvoiceV2FooterColumn {
+  heading: string;
+  lines: string[];
+}
+
+export interface InvoiceV2Table {
+  title: string;
+  priceNote: string;
+  sellerName: string;
+  sellerAddressLine: string;
+  buyer: string[];
+  /** Label/value rows: Rechnungsnummer, Rechnungsdatum, Leistungsdatum (+ correction/reversal reference rows). */
+  meta: Array<{ label: string; value: string }>;
+  notes: string[];
+  columns: {
+    pos: string;
+    description: string;
+    quantity: string;
+    unit: string;
+    rate: string;
+    total: string;
+  };
+  rows: InvoiceV2Row[];
+  settlement: {
+    badge: string;
+    note: string;
+    net: string;
+    taxLines: string[];
+    total: string;
+  };
+  closing: string;
+  footer: InvoiceV2FooterColumn[];
+}
+
+/**
+ * Merges lines for the V2 table: same product name + same modifier set + same rate + same unit price become one row
+ * with the quantities summed. Never merged: combo dishes, and any line not built from an order item (discount,
+ * delivery fee, refund lines carry no `modifiers`).
+ */
+export function mergeInvoiceLines(
+  lines: ReadonlyArray<InvoiceLine>,
+): Array<{ line: InvoiceLine; quantity: number; lineTotalCents: number }> {
+  const out: Array<{
+    line: InvoiceLine;
+    quantity: number;
+    lineTotalCents: number;
+  }> = [];
+  const seen = new Map<string, number>();
+  for (const line of lines) {
+    const mergeable =
+      line.modifiers !== undefined && line.comboLine === undefined;
+    const key = mergeable
+      ? JSON.stringify([
+          line.productName ?? line.name,
+          [...(line.modifiers as string[])].sort(),
+          line.taxRateBasisPoints,
+          line.unitPriceCents,
+        ])
+      : null;
+    const hit = key !== null ? seen.get(key) : undefined;
+    if (hit !== undefined) {
+      out[hit].quantity += line.quantity;
+      out[hit].lineTotalCents += line.lineTotalCents;
+      continue;
+    }
+    if (key !== null) seen.set(key, out.length);
+    out.push({
+      line,
+      quantity: line.quantity,
+      lineTotalCents: line.lineTotalCents,
+    });
+  }
+  return out;
+}
+
+/** Everything the V2 template prints, formatted for the invoice's language and the restaurant's time zone. */
+export function invoiceV2Table(inv: InvoiceDoc): InvoiceV2Table {
+  const de = inv.language === 'de';
+  const locale = de ? 'de-DE' : 'en-GB';
+  const moneyFormat = new Intl.NumberFormat(locale, {
+    style: 'currency',
+    currency: inv.currency,
+  });
+  const dateFormat = new Intl.DateTimeFormat(locale, {
+    timeZone: inv.timezone,
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
+  const money = (cents: number): string => moneyFormat.format(cents / 100);
+  const date = (iso: string): string => dateFormat.format(new Date(iso));
+  const isCorrection = inv.documentType !== 'invoice';
+  const s = inv.seller;
+
+  const a = inv.buyer.address;
+  const buyer = [
+    inv.buyer.name,
+    ...(a ? [a.street, `${a.postcode} ${a.city}`, a.country] : []),
+  ];
+
+  // Meta grid is 3 rows only (no Bestellnr./Bestellart/Zahlungsart per product decision, ticket t_de6bdde8) — flag to product if this reads as sparse.
+  const meta = [
+    { label: de ? 'Rechnungsnummer' : 'Invoice number', value: inv.number },
+    {
+      label: de ? 'Rechnungsdatum' : 'Invoice date',
+      value: date(inv.issuedAt),
+    },
+    {
+      label: de ? 'Leistungsdatum' : 'Date of supply',
+      value: date(inv.supplyDate),
+    },
+  ];
+  const notes: string[] = [];
+  if (inv.corrects) {
+    meta.push({
+      label: de ? 'Bezieht sich auf' : 'Relates to',
+      value: de
+        ? `Rechnung ${inv.corrects.number} vom ${date(inv.corrects.issuedAt)}`
+        : `Invoice ${inv.corrects.number} of ${date(inv.corrects.issuedAt)}`,
+    });
+  }
+  if (inv.reverses) {
+    meta.push({
+      label: de ? 'Hebt auf' : 'Reverses',
+      value: `${invoiceTitle(inv.reverses.documentType, inv.language)} ${inv.reverses.number} ${de ? 'vom' : 'of'} ${date(inv.reverses.issuedAt)}`,
+    });
+    notes.push(
+      de
+        ? 'Die Erstattung wurde von Stripe nicht ausgeführt.'
+        : 'Stripe did not carry out the refund.',
+    );
+  }
+
+  const rows: InvoiceV2Row[] = mergeInvoiceLines(inv.lines).map((m, i) => ({
+    pos: i + 1,
+    name: m.line.productName ?? m.line.name,
+    modifiers: (m.line.modifiers ?? []).join(', '),
+    quantity: m.quantity,
+    unit: money(m.line.unitPriceCents),
+    rate: rateLabel(m.line.taxRateBasisPoints, de),
+    total: money(m.lineTotalCents),
+  }));
+
+  const netCents = inv.taxBreakdown.reduce(
+    (sum, e) => sum + e.grossCents - e.taxCents,
+    0,
+  );
+  const taxLines = inv.taxBreakdown.map((e) =>
+    de
+      ? `zzgl. ${rateLabel(e.rateBasisPoints, true)} MwSt. auf ${money(e.grossCents - e.taxCents)}: ${money(e.taxCents)}`
+      : `plus ${rateLabel(e.rateBasisPoints, false)} VAT on ${money(e.grossCents - e.taxCents)}: ${money(e.taxCents)}`,
+  );
+  const totalLabel = isCorrection
+    ? de
+      ? 'Korrekturbetrag (brutto)'
+      : 'Correction total (gross)'
+    : de
+      ? 'Gesamtbetrag (brutto)'
+      : 'Total (gross)';
+  const pi = inv.payment.stripePaymentIntentId;
+  const note = isCorrection
+    ? de
+      ? `Erstattet am ${date(inv.issuedAt)} auf die ursprüngliche Zahlungsart (Stripe, Transaktion ${pi}).`
+      : `Refunded on ${date(inv.issuedAt)} to the original payment method (Stripe, transaction ${pi}).`
+    : de
+      ? `Bezahlt am ${date(inv.issuedAt)} per Online-Zahlung (Stripe, Transaktion ${pi}).`
+      : `Paid on ${date(inv.issuedAt)} by online payment (Stripe, transaction ${pi}).`;
+
+  const footer: InvoiceV2FooterColumn[] = [];
+  if (s.managingDirector)
+    footer.push({
+      heading: de ? 'Geschäftsführer' : 'Managing director',
+      lines: [s.managingDirector],
+    });
+  const register =
+    s.invoiceCourt && s.invoiceRegisterNumber
+      ? `${s.invoiceCourt} ${s.invoiceRegisterNumber}`
+      : s.registerCourt && s.registerNumber
+        ? `${s.registerCourt} ${s.registerNumber}`
+        : '';
+  if (register)
+    footer.push({
+      heading: de ? 'Handelsregister' : 'Commercial register',
+      lines: [register],
+    });
+  const bank = [
+    ...(s.iban ? [`IBAN: ${s.iban}`] : []),
+    ...(s.bic ? [`BIC: ${s.bic}`] : []),
+  ];
+  if (bank.length)
+    footer.push({
+      heading: de ? 'Bankverbindung' : 'Bank details',
+      lines: bank,
+    });
+
+  return {
+    title: invoiceTitle(inv.documentType, inv.language),
+    priceNote: de
+      ? 'Alle Einzelpreise inklusive Mehrwertsteuer.'
+      : 'All unit prices include VAT.',
+    sellerName: s.legalName,
+    sellerAddressLine: `${s.street}, ${`${s.postcode} ${s.city}`.trim()}`,
+    buyer,
+    meta,
+    notes,
+    columns: de
+      ? {
+          pos: 'Pos.',
+          description: 'Beschreibung',
+          quantity: 'Menge',
+          unit: 'Einzelpreis',
+          rate: 'MwSt.',
+          total: 'Betrag',
+        }
+      : {
+          pos: 'No.',
+          description: 'Description',
+          quantity: 'Qty',
+          unit: 'Unit price',
+          rate: 'VAT',
+          total: 'Amount',
+        },
+    rows,
+    settlement: {
+      badge: isCorrection
+        ? de
+          ? 'Erstattet'
+          : 'Refunded'
+        : de
+          ? 'Bezahlt'
+          : 'Paid',
+      note,
+      net: `${de ? 'Nettobetrag' : 'Net amount'}: ${money(netCents)}`,
+      taxLines,
+      total: `${totalLabel}: ${money(inv.totalCents)}`,
+    },
+    closing: de
+      ? 'Vielen Dank für Ihre Bestellung.'
+      : 'Thank you for your order.',
+    footer,
+  };
 }

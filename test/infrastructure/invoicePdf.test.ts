@@ -1,11 +1,14 @@
 import { PDFDict, PDFDocument, PDFName } from 'pdf-lib';
 import { extractText, getDocumentProxy } from 'unpdf';
 import { describe, expect, it } from 'vitest';
-import { buildCorrection, buildInvoice } from '../../src/domain/invoice/invoice';
+import { INVOICE_TEMPLATE_VERSION_V1, buildCorrection as buildCorrectionRaw, buildInvoice as buildInvoiceRaw } from '../../src/domain/invoice/invoice';
 import { renderInvoicePdf } from '../../src/infrastructure/pdf/invoicePdf';
 import { ACCEPTED_CARD_ORDER, CARD_SHOP, DISCOUNTED_ORDER } from '../fixtures/orders';
 
 const now = new Date('2026-10-05T10:05:00Z');
+// This file covers the V1 renderer: pin every invoice it builds to the V1 template version.
+const buildInvoice = (...a: Parameters<typeof buildInvoiceRaw>) => ({ ...buildInvoiceRaw(...a), templateVersion: INVOICE_TEMPLATE_VERSION_V1 });
+const buildCorrection = (...a: Parameters<typeof buildCorrectionRaw>) => ({ ...buildCorrectionRaw(...a), templateVersion: INVOICE_TEMPLATE_VERSION_V1 });
 const invoice = () => buildInvoice({ order: ACCEPTED_CARD_ORDER, shop: CARD_SHOP, number: 'R-2026-00001', now });
 
 async function pdfText(bytes: Uint8Array): Promise<string> {
