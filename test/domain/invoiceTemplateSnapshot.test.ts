@@ -12,9 +12,9 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
-  INVOICE_TEMPLATE_VERSION,
-  buildCorrection,
-  buildInvoice,
+  INVOICE_TEMPLATE_VERSION_V1 as INVOICE_TEMPLATE_VERSION,
+  buildCorrection as buildCorrectionRaw,
+  buildInvoice as buildInvoiceRaw,
   invoiceTextLines,
 } from '../../src/domain/invoice/invoice';
 import type { InvoiceDoc } from '../../src/domain/invoice/invoice';
@@ -31,6 +31,10 @@ import {
 
 const now = new Date('2026-10-05T10:05:00Z');
 const NUMBER = 'R-2026-00001';
+
+// This file is the V1 wording snapshot: every case is pinned to the V1 template version regardless of the current default.
+const buildInvoice = (...a: Parameters<typeof buildInvoiceRaw>): InvoiceDoc => ({ ...buildInvoiceRaw(...a), templateVersion: INVOICE_TEMPLATE_VERSION });
+const buildCorrection = (...a: Parameters<typeof buildCorrectionRaw>): InvoiceDoc => ({ ...buildCorrectionRaw(...a), templateVersion: INVOICE_TEMPLATE_VERSION });
 
 const normalize = (line: string): string => line.replace(/[   ]/g, ' ');
 
