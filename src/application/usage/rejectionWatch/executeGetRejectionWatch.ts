@@ -1,7 +1,7 @@
 import { HttpRequest } from '@azure/functions';
 import { findAllShops } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
-import { findOrdersForRejectionStats } from '../../../infrastructure/cosmos/order/CosmosOrderRepository';
-import { REJECTION_WINDOW_DAYS, rejectionStats } from '../../../domain/usage/rejectionStats';
+import { findOrdersForRejectionStatsAllShops } from '../../../infrastructure/cosmos/order/CosmosOrderRepository';
+import { OrderForRejectionStats, REJECTION_WINDOW_DAYS, rejectionStats } from '../../../domain/usage/rejectionStats';
 import { ApplicationResult } from '../../_shared/types';
 import { loadOrderLimitStatus } from '../orderLimitStatus';
 import { RejectionWatchDto, RejectionWatchRowDto } from './dtos';
@@ -18,10 +18,16 @@ export async function executeGetRejectionWatch(httpRequest: HttpRequest): Promis
     const now = new Date();
     const since = new Date(now.getTime() - REJECTION_WINDOW_DAYS * 86_400_000).toISOString();
     const shops = (await findAllShops()).filter((s) => !s.isDeleted);
+    const ordersByShop = new Map<string, OrderForRejectionStats[]>();
+    for (const order of await findOrdersForRejectionStatsAllShops(since)) {
+      const list = ordersByShop.get(order.shopId);
+      if (list) list.push(order);
+      else ordersByShop.set(order.shopId, [order]);
+    }
     const rows: RejectionWatchRowDto[] = await Promise.all(
       shops.map(async (shop) => {
         const orderLimit = await loadOrderLimitStatus(shop, now);
-        const orders = await findOrdersForRejectionStats(shop.id, since);
+        const orders = ordersByShop.get(shop.id) ?? [];
         return {
           shopId: shop.id,
           name: shop.name,
