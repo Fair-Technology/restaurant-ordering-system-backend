@@ -421,6 +421,21 @@ describe('renderInvoicePdfV2', () => {
   });
 
   describe('pagination', () => {
+    it('keeps an 18-line invoice with the full legal footer on one page', async () => {
+      const base = make(ACCEPTED_TWO_LINE_ORDER, shopWithExtras({}));
+      const inv = { ...base, lines: manyLines(18).lines };
+      const bytes = await renderInvoicePdf(inv);
+      expect((await PDFDocument.load(bytes)).getPageCount()).toBe(1);
+      const [page1] = await pageTexts(bytes);
+      expect(page1).toContain('Gericht 18');
+      expect(page1).toContain('Nettobetrag');
+      expect(page1).toContain('Gesamtbetrag');
+      expect(page1).toContain('Vielen Dank für Ihre Bestellung.');
+      // nothing is drawn into the bottom margin
+      const ys = await lineYs(bytes, 1);
+      expect(Math.min(...ys.map((x) => x.y))).toBeGreaterThanOrEqual(40);
+    });
+
     it('spans several pages, repeats the header, and draws settlement + footer on the last page only', async () => {
       const inv = {
         ...manyLines(45),

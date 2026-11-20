@@ -187,6 +187,7 @@ const ROW_H = 22;
 const LINE_H = 12; // extra height per wrapped description line
 const TITLE_BAR_H = 44;
 const HAIR = 0.75;
+const END_GAP = 8; // gap between the last row and the settlement block
 
 interface RowLayout {
   lines: Array<Array<{ text: string; muted: boolean }>>;
@@ -429,10 +430,10 @@ export async function renderInvoicePdfV2(inv: InvoiceDoc): Promise<Uint8Array> {
   const buyerH = t.buyer.length * 14;
   const metaH = t.meta.length * 14;
   const notesH = notesWrapped.length ? notesWrapped.length * 12 + 6 : 0;
-  const blockTop = y0 - 46;
-  const titleBarTop = blockTop - Math.max(buyerH, metaH) - notesH - 14;
-  const firstTableTop = titleBarTop - TITLE_BAR_H - 16;
-  const nextTableTop = y0 - 34;
+  const blockTop = y0 - 32;
+  const titleBarTop = blockTop - Math.max(buyerH, metaH) - notesH - 8;
+  const firstTableTop = titleBarTop - TITLE_BAR_H - 8;
+  const nextTableTop = y0 - 30;
 
   // end block (settlement, closing, footer)
   const noteW = 240;
@@ -447,7 +448,7 @@ export async function renderInvoicePdfV2(inv: InvoiceDoc): Promise<Uint8Array> {
   const footerH = footerCols.length
     ? 12 + Math.max(...footerCols.map((c) => 14 + c.lines.length * 12))
     : 0;
-  const endH = Math.max(leftH, rightH) + 22 + 14 + (footerH ? 26 + footerH : 0);
+  const endH = Math.max(leftH, rightH) + 14 + 14 + (footerH ? 18 + footerH : 0);
 
   const paginate = (withUnit: boolean): Pagination => {
     const { descW } = columnsFor(withUnit);
@@ -465,7 +466,7 @@ export async function renderInvoicePdfV2(inv: InvoiceDoc): Promise<Uint8Array> {
       y -= h;
     }
     pages.push(cur);
-    const endOnOwnPage = y - 20 - endH < MARGIN;
+    const endOnOwnPage = y - END_GAP - endH < MARGIN;
     return { pages, endOnOwnPage };
   };
   const pageCountOf = (p: Pagination): number =>
@@ -618,11 +619,11 @@ export async function renderInvoicePdfV2(inv: InvoiceDoc): Promise<Uint8Array> {
       boldChain,
       C.onDarkBar,
     );
-    y -= Math.max(leftH, rightH) + 22;
+    y -= Math.max(leftH, rightH) + 14;
     drawText(t.closing, X0, y, 11, regularChain);
     y -= 14;
     if (footerCols.length) {
-      y -= 12;
+      y -= 8;
       hairline(y);
       y -= 14;
       footerCols.forEach((c, i) => {
@@ -651,7 +652,7 @@ export async function renderInvoicePdfV2(inv: InvoiceDoc): Promise<Uint8Array> {
         page = pdf.addPage([PAGE.width, PAGE.height]);
         drawRunningHeader(plan.pages.length + 1);
         drawEndBlock(nextTableTop);
-      } else drawEndBlock(y - 20);
+      } else drawEndBlock(y - END_GAP);
     }
   });
 
