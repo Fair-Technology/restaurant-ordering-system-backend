@@ -1010,13 +1010,68 @@ keeps taking orders, but gets no invoices until one is filled in.
 
 The PDF is **not** stored. At issue, every fact the receipt shows — the
 restaurant's legal details as they were that day, each line's name, quantity,
-price and rate, totals, invoice number, date, the buyer's name and address, and the
-**template version** — is copied into one record that never changes. The PDF is
-rendered from it whenever asked. Old template versions stay in the code so a
-2026 receipt re-rendered in 2028 looks like a 2026 receipt.
+price and rate, totals, invoice number, date, the buyer's name and address,
+the Stripe payment-intent id, and the **template version** — is copied into
+one record that never changes. The PDF is rendered from it whenever asked.
+Old template versions stay in the code so a 2026 receipt re-rendered in 2028
+looks like a 2026 receipt.
 
 Advantages over storing files: tiny, re-renderable in any language,
 exportable as CSV for an accountant, searchable.
+
+### Template versions: `receipt-2026-10` and `invoice-2026-11`
+
+**Every new invoice and correction is stamped with the current template
+version**, `invoice-2026-11` (the "Restaurant Ordering" design, built
+2026-11-20) — a full redesign of the table, settlement and footer, not a
+tweak:
+
+- **Table:** columns are Pos. / Beschreibung / Menge / Einzelpreis / MwSt. /
+  Betrag. Identical order-item rows (same dish, same modifiers, same rate,
+  same unit price) are merged into one row with the quantity summed; the
+  delivery-fee line and each dish of a combo are never merged.
+- **Settlement:** one net line, one VAT line per rate, then a dark
+  Gesamtbetrag/Korrekturbetrag bar, with a Bezahlt/Erstattet badge and the
+  paid/refunded note (see below).
+- **Footer:** three columns — managing director, commercial register, bank
+  details — each omitted when empty, so a shop with none of the new legal
+  extras (below) prints no fourth column at all.
+- **Pagination:** a repeating header, a running "Seite X von Y" line, and the
+  Einzelpreis column is dropped beyond 2 pages.
+- The previous version, `receipt-2026-10`, keeps rendering unchanged — same
+  code path, same layout — for every invoice snapshot already stamped with
+  it. **Old template versions are never deleted from the code**: re-rendering
+  an existing snapshot must reproduce the receipt exactly as issued, so a
+  change to printed text or layout is always a new template version, never an
+  edit to an old one (see below).
+
+### The Stripe transaction id, on every invoice
+
+**The Stripe payment-intent id is copied into the invoice snapshot at issue
+time** (`payment.stripePaymentIntentId`) and printed inside the settlement
+note — "Bezahlt am … per Online-Zahlung (Stripe, Transaktion pi_…)." on a
+normal invoice, "Erstattet am … auf die ursprüngliche Zahlungsart (Stripe,
+Transaktion pi_…)." on a correction — so the restaurant's own records and
+Stripe's dashboard can be matched straight from the PDF, without opening
+admin.
+
+### Optional legal extras: Geschäftsführer, Amtsgericht/HRB, IBAN, BIC
+
+Four further fields can be set on the Legal page, **independent of the
+Impressum**: **Geschäftsführer** (managing director), **Amtsgericht + HRB
+number** (an invoice-only register pair, separate from the Impressum's own
+register fields), **IBAN** and **BIC**. All four are free text, optional, and
+printed on the invoice only when set — an empty one adds nothing: no blank
+label, no empty footer column. They print in the `invoice-2026-11` footer
+only (the three-column layout above); `receipt-2026-10` ignores them, since a
+re-rendered old snapshot predates their existence.
+
+**They have no go-live effect.** They are not part of Impressum completeness,
+the go-live checklist, or any §16 gate — a shop can go live, stay live, and
+issue invoices with all four blank forever. They exist purely so a restaurant
+that wants them on its invoice (bank details for a bank-transfer-minded
+customer, a Geschäftsführer line some trade customers expect) can add them
+without the Impressum's own fields having to carry invoice-only information.
 
 **Kept for eight years** — the retention German tax law imposes on invoices
 since 1 January 2025 (it was ten). The archive outlives the restaurant's account
