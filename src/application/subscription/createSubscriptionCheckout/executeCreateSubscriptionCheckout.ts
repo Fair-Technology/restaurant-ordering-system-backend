@@ -141,11 +141,16 @@ export async function executeCreateSubscriptionCheckout(
     if (blockedAt !== null) {
       return { ok: false, code: 'CONFLICT', error: downgradeBlockedStaffError(blockedAt) };
     }
+    // Never schedule a downgrade for "now" mislabelled as period end: if the end is unknown, fail before changing anything.
+    const periodEnd = subscriptionPeriod(stripeSubscription).end ?? sub.currentPeriodEnd;
+    if (!periodEnd) {
+      return { ok: false, code: 'INTERNAL_ERROR', error: 'Could not determine the current billing period end' };
+    }
     await stripe.subscriptions.update(sub.billingSubscriptionId, {
       items: [{ id: itemId, price: stripePriceId }],
       proration_behavior: 'none',
     });
-    const effectiveAt = subscriptionPeriod(stripeSubscription).end ?? sub.currentPeriodEnd ?? now.toISOString();
+    const effectiveAt = periodEnd;
     await upsertSubscription({
       ...sub,
       scheduledChange: { planId: target.id, billingInterval, effectiveAt },

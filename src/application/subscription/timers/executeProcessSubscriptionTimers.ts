@@ -69,17 +69,32 @@ export async function executeProcessSubscriptionTimers(input: { now: Date }): Pr
       }
 
       // A downgrade whose paid period has ended.
-      if (sub.scheduledChange && now.getTime() >= Date.parse(sub.scheduledChange.effectiveAt)) {
-        const { planId, billingInterval } = sub.scheduledChange;
-        // While a manual plan from superadmin is active it keeps the plan; the downgrade lands when the manual plan ends.
-        sub = await upsertSubscription({
-          ...sub,
-          ...(isOverrideActive(sub, now) ? { planBeforeOverride: planId } : { planId }),
-          billingInterval,
-          scheduledChange: null,
-          updatedAt: now.toISOString(),
-        });
-        result.changesApplied += 1;
+      if (sub.scheduledChange) {
+        const dueAt = Date.parse(sub.scheduledChange.effectiveAt);
+        const periodEndsAt = sub.currentPeriodEnd ? Date.parse(sub.currentPeriodEnd) : null;
+        if (periodEndsAt !== null && dueAt < periodEndsAt) {
+          // Corrupted data: a downgrade can never land before the period it is scheduled against ends.
+          // Self-heal rather than downgrading a shop early while it is still inside a period it already paid for.
+          console.warn(
+            `[subscriptionTimers] shop ${sub.shopId}: scheduledChange.effectiveAt ${sub.scheduledChange.effectiveAt} is before currentPeriodEnd ${sub.currentPeriodEnd}; moving it to period end`,
+          );
+          sub = await upsertSubscription({
+            ...sub,
+            scheduledChange: { ...sub.scheduledChange, effectiveAt: sub.currentPeriodEnd as string },
+            updatedAt: now.toISOString(),
+          });
+        } else if (now.getTime() >= dueAt) {
+          const { planId, billingInterval } = sub.scheduledChange;
+          // While a manual plan from superadmin is active it keeps the plan; the downgrade lands when the manual plan ends.
+          sub = await upsertSubscription({
+            ...sub,
+            ...(isOverrideActive(sub, now) ? { planBeforeOverride: planId } : { planId }),
+            billingInterval,
+            scheduledChange: null,
+            updatedAt: now.toISOString(),
+          });
+          result.changesApplied += 1;
+        }
       }
 
       // A manual plan from superadmin whose end date has passed.

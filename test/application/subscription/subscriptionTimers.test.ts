@@ -47,6 +47,29 @@ describe('subscription timers', () => {
     (findShopById as any).mockResolvedValue(CARD_SHOP);
   });
 
+  it('a scheduled change dated before the current period end is moved to the period end, not applied', async () => {
+    const periodEnd = '2027-10-20T09:53:34.000Z';
+    (findSubscriptionsNeedingTimers as any).mockResolvedValue([
+      {
+        ...defaultSubscription('shop-1', 'plan-max', 'x'),
+        status: 'active' as const,
+        planSource: 'billing' as const,
+        billingInterval: 'yearly' as const,
+        currentPeriodEnd: periodEnd,
+        scheduledChange: { planId: 'plan-pro', billingInterval: 'yearly', effectiveAt: ago(HOUR) },
+      },
+    ]);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const res = await executeProcessSubscriptionTimers({ now });
+    expect(res.changesApplied).toBe(0);
+    expect(upsertSubscription).toHaveBeenCalledTimes(1);
+    const saved = (upsertSubscription as any).mock.calls[0][0];
+    expect(saved.planId).toBe('plan-max');
+    expect(saved.scheduledChange).toEqual({ planId: 'plan-pro', billingInterval: 'yearly', effectiveAt: periodEnd });
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('shop-1'));
+    warn.mockRestore();
+  });
+
   it('the first grace email goes out on the day of the failure', async () => {
     (findSubscriptionsNeedingTimers as any).mockResolvedValue([failing(HOUR, 0)]);
     const res = await executeProcessSubscriptionTimers({ now });

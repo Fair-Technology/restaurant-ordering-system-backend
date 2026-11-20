@@ -153,6 +153,14 @@ describe('changing plan', () => {
     );
   });
 
+  it('a downgrade fails instead of scheduling for now when no period end can be found', async () => {
+    (findSubscriptionByShopId as any).mockResolvedValue({ ...paidOn('plan-max'), currentPeriodEnd: null });
+    const res = await call({ planId: 'plan-pro', billingInterval: 'monthly' });
+    expect(res).toMatchObject({ ok: false, code: 'INTERNAL_ERROR' });
+    expect(stripeMock.subscriptions.update).not.toHaveBeenCalled();
+    expect(upsertSubscription).not.toHaveBeenCalled();
+  });
+
   it('a declined upgrade leaves the plan alone', async () => {
     (findSubscriptionByShopId as any).mockResolvedValue(paidOn('plan-pro'));
     stripeMock.subscriptions.update.mockRejectedValueOnce({ type: 'StripeCardError' } as never);
