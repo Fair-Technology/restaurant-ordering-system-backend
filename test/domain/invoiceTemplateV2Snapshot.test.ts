@@ -70,6 +70,20 @@ const twoLine = (): InvoiceDoc =>
     now,
   });
 
+const withoutLanguage = <T extends { language?: unknown }>(o: T): T => {
+  const copy = { ...o };
+  delete copy.language;
+  return copy;
+};
+
+const enDiner = (): InvoiceDoc =>
+  buildInvoice({
+    order: { ...ACCEPTED_TWO_LINE_ORDER, language: 'en' },
+    shop: { ...CARD_SHOP, menuLanguages: ['de'] },
+    number: NUMBER,
+    now,
+  });
+
 const colaLine = {
   lineIndex: 1,
   quantity: 1,
@@ -95,10 +109,35 @@ const cases: Record<string, InvoiceDoc> = {
     number: NUMBER,
     now,
   }),
-  'invoice-en': buildInvoice({
-    order: ACCEPTED_CARD_ORDER,
+  // Fallback path: an older order with no page language uses the shop's original language.
+  'invoice-en-fallback': buildInvoice({
+    order: withoutLanguage(ACCEPTED_CARD_ORDER),
     shop: { ...CARD_SHOP, menuLanguages: ['en'] },
     number: NUMBER,
+    now,
+  }),
+  'invoice-de-diner': buildInvoice({
+    order: { ...ACCEPTED_CARD_ORDER, language: 'de' },
+    shop: CARD_SHOP,
+    number: NUMBER,
+    now,
+  }),
+  // The diner's page language overrides the (German) shop's menu language.
+  'invoice-en-diner': enDiner(),
+  'correction-en-diner': buildCorrection({
+    original: enDiner(),
+    refunds: [{ amountCents: 350, lines: [colaLine] }],
+    index: 0,
+    refundId: 'r1',
+    number: 'R-2026-00002',
+    now,
+  }),
+  'cancellation-en-diner': buildCorrection({
+    original: enDiner(),
+    refunds: [{ amountCents: enDiner().totalCents }],
+    index: 0,
+    refundId: 'r1',
+    number: 'R-2026-00002',
     now,
   }),
   'invoice-with-address': buildInvoice({

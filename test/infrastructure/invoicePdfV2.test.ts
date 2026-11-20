@@ -277,6 +277,7 @@ describe('renderInvoicePdfV2', () => {
       expect(t.footer.map((c) => c.heading)).toEqual([
         'Handelsregister',
         'Bankverbindung',
+        'Steuern',
       ]);
       expect(t.footer[1].lines).toEqual(['IBAN: DE89370400440532013000']);
       const noBank = invoiceV2Table(
@@ -288,6 +289,7 @@ describe('renderInvoicePdfV2', () => {
       expect(noBank.footer.map((c) => c.heading)).toEqual([
         'Geschäftsführer',
         'Handelsregister',
+        'Steuern',
       ]);
     });
 
@@ -298,10 +300,17 @@ describe('renderInvoicePdfV2', () => {
           heading: 'Handelsregister',
           lines: ['Amtsgericht Frankfurt am Main HRB 123456'],
         },
+        { heading: 'Steuern', lines: ['USt-IdNr.: DE123456789'] },
       ]);
       const bare = {
         ...plain,
-        seller: { ...plain.seller, registerCourt: '', registerNumber: '' },
+        seller: {
+          ...plain.seller,
+          registerCourt: '',
+          registerNumber: '',
+          vatId: '',
+          taxNumber: '',
+        },
       };
       expect(invoiceV2Table(bare).footer).toEqual([]);
       const text = await allText(await renderInvoicePdf(bare));
@@ -545,15 +554,17 @@ describe('renderInvoicePdfV2', () => {
   });
 
   it('prints English wording for an English shop', async () => {
-    const inv = make(ACCEPTED_CARD_ORDER, {
+    const { language: _l, ...noLanguage } = ACCEPTED_CARD_ORDER;
+    const inv = make(noLanguage, {
       ...CARD_SHOP,
       menuLanguages: ['en'],
     });
     const text = await allText(await renderInvoicePdf(inv));
     expect(text).toContain('Invoice number');
+    expect(text).toContain('USt-IdNr. / VAT ID: DE123456789');
     expect(text).toContain('Thank you for your order.');
     expect(text).toContain(
-      'Paid on 20/11/2026 by online payment (Stripe, transaction pi_1).',
+      'Paid on 20.11.2026 by online payment (Stripe, transaction pi_1).',
     );
   });
 });
