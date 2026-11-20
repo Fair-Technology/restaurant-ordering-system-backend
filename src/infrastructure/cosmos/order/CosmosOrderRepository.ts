@@ -233,6 +233,23 @@ export async function findOrdersForRejectionStats(shopId: string, sinceIso: stri
   return resources ?? [];
 }
 
+/**
+ * One cross-partition query for every shop's orders in the window (orders is partitioned on /id, so a
+ * per-shop query is a fan-out anyway; N of them is the slow path). Callers group by shopId in memory.
+ */
+export async function findOrdersForRejectionStatsAllShops(
+  sinceIso: string,
+): Promise<(OrderForRejectionStats & { shopId: string })[]> {
+  const querySpec = {
+    query: 'SELECT c.shopId, c.createdAt, c.acceptedAt, c.history FROM c WHERE c.createdAt >= @since',
+    parameters: [{ name: '@since', value: sinceIso }],
+  };
+  const { resources } = await orderContainer.items
+    .query<OrderForRejectionStats & { shopId: string }>(querySpec)
+    .fetchAll();
+  return resources ?? [];
+}
+
 export interface DiscountUseRow {
   state: StoredOrderState;
   acceptedAt?: string;

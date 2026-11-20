@@ -3,13 +3,13 @@ import type { HttpRequest } from '@azure/functions';
 
 vi.mock('../../../src/infrastructure/auth/superAdminAuthHelpers', () => ({ requirePlatform: vi.fn(async () => 'sa-1') }));
 vi.mock('../../../src/infrastructure/cosmos/shop/CosmosShopRepository', () => ({ findAllShops: vi.fn() }));
-vi.mock('../../../src/infrastructure/cosmos/order/CosmosOrderRepository', () => ({ findOrdersForRejectionStats: vi.fn() }));
+vi.mock('../../../src/infrastructure/cosmos/order/CosmosOrderRepository', () => ({ findOrdersForRejectionStatsAllShops: vi.fn() }));
 vi.mock('../../../src/application/usage/orderLimitStatus', () => ({
   loadOrderLimitStatus: vi.fn(async () => ({ periodKey: '2026-10', acceptedOrderCount: 0, limit: 30, warningLevel: 0, limitReached: false })),
 }));
 
 import { findAllShops } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
-import { findOrdersForRejectionStats } from '../../../src/infrastructure/cosmos/order/CosmosOrderRepository';
+import { findOrdersForRejectionStatsAllShops } from '../../../src/infrastructure/cosmos/order/CosmosOrderRepository';
 import { executeGetRejectionWatch } from '../../../src/application/usage/rejectionWatch/executeGetRejectionWatch';
 import { CARD_SHOP } from '../../fixtures/orders';
 import { requirePlatform } from '../../../src/infrastructure/auth/superAdminAuthHelpers';
@@ -32,9 +32,10 @@ describe('executeGetRejectionWatch', () => {
       { ...CARD_SHOP, id: 'A', name: 'A Shop' },
       { ...CARD_SHOP, id: 'B', name: 'B Shop' },
     ]);
-    (findOrdersForRejectionStats as any).mockImplementation(async (shopId: string) =>
-      shopId === 'A' ? [accepted, accepted] : [...Array(8).fill(accepted), declined, declined],
-    );
+    (findOrdersForRejectionStatsAllShops as any).mockResolvedValue([
+      ...[accepted, accepted].map((o) => ({ ...o, shopId: 'A' })),
+      ...[...Array(8).fill(accepted), declined, declined].map((o) => ({ ...o, shopId: 'B' })),
+    ]);
   });
 
   it('flagged restaurants come first', async () => {
