@@ -156,8 +156,9 @@ export function buildInvoice(input: {
   }
   const ids = invoiceTaxIdsOf(shop);
   const issuedAt = now.toISOString();
-  // The shop's original language, not the diner's page language: a German shop issues German invoices.
-  const language = menuLanguagesOf(shop)[0];
+  // The diner's page language wins (reverses the earlier "shop's original language" rule, Manish 2026-11-20):
+  // the diner reads the invoice. Older orders carry no language, so fall back to the shop's original language.
+  const language = order.language ?? menuLanguagesOf(shop)[0];
   const de = language === 'de';
   return {
     id: order.id,
@@ -316,6 +317,8 @@ export function buildCorrection(input: {
       ...(input.reverses ? { reverses: input.reverses } : {}),
     };
   }
+  // Corrections always keep the original invoice's language — never the order's current/possibly-changed
+  // page language — so a later language change on the order never changes an issued document's language.
   const de = original.language === 'de';
   const full = index === 0 && refund.amountCents === original.totalCents;
   let documentType: InvoiceDocumentType;
@@ -642,10 +645,26 @@ export function mergeInvoiceLines(
   return out;
 }
 
+/**
+ * V2 document heading. English correction/cancellation headings carry the German legal term first
+ * (German tax audit); plain invoices and German documents use the shared single-language title.
+ */
+function v2Title(inv: InvoiceDoc): string {
+  if (inv.language === 'en') {
+    if (inv.documentType === 'cancellation')
+      return 'Stornorechnung / Cancellation invoice';
+    if (inv.documentType === 'correction')
+      return 'Rechnungskorrektur / Invoice correction';
+  }
+  return invoiceTitle(inv.documentType, inv.language);
+}
+
 /** Everything the V2 template prints, formatted for the invoice's language and the restaurant's time zone. */
 export function invoiceV2Table(inv: InvoiceDoc): InvoiceV2Table {
   const de = inv.language === 'de';
-  const locale = de ? 'de-DE' : 'en-GB';
+  // Money and dates are German-formatted (29,80 €, 20.11.2026) on every V2 invoice, whatever the language
+  // (product decision 2026-11-20) — only the words are translated.
+  const locale = 'de-DE';
   const moneyFormat = new Intl.NumberFormat(locale, {
     style: 'currency',
     currency: inv.currency,
@@ -762,8 +781,33 @@ export function invoiceV2Table(inv: InvoiceDoc): InvoiceV2Table {
       lines: bank,
     });
 
+  // Tax ids: English labels carry the German legal term first, for a German tax audit. The PDF footer is three
+  // columns wide, so they get their own column only while there is room; otherwise they are listed under the
+  // shortest existing column (keeps the footer no taller, so an 18-line invoice still fits on one page).
+  const taxIdLines = [
+    ...(s.taxNumber
+      ? [`${de ? 'Steuernummer' : 'Steuernummer / Tax ID'}: ${s.taxNumber}`]
+      : []),
+    ...(s.vatId
+      ? [`${de ? 'USt-IdNr.' : 'USt-IdNr. / VAT ID'}: ${s.vatId}`]
+      : []),
+  ];
+  if (taxIdLines.length) {
+    if (footer.length < 3)
+      footer.push({
+        heading: de ? 'Steuern' : 'Steuern / Taxes',
+        lines: taxIdLines,
+      });
+    else {
+      const shortest = footer.reduce((m, c) =>
+        c.lines.length < m.lines.length ? c : m,
+      );
+      shortest.lines.push(...taxIdLines);
+    }
+  }
+
   return {
-    title: invoiceTitle(inv.documentType, inv.language),
+    title: v2Title(inv),
     priceNote: de
       ? 'Alle Einzelpreise inklusive Mehrwertsteuer.'
       : 'All unit prices include VAT.',

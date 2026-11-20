@@ -434,7 +434,7 @@ describe('delivery invoices', () => {
     expect(t).toContain('1 × Liefergebühr');
     expect(t).toContain('Gesamtbetrag (brutto): 13,00 €');
     expect(t).not.toContain('Teststraße');
-    const en = buildInvoice({ order: ACCEPTED_DELIVERY_ORDER, shop: { ...CARD_SHOP, menuLanguages: ['en'] }, number: NUMBER, now });
+    const en = buildInvoice({ order: { ...ACCEPTED_DELIVERY_ORDER, language: 'en' }, shop: { ...CARD_SHOP, menuLanguages: ['en'] }, number: NUMBER, now });
     expect(en.lines[1].name).toBe('Delivery fee');
   });
 
@@ -455,12 +455,12 @@ describe('delivery invoices', () => {
     expect(t).toContain('Gesamtbetrag (brutto): 13,00 €');
   });
 
-  it("is in the shop's original language even when the diner's page was English", () => {
+  it("is in the diner's page language even when the shop menu is German", () => {
     const inv = buildInvoice({ order: { ...ACCEPTED_DELIVERY_ORDER, language: 'en' }, shop: CARD_SHOP, number: NUMBER, now });
-    expect(inv.language).toBe('de');
-    expect(inv.lines[1].name).toBe('Liefergebühr');
+    expect(inv.language).toBe('en');
+    expect(inv.lines[1].name).toBe('Delivery fee');
     const c = buildCorrection({ original: inv, refunds: [{ amountCents: 1300 }], index: 0, refundId: 'r1', number: 'R-2026-00002', now });
-    expect(c.language).toBe('de');
+    expect(c.language).toBe('en');
   });
 
   it('a delivery Stornorechnung negates the fee too', () => {
@@ -503,7 +503,7 @@ describe('discounted invoices', () => {
     expect(t).toContain('Nettobetrag 19 %: 2,65 €');
     expect(t).toContain('USt. 19 %: 0,50 €');
     expect(t).toContain('Gesamtbetrag (brutto): 12,60 €');
-    const en = buildInvoice({ order: DISCOUNTED_ORDER, shop: { ...CARD_SHOP, menuLanguages: ['en'] }, number: NUMBER, now });
+    const en = buildInvoice({ order: { ...DISCOUNTED_ORDER, language: 'en' }, shop: { ...CARD_SHOP, menuLanguages: ['en'] }, number: NUMBER, now });
     expect(en.lines[2].name).toBe('Discount WELCOME10');
     const voucher = buildInvoice({
       order: { ...DISCOUNTED_ORDER, discount: { ...DISCOUNTED_ORDER.discount!, kind: 'voucher', code: 'L-ABCD2345' } },
@@ -647,5 +647,55 @@ describe('reversal corrections', () => {
     expect(() => reverse([{ amountCents: 350 }, { amountCents: -350, reversesIndex: 1 }], 1)).toThrow(
       'A reversal must follow the refund it reverses',
     );
+  });
+});
+
+describe('invoice language follows the diner (2026-11-20)', () => {
+  const build = (order: Order, shop: Shop) =>
+    buildInvoice({ order, shop, number: NUMBER, now });
+
+  it('the diner (en) wins over a German shop', () => {
+    const inv = build(
+      { ...ACCEPTED_CARD_ORDER, language: 'en' },
+      { ...CARD_SHOP, menuLanguages: ['de'] },
+    );
+    expect(inv.language).toBe('en');
+  });
+
+  it('the diner (de) wins over an English-menu shop', () => {
+    const inv = build(
+      { ...ACCEPTED_CARD_ORDER, language: 'de' },
+      { ...CARD_SHOP, menuLanguages: ['en'] },
+    );
+    expect(inv.language).toBe('de');
+  });
+
+  it('an older order without a page language falls back to the shop original language', () => {
+    const order: Order = { ...ACCEPTED_CARD_ORDER };
+    delete order.language;
+    expect(
+      build(order, { ...CARD_SHOP, menuLanguages: ['en'] }).language,
+    ).toBe('en');
+    expect(
+      build(order, { ...CARD_SHOP, menuLanguages: ['de'] }).language,
+    ).toBe('de');
+  });
+
+  it('a correction keeps the original invoice language', () => {
+    const original = build(
+      { ...ACCEPTED_CARD_ORDER, language: 'en' },
+      { ...CARD_SHOP, menuLanguages: ['de'] },
+    );
+    const correction = buildCorrection({
+      original,
+      refunds: [{ amountCents: 100 }],
+      index: 0,
+      refundId: 'r1',
+      number: 'R-2026-00002',
+      now,
+    });
+    // buildCorrection never sees the live order — only the frozen `original` snapshot — so a later
+    // page-language change on the order can never change an issued invoice's or correction's language.
+    expect(correction.language).toBe('en');
   });
 });

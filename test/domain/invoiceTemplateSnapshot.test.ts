@@ -77,8 +77,9 @@ const cases: Record<string, InvoiceDoc> = {
     number: NUMBER,
     now,
   }),
+  // The order carries no page language, so the shop's original language (en) applies — keeps the V1 golden byte-identical.
   'invoice-en': buildInvoice({
-    order: ACCEPTED_CARD_ORDER,
+    order: (({ language: _l, ...o }) => o)(ACCEPTED_CARD_ORDER),
     shop: { ...CARD_SHOP, menuLanguages: ['en'] },
     number: NUMBER,
     now,

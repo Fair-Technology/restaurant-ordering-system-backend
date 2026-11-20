@@ -568,7 +568,8 @@ export async function renderInvoicePdfV2(inv: InvoiceDoc): Promise<Uint8Array> {
       color: C.brandSoft,
     });
     const base2 = titleBarTop - TITLE_BAR_H / 2 - 6;
-    drawText(t.title, X0 + 12, base2, 18, boldChain);
+    // Bilingual correction titles are long: shrink them so they never run into the price note.
+    drawText(t.title, X0 + 12, base2, t.title.length > 24 ? 14 : 18, boldChain);
     drawRight(t.priceNote, X1 - 12, base2 + 1, 9, regularChain, C.muted);
   };
 

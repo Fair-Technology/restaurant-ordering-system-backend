@@ -1019,6 +1019,31 @@ looks like a 2026 receipt.
 Advantages over storing files: tiny, re-renderable in any language,
 exportable as CSV for an accountant, searchable.
 
+### Invoice language (reversed 2026-11-20)
+
+- The snapshot's `language` is the **diner's page language at issue time**
+  (`order.language`). An order with none (older orders) falls back to the
+  shop's original menu language. This **reverses** the original design, where
+  the shop's language decided; see §12.
+- A **correction or cancellation always keeps the original invoice's
+  language**. It is never re-evaluated from the order's current page language,
+  so re-rendering an old document (monthly ZIP export, diner or staff
+  download) is never affected by a later language change.
+- **English invoices still print recognisable German legal terms**, for a
+  German tax audit: "Steuernummer / Tax ID" and "USt-IdNr. / VAT ID" (always
+  shown when set), and an English correction or cancellation is headed
+  "Rechnungskorrektur / Invoice correction" or "Stornorechnung / Cancellation
+  invoice" (German term first) — never "Gutschrift". A plain English invoice
+  is headed "Invoice". Cross-references to other documents stay
+  single-language. The footer is three columns wide, so the tax ids get their
+  own column only while there is room, otherwise they are listed under the
+  shortest existing column.
+- **Money and dates are German-formatted on every `invoice-2026-11`
+  document**, whatever the language: `29,80 €`, `20.11.2026`. Only the words
+  are translated. (The frozen `receipt-2026-10` renderer is unchanged.)
+- Labels are one branch per language in the renderer, so a third language is
+  a new branch or translation entry, not a rewrite.
+
 ### Template versions: `receipt-2026-10` and `invoice-2026-11`
 
 **Every new invoice and correction is stamped with the current template
@@ -1286,9 +1311,15 @@ language**. They are chosen with one picker but resolved separately:
 - **The order carries the page language** (`de`/`en`), so confirmation emails
   and the order page match what the diner used. Dish names stored on the order
   still come from the menu language.
-- **Invoices and credit notes stay in the shop's original language**, whatever
-  the diner's page language (Manish, 2026-10-10). A German shop issues German
-  invoices.
+- **Invoices and corrections are issued in the diner's page language**
+  (Manish, 2026-11-20 — reverses the earlier "shop's original language" rule
+  of 2026-10-10). The diner reads the invoice, and consumer platforms issue
+  receipts in the customer's language. An order with no page language
+  (older orders) falls back to the shop's original language. A correction
+  always keeps the ORIGINAL invoice's language, even if the diner's page
+  language changed since — it is the same document family (§10). German
+  legal terms stay printed on English invoices too, for a German tax audit
+  (§10).
 - Restaurant-written legal texts (terms, withdrawal, Impressum lines) stay as
   written; only our headings and labels switch.
 
