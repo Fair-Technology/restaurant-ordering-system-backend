@@ -8645,6 +8645,34 @@
         ],
         "additionalProperties": false
       },
+      "InvoiceLegalExtras": {
+        "type": "object",
+        "properties": {
+          "managingDirector": {
+            "type": "string"
+          },
+          "court": {
+            "type": "string"
+          },
+          "registerNumber": {
+            "type": "string"
+          },
+          "iban": {
+            "type": "string"
+          },
+          "bic": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "managingDirector",
+          "court",
+          "registerNumber",
+          "iban",
+          "bic"
+        ],
+        "additionalProperties": false
+      },
       "Category": {
         "type": "object",
         "properties": {
@@ -9776,7 +9804,10 @@
           },
           "templateVersion": {
             "type": "string",
-            "const": "receipt-2026-10"
+            "enum": [
+              "receipt-2026-10",
+              "invoice-2026-11"
+            ]
           },
           "issuedAt": {
             "type": "string"
@@ -9947,6 +9978,21 @@
           },
           "registerNumber": {
             "type": "string"
+          },
+          "managingDirector": {
+            "type": "string"
+          },
+          "invoiceCourt": {
+            "type": "string"
+          },
+          "invoiceRegisterNumber": {
+            "type": "string"
+          },
+          "iban": {
+            "type": "string"
+          },
+          "bic": {
+            "type": "string"
           }
         },
         "required": [
@@ -10004,6 +10050,18 @@
             "type": "number"
           },
           "taxCents": {
+            "type": "number"
+          },
+          "modifiers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "productName": {
+            "type": "string"
+          },
+          "comboLine": {
             "type": "number"
           }
         },
@@ -14208,6 +14266,14 @@
           },
           "taxNumber": {
             "type": "string"
+          },
+          "invoiceLegalExtras": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/InvoiceLegalExtras"
+              }
+            ]
           }
         },
         "required": [
@@ -14220,7 +14286,8 @@
           "dpa",
           "platformIdentityComplete",
           "callerIsOwner",
-          "taxNumber"
+          "taxNumber",
+          "invoiceLegalExtras"
         ],
         "additionalProperties": false
       },
@@ -14783,7 +14850,8 @@
           },
           "taxNumber": {
             "type": "string"
-          }
+          },
+          "invoiceLegalExtras": {}
         },
         "additionalProperties": false
       },
@@ -15276,6 +15344,27 @@
                   "items": {
                     "type": "string"
                   }
+                },
+                "combo": {
+                  "type": "object",
+                  "properties": {
+                    "line": {
+                      "type": "number"
+                    },
+                    "productId": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "line",
+                    "productId",
+                    "name"
+                  ],
+                  "additionalProperties": false,
+                  "nullable": true
                 }
               },
               "required": [
