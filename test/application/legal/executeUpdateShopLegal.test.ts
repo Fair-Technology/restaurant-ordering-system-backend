@@ -21,7 +21,7 @@ import { authorizeShopAction } from '../../../src/application/_shared/shopAccess
 import { findShopById, updateShop } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
 import { logAudit } from '../../../src/application/_shared/auditHelpers';
 import { executeUpdateShopLegal } from '../../../src/application/legal/updateShopLegal/executeUpdateShopLegal';
-import { COMPLETE_GMBH, COMPLETE_LEGAL, TERMS_TEXT } from '../../fixtures/legal';
+import { COMPLETE_GMBH, COMPLETE_INVOICE_EXTRAS, COMPLETE_LEGAL, TERMS_TEXT } from '../../fixtures/legal';
 
 const OWNER_ACCESS = {
   ok: true,
@@ -63,6 +63,43 @@ describe('executeUpdateShopLegal', () => {
     const r = await executeUpdateShopLegal({ shopId: 'shop-1', body: { taxNumber: '1'.repeat(31) } }, {} as any);
     expect(r).toEqual({ ok: false, code: 'INVALID_INPUT', error: 'taxNumber must be at most 30 characters' });
     expect(updateShop).not.toHaveBeenCalled();
+  });
+
+  it('saves invoice legal extras without putting values in the audit log', async () => {
+    const r: any = await executeUpdateShopLegal(
+      { shopId: 'shop-1', body: { invoiceLegalExtras: COMPLETE_INVOICE_EXTRAS } },
+      {} as any,
+    );
+    expect(updateShop).toHaveBeenCalledWith(
+      expect.objectContaining({ legal: expect.objectContaining({ invoiceLegalExtras: COMPLETE_INVOICE_EXTRAS }) }),
+    );
+    expect(r.data.invoiceLegalExtras).toEqual(COMPLETE_INVOICE_EXTRAS);
+    const audit = JSON.stringify((logAudit as any).mock.calls);
+    expect(audit).toContain('invoiceLegalExtras');
+    expect(audit).not.toContain(COMPLETE_INVOICE_EXTRAS.iban);
+    expect(audit).not.toContain(COMPLETE_INVOICE_EXTRAS.bic);
+  });
+
+  it('refuses an invalid IBAN', async () => {
+    const r: any = await executeUpdateShopLegal(
+      { shopId: 'shop-1', body: { invoiceLegalExtras: { ...COMPLETE_INVOICE_EXTRAS, iban: 'bad' } } },
+      {} as any,
+    );
+    expect(r.ok).toBe(false);
+    expect(r.code).toBe('INVALID_INPUT');
+    expect(updateShop).not.toHaveBeenCalled();
+  });
+
+  it('clears previously set invoice legal extras when every field is blank', async () => {
+    (findShopById as any).mockResolvedValue(
+      baseShop({ legal: { ...COMPLETE_LEGAL, invoiceLegalExtras: COMPLETE_INVOICE_EXTRAS } }),
+    );
+    const blank = { managingDirector: '', court: '', registerNumber: '', iban: '', bic: '' };
+    const r: any = await executeUpdateShopLegal({ shopId: 'shop-1', body: { invoiceLegalExtras: blank } }, {} as any);
+    expect(updateShop).toHaveBeenCalledWith(
+      expect.objectContaining({ legal: expect.objectContaining({ invoiceLegalExtras: null }) }),
+    );
+    expect(r.data.invoiceLegalExtras).toBeNull();
   });
 
   it('saves terms as revision 1', async () => {

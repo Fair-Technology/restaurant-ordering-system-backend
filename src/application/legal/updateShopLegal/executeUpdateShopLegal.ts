@@ -6,8 +6,10 @@ import {
   LEGAL_TEXT_MAX_CHARS,
   LegalTextKind,
   ShopLegal,
+  isInvoiceLegalExtrasEmpty,
   legalOf,
   nextLegalText,
+  validateInvoiceLegalExtrasInput,
 } from '../../../domain/legal/legalTexts';
 import { TAX_NUMBER_ERROR } from '../../../domain/order/orderErrors';
 import { AuditChange } from '../../../domain/audit/AuditEntry';
@@ -74,6 +76,20 @@ export async function executeUpdateShopLegal(
         else legal.taxNumber = taxNumber;
         // The value itself is never written to the audit log.
         changes.push({ field: 'taxNumber', from: null, to: null });
+      }
+    }
+
+    if (body.invoiceLegalExtras !== undefined) {
+      const valid = validateInvoiceLegalExtrasInput(body.invoiceLegalExtras);
+      if (typeof valid === 'string') {
+        return { ok: false, code: 'INVALID_INPUT', error: valid };
+      }
+      const next = isInvoiceLegalExtrasEmpty(valid) ? null : valid;
+      const before = current.invoiceLegalExtras ?? null;
+      if (JSON.stringify(next) !== JSON.stringify(before)) {
+        legal.invoiceLegalExtras = next;
+        // Field name only: IBAN/BIC and names never go into the audit log.
+        changes.push({ field: 'invoiceLegalExtras', from: null, to: null });
       }
     }
 

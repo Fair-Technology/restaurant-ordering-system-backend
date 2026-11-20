@@ -19,6 +19,16 @@ export interface LegalTextRevision extends LegalText {
   kind: LegalTextKind;
 }
 
+export interface InvoiceLegalExtras {
+  managingDirector: string; // Geschäftsführer; '' = not given
+  court: string; // Amtsgericht; '' = not given
+  registerNumber: string; // HRB number; '' = not given
+  iban: string; // '' = not given
+  bic: string; // '' = not given
+}
+
+export const INVOICE_LEGAL_EXTRAS_MAX_CHARS = 300;
+
 export interface ShopLegal {
   impressum: StoredImpressum | null;
   terms: LegalText | null;
@@ -26,6 +36,7 @@ export interface ShopLegal {
   privacyAddition: LegalText | null;
   revisions: LegalTextRevision[]; // superseded texts only, oldest first
   taxNumber?: string; // private Steuernummer for invoices; never printed in the Impressum
+  invoiceLegalExtras?: InvoiceLegalExtras | null; // optional invoice-only extras; independent of the Impressum
 }
 
 export const EMPTY_SHOP_LEGAL: ShopLegal = {
@@ -74,4 +85,46 @@ export function nextLegalText(
 
 export function isLegalTextPublished(t: LegalText | null | undefined): boolean {
   return (t?.text.trim().length ?? 0) >= MIN_LEGAL_TEXT_CHARS;
+}
+
+const INVOICE_EXTRAS_KEYS: readonly (keyof InvoiceLegalExtras)[] = [
+  'managingDirector',
+  'court',
+  'registerNumber',
+  'iban',
+  'bic',
+];
+
+const IBAN_PATTERN = /^[A-Z]{2}[0-9A-Z]{13,32}$/;
+const BIC_PATTERN = /^[A-Z]{6}[A-Z0-9]{2}([A-Z0-9]{3})?$/;
+
+/** All fields optional free text; '' allowed for every one. iban/bic normalised
+ *  (spaces removed, upper-cased) and format-checked only when non-empty. */
+export function validateInvoiceLegalExtrasInput(input: unknown): InvoiceLegalExtras | string {
+  if (typeof input !== 'object' || input === null || Array.isArray(input)) {
+    return 'invoiceLegalExtras must be an object';
+  }
+  const raw = input as Record<string, unknown>;
+  const out: Record<string, string> = {};
+  for (const key of INVOICE_EXTRAS_KEYS) {
+    const v = raw[key];
+    if (typeof v !== 'string' || v.trim().length > INVOICE_LEGAL_EXTRAS_MAX_CHARS) {
+      return `invoiceLegalExtras.${key} must be a string of at most ${INVOICE_LEGAL_EXTRAS_MAX_CHARS} characters`;
+    }
+    out[key] = v.trim();
+  }
+  out.iban = out.iban.replace(/\s+/g, '').toUpperCase();
+  if (out.iban !== '' && !IBAN_PATTERN.test(out.iban)) {
+    return 'invoiceLegalExtras.iban is not a valid IBAN';
+  }
+  out.bic = out.bic.replace(/\s+/g, '').toUpperCase();
+  if (out.bic !== '' && !BIC_PATTERN.test(out.bic)) {
+    return 'invoiceLegalExtras.bic is not a valid BIC';
+  }
+  return out as unknown as InvoiceLegalExtras;
+}
+
+/** true when every field is '' (nothing to store / show). */
+export function isInvoiceLegalExtrasEmpty(e: InvoiceLegalExtras): boolean {
+  return INVOICE_EXTRAS_KEYS.every((k) => e[k] === '');
 }

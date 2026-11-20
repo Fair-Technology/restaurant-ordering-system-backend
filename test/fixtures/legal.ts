@@ -1,5 +1,5 @@
 import { ImpressumFields } from '../../src/domain/legal/impressum';
-import { ShopLegal } from '../../src/domain/legal/legalTexts';
+import { InvoiceLegalExtras, ShopLegal } from '../../src/domain/legal/legalTexts';
 import { CURRENT_DPA } from '../../src/domain/legal/platformDocuments';
 import { DEFAULT_PLATFORM_LEGAL_IDENTITY, PlatformLegalIdentity } from '../../src/domain/legal/PlatformLegalIdentity';
 
@@ -28,6 +28,14 @@ export const COMPLETE_LEGAL: ShopLegal = {
   withdrawal: { text: WITHDRAWAL_TEXT, revision: 1, updatedAt: '2026-10-01T00:00:00Z', updatedBy: 'u1' },
   privacyAddition: null,
   revisions: [],
+};
+
+export const COMPLETE_INVOICE_EXTRAS: InvoiceLegalExtras = {
+  managingDirector: 'Giulia Rossi',
+  court: 'Amtsgericht Frankfurt am Main',
+  registerNumber: 'HRB 123456',
+  iban: 'DE89370400440532013000',
+  bic: 'COBADEFFXXX',
 };
 
 export const ACCEPTED_DPA = {

@@ -39,6 +39,11 @@ export interface InvoiceSeller {
   taxNumber: string;
   registerCourt: string;
   registerNumber: string;
+  managingDirector?: string; // Geschäftsführer; omitted when not set
+  invoiceCourt?: string; // Amtsgericht (invoice-only extra, independent of the Impressum register fields above)
+  invoiceRegisterNumber?: string; // HRB number
+  iban?: string;
+  bic?: string;
 }
 
 export interface InvoiceBuyer {
@@ -122,6 +127,7 @@ export function buildInvoice(input: {
 }): InvoiceDoc {
   const { order, shop, number, now } = input;
   const impressum = legalOf(shop).impressum;
+  const invoiceExtras = legalOf(shop).invoiceLegalExtras ?? null;
   if (!impressum) throw new Error('Shop has no Impressum');
   if (!hasInvoiceTaxId(shop)) throw new Error(INVOICE_TAX_ID_MISSING);
   if (order.payment.method !== 'card' || !order.payment.stripePaymentIntentId) {
@@ -154,6 +160,11 @@ export function buildInvoice(input: {
       taxNumber: ids.taxNumber,
       registerCourt: impressum.registerCourt,
       registerNumber: impressum.registerNumber,
+      ...(invoiceExtras?.managingDirector ? { managingDirector: invoiceExtras.managingDirector } : {}),
+      ...(invoiceExtras?.court ? { invoiceCourt: invoiceExtras.court } : {}),
+      ...(invoiceExtras?.registerNumber ? { invoiceRegisterNumber: invoiceExtras.registerNumber } : {}),
+      ...(invoiceExtras?.iban ? { iban: invoiceExtras.iban } : {}),
+      ...(invoiceExtras?.bic ? { bic: invoiceExtras.bic } : {}),
     },
     buyer: { name: order.customerName, address: order.customerAddress ?? null },
     lines: order.items.map((item) => ({

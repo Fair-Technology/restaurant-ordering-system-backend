@@ -1,5 +1,6 @@
 import { Category } from '../../domain/category/Category';
 import { ImpressumFieldKey, ImpressumFields, ImpressumLine, LegalLanguage } from '../../domain/legal/impressum';
+import { InvoiceLegalExtras } from '../../domain/legal/legalTexts';
 import { PlatformLegalIdentity } from '../../domain/legal/PlatformLegalIdentity';
 import { SubProcessor } from '../../domain/legal/platformDocuments';
 import { PrivacyNotice } from '../../domain/legal/privacyNotice';
@@ -26,6 +27,7 @@ export interface ShopLegalSettingsDto {
   platformIdentityComplete: boolean;
   callerIsOwner: boolean;
   taxNumber: string; // private Steuernummer for invoices; '' when unset
+  invoiceLegalExtras: InvoiceLegalExtras | null;
 }
 
 export interface UpdateShopLegalBody {
@@ -34,6 +36,7 @@ export interface UpdateShopLegalBody {
   withdrawal?: string;
   privacyAddition?: string;
   taxNumber?: string;
+  invoiceLegalExtras?: unknown;
 }
 
 export interface AcceptDpaBody {
