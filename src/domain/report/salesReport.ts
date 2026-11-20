@@ -3,6 +3,7 @@ import {
   FULFILMENT_MODES,
   type FulfilmentMode,
   type OrderPayment,
+  type StoredOrderState,
   type RefundLine,
   type TaxBreakdownEntry,
 } from '../order/Order';
@@ -38,6 +39,8 @@ export interface ReportRefundRow {
 /** One order, as the report query selects it: no diner name, email, phone, address or notes. */
 export interface ReportOrderRow {
   id: string;
+  /** Lifecycle state; optional only so older fixtures still build. Absent means "count it". */
+  state?: StoredOrderState;
   createdAt: string;
   acceptedAt?: string;
   scheduledFor?: string;
@@ -249,6 +252,9 @@ export function buildSalesReport(input: {
   for (const o of rows) {
     if (seen.has(o.id)) continue;
     seen.add(o.id);
+    // Explicit, not inferred from acceptedAt: a CANCELLED order keeps its acceptedAt, and until its payment is released
+    // it still reads as captured. Neither a rejected nor a cancelled order is a sale, nor are its refunds a takings line.
+    if (o.state === 'REJECTED' || o.state === 'CANCELLED') continue;
     if (!isCaptured(o)) continue;
 
     const acceptedAt = o.acceptedAt;

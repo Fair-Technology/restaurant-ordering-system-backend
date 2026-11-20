@@ -283,7 +283,7 @@ export async function countLoyaltyOrders(shopId: string, emailLower: string, sin
 
 /** What a report reads of an order. Deliberately no customer fields, notes, addresses, tokens or history. */
 export const REPORT_ROW_SELECT =
-  'SELECT c.id, c.createdAt, c.acceptedAt, c.scheduledFor, c.fulfilmentMode, c.payment, c.subtotalCents, c.totalCents, ' +
+  'SELECT c.id, c.state, c.createdAt, c.acceptedAt, c.scheduledFor, c.fulfilmentMode, c.payment, c.subtotalCents, c.totalCents, ' +
   'c.charges, c.discount.cents AS discountCents, c.taxBreakdown, ' +
   'ARRAY(SELECT i.productId, i.productName, i.quantity, i.unitPriceCents, i.lineTotalCents, i.taxRateBasisPoints, i.taxCents, i.discountCents, i.combo FROM i IN c.items) AS items, ' +
   'ARRAY(SELECT r.amountCents, r.at, r.lines, r.reversesIndex FROM r IN c.refunds) AS refunds ' +

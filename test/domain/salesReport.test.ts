@@ -62,6 +62,27 @@ const report = () =>
   });
 
 describe('salesReport', () => {
+  it.each(['REJECTED', 'CANCELLED'] as const)(
+    'a %s order never counts, even when paid with an acceptedAt and a refund in range',
+    (state) => {
+      const ghost: ReportOrderRow = {
+        ...O2, id: 'ghost', state, payment: paid,
+        refunds: [{ amountCents: 315, at: '2026-10-06T08:00:00.000Z' }],
+      };
+      const without = buildSalesReport({ shopId: 'shop-1', from: '2026-10-05', to: '2026-10-06', timezone: TZ, currency: 'EUR', rows: [O1, O3] });
+      const withGhost = buildSalesReport({ shopId: 'shop-1', from: '2026-10-05', to: '2026-10-06', timezone: TZ, currency: 'EUR', rows: [O1, O3, ghost, ghost] });
+      expect(withGhost).toEqual(without);
+      expect(withGhost.totals.orderCount).toBe(2);
+    },
+  );
+
+  it('still counts the live and finished states', () => {
+    for (const state of ['ACCEPTED', 'READY', 'OUT_FOR_DELIVERY', 'COMPLETED', 'REFUNDED'] as const) {
+      const r = buildSalesReport({ shopId: 's', from: '2026-10-05', to: '2026-10-05', timezone: TZ, currency: 'EUR', rows: [{ ...O1, state }] });
+      expect(r.totals.orderCount).toBe(1);
+    }
+  });
+
   it("an order counts on the restaurant's local day of acceptance", () => {
     expect(report().days.map((d) => [d.date, d.orderCount])).toEqual([['2026-10-05', 3], ['2026-10-06', 1]]);
   });

@@ -40,6 +40,10 @@ describe('report queries', () => {
     expect(REPORT_ROW_SELECT).not.toMatch(/customer|Notes|deliveryAddress|history|AccessToken|SELECT \*/);
   });
 
+  it('selects the order state so the report can exclude rejected and cancelled orders', () => {
+    expect(REPORT_ROW_SELECT).toContain('c.state');
+  });
+
   it('selects each line\'s combo so top dishes can group combos', () => {
     expect(REPORT_ROW_SELECT).toContain('i.discountCents, i.combo FROM i IN c.items');
   });
