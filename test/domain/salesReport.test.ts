@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { buildTaxBreakdownWithCharges } from '../../src/domain/order/tax';
 import {
+  addDays,
+  REPORT_MAX_FUTURE_DAYS,
   buildSalesReport,
   datesBetween,
   localHour,
@@ -214,5 +216,29 @@ describe('salesReport', () => {
   it('the repeated hour on the clock-change night is hour 2 both times', () => {
     expect(localHour(new Date('2026-10-25T00:30:00Z'), TZ)).toBe(2);
     expect(localHour(new Date('2026-10-25T01:30:00Z'), TZ)).toBe(2);
+  });
+});
+
+describe('report range future cap', () => {
+  const now = new Date('2026-11-20T12:00:00.000Z');
+
+  it('rejects the year-9999 range that used to hang the backend', () => {
+    expect(parseReportRange('9999-12-25', '9999-12-31')).toBe('invalid');
+  });
+
+  it('accepts a date just inside the future cap', () => {
+    expect(parseReportRange('2026-11-18', '2026-11-22', now)).toEqual({ from: '2026-11-18', to: '2026-11-22' });
+    expect(REPORT_MAX_FUTURE_DAYS).toBe(2);
+  });
+
+  it('rejects a date just outside the future cap', () => {
+    expect(parseReportRange('2026-11-18', '2026-11-23', now)).toBe('invalid');
+  });
+
+  it('addDays never returns an extended-year string at the year-10000 boundary', () => {
+    expect(() => addDays('9999-12-31', 2)).toThrow(RangeError);
+    expect(() => utcWindowFor('9999-12-25', '9999-12-31')).toThrow(RangeError);
+    expect(addDays('9999-12-30', 1)).toBe('9999-12-31');
+    expect(addDays('2026-12-31', 1)).toBe('2027-01-01');
   });
 });

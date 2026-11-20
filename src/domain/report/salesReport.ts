@@ -14,7 +14,10 @@ import { localDate } from '../order/orderTimers';
 
 export const REPORT_MAX_DAYS = 92;
 export const TOP_DISHES_COUNT = 10;
-export const REPORT_RANGE_ERROR = 'from and to must be dates (YYYY-MM-DD), from not after to, at most 92 days apart';
+/** Reports cover past sales; this slack only tolerates shop-local dates ahead of UTC "now" (up to UTC+14). */
+export const REPORT_MAX_FUTURE_DAYS = 2;
+export const REPORT_RANGE_ERROR =
+  'from and to must be dates (YYYY-MM-DD), from not after to, at most 92 days apart, and not more than a couple of days in the future';
 
 /** One order line, as the report query selects it. */
 export interface ReportItemRow {
@@ -104,9 +107,13 @@ export interface SalesReport {
 
 /** 'YYYY-MM-DD' plus n calendar days. */
 export function addDays(date: string, n: number): string {
-  return new Date(Date.UTC(Number(date.slice(0, 4)), Number(date.slice(5, 7)) - 1, Number(date.slice(8, 10)) + n))
-    .toISOString()
-    .slice(0, 10);
+  const iso = new Date(
+    Date.UTC(Number(date.slice(0, 4)), Number(date.slice(5, 7)) - 1, Number(date.slice(8, 10)) + n),
+  ).toISOString();
+  // Outside years 0000-9999 toISOString() switches to the extended '+010000-...' / '-000001-...' form, and
+  // slicing that yields a garbage string. Throw rather than clamp: clamping would make datesBetween loop forever.
+  if (!/^\d{4}-/.test(iso)) throw new RangeError(`addDays: ${date} ${n >= 0 ? '+' : ''}${n} days is outside years 0000-9999`);
+  return iso.slice(0, 10);
 }
 
 /** Every date from..to inclusive. Callers pass a range already checked by parseReportRange. */
@@ -120,8 +127,13 @@ const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const isRealDate = (s: unknown): s is string => typeof s === 'string' && DATE.test(s) && addDays(s, 0) === s;
 
 /** A checked range, or 'invalid'. */
-export function parseReportRange(from: unknown, to: unknown): { from: string; to: string } | 'invalid' {
+export function parseReportRange(
+  from: unknown,
+  to: unknown,
+  now: Date = new Date(),
+): { from: string; to: string } | 'invalid' {
   if (!isRealDate(from) || !isRealDate(to) || from > to) return 'invalid';
+  if (to > addDays(now.toISOString().slice(0, 10), REPORT_MAX_FUTURE_DAYS)) return 'invalid';
   const span = (Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000 + 1;
   return span <= REPORT_MAX_DAYS ? { from, to } : 'invalid';
 }
