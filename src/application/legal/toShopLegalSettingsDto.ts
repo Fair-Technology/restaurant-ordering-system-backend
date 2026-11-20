@@ -37,5 +37,6 @@ export function toShopLegalSettingsDto(
     platformIdentityComplete: isPlatformIdentityComplete(identity),
     callerIsOwner,
     taxNumber: legal.taxNumber ?? '',
+    invoiceLegalExtras: legal.invoiceLegalExtras ?? null,
   };
 }

@@ -14,6 +14,7 @@ import { extractVatCents } from '../../src/domain/order/tax';
 import type { Shop } from '../../src/domain/shop/Shop';
 import { priceBasket } from '../../src/application/order/_shared/priceBasket';
 import { DE_REFERENCE_LISTS } from '../../src/domain/reference/ReferenceLists';
+import { COMPLETE_INVOICE_EXTRAS, COMPLETE_LEGAL } from '../fixtures/legal';
 import { ACCEPTED_CARD_ORDER, ACCEPTED_DELIVERY_ORDER, ADDRESS, CARD_SHOP, CATEGORIES, DELIVERY_ADDRESS, COMBO_CHOICES, COMBO_ORDER, DISCOUNTED_ORDER, FEE_CHARGE, P_COLA, P_COMBO, P_PASTA } from '../fixtures/orders';
 
 const now = new Date('2026-10-05T10:05:00Z');
@@ -147,6 +148,27 @@ describe('invoice rules', () => {
     const t = two();
     expect(t.lines.map((l) => l.name)).toEqual(['Carbonara', 'Cola']);
     expect(t.lines.length).toBe(TWO_LINE_ORDER.items.length);
+  });
+
+  it('includes the invoice legal extras on the seller when the shop has them set', () => {
+    const shop: Shop = { ...CARD_SHOP, legal: { ...COMPLETE_LEGAL, invoiceLegalExtras: COMPLETE_INVOICE_EXTRAS } };
+    const inv = buildInvoice({ order: ACCEPTED_CARD_ORDER, shop, number: NUMBER, now });
+    expect(inv.seller.managingDirector).toBe(COMPLETE_INVOICE_EXTRAS.managingDirector);
+    expect(inv.seller.invoiceCourt).toBe(COMPLETE_INVOICE_EXTRAS.court);
+    expect(inv.seller.invoiceRegisterNumber).toBe(COMPLETE_INVOICE_EXTRAS.registerNumber);
+    expect(inv.seller.iban).toBe(COMPLETE_INVOICE_EXTRAS.iban);
+    expect(inv.seller.bic).toBe(COMPLETE_INVOICE_EXTRAS.bic);
+  });
+
+  it('omits the invoice legal extras keys entirely when the shop has none set', () => {
+    const { seller } = one();
+    for (const key of ['managingDirector', 'invoiceCourt', 'invoiceRegisterNumber', 'iban', 'bic']) {
+      expect(seller).not.toHaveProperty(key);
+    }
+  });
+
+  it("persists the order's Stripe payment/transaction id on the invoice snapshot", () => {
+    expect(one().payment).toEqual({ method: 'card', stripePaymentIntentId: 'pi_1' });
   });
 
   it("prints the diner's address when given", () => {

@@ -5,7 +5,7 @@ import {
   missingImpressumFields,
   validateImpressumInput,
 } from '../../src/domain/legal/impressum';
-import { nextLegalText } from '../../src/domain/legal/legalTexts';
+import { isInvoiceLegalExtrasEmpty, nextLegalText, validateInvoiceLegalExtrasInput } from '../../src/domain/legal/legalTexts';
 import { isLegalPackComplete, legalCriteria } from '../../src/domain/legal/legalReadiness';
 import {
   DEFAULT_PLATFORM_LEGAL_IDENTITY,
@@ -14,7 +14,7 @@ import {
 } from '../../src/domain/legal/PlatformLegalIdentity';
 import { anonymiseOrder } from '../../src/domain/legal/erasure';
 import { ADDRESS, DELIVERY_ADDRESS } from '../fixtures/orders';
-import { ACCEPTED_DPA, COMPLETE_GMBH, COMPLETE_IDENTITY, COMPLETE_LEGAL } from '../fixtures/legal';
+import { ACCEPTED_DPA, COMPLETE_GMBH, COMPLETE_IDENTITY, COMPLETE_INVOICE_EXTRAS, COMPLETE_LEGAL } from '../fixtures/legal';
 
 const L1 = COMPLETE_LEGAL.terms!;
 
@@ -187,5 +187,57 @@ describe('erasure', () => {
       '2026-10-05T00:00:00.000Z',
     );
     expect('deliveryAddress' in r).toBe(false);
+  });
+});
+
+describe('invoice legal extras', () => {
+  const BLANK = { managingDirector: '', court: '', registerNumber: '', iban: '', bic: '' };
+
+  it('all fields blank is valid', () => {
+    expect(validateInvoiceLegalExtrasInput(BLANK)).toEqual(BLANK);
+  });
+
+  it('a fully filled valid input round-trips trimmed', () => {
+    const padded = Object.fromEntries(Object.entries(COMPLETE_INVOICE_EXTRAS).map(([k, v]) => [k, `  ${v}  `]));
+    expect(validateInvoiceLegalExtrasInput(padded)).toEqual(COMPLETE_INVOICE_EXTRAS);
+  });
+
+  it('normalises spaces and case in IBAN and BIC', () => {
+    const r = validateInvoiceLegalExtrasInput({ ...BLANK, iban: 'de89 3704 0044 0532 0130 00', bic: 'cobadeffxxx' });
+    expect(r).toEqual({ ...BLANK, iban: 'DE89370400440532013000', bic: 'COBADEFFXXX' });
+  });
+
+  it('rejects an invalid IBAN', () => {
+    expect(validateInvoiceLegalExtrasInput({ ...BLANK, iban: 'nope' })).toBe(
+      'invoiceLegalExtras.iban is not a valid IBAN',
+    );
+  });
+
+  it('rejects an invalid BIC', () => {
+    expect(validateInvoiceLegalExtrasInput({ ...BLANK, bic: '123' })).toBe(
+      'invoiceLegalExtras.bic is not a valid BIC',
+    );
+  });
+
+  it('rejects an overlong field', () => {
+    expect(validateInvoiceLegalExtrasInput({ ...BLANK, court: 'x'.repeat(301) })).toBe(
+      'invoiceLegalExtras.court must be a string of at most 300 characters',
+    );
+  });
+
+  it('isInvoiceLegalExtrasEmpty is true only when every field is blank', () => {
+    expect(isInvoiceLegalExtrasEmpty(BLANK)).toBe(true);
+    expect(isInvoiceLegalExtrasEmpty({ ...BLANK, bic: 'COBADEFFXXX' })).toBe(false);
+  });
+
+  it('has no effect on Impressum or legal-pack completeness', () => {
+    const before = { ...COMPLETE_GMBH, registerNumber: '' };
+    const shopA: any = { id: 's', dpaAcceptance: ACCEPTED_DPA, legal: COMPLETE_LEGAL };
+    const shopB: any = { ...shopA, legal: { ...COMPLETE_LEGAL, invoiceLegalExtras: COMPLETE_INVOICE_EXTRAS } };
+    expect(isImpressumComplete(shopB.legal.impressum)).toBe(isImpressumComplete(shopA.legal.impressum));
+    expect(missingImpressumFields(shopB.legal.impressum)).toEqual(missingImpressumFields(shopA.legal.impressum));
+    expect(missingImpressumFields(before)).toEqual(['registerNumber']);
+    expect(legalCriteria(shopB, COMPLETE_IDENTITY)).toEqual(legalCriteria(shopA, COMPLETE_IDENTITY));
+    expect(isLegalPackComplete(shopB)).toBe(isLegalPackComplete(shopA));
   });
 });
