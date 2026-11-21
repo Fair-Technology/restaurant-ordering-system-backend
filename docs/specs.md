@@ -1190,7 +1190,7 @@ suspend a restaurant, edit a restaurant's content — **every use written to the
 audit log and visible to that restaurant.** A superadmin permission model exists
 from the start, everyone defaulting to full access, so an invited helper can be
 restricted later without a rewrite. **Impersonating an owner is not offered**
-(parked, §22).
+(parked, §22). A per-owner `maxShops` override set here is durable: it survives the owner's own sign-ins and audited actions, not just the moment it was set.
 
 **Who counts as platform staff is decided by where the identity comes from.**
 The API trusts two token issuers and they mean different things: the **customer

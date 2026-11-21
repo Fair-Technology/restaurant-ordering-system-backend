@@ -14,11 +14,12 @@ export async function findUserById(userId: string): Promise<UserProfile | null> 
 export async function upsertUser(incoming: UserProfile): Promise<UserProfile> {
   const existing = await findUserById(incoming.id);
 
-  // Preserve createdAt so lazy upserts never reset a user's signup date
+  // Merge over the existing document so fields the caller doesn't send (e.g. an
+  // operator-set maxShops) survive; createdAt stays pinned to the signup date.
   const profile: UserProfile = {
+    ...existing,
     ...incoming,
     createdAt: existing?.createdAt ?? incoming.createdAt,
-    updatedAt: incoming.updatedAt,
   };
 
   await usersContainer.items.upsert<UserProfile>(profile);
