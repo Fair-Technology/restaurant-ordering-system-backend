@@ -7,6 +7,9 @@ vi.mock('../../../src/infrastructure/auth/authHelpers', () => ({
 vi.mock('../../../src/infrastructure/auth/superAdminAuthHelpers', () => ({
   isSuperAdminPrincipal: vi.fn(),
 }));
+vi.mock('../../../src/infrastructure/cosmos/shop/CosmosShopRepository', () => ({
+  findShopsByMemberId: vi.fn(),
+}));
 vi.mock('../../../src/infrastructure/cosmos/user/CosmosUserRepository', () => ({
   findUserById: vi.fn(),
   upsertUser: vi.fn(),
@@ -15,6 +18,7 @@ vi.mock('../../../src/infrastructure/cosmos/user/CosmosUserRepository', () => ({
 import { getPrincipalFromAuth } from '../../../src/infrastructure/auth/authHelpers';
 import { isSuperAdminPrincipal } from '../../../src/infrastructure/auth/superAdminAuthHelpers';
 import { findUserById, upsertUser } from '../../../src/infrastructure/cosmos/user/CosmosUserRepository';
+import { findShopsByMemberId } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
 import { executeGetMe } from '../../../src/application/user/getMe/executeGetMe';
 
 const http = {} as HttpRequest;
@@ -28,6 +32,8 @@ describe('executeGetMe', () => {
     vi.mocked(isSuperAdminPrincipal).mockReset();
     vi.mocked(findUserById).mockReset();
     vi.mocked(upsertUser).mockReset();
+    vi.mocked(findShopsByMemberId).mockReset();
+    vi.mocked(findShopsByMemberId).mockResolvedValue([]);
   });
 
   it('reports a platform operator as superadmin and writes no profile for them', async () => {
@@ -119,5 +125,51 @@ describe('executeGetMe', () => {
     const res = await executeGetMe(http);
 
     expect(res.ok && res.data.platformAccess).toBeUndefined();
+  });
+
+  describe('restaurantLanguage', () => {
+    const profile = { id: 'cust-1', createdAt: 'a', updatedAt: 'b' } as never;
+    const shopIn = (countryCode: string, createdAt: string) => ({ id: createdAt, countryCode, createdAt }) as never;
+
+    beforeEach(() => {
+      vi.mocked(getPrincipalFromAuth).mockResolvedValue(customer as never);
+      vi.mocked(upsertUser).mockResolvedValue(profile);
+    });
+
+    it('is de for a single DE shop', async () => {
+      vi.mocked(findShopsByMemberId).mockResolvedValue([shopIn('DE', '2026-01-01T00:00:00.000Z')]);
+      const res = await executeGetMe(http);
+      expect(res.ok && res.data.restaurantLanguage).toBe('de');
+    });
+
+    it('is en for a single AU shop', async () => {
+      vi.mocked(findShopsByMemberId).mockResolvedValue([shopIn('AU', '2026-01-01T00:00:00.000Z')]);
+      const res = await executeGetMe(http);
+      expect(res.ok && res.data.restaurantLanguage).toBe('en');
+    });
+
+    it('uses the earliest shop when there are several', async () => {
+      vi.mocked(findShopsByMemberId).mockResolvedValue([
+        shopIn('AU', '2026-05-01T00:00:00.000Z'),
+        shopIn('DE', '2026-01-01T00:00:00.000Z'),
+      ]);
+      const res = await executeGetMe(http);
+      expect(res.ok && res.data.restaurantLanguage).toBe('de');
+    });
+
+    it('is absent for an owner with no shop', async () => {
+      vi.mocked(findShopsByMemberId).mockResolvedValue([]);
+      const res = await executeGetMe(http);
+      expect(res.ok).toBe(true);
+      expect(res.ok && res.data.restaurantLanguage).toBeUndefined();
+    });
+
+    it('is absent for a platform operator, without looking up shops', async () => {
+      vi.mocked(getPrincipalFromAuth).mockResolvedValue(operator as never);
+      vi.mocked(findUserById).mockResolvedValue(null);
+      const res = await executeGetMe(http);
+      expect(res.ok && res.data.restaurantLanguage).toBeUndefined();
+      expect(findShopsByMemberId).not.toHaveBeenCalled();
+    });
   });
 });

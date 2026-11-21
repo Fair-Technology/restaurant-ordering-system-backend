@@ -16,4 +16,6 @@ export interface StaffLoginResultDto {
   username: string;
   role: StaffRole;
   language: MenuLanguage | null;
+  /** The shop's language (from its country); the first-sign-in fallback for the interface language. */
+  shopLanguage: MenuLanguage;
 }
