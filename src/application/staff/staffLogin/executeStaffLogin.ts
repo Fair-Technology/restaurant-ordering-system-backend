@@ -4,6 +4,7 @@ import {
   listStaffAccounts,
   replaceStaffAccount,
 } from '../../../infrastructure/cosmos/staff/CosmosStaffAccountRepository';
+import { defaultMenuLanguageForCountry } from '../../../domain/menu/menuLanguage';
 import { verifyPassword, dummyPasswordHash } from '../../../infrastructure/auth/passwordHashing';
 import { signStaffToken } from '../../../infrastructure/auth/staffTokens';
 import { MAX_FAILED_LOGINS, LOCKOUT_MINUTES } from '../../../domain/staff/StaffAccount';
@@ -91,6 +92,7 @@ export async function executeStaffLogin(
       username: acc!.username,
       role: acc!.role,
       language: acc!.language,
+      shopLanguage: defaultMenuLanguageForCountry(shop!.countryCode ?? ''),
     },
   };
 }

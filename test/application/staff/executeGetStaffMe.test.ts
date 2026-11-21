@@ -1,12 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('../../../src/infrastructure/auth/principal', () => ({ authenticate: vi.fn() }));
+vi.mock('../../../src/infrastructure/cosmos/shop/CosmosShopRepository', () => ({
+  findShopById: vi.fn(),
+}));
 vi.mock('../../../src/infrastructure/cosmos/staff/CosmosStaffAccountRepository', () => ({
   findStaffAccountById: vi.fn(),
 }));
 
 import { authenticate } from '../../../src/infrastructure/auth/principal';
 import { findStaffAccountById } from '../../../src/infrastructure/cosmos/staff/CosmosStaffAccountRepository';
+import { findShopById } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
 import { executeGetStaffMe } from '../../../src/application/staff/getStaffMe/executeGetStaffMe';
 
 const staffPrincipal = { kind: 'staff', staffId: 'st-1', shopId: 'shop-1', role: 'staff' };
@@ -31,6 +35,26 @@ describe('executeGetStaffMe', () => {
       expect(res.data.shopId).toBe('shop-1');
       expect(res.data).not.toHaveProperty('passwordHash');
     }
+  });
+
+  it.each([
+    ['AT', 'de'],
+    ['AU', 'en'],
+  ])('reports shopLanguage for a shop in %s as %s', async (countryCode, expected) => {
+    (authenticate as any).mockResolvedValue(staffPrincipal);
+    (findStaffAccountById as any).mockResolvedValue(account);
+    (findShopById as any).mockResolvedValue({ id: 'shop-1', countryCode });
+    const res = await executeGetStaffMe({} as any);
+    expect(findShopById).toHaveBeenCalledWith('shop-1');
+    expect(res.ok && res.data.shopLanguage).toBe(expected);
+  });
+
+  it('falls back to en when the shop cannot be found', async () => {
+    (authenticate as any).mockResolvedValue(staffPrincipal);
+    (findStaffAccountById as any).mockResolvedValue(account);
+    (findShopById as any).mockResolvedValue(null);
+    const res = await executeGetStaffMe({} as any);
+    expect(res.ok && res.data.shopLanguage).toBe('en');
   });
 
   it('refuses an owner (Entra) token', async () => {

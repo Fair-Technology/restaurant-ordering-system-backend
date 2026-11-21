@@ -84,6 +84,19 @@ describe('executeStaffLogin', () => {
     );
   });
 
+  it.each([
+    ['AT', 'de'],
+    ['AU', 'en'],
+  ])('reports shopLanguage for a shop in %s as %s', async (countryCode, expected) => {
+    (findShopBySlug as any).mockResolvedValue({ ...shop, countryCode });
+    (findStaffAccountByUsername as any).mockResolvedValue({ ...baseAccount, passwordHash: hash });
+    const result = await executeStaffLogin(
+      { shopSlug: 'pizzeria-kreuzberg', username: 'kitchen', password: 'kitchen-pass-1' },
+      now,
+    );
+    expect(result.ok && result.data.shopLanguage).toBe(expected);
+  });
+
   it('carries the account language into the login result', async () => {
     (findStaffAccountByUsername as any).mockResolvedValue({ ...baseAccount, passwordHash: hash, language: 'de' });
     const result = await executeStaffLogin(

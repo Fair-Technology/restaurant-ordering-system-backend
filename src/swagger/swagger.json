@@ -13288,61 +13288,6 @@
           "staff"
         ]
       },
-      "GetStaffMeResultDto": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "shopId": {
-            "type": "string"
-          },
-          "id": {
-            "type": "string"
-          },
-          "username": {
-            "type": "string"
-          },
-          "displayName": {
-            "type": "string",
-            "nullable": true
-          },
-          "role": {
-            "$ref": "#/components/schemas/StaffRole"
-          },
-          "language": {
-            "nullable": true,
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/MenuLanguage"
-              }
-            ]
-          },
-          "isActive": {
-            "type": "boolean"
-          },
-          "isLocked": {
-            "type": "boolean"
-          },
-          "lastLoginAt": {
-            "type": "string",
-            "nullable": true
-          },
-          "createdAt": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "createdAt",
-          "displayName",
-          "id",
-          "isActive",
-          "isLocked",
-          "language",
-          "lastLoginAt",
-          "role",
-          "shopId",
-          "username"
-        ]
-      },
       "ShopSubscription": {
         "type": "object",
         "properties": {
@@ -13684,6 +13629,9 @@
             ]
           },
           "language": {
+            "$ref": "#/components/schemas/MenuLanguage"
+          },
+          "restaurantLanguage": {
             "$ref": "#/components/schemas/MenuLanguage"
           },
           "createdAt": {
@@ -19368,6 +19316,65 @@
         ],
         "additionalProperties": false
       },
+      "GetStaffMeResultDto": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "shopId": {
+            "type": "string"
+          },
+          "shopLanguage": {
+            "$ref": "#/components/schemas/MenuLanguage"
+          },
+          "id": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string",
+            "nullable": true
+          },
+          "role": {
+            "$ref": "#/components/schemas/StaffRole"
+          },
+          "language": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MenuLanguage"
+              }
+            ]
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "isLocked": {
+            "type": "boolean"
+          },
+          "lastLoginAt": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "createdAt",
+          "displayName",
+          "id",
+          "isActive",
+          "isLocked",
+          "language",
+          "lastLoginAt",
+          "role",
+          "shopId",
+          "shopLanguage",
+          "username"
+        ]
+      },
       "ListStaffResultDto": {
         "type": "object",
         "properties": {
@@ -19458,6 +19465,9 @@
                 "$ref": "#/components/schemas/MenuLanguage"
               }
             ]
+          },
+          "shopLanguage": {
+            "$ref": "#/components/schemas/MenuLanguage"
           }
         },
         "required": [
@@ -19468,7 +19478,8 @@
           "staffId",
           "username",
           "role",
-          "language"
+          "language",
+          "shopLanguage"
         ],
         "additionalProperties": false
       },
@@ -19493,7 +19504,59 @@
         "additionalProperties": false
       },
       "UpdateMyStaffLanguageResultDto": {
-        "$ref": "#/components/schemas/GetStaffMeResultDto"
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string",
+            "nullable": true
+          },
+          "role": {
+            "$ref": "#/components/schemas/StaffRole"
+          },
+          "language": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MenuLanguage"
+              }
+            ]
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "isLocked": {
+            "type": "boolean"
+          },
+          "lastLoginAt": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "shopId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "username",
+          "displayName",
+          "role",
+          "language",
+          "isActive",
+          "isLocked",
+          "lastLoginAt",
+          "createdAt",
+          "shopId"
+        ],
+        "additionalProperties": false
       },
       "UpdateMyStaffLanguageRequestDto": {
         "type": "object",

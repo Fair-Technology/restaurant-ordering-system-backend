@@ -2,6 +2,8 @@ import { HttpRequest } from '@azure/functions';
 import { getPrincipalFromAuth } from '../../../infrastructure/auth/authHelpers';
 import { platformAccessLevel } from '../../../infrastructure/auth/principal';
 import { findUserById, upsertUser } from '../../../infrastructure/cosmos/user/CosmosUserRepository';
+import { findShopsByMemberId } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
+import { defaultMenuLanguageForCountry } from '../../../domain/menu/menuLanguage';
 import { ApplicationResult } from '../../_shared/types';
 import { GetMeResultDto } from './dtos';
 import { logServiceFailure } from '../../_shared/logServiceFailure';
@@ -44,6 +46,9 @@ export async function executeGetMe(
       updatedAt: now,
     });
 
+    const shops = await findShopsByMemberId(principal.userId);
+    const earliest = [...shops].sort((a, b) => a.createdAt.localeCompare(b.createdAt))[0];
+
     return {
       ok: true,
       data: {
@@ -51,6 +56,7 @@ export async function executeGetMe(
         email: profile.email,
         name: profile.name,
         language: profile.language,
+        restaurantLanguage: earliest ? defaultMenuLanguageForCountry(earliest.countryCode ?? '') : undefined,
         createdAt: profile.createdAt,
         updatedAt: profile.updatedAt,
       },

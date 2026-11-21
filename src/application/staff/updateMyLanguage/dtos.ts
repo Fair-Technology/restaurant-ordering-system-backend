@@ -3,4 +3,4 @@ import { GetStaffMeResultDto } from '../getStaffMe/dtos';
 export interface UpdateMyStaffLanguageRequestDto {
   language: MenuLanguage;
 }
-export type UpdateMyStaffLanguageResultDto = GetStaffMeResultDto;
+export type UpdateMyStaffLanguageResultDto = Omit<GetStaffMeResultDto, 'shopLanguage'>;
