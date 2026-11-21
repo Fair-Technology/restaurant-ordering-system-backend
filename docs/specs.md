@@ -1422,6 +1422,14 @@ unknown shop slug. A retired slug (§16's rename flow) resolves the legal pack
 the same way it resolves the shop page: to the shop's current record, returning
 its current slug.
 
+- **Frontend:** a failed or empty legal-pack fetch never renders "restaurant
+  not found" — that page is reserved for an unresolvable shop slug. A missing
+  individual document shows "This restaurant has not published this page yet."
+  The storefront footer's "Ordering by <platform>" line uses the platform-wide
+  legal identity endpoint (`GET /api/legal/platform`), not the per-shop legal
+  pack, so legal data is only fetched where it's actually needed (the legal
+  pages and checkout).
+
 **As built in slice 3 (2026-10-02; full defaults in
 `plans/handoff-slice-3-legal.md`):**
 
