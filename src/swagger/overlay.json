@@ -983,6 +983,16 @@
         "Legal"
       ]
     },
+    "GET /staff/me": {
+      "tags": [
+        "Staff"
+      ]
+    },
+    "PATCH /staff/me/language": {
+      "tags": [
+        "Staff"
+      ]
+    },
     "POST /staff/login": {
       "tags": [
         "Staff"
@@ -994,6 +1004,11 @@
       ]
     },
     "GET /users/me": {
+      "tags": [
+        "Users"
+      ]
+    },
+    "PATCH /users/me/language": {
       "tags": [
         "Users"
       ]

@@ -50,6 +50,7 @@ export async function executeGetMe(
         id: profile.id,
         email: profile.email,
         name: profile.name,
+        language: profile.language,
         createdAt: profile.createdAt,
         updatedAt: profile.updatedAt,
       },

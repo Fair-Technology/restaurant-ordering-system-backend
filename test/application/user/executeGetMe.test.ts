@@ -68,6 +68,7 @@ describe('executeGetMe', () => {
       id: 'cust-1',
       email: 'owner@example.com',
       name: 'Owner',
+      language: 'de',
       createdAt: '2026-03-03T00:00:00.000Z',
       updatedAt: '2026-03-03T00:00:00.000Z',
     } as never);
@@ -75,6 +76,7 @@ describe('executeGetMe', () => {
     const res = await executeGetMe(http);
 
     expect(res.ok && res.data.id).toBe('cust-1');
+    expect(res.ok && res.data.language).toBe('de');
     expect(upsertUser).toHaveBeenCalledTimes(1);
   });
 

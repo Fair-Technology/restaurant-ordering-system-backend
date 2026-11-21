@@ -35,6 +35,7 @@ const baseAccount: StaffAccount = {
   displayName: null,
   role: 'staff',
   passwordHash: '',
+  language: null,
   isActive: true,
   isDeleted: false,
   failedLoginCount: 0,
@@ -81,6 +82,24 @@ describe('executeStaffLogin', () => {
     expect(replaceStaffAccount).toHaveBeenCalledWith(
       expect.objectContaining({ failedLoginCount: 0, lockedUntil: null, lastLoginAt: '2026-09-25T10:00:00.000Z' }),
     );
+  });
+
+  it('carries the account language into the login result', async () => {
+    (findStaffAccountByUsername as any).mockResolvedValue({ ...baseAccount, passwordHash: hash, language: 'de' });
+    const result = await executeStaffLogin(
+      { shopSlug: 'pizzeria-kreuzberg', username: 'kitchen', password: 'kitchen-pass-1' },
+      now,
+    );
+    expect(result.ok && result.data.language).toBe('de');
+  });
+
+  it('reports a null language when none is chosen', async () => {
+    (findStaffAccountByUsername as any).mockResolvedValue({ ...baseAccount, passwordHash: hash });
+    const result = await executeStaffLogin(
+      { shopSlug: 'pizzeria-kreuzberg', username: 'kitchen', password: 'kitchen-pass-1' },
+      now,
+    );
+    expect(result.ok && result.data.language).toBeNull();
   });
 
   it('wrong password counts', async () => {

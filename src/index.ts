@@ -113,6 +113,7 @@ import './functions/contentReport/decideContentReport/index';
 
 // User endpoints
 import './functions/user/getMe/index';
+import './functions/user/updateMyLanguage/index';
 
 // Swagger endpoints
 import './functions/swagger/swaggerJson/index';
@@ -183,3 +184,5 @@ import './functions/staff/updateStaff/index';
 import './functions/staff/resetStaffPassword/index';
 import './functions/staff/deleteStaff/index';
 import './functions/staff/staffLogin/index';
+import './functions/staff/getStaffMe/index';
+import './functions/staff/updateMyLanguage/index';

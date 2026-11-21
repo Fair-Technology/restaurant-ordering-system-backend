@@ -4,6 +4,10 @@ export type MenuLanguage = 'de' | 'en';
 
 export const SUPPORTED_MENU_LANGUAGES: readonly MenuLanguage[] = ['de', 'en'];
 
+export function isSupportedLanguage(value: unknown): value is MenuLanguage {
+  return typeof value === 'string' && (SUPPORTED_MENU_LANGUAGES as readonly string[]).includes(value);
+}
+
 export type LocalizedLabel = Record<MenuLanguage, string>;
 
 export interface AllergenDef {

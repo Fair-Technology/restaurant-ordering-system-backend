@@ -88,6 +88,7 @@ describe('resolveShopAccess (staff)', () => {
     displayName: null,
     role: 'staff',
     passwordHash: 'x',
+    language: null,
     isActive: true,
     isDeleted: false,
     failedLoginCount: 0,

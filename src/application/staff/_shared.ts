@@ -5,6 +5,7 @@ import {
   STAFF_PASSWORD_MIN,
   STAFF_PASSWORD_MAX,
 } from '../../domain/staff/StaffAccount';
+import { MenuLanguage } from '../../domain/reference/ReferenceLists';
 import { ShopActor } from '../_shared/shopAccess';
 
 export interface StaffAccountDto {
@@ -12,6 +13,7 @@ export interface StaffAccountDto {
   username: string;
   displayName: string | null;
   role: StaffRole;
+  language: MenuLanguage | null;
   isActive: boolean;
   isLocked: boolean;
   lastLoginAt: string | null;
@@ -24,6 +26,7 @@ export function toDto(acc: StaffAccount, now: Date): StaffAccountDto {
     username: acc.username,
     displayName: acc.displayName,
     role: acc.role,
+    language: acc.language,
     isActive: acc.isActive,
     isLocked: acc.lockedUntil !== null && Date.parse(acc.lockedUntil) > now.getTime(),
     lastLoginAt: acc.lastLoginAt,

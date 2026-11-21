@@ -90,6 +90,7 @@ export async function executeStaffLogin(
       staffId: acc!.id,
       username: acc!.username,
       role: acc!.role,
+      language: acc!.language,
     },
   };
 }

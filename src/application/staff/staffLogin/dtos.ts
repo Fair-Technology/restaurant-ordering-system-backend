@@ -1,3 +1,4 @@
+import { MenuLanguage } from '../../../domain/reference/ReferenceLists';
 import { StaffRole } from '../../../domain/staff/StaffAccount';
 
 export interface StaffLoginRequestDto {
@@ -14,4 +15,5 @@ export interface StaffLoginResultDto {
   staffId: string;
   username: string;
   role: StaffRole;
+  language: MenuLanguage | null;
 }

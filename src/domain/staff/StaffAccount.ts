@@ -1,3 +1,5 @@
+import { MenuLanguage } from '../reference/ReferenceLists';
+
 export type StaffRole = 'manager' | 'staff';
 
 export interface StaffAccount {
@@ -9,6 +11,8 @@ export interface StaffAccount {
   role: StaffRole;
 
   passwordHash: string; // 'scrypt$<N>$<r>$<p>$<saltB64>$<keyB64>'
+
+  language: MenuLanguage | null; // interface language; null = not chosen yet
 
   isActive: boolean;
   isDeleted: boolean; // soft delete: identity blanked, history kept

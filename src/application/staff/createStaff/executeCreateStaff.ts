@@ -64,6 +64,7 @@ export async function executeCreateStaff(
       displayName: request.displayName?.trim() || null,
       role: request.role,
       passwordHash: await hashPassword(request.password),
+      language: null,
       isActive: true,
       isDeleted: false,
       failedLoginCount: 0,

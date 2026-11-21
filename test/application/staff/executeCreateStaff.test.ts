@@ -63,7 +63,7 @@ describe('executeCreateStaff', () => {
       expect(result.data).not.toHaveProperty('passwordHash');
     }
     expect(createStaffAccount).toHaveBeenCalledWith(
-      expect.objectContaining({ passwordHash: expect.stringMatching(/^scrypt\$/) }),
+      expect.objectContaining({ passwordHash: expect.stringMatching(/^scrypt\$/), language: null }),
     );
     expect(logAudit).toHaveBeenCalledWith(
       expect.objectContaining({ action: 'staff.create', actorType: 'owner', actorId: 'u-owner' }),

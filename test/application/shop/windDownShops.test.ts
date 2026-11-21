@@ -145,13 +145,13 @@ const OTHER_SHOP_CATEGORY: Category = { ...CATEGORIES[0], id: 'c-recent', shopId
 // executeDeleteStaff leaves behind (username renamed, hash blanked) and must still be erased.
 const STAFF_ACTIVE: StaffAccount = {
   id: 'st-1', shopId: 'shop-1', username: 'alice', displayName: 'Alice', role: 'manager',
-  passwordHash: 'scrypt$16384$8$1$c2FsdA==$a2V5', isActive: true, isDeleted: false,
+  passwordHash: 'scrypt$16384$8$1$c2FsdA==$a2V5', language: null, isActive: true, isDeleted: false,
   failedLoginCount: 0, lockedUntil: null, lastLoginAt: null, createdBy: 'owner-1',
   createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z',
 };
 const STAFF_SOFT_DELETED: StaffAccount = {
   ...STAFF_ACTIVE, id: 'st-2', username: 'deleted.st-2', displayName: null,
-  passwordHash: '', isActive: false, isDeleted: true,
+  passwordHash: '', language: null, isActive: false, isDeleted: true,
 };
 const OTHER_SHOP_STAFF: StaffAccount = { ...STAFF_ACTIVE, id: 'st-other', shopId: 'shop-recent', username: 'bob' };
 
