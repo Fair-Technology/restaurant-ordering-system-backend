@@ -1415,6 +1415,13 @@ Required before the LIVE toggle (§16) can switch on:
 - **Accepted data processing agreement** — the current version, accepted by the
   owner (see below).
 
+The public legal-pack endpoint (`GET /api/shops/slug/{slug}/legal`) returns
+**200 for any shop that exists, even one with no legal data yet** — impressum,
+terms, withdrawal and privacy notice are then `null`. 404 is reserved for an
+unknown shop slug. A retired slug (§16's rename flow) resolves the legal pack
+the same way it resolves the shop page: to the shop's current record, returning
+its current slug.
+
 **As built in slice 3 (2026-10-02; full defaults in
 `plans/handoff-slice-3-legal.md`):**
 

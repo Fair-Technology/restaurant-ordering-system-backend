@@ -2,13 +2,14 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('../../../src/infrastructure/cosmos/shop/CosmosShopRepository', () => ({
   findShopBySlug: vi.fn(),
+  findShopByPreviousSlug: vi.fn(async () => null),
 }));
 vi.mock('../../../src/infrastructure/cosmos/system/CosmosPlatformLegalIdentityRepository', async () => {
   const { COMPLETE_IDENTITY } = await import('../../fixtures/legal');
   return { getPlatformLegalIdentity: vi.fn(async () => COMPLETE_IDENTITY) };
 });
 
-import { findShopBySlug } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
+import { findShopBySlug, findShopByPreviousSlug } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
 import { executeGetPublicLegalPack } from '../../../src/application/legal/getPublicLegalPack/executeGetPublicLegalPack';
 import { executeGetDpaDocument } from '../../../src/application/legal/getDpaDocument/executeGetDpaDocument';
 import { COMPLETE_LEGAL } from '../../fixtures/legal';
@@ -35,11 +36,27 @@ describe('executeGetPublicLegalPack', () => {
 
   it('unknown slug is NOT_FOUND', async () => {
     (findShopBySlug as any).mockResolvedValue(null);
+    (findShopByPreviousSlug as any).mockResolvedValue(null);
     expect(await executeGetPublicLegalPack({ slug: 'nope' })).toEqual({
       ok: false,
       code: 'NOT_FOUND',
       error: 'Shop not found',
     });
+  });
+
+  it('a retired slug resolves to the live shop\'s legal pack', async () => {
+    (findShopBySlug as any).mockResolvedValue(null);
+    (findShopByPreviousSlug as any).mockResolvedValue({
+      id: 's',
+      slug: 'new-slug',
+      previousSlugs: ['mapasta'],
+      name: 'Ma Pasta',
+      countryCode: 'DE',
+      legal: COMPLETE_LEGAL,
+    });
+    const r: any = await executeGetPublicLegalPack({ slug: 'mapasta' });
+    expect(r.ok).toBe(true);
+    expect(r.data.slug).toBe('new-slug');
   });
 
   it('incomplete impressum hides impressum and privacy notice', async () => {

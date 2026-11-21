@@ -1,4 +1,4 @@
-import { findShopBySlug } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
+import { findShopBySlug, findShopByPreviousSlug } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { getPlatformLegalIdentity } from '../../../infrastructure/cosmos/system/CosmosPlatformLegalIdentityRepository';
 import { buildImpressumLines, isImpressumComplete, LegalLanguage } from '../../../domain/legal/impressum';
 import { isLegalTextPublished, legalOf, LegalText } from '../../../domain/legal/legalTexts';
@@ -22,7 +22,9 @@ export async function executeGetPublicLegalPack(input: {
     return { ok: false, code: 'INVALID_INPUT', error: 'slug is required' };
   }
   try {
-    const shop = await findShopBySlug(input.slug.trim());
+    // A retired slug resolves to the live shop, exactly as in getShopBySlug (SPECS §16); the response carries
+    // the shop's current slug.
+    const shop = (await findShopBySlug(input.slug.trim())) ?? (await findShopByPreviousSlug(input.slug.trim()));
     if (!shop) {
       return { ok: false, code: 'NOT_FOUND', error: 'Shop not found' };
     }
