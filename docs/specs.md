@@ -1167,11 +1167,12 @@ claim source. Solve at tenant setup; copyshop lost a debugging session to it.
 **Owner** (everything, including billing), **Manager** (menu, prices, orders,
 staff, refunds, and **reports by default** via "View reports and takings",
 which Manish can untick in superadmin — not billing), **Staff** (see and accept
-orders, mark ready, toggle sold-out — no prices, never reports, no customer
-data, no refunds). **Except
-on delivery orders: everyone who sees orders — owner, manager and staff — sees
-the delivery address and phone, so the order can be delivered** (Manish,
-2026-10-08, slice 8b default 15; built 2026-10-09). Multiple
+orders, mark ready, toggle sold-out, and **see full customer details on every
+order** — name, email, phone, notes, billing and delivery address, on
+collection, dine-in and delivery orders alike, so staff can call or hand off
+correctly; still no prices, never reports, no refunds). This was decided
+2026-11-21: staff always saw this in practice, so the restriction was corrected
+in the spec, not the code. Multiple
 people in each. **Manish defines what each role can do, globally, from
 superadmin; owners cannot change it in v1.** The existing per-shop custom role
 CRUD is removed. No Driver role until own-driver delivery has real users.
