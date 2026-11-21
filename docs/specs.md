@@ -1179,9 +1179,34 @@ CRUD is removed. No Driver role until own-driver delivery has real users.
 
 ### Interface language is per person
 
-Each account carries its own language, defaulting to the browser's on first
-sign-in, falling back to the restaurant's. A German owner and an
-English-speaking manager work on the same restaurant in their own languages.
+Each account carries its own language (`'de' | 'en'`), stored on the account and used on every
+device/sign-in — not a per-browser or per-device choice. A German owner and an English-speaking
+manager work on the same restaurant in their own languages.
+
+- **First sign-in** (no language stored yet): default to the browser's language if it's `de` or
+  `en`; otherwise **fall back to the restaurant's language** (never a hard-coded `'en'`), derived
+  from the shop's country the same way as the legal page (§15): `de` for `DE`/`AT`/`CH`, `en`
+  otherwise. The chosen language is persisted back to the account immediately so it sticks for
+  every later sign-in.
+- **Every later sign-in**: the stored language wins outright; the browser's language is never
+  consulted again.
+- **Staff on a shared tablet**: logging in always applies that staff member's own language (by
+  the same first-sign-in-then-persisted rule above), overriding whatever the previous person on
+  that device left active.
+- **Changing it**: either account can change its own language at any time from account settings;
+  the change is saved immediately.
+
+API shape, implemented end to end:
+- **Owner** (`GET /users/me`, `PATCH /users/me/language`): `language?: 'de' | 'en'` (absent until
+  chosen); `GET /users/me` additionally returns `restaurantLanguage?: 'de' | 'en'` — the language
+  of the earliest shop this owner belongs to, absent for platform operators and for an owner with
+  no shop yet. The frontend uses `restaurantLanguage` as the first-sign-in fallback.
+- **Staff** (`GET /staff/me`, `PATCH /staff/me/language`, and the `POST /staff/login` result):
+  `language: 'de' | 'en' | null` (null until chosen) plus `shopLanguage: 'de' | 'en'` — the
+  shop's language, always present since a staff account always belongs to exactly one shop. The
+  frontend uses `shopLanguage` as the first-sign-in fallback.
+- Only two codes exist platform-wide (the same `MenuLanguage` type menus already use) — there is
+  no separate "supported languages" list to keep in sync.
 
 ### Superadmin
 
