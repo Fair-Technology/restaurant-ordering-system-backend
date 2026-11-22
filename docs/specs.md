@@ -92,7 +92,8 @@ where one has shipped and the other has not. Plan for it.
 Every amount — stored, computed, sent — is an integer count of minor units.
 €12.34 is `1234`. Percentages (VAT, discounts) resolve with one rule in one
 place: **round half up.** Front-ends format for display and never do
-arithmetic on money.
+arithmetic on money. This includes client-side state such as a shopping
+cart: line prices are held as integer cents, never as decimal euros.
 
 ### Prices are VAT-inclusive; tax is extracted, never added
 
