@@ -1944,6 +1944,13 @@ house between businesses.
 - **Owner's order app** — a phone-shaped page for managing orders: `/phone`,
   the board one column at a time, installable to the home screen, for anyone
   who sees orders. *Built 8f.*
+- **Naming: "Overview" vs "Dashboard" (decided 2026-11-23).** The account-level
+  `/` landing page keeps the label **"Overview"** (matches its "Welcome back"
+  greeting). The per-shop sidebar top item, which actually routes to
+  `/shops/:id/reports` and renders `ReportsPage.tsx`, is renamed from
+  "Dashboard" to **"Reports"** so the label matches its own route/component
+  instead of overlapping in meaning with the account-level Overview. i18n key
+  `nav.reports` in `common.json` changes value from "Dashboard" to "Reports".
 - **Reports, v1 set:** daily takings, orders by hour, top dishes, collection vs
   delivery vs dine-in split, month-to-date orders against the limit, VAT per
   rate, CSV. "Professional but not everything." An order counts on the day it
