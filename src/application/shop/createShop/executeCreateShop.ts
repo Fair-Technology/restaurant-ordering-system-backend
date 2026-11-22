@@ -12,7 +12,7 @@ import { CreateShopRequestDto, CreateShopResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 import { DpaAcceptance, Shop } from '../../../domain/shop/Shop';
 import { CURRENT_DPA, DPA_CHANGED_ERROR } from '../../../domain/legal/platformDocuments';
-import { validateUniqueSlug } from './slugHelpers';
+import { SLUG_EMPTY_MESSAGE, validateSlugFormat, validateUniqueSlug } from './slugHelpers';
 import { SUPPORTED_MENU_LANGUAGES } from '../../../domain/reference/ReferenceLists';
 import { defaultMenuLanguageForCountry } from '../../../domain/menu/menuLanguage';
 import { upsertSubscription } from '../../../infrastructure/cosmos/subscription/CosmosSubscriptionRepository';
@@ -68,6 +68,14 @@ export async function executeCreateShop(
       ok: false,
       code: 'INVALID_INPUT',
       error: 'Shop name must be at least 3 characters long',
+    };
+  }
+
+  if (request.name.trim().length > 80) {
+    return {
+      ok: false,
+      code: 'INVALID_INPUT',
+      error: 'Shop name must be at most 80 characters long',
     };
   }
 
@@ -209,13 +217,26 @@ export async function executeCreateShop(
       }
     }
 
-    // Validate that slug generated from name is unique
-    const checkSlugExists = async (slug: string): Promise<boolean> => isSlugReservedByAnother(slug);
-
-    const generatedSlug = await validateUniqueSlug(
-      request.name.trim(),
-      checkSlugExists,
-    );
+    // Owner-typed slug (first-come-first-served), else generate one from the name
+    let generatedSlug: string;
+    if (request.slug !== undefined) {
+      const typedSlug = typeof request.slug === 'string' ? request.slug.trim() : '';
+      const formatError = validateSlugFormat(typedSlug);
+      if (formatError) {
+        return { ok: false, code: 'INVALID_INPUT', error: formatError };
+      }
+      if (await isSlugReservedByAnother(typedSlug)) {
+        return {
+          ok: false,
+          code: 'INVALID_INPUT',
+          error: 'This web address is already taken. Please choose another.',
+        };
+      }
+      generatedSlug = typedSlug;
+    } else {
+      const checkSlugExists = async (slug: string): Promise<boolean> => isSlugReservedByAnother(slug);
+      generatedSlug = await validateUniqueSlug(request.name.trim(), checkSlugExists);
+    }
 
     const now = new Date().toISOString();
     const shopId = crypto.randomUUID();
@@ -301,6 +322,10 @@ export async function executeCreateShop(
         code: 'INVALID_INPUT',
         error: 'A shop with this name already exists',
       };
+    }
+
+    if (error.message === SLUG_EMPTY_MESSAGE) {
+      return { ok: false, code: 'INVALID_INPUT', error: SLUG_EMPTY_MESSAGE };
     }
 
     logServiceFailure('createShop', error);

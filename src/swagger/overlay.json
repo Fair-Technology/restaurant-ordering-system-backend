@@ -102,6 +102,14 @@
       ],
       "responseDescription": "Shop retrieved successfully"
     },
+    "GET /shops/slug-available/{slug}": {
+      "operationId": "checkSlugAvailability",
+      "summary": "Check whether a shop web address (slug) is available",
+      "tags": [
+        "Shops"
+      ],
+      "responseDescription": "Availability checked successfully"
+    },
     "GET /shops/me": {
       "operationId": "getMyShops",
       "summary": "Get the authenticated user's shops",

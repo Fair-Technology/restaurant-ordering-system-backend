@@ -143,3 +143,66 @@ describe('executeCreateShop reserved slugs', () => {
     expect(createShopInRepo).not.toHaveBeenCalled();
   });
 });
+
+describe('executeCreateShop owner-typed slug and name length', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (createShopInRepo as any).mockImplementation(async (s: any) => s);
+    (isSlugReservedByAnother as any).mockResolvedValue(false);
+  });
+
+  it('uses a typed slug when available', async () => {
+    const result = await executeCreateShop(baseRequest({ slug: '  my-place ' }), {} as any);
+    expect(result.ok).toBe(true);
+    expect(isSlugReservedByAnother).toHaveBeenCalledWith('my-place');
+    expect(createShopInRepo).toHaveBeenCalledWith(expect.objectContaining({ slug: 'my-place' }));
+  });
+
+  it('rejects a malformed typed slug', async () => {
+    const result = await executeCreateShop(baseRequest({ slug: 'Bad_Slug' }), {} as any);
+    expect(result).toMatchObject({ ok: false, code: 'INVALID_INPUT' });
+    expect(createShopInRepo).not.toHaveBeenCalled();
+  });
+
+  it('rejects an empty typed slug', async () => {
+    const result = await executeCreateShop(baseRequest({ slug: '' }), {} as any);
+    expect(result).toMatchObject({ ok: false, code: 'INVALID_INPUT' });
+  });
+
+  it('rejects a taken typed slug', async () => {
+    (isSlugReservedByAnother as any).mockResolvedValueOnce(true);
+    const result = await executeCreateShop(baseRequest({ slug: 'taken' }), {} as any);
+    expect(result).toMatchObject({
+      ok: false,
+      code: 'INVALID_INPUT',
+      error: 'This web address is already taken. Please choose another.',
+    });
+    expect(createShopInRepo).not.toHaveBeenCalled();
+  });
+
+  it('falls back to a generated slug when none is sent', async () => {
+    const result = await executeCreateShop(baseRequest(), {} as any);
+    expect(result.ok).toBe(true);
+    expect(createShopInRepo).toHaveBeenCalledWith(expect.objectContaining({ slug: 'pizzeria-napoli' }));
+  });
+
+  it('refuses cleanly when no slug is sent and the name generates none', async () => {
+    const result = await executeCreateShop(baseRequest({ name: '寿司屋' }), {} as any);
+    expect(result).toEqual({
+      ok: false,
+      code: 'INVALID_INPUT',
+      error: 'Could not generate a web address from this name; please choose one',
+    });
+  });
+
+  it('accepts a non-Latin name when a slug is typed', async () => {
+    const result = await executeCreateShop(baseRequest({ name: '寿司屋', slug: 'sushi-ya' }), {} as any);
+    expect(result.ok).toBe(true);
+  });
+
+  it('allows an 80-character name and rejects 81', async () => {
+    expect((await executeCreateShop(baseRequest({ name: 'a'.repeat(80) }), {} as any)).ok).toBe(true);
+    const res = await executeCreateShop(baseRequest({ name: 'a'.repeat(81) }), {} as any);
+    expect(res).toEqual({ ok: false, code: 'INVALID_INPUT', error: 'Shop name must be at most 80 characters long' });
+  });
+});

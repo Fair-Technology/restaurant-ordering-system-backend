@@ -43,3 +43,28 @@ describe('executeRequestShopNameChange reserved slugs', () => {
     );
   });
 });
+
+describe('executeRequestShopNameChange name length and empty slug', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (findShopById as any).mockResolvedValue({ id: 'shop-1', name: 'Old', slug: 'old-name', previousSlugs: [] });
+    (isSlugReservedByAnother as any).mockResolvedValue(false);
+  });
+
+  it('allows an 80-character name and rejects 81', async () => {
+    const ok = await executeRequestShopNameChange({ shopId: 'shop-1', requestedName: 'a'.repeat(80) }, {} as any);
+    expect(ok.ok).toBe(true);
+    const bad = await executeRequestShopNameChange({ shopId: 'shop-1', requestedName: 'a'.repeat(81) }, {} as any);
+    expect(bad).toEqual({ ok: false, code: 'INVALID_INPUT', error: 'requestedName must be at most 80 characters long' });
+  });
+
+  it('refuses a name that generates an empty slug', async () => {
+    const res = await executeRequestShopNameChange({ shopId: 'shop-1', requestedName: '寿司屋' }, {} as any);
+    expect(res).toEqual({
+      ok: false,
+      code: 'INVALID_INPUT',
+      error: 'Could not generate a web address from this name; please choose one',
+    });
+    expect(updateShop).not.toHaveBeenCalled();
+  });
+});

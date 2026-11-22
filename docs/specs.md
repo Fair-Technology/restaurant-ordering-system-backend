@@ -1707,6 +1707,19 @@ live availability check, first-come-first-served.** It is **changeable only by
 asking Manish**, and the old slug redirects permanently — the existing
 request-and-approve rename flow implements exactly this. Custom domains: never.
 
+What is built: `GET /shops/slug-available/{slug}` (anonymous, same trust level as the
+public slug lookup) answers `{ slug, available }` so the admin form can check live
+while the owner types; an invalid slug is `INVALID_INPUT`. `POST /shops` takes an
+optional `slug`, which is validated and checked again at submit (a taken or
+malformed one is `INVALID_INPUT`); callers that send none still get one generated
+from the name. A slug is ASCII only, matches `^[a-z0-9][a-z0-9-]{0,63}$` (at most 64
+characters, starting with a letter or digit). A shop name is 3 to 80 characters, on
+create and on rename. When generating from a name, German umlauts and ß are
+transliterated (ä→ae, ß→ss) and other Latin diacritics stripped (é→e). A name with
+no Latin letters or digits (e.g. "寿司屋") generates nothing: the API refuses with a
+clear error and never guesses, so the owner must type a slug; a rename request whose
+name generates no slug is refused the same way. A generated slug is cut to 64 characters.
+
 The root domain is the sales site. Storefronts carry **`noindex`**; no SEO
 work. One exception that is not SEO: a page title and a **link-preview card**
 (image, name, one line) injected into the storefront's HTML shell by a small
