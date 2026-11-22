@@ -7429,6 +7429,69 @@
         }
       }
     },
+    "/shops/slug-available/{slug}": {
+      "get": {
+        "summary": "Check whether a shop web address (slug) is available",
+        "operationId": "checkSlugAvailability",
+        "tags": [
+          "Shops"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Availability checked successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "slug": {
+                      "type": "string"
+                    },
+                    "available": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "slug",
+                    "available"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
     "/shops/slug/{slug}": {
       "get": {
         "summary": "Get shop by slug",
@@ -17544,6 +17607,9 @@
         "type": "object",
         "properties": {
           "name": {
+            "type": "string"
+          },
+          "slug": {
             "type": "string"
           },
           "countryCode": {

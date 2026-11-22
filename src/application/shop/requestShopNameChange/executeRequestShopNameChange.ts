@@ -5,7 +5,7 @@ import {
   updateShop,
 } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { authorizeShopAction, toAuditActor } from '../../_shared/shopAccess';
-import { generateSlugFromName } from '../createShop/slugHelpers';
+import { SLUG_EMPTY_MESSAGE, generateSlugFromName, validateSlugFormat } from '../createShop/slugHelpers';
 import { logAudit } from '../../_shared/auditHelpers';
 import { ApplicationResult } from '../../_shared/types';
 import { RequestShopNameChangeRequestDto, RequestShopNameChangeResultDto } from './dtos';
@@ -27,6 +27,10 @@ export async function executeRequestShopNameChange(
     return { ok: false, code: 'INVALID_INPUT', error: 'requestedName must be at least 3 characters' };
   }
 
+  if (request.requestedName.trim().length > 80) {
+    return { ok: false, code: 'INVALID_INPUT', error: 'requestedName must be at most 80 characters long' };
+  }
+
   try {
     const shop = await findShopById(request.shopId.trim());
     if (!shop) {
@@ -42,6 +46,14 @@ export async function executeRequestShopNameChange(
     }
 
     const requestedSlug = generateSlugFromName(request.requestedName.trim());
+
+    if (requestedSlug === '') {
+      return { ok: false, code: 'INVALID_INPUT', error: SLUG_EMPTY_MESSAGE };
+    }
+    const slugFormatError = validateSlugFormat(requestedSlug);
+    if (slugFormatError) {
+      return { ok: false, code: 'INVALID_INPUT', error: slugFormatError };
+    }
 
     if (requestedSlug === shop.slug) {
       return {

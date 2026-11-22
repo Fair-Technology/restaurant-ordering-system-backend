@@ -7,6 +7,7 @@ import './functions/shop/getMyShops/index';
 import './functions/shop/getPublicShops/index';
 import './functions/shop/getShop/index';
 import './functions/shop/getShopBySlug/index';
+import './functions/shop/checkSlugAvailability/index';
 import './functions/shop/createShop/index';
 import './functions/shop/updateShop/index';
 import './functions/shop/deleteShop/index';
