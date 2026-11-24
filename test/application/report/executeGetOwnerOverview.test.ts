@@ -71,6 +71,14 @@ describe('executeGetOwnerOverview', () => {
     expect(Object.keys(data).sort()).toEqual(['combinedToday', 'generatedAt', 'shops', 'truncated']);
   });
 
+  it('lists online restaurants before offline ones, whatever their names', async () => {
+    vi.mocked(findShopById).mockImplementation(async (id: string) =>
+      id === 'shop-1' ? { ...CARD_SHOP, isPaused: false } : { ...BISTRO, isPaused: true },
+    );
+    const data = await overview();
+    expect(data.shops.map((s) => s.name)).toEqual([CARD_SHOP.name, 'Bistro']);
+  });
+
   it("asks for each restaurant's own local today", async () => {
     await overview();
     expect(findReportRows).toHaveBeenCalledWith('shop-1', '2026-10-04T00:00:00.000Z', '2026-10-07T00:00:00.000Z');

@@ -11,7 +11,7 @@ app.http('getSalesReport', {
     try {
       return mapResultToHttp(
         await executeGetSalesReport(
-          { shopId: request.params.shopId, from: request.query.get('from'), to: request.query.get('to') },
+          { shopId: request.params.shopId, from: request.query.get('from'), to: request.query.get('to'), lang: request.query.get('lang') },
           request,
         ),
       );

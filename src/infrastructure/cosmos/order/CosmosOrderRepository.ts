@@ -91,6 +91,21 @@ export async function countOrdersByShopId(shopId: string, fromIso?: string, toIs
   return resources[0] ?? 0;
 }
 
+/** Same window as countOrdersByShopId, tallied per stored order state. */
+export async function countOrdersByShopIdByState(
+  shopId: string,
+  fromIso?: string,
+  toIso?: string,
+): Promise<Record<string, number>> {
+  const { where, parameters } = shopOrdersFilter(shopId, fromIso, toIso);
+  const { resources } = await orderContainer.items
+    .query<string>({ query: `SELECT VALUE c.state FROM c WHERE ${where}`, parameters })
+    .fetchAll();
+  const counts: Record<string, number> = {};
+  for (const state of resources) counts[state] = (counts[state] ?? 0) + 1;
+  return counts;
+}
+
 /** Delivery orders old enough for the retention sweep to consider: address still present, created at or before the cutoff. */
 export async function findOrdersWithDeliveryAddressCreatedBefore(cutoffIso: string): Promise<Order[]> {
   const querySpec = {

@@ -6,6 +6,7 @@ const m = vi.hoisted(() => ({
   findShopById: vi.fn(),
   findOrdersByShopIdPaginated: vi.fn(),
   countOrdersByShopId: vi.fn(),
+  countOrdersByShopIdByState: vi.fn(),
 }));
 
 vi.mock('../../../src/application/_shared/shopAccess', () => ({ authorizeShopAction: m.authorizeShopAction }));
@@ -13,6 +14,7 @@ vi.mock('../../../src/infrastructure/cosmos/shop/CosmosShopRepository', () => ({
 vi.mock('../../../src/infrastructure/cosmos/order/CosmosOrderRepository', () => ({
   findOrdersByShopIdPaginated: m.findOrdersByShopIdPaginated,
   countOrdersByShopId: m.countOrdersByShopId,
+  countOrdersByShopIdByState: m.countOrdersByShopIdByState,
 }));
 
 import { executeGetOrdersByShop } from '../../../src/application/order/getOrdersByShop/executeGetOrdersByShop';
@@ -24,6 +26,7 @@ beforeEach(() => {
   m.findShopById.mockResolvedValue(DELIVERY_SHOP);
   m.findOrdersByShopIdPaginated.mockResolvedValue([order]);
   m.countOrdersByShopId.mockResolvedValue(1);
+  m.countOrdersByShopIdByState.mockResolvedValue({ accepted: 1 });
 });
 
 async function listAs(actorType: 'owner' | 'superadmin') {
@@ -55,6 +58,20 @@ describe('executeGetOrdersByShop personal data', () => {
   });
 });
 
+describe('executeGetOrdersByShop state counts', () => {
+  it('returns the per-state tally for the same window as total', async () => {
+    m.authorizeShopAction.mockResolvedValue({ ok: true, actor: { actorType: 'owner', actorId: 'u1', role: null }, permissions: [] });
+    m.countOrdersByShopId.mockResolvedValue(4);
+    m.countOrdersByShopIdByState.mockResolvedValue({ accepted: 2, rejected: 1, cancelled: 1 });
+    const FROM = '2026-11-16T00:00:00.000Z';
+    const result = await executeGetOrdersByShop({ shopId: DELIVERY_SHOP.id, from: FROM }, {} as any);
+    if (!result.ok) throw new Error('expected ok');
+    expect(result.data.total).toBe(4);
+    expect(result.data.stateCounts).toEqual({ accepted: 2, rejected: 1, cancelled: 1 });
+    expect(m.countOrdersByShopIdByState).toHaveBeenCalledWith(DELIVERY_SHOP.id, FROM, undefined);
+  });
+});
+
 describe('executeGetOrdersByShop date filter', () => {
   const FROM = '2026-11-16T00:00:00.000Z';
   const TO = '2026-11-17T00:00:00.000Z';
@@ -77,8 +94,9 @@ describe('executeGetOrdersByShop date filter', () => {
   it('returns an empty page, not the unfiltered list, for a day without orders', async () => {
     m.findOrdersByShopIdPaginated.mockResolvedValue([]);
     m.countOrdersByShopId.mockResolvedValue(0);
+    m.countOrdersByShopIdByState.mockResolvedValue({});
     const result = await executeGetOrdersByShop({ shopId: DELIVERY_SHOP.id, from: FROM, to: TO }, {} as any);
-    expect(result).toEqual({ ok: true, data: { orders: [], total: 0, page: 1, pageSize: 20 } });
+    expect(result).toEqual({ ok: true, data: { orders: [], total: 0, stateCounts: {}, page: 1, pageSize: 20 } });
   });
 
   it.each([

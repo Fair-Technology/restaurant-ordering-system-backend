@@ -879,6 +879,17 @@
       ]
     },
     "GET /shops/{shopId}/reports/sales": {
+      "parameters": [
+        {
+          "name": "lang",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "string"
+          },
+          "description": "Menu language for the top-dish names (e.g. de, en). Names come from the current catalog in this language; a deleted dish or combo keeps the name from its orders. Defaults to the shop's first menu language."
+        }
+      ],
       "description": "Access: the restaurant's owner or staff with the `view_reports` permission; platform operators (Platform.Owner, Platform.Support, Platform.ReadOnly) may also read. A read never writes.",
       "tags": [
         "Reports"
