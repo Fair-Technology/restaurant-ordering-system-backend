@@ -27,7 +27,7 @@ const O1: ReportOrderRow = {
 const O2: ReportOrderRow = {
   id: 'o2', createdAt: '2026-10-05T17:29:00.000Z', acceptedAt: '2026-10-05T17:30:00.000Z',
   fulfilmentMode: 'delivery', payment: { ...paid, status: 'partially_refunded' }, subtotalCents: 1400, totalCents: 1510,
-  charges: [{ kind: 'delivery_fee', grossCents: 250 }], discountCents: 140,
+  charges: [{ kind: 'delivery_fee', grossCents: 250, taxClassId: 'delivery', taxRateBasisPoints: 1900, taxCents: 40 }], discountCents: 140,
   items: [{ ...carbonara, discountCents: 105 }, { ...cola, discountCents: 35 }],
   taxBreakdown: [{ rateBasisPoints: 700, grossCents: 1195, taxCents: 78 }, { rateBasisPoints: 1900, grossCents: 315, taxCents: 50 }],
   refunds: [{ amountCents: 315, at: '2026-10-06T08:00:00.000Z', lines: [{ lineIndex: 1, quantity: 1, grossCents: 315, taxRateBasisPoints: 1900 }] }],
@@ -117,7 +117,7 @@ describe('salesReport', () => {
   });
 
   it('a day of collection and delivery orders built like checkout: byRate gross equals gross, the 2,50 fee once', () => {
-    const fee = [{ kind: 'delivery_fee' as const, grossCents: 250, taxRateBasisPoints: 700, taxCents: 16 }];
+    const fee = [{ kind: 'delivery_fee' as const, grossCents: 250, taxClassId: 'food', taxRateBasisPoints: 700, taxCents: 16 }];
     const order = (id: string, mode: 'collection' | 'delivery', lineCents: number, charges: typeof fee | []): ReportOrderRow => {
       const items = [{ ...carbonara, productId: id, quantity: 1, unitPriceCents: lineCents, lineTotalCents: lineCents, taxCents: Math.round((lineCents * 700) / 10700) }];
       const feeCents = charges.reduce((s, c) => s + c.grossCents, 0);
@@ -133,6 +133,27 @@ describe('salesReport', () => {
     expect(r.days[0].byRate).toHaveLength(1);
     expect(r.days[0].byRate[0].grossCents).toBe(5100);
     expect(r.totals.byRate[0].grossCents).toBe(r.totals.grossCents);
+  });
+
+  it('legacy order without a stored taxBreakdown: the delivery fee keeps its VAT in byRate', () => {
+    const items = [carbonara];
+    const charges = [{ kind: 'delivery_fee' as const, grossCents: 250, taxClassId: 'delivery', taxRateBasisPoints: 1900, taxCents: 40 }];
+    const legacy: ReportOrderRow = {
+      id: 'legacy', createdAt: '2026-10-08T09:00:00.000Z', acceptedAt: '2026-10-08T09:01:00.000Z', fulfilmentMode: 'delivery', payment: paid,
+      subtotalCents: 1050, totalCents: 1300, items, charges, refunds: [],
+    };
+    expect(legacy.taxBreakdown).toBeUndefined();
+    const r = buildSalesReport({ shopId: 'shop-1', from: '2026-10-08', to: '2026-10-08', timezone: TZ, currency: 'EUR', rows: [legacy] });
+    const expected = [
+      { rateBasisPoints: 700, grossCents: 1050, taxCents: 69, netCents: 981 },
+      { rateBasisPoints: 1900, grossCents: 250, taxCents: 40, netCents: 210 },
+    ];
+    expect(r.days[0].byRate).toEqual(expected);
+    expect(r.totals.byRate).toEqual(expected);
+    expect(r.days[0].deliveryFeeCents).toBe(250);
+    for (const d of [...r.days, r.totals]) {
+      expect(d.byRate.reduce((s, e) => s + e.grossCents, 0)).toBe(d.grossCents - d.refundCents);
+    }
   });
 
   it('an order for later counts at its booked hour', () => {
@@ -177,6 +198,19 @@ describe('salesReport', () => {
 
   it('a first refund of the whole order mirrors the cancellation invoice', () => {
     expect(refundTaxParts(O4, 0)).toEqual([{ rateBasisPoints: 700, grossCents: 1050, taxCents: 69 }]);
+  });
+
+  it('a full first refund without a stored taxBreakdown includes the delivery fee VAT', () => {
+    const charges = [{ kind: 'delivery_fee' as const, grossCents: 250, taxClassId: 'delivery', taxRateBasisPoints: 1900, taxCents: 40 }];
+    expect(
+      refundTaxParts(
+        { subtotalCents: 1050, totalCents: 1300, items: [carbonara], charges, refunds: [{ amountCents: 1300, at: '2026-10-05T10:00:00.000Z' }] },
+        0,
+      ),
+    ).toEqual([
+      { rateBasisPoints: 700, grossCents: 1050, taxCents: 69 },
+      { rateBasisPoints: 1900, grossCents: 250, taxCents: 40 },
+    ]);
   });
 
   it('a free partial refund is split by what is left at each rate', () => {
