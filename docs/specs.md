@@ -492,8 +492,8 @@ via the existing admin dish-editor update endpoint, included in the
 storefront catalog response per dish/variant, and **snapshotted onto
 the order line at order time** — like price and name — so a later
 change to the dish's flag never retroactively changes what a past
-order required. Existing dishes default to `false`; this flag alone
-has no customer-facing effect yet.
+order required. Existing dishes default to `false`. It now drives two
+customer/staff-facing behaviors, described below.
 
 **Checkout confirmation.** When the cart contains at least one
 age-restricted dish — a plain dish, or a combo with an age-restricted
