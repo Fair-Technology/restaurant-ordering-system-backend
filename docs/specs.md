@@ -495,9 +495,22 @@ change to the dish's flag never retroactively changes what a past
 order required. Existing dishes default to `false`; this flag alone
 has no customer-facing effect yet.
 
-> Checkout age-confirmation and the order-drawer handover reminder
-> that this flag will drive are specified separately once the
-> frontend ticket (age-gate UI) lands — not covered here.
+**Checkout confirmation.** When the cart contains at least one
+age-restricted dish — a plain dish, or a combo with an age-restricted
+component — the storefront checkout shows a single confirmation checkbox
+that the diner must tick before they can submit the order; the
+place-order / continue-to-payment action stays disabled until it is
+checked. The gate is enforced entirely client-side. The confirmation is
+sent to the server as a timestamp alongside the order so there is a
+durable record of when the diner confirmed it; storing that timestamp on
+the Order is a small backend addition tracked separately.
+
+**Handover reminder.** In the admin order board and order drawer, an
+order containing one or more age-restricted items carries a clear visual
+reminder (check ID on handover — the order contains alcohol), so staff
+are prompted to verify age at pickup or delivery. It is driven by the
+`ageRestricted` flag already snapshotted on the order lines, so it
+reflects what the order required when it was placed.
 
 ### Sizes and extras
 
