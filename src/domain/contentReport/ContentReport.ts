@@ -42,6 +42,7 @@ export interface ContentReport {
   contentUrl?: string; // optional: which page/listing on the storefront
   reporterName?: string; // optional; anonymous reports are allowed
   reporterEmail?: string; // optional
+  ipHash?: string; // sha256 of the reporter's IP; abuse-detection only, never returned by the public API
   status: ContentReportStatus;
   receivedAt: string; // ISO
   decision?: ContentReportDecision;
@@ -52,3 +53,5 @@ export const CONTENT_REPORT_URL_MAX_LENGTH = 500;
 export const CONTENT_REPORT_DECISION_REASON_MAX_LENGTH = 2000;
 export const CONTENT_REPORTER_NAME_MAX_LENGTH = 200;
 export const CONTENT_REPORTER_EMAIL_MAX_LENGTH = 254;
+export const CONTENT_REPORT_RATE_LIMIT_MAX = 5; // max reports per ipHash in the window below
+export const CONTENT_REPORT_RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour, global across shops

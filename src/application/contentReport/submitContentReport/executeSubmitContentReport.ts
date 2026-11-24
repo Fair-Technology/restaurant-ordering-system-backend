@@ -1,12 +1,18 @@
+import { createHash } from 'node:crypto';
 import {
   ContentReport,
+  CONTENT_REPORT_RATE_LIMIT_MAX,
+  CONTENT_REPORT_RATE_LIMIT_WINDOW_MS,
   CONTENT_REPORT_REASON_MAX_LENGTH,
   CONTENT_REPORT_URL_MAX_LENGTH,
   CONTENT_REPORTER_EMAIL_MAX_LENGTH,
   CONTENT_REPORTER_NAME_MAX_LENGTH,
   isContentReportCategory,
 } from '../../../domain/contentReport/ContentReport';
-import { createContentReport } from '../../../infrastructure/cosmos/contentReport/CosmosContentReportRepository';
+import {
+  countRecentContentReportsByIpHash,
+  createContentReport,
+} from '../../../infrastructure/cosmos/contentReport/CosmosContentReportRepository';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { ApplicationResult } from '../../_shared/types';
 import { logServiceFailure } from '../../_shared/logServiceFailure';
@@ -54,6 +60,7 @@ function readOptionalText(value: unknown, field: string, maxLength: number): Opt
 export async function executeSubmitContentReport(
   shopId: string,
   body: SubmitContentReportBody,
+  clientIp?: string,
 ): Promise<ApplicationResult<SubmitContentReportResultDto>> {
   if (!shopId || typeof shopId !== 'string' || shopId.trim() === '') {
     return { ok: false, code: 'INVALID_INPUT', error: 'shopId is required and must be a non-empty string' };
@@ -87,7 +94,19 @@ export async function executeSubmitContentReport(
     return { ok: false, code: 'INVALID_INPUT', error: 'reporterEmail must be a valid email address' };
   }
 
+  const ipHash = clientIp ? createHash('sha256').update(clientIp).digest('hex') : undefined;
+
   try {
+    // After validation, before the shop lookup: a throttled client learns nothing about shops
+    // and costs no shop read. No IP (local dev, no proxy) -> no limiting.
+    if (ipHash) {
+      const since = new Date(Date.now() - CONTENT_REPORT_RATE_LIMIT_WINDOW_MS).toISOString();
+      const recentCount = await countRecentContentReportsByIpHash(ipHash, since);
+      if (recentCount >= CONTENT_REPORT_RATE_LIMIT_MAX) {
+        return { ok: false, code: 'RATE_LIMITED', error: 'Too many reports submitted recently. Please try again later.' };
+      }
+    }
+
     const shop = await findShopById(shopId.trim());
     if (!shop || shop.isDeleted) {
       return { ok: false, code: 'NOT_FOUND', error: 'Shop not found' };
@@ -103,6 +122,7 @@ export async function executeSubmitContentReport(
       ...(contentUrl.value !== undefined && { contentUrl: contentUrl.value }),
       ...(reporterName.value !== undefined && { reporterName: reporterName.value }),
       ...(reporterEmail.value !== undefined && { reporterEmail: reporterEmail.value }),
+      ...(ipHash !== undefined && { ipHash }),
       status: 'received',
       receivedAt: new Date().toISOString(),
     };

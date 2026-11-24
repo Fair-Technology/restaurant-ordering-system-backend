@@ -3,12 +3,13 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 vi.mock('../../../src/infrastructure/cosmos/shop/CosmosShopRepository', () => ({ findShopById: vi.fn() }));
 vi.mock('../../../src/infrastructure/cosmos/contentReport/CosmosContentReportRepository', () => ({
   createContentReport: vi.fn(async (r: any) => r),
+  countRecentContentReportsByIpHash: vi.fn(async () => 0),
 }));
 
 import { findShopById } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
-import { createContentReport } from '../../../src/infrastructure/cosmos/contentReport/CosmosContentReportRepository';
+import { createContentReport, countRecentContentReportsByIpHash } from '../../../src/infrastructure/cosmos/contentReport/CosmosContentReportRepository';
 import { executeSubmitContentReport, CONTENT_URL_ERROR } from '../../../src/application/contentReport/submitContentReport/executeSubmitContentReport';
-import { CONTENT_REPORT_REASON_MAX_LENGTH, CONTENT_REPORT_URL_MAX_LENGTH } from '../../../src/domain/contentReport/ContentReport';
+import { CONTENT_REPORT_RATE_LIMIT_MAX, CONTENT_REPORT_REASON_MAX_LENGTH, CONTENT_REPORT_URL_MAX_LENGTH } from '../../../src/domain/contentReport/ContentReport';
 
 const SHOP = { id: 'shop-1', slug: 'pizzeria', name: 'Pizzeria', isDeleted: false };
 
@@ -131,5 +132,51 @@ describe('executeSubmitContentReport', () => {
       ok: false, code: 'INTERNAL_ERROR',
     });
     spy.mockRestore();
+  });
+
+  describe('rate limiting', () => {
+    const body = { category: 'other', reason: 'x' } as const;
+    const quiet = () => vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    it('rejects with RATE_LIMITED at the limit and saves nothing', async () => {
+      (countRecentContentReportsByIpHash as any).mockResolvedValueOnce(CONTENT_REPORT_RATE_LIMIT_MAX);
+      const r = await executeSubmitContentReport('shop-1', body, '1.2.3.4');
+      expect(r).toMatchObject({ ok: false, code: 'RATE_LIMITED' });
+      expect(createContentReport).not.toHaveBeenCalled();
+      expect(findShopById).not.toHaveBeenCalled();
+    });
+
+    it('succeeds under the limit', async () => {
+      (countRecentContentReportsByIpHash as any).mockResolvedValueOnce(CONTENT_REPORT_RATE_LIMIT_MAX - 1);
+      expect((await executeSubmitContentReport('shop-1', body, '1.2.3.4')).ok).toBe(true);
+    });
+
+    it('does not check or limit when there is no client IP', async () => {
+      (countRecentContentReportsByIpHash as any).mockResolvedValue(CONTENT_REPORT_RATE_LIMIT_MAX + 10);
+      const r = await executeSubmitContentReport('shop-1', body);
+      expect(r.ok).toBe(true);
+      expect(countRecentContentReportsByIpHash).not.toHaveBeenCalled();
+      const saved = (createContentReport as any).mock.calls[0][0];
+      expect('ipHash' in saved).toBe(false);
+      (countRecentContentReportsByIpHash as any).mockResolvedValue(0);
+    });
+
+    it('stores a stable sha256 hash, never the raw IP', async () => {
+      await executeSubmitContentReport('shop-1', body, '1.2.3.4');
+      await executeSubmitContentReport('shop-1', body, '1.2.3.4');
+      const [a, b] = (createContentReport as any).mock.calls.map((c: any[]) => c[0]);
+      expect(a.ipHash).toMatch(/^[0-9a-f]{64}$/);
+      expect(a.ipHash).toBe(b.ipHash);
+      expect(JSON.stringify(a)).not.toContain('1.2.3.4');
+    });
+
+    it('returns INTERNAL_ERROR when the count query fails', async () => {
+      (countRecentContentReportsByIpHash as any).mockRejectedValueOnce(new Error('cosmos down'));
+      const spy = quiet();
+      expect(await executeSubmitContentReport('shop-1', body, '1.2.3.4')).toMatchObject({
+        ok: false, code: 'INTERNAL_ERROR',
+      });
+      spy.mockRestore();
+    });
   });
 });

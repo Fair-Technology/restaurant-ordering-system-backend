@@ -3,6 +3,7 @@ import { executeSubmitContentReport } from '../../../application/contentReport/s
 import { SubmitContentReportBody } from '../../../application/contentReport/submitContentReport/dtos';
 import { mapResultToHttp } from '../../_shared/mapResultToHttp';
 import { internalServerError } from '../../_shared/internalServerError';
+import { getClientIp } from '../../_shared/getClientIp';
 import { readJsonObject } from '../../_shared/readJsonObject';
 
 app.http('submitContentReport', {
@@ -16,7 +17,7 @@ app.http('submitContentReport', {
         return { status: 400, jsonBody: { error: 'Request body must be a JSON object' } };
       }
       return mapResultToHttp(
-        await executeSubmitContentReport(request.params.shopId, body as unknown as SubmitContentReportBody),
+        await executeSubmitContentReport(request.params.shopId, body as unknown as SubmitContentReportBody, getClientIp(request)),
       );
     } catch (error) {
       return internalServerError('submitContentReport', error);
