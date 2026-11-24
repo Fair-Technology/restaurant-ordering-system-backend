@@ -4,6 +4,10 @@ import {
   findShopOptionGroupById,
   updateShopOptionGroup,
 } from '../../../infrastructure/cosmos/optionGroup/CosmosShopOptionGroupRepository';
+import {
+  findProductsByShopId,
+  updateProduct,
+} from '../../../infrastructure/cosmos/product/CosmosProductRepository';
 import { toAuditActor } from '../../_shared/shopAccess';
 import { logAudit } from '../../_shared/auditHelpers';
 import { logServiceFailure } from '../../_shared/logServiceFailure';
@@ -34,6 +38,27 @@ export async function executeDeleteOptionGroup(
       isDeleted: true,
       updatedAt: new Date().toISOString(),
     });
+
+    // Cascade: strip the deleted group id from every product that references it, otherwise the product's next
+    // save fails validateMenuFields ("Unknown option group"). Best effort on purpose: the group itself is already
+    // deleted, so a cleanup failure is logged and must not turn the primary delete into an error.
+    try {
+      const groupId = saved.id;
+      const products = await findProductsByShopId(shopId);
+      const referencing = products.filter((p) => p.optionGroupRefs?.includes(groupId));
+      const now = new Date().toISOString();
+      await Promise.all(
+        referencing.map((p) =>
+          updateProduct({
+            ...p,
+            optionGroupRefs: (p.optionGroupRefs ?? []).filter((id) => id !== groupId),
+            updatedAt: now,
+          }).catch((error: unknown) => logServiceFailure('deleteOptionGroup.cleanupProductRefs', error)),
+        ),
+      );
+    } catch (error: unknown) {
+      logServiceFailure('deleteOptionGroup.cleanupProductRefs', error);
+    }
 
     await logAudit({
       shopId,

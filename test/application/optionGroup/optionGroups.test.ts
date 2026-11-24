@@ -13,6 +13,10 @@ vi.mock('../../../src/infrastructure/cosmos/optionGroup/CosmosShopOptionGroupRep
   updateShopOptionGroup: vi.fn(async (g: any) => g),
   deleteShopOptionGroup: vi.fn(),
 }));
+vi.mock('../../../src/infrastructure/cosmos/product/CosmosProductRepository', () => ({
+  findProductsByShopId: vi.fn(async () => []),
+  updateProduct: vi.fn(async (p: any) => p),
+}));
 vi.mock('../../../src/infrastructure/cosmos/reference/CosmosReferenceListsRepository', () => ({
   getReferenceLists: vi.fn(),
 }));
@@ -32,6 +36,10 @@ import {
   findShopOptionGroupsByShopId,
   updateShopOptionGroup,
 } from '../../../src/infrastructure/cosmos/optionGroup/CosmosShopOptionGroupRepository';
+import {
+  findProductsByShopId,
+  updateProduct,
+} from '../../../src/infrastructure/cosmos/product/CosmosProductRepository';
 import { getReferenceLists } from '../../../src/infrastructure/cosmos/reference/CosmosReferenceListsRepository';
 import {
   SHOP_OPTION_GROUP_KIND_ERROR,
@@ -250,6 +258,48 @@ describe('deleteOptionGroup', () => {
     const saved = vi.mocked(updateShopOptionGroup).mock.calls[0][0];
     expect(saved).toMatchObject({ id: 'g-1', isDeleted: true, options: stored.options });
     expect(logAudit).toHaveBeenCalledWith(expect.objectContaining({ action: 'optionGroup.delete', entityId: 'g-1' }));
+  });
+
+  it('touches no product when none references the group', async () => {
+    vi.mocked(findProductsByShopId).mockResolvedValue([
+      { id: 'p-1', shopId: 'shop-1', optionGroupRefs: ['g-other'] },
+      { id: 'p-2', shopId: 'shop-1' },
+    ] as any);
+    const r = await executeDeleteOptionGroup({ shopId: 'shop-1', groupId: 'g-1' }, httpRequest);
+    expect(r.ok).toBe(true);
+    expect(updateProduct).not.toHaveBeenCalled();
+  });
+
+  it('strips the group id from referencing products and keeps other refs', async () => {
+    vi.mocked(findProductsByShopId).mockResolvedValue([
+      { id: 'p-1', shopId: 'shop-1', name: 'Pomodoro', optionGroupRefs: ['g-a', 'g-1', 'g-b'] },
+      { id: 'p-2', shopId: 'shop-1', name: 'Other', optionGroupRefs: ['g-a'] },
+    ] as any);
+    const r = await executeDeleteOptionGroup({ shopId: 'shop-1', groupId: 'g-1' }, httpRequest);
+    expect(r.ok).toBe(true);
+    expect(findProductsByShopId).toHaveBeenCalledWith('shop-1');
+    expect(updateProduct).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(updateProduct).mock.calls[0][0]).toMatchObject({ id: 'p-1', optionGroupRefs: ['g-a', 'g-b'] });
+  });
+
+  it('does not touch soft-deleted products (findProductsByShopId excludes them)', async () => {
+    // The repository query filters isDeleted = false, so a deleted referencing product is never returned.
+    vi.mocked(findProductsByShopId).mockResolvedValue([]);
+    const r = await executeDeleteOptionGroup({ shopId: 'shop-1', groupId: 'g-1' }, httpRequest);
+    expect(r.ok).toBe(true);
+    expect(updateProduct).not.toHaveBeenCalled();
+  });
+
+  it('still succeeds when a product cleanup fails', async () => {
+    vi.mocked(findProductsByShopId).mockResolvedValue([
+      { id: 'p-1', shopId: 'shop-1', optionGroupRefs: ['g-1'] },
+    ] as any);
+    vi.mocked(updateProduct).mockRejectedValueOnce(new Error('cosmos down'));
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const r = await executeDeleteOptionGroup({ shopId: 'shop-1', groupId: 'g-1' }, httpRequest);
+    expect(r.ok && r.data.isDeleted).toBe(true);
+    expect(logAudit).toHaveBeenCalled();
+    spy.mockRestore();
   });
 
   it('returns the denial and does not delete', async () => {
