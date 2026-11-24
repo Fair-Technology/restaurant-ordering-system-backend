@@ -162,8 +162,9 @@ describe('logo upload is capped, type-checked and normalised', () => {
     );
     const r = await executeSetShopLogo(setReq, httpRequest);
     expect(r.ok).toBe(true);
-    expect(deleteBlob).toHaveBeenCalledTimes(1);
+    expect(deleteBlob).toHaveBeenCalledTimes(2); // canonical + thumb variant
     expect(deleteBlob).toHaveBeenCalledWith('shops/shop-1/branding/old.png');
+    expect(deleteBlob).toHaveBeenCalledWith('shops/shop-1/branding/old-thumb.png');
     expect(updateShop).toHaveBeenCalledTimes(1);
 
     vi.mocked(deleteBlob).mockClear();

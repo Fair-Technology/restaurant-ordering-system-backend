@@ -5,13 +5,14 @@ import {
   updateShop as updateShopInRepo,
 } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { authorizeShopAction, toAuditActor } from '../../_shared/shopAccess';
-import { deleteBlob, generateBlobUrl } from '../../../infrastructure/storage/blobStorageHelpers';
+import { generateBlobUrl } from '../../../infrastructure/storage/blobStorageHelpers';
 import { ownedBlobPath, shopBrandingFolder } from '../../../infrastructure/storage/blobUrls';
 import { SetShopCoverImageRequestDto, ShopCoverImageResultDto, toCoverImageResult } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 import { logAudit } from '../../_shared/auditHelpers';
+import { deleteBlobWithVariants } from '../../_shared/deleteBlobWithVariants';
 import { verifyUploadedImageSize } from '../../_shared/verifyUploadedImageSize';
-import { COVER_IMAGE_SIZE, COVER_IMAGE_MIN_SOURCE, COVER_IMAGE_WRONG_SIZE } from '../../../domain/images/imageRules';
+import { COVER_IMAGE_SIZE, COVER_IMAGE_CARD_SIZE, COVER_IMAGE_MIN_SOURCE, COVER_IMAGE_WRONG_SIZE } from '../../../domain/images/imageRules';
 import { logServiceFailure } from '../../_shared/logServiceFailure';
 
 // Extensions the upload-URL step can generate (getFileExtensionFromContentType).
@@ -59,6 +60,8 @@ export async function executeSetShopCoverImage(
       COVER_IMAGE_MIN_SOURCE,
       'Cover image',
       COVER_IMAGE_WRONG_SIZE,
+      'cover',
+      [{ suffix: 'card', size: COVER_IMAGE_CARD_SIZE }],
     );
     if (sizeError) return sizeError;
 
@@ -74,7 +77,7 @@ export async function executeSetShopCoverImage(
       const oldPath = ownedBlobPath(oldUrl, shopBrandingFolder(shopId));
       if (oldPath) {
         try {
-          await deleteBlob(oldPath);
+          await deleteBlobWithVariants(oldPath, ['card']);
         } catch (e: unknown) {
           console.error('[setShopCoverImage] old blob delete failed:', e instanceof Error ? e.message : e);
         }

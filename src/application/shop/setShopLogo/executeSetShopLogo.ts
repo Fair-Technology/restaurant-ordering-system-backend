@@ -4,14 +4,15 @@ import {
   updateShop as updateShopInRepo,
 } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { authorizeShopAction, toAuditActor } from '../../_shared/shopAccess';
-import { deleteBlob, generateBlobUrl } from '../../../infrastructure/storage/blobStorageHelpers';
+import { generateBlobUrl } from '../../../infrastructure/storage/blobStorageHelpers';
 import { ownedBlobPath, shopBrandingFolder } from '../../../infrastructure/storage/blobUrls';
 import { SetShopLogoRequestDto, SetShopLogoResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 import { logAudit } from '../../_shared/auditHelpers';
 import { logServiceFailure } from '../../_shared/logServiceFailure';
+import { deleteBlobWithVariants } from '../../_shared/deleteBlobWithVariants';
 import { verifyUploadedImageSize } from '../../_shared/verifyUploadedImageSize';
-import { LOGO_MAX_SIZE } from '../../../domain/images/imageRules';
+import { LOGO_MAX_SIZE, LOGO_THUMB_SIZE } from '../../../domain/images/imageRules';
 
 // Extensions the upload-URL step can generate (getFileExtensionFromContentType).
 const LOGO_EXTENSIONS = ['.jpg', '.png', '.webp'];
@@ -54,7 +55,9 @@ export async function executeSetShopLogo(
     if (!issuedPath) return { ok: false, code: 'INVALID_INPUT', error: LOGO_URL_ERROR };
 
     // Check the real file (10 MB, type) and shrink it to fit the logo box; a logo has no minimum size.
-    const uploadError = await verifyUploadedImageSize(issuedPath, LOGO_MAX_SIZE, null, 'Logo', null, 'contain');
+    const uploadError = await verifyUploadedImageSize(issuedPath, LOGO_MAX_SIZE, null, 'Logo', null, 'contain', [
+      { suffix: 'thumb', size: LOGO_THUMB_SIZE },
+    ]);
     if (uploadError) return uploadError;
 
     // Delete old logo blob if it exists and differs from the new URL
@@ -62,7 +65,7 @@ export async function executeSetShopLogo(
     if (oldLogoUrl && oldLogoUrl !== request.url) {
       const oldPath = ownedBlobPath(oldLogoUrl, shopBrandingFolder(shop.id));
       if (oldPath) {
-        await deleteBlob(oldPath);
+        await deleteBlobWithVariants(oldPath, ['thumb']);
       }
     }
 

@@ -14,6 +14,24 @@ export const PRODUCT_IMAGE_SIZE: ExactImageSize = { width: 1200, height: 900 };
 /** Storefront shows a logo whole, up to 320 x 48 CSS px (§16); stored at 2x for retina. Never cropped. */
 export const LOGO_MAX_SIZE: ExactImageSize = { width: 640, height: 96 };
 
+/** Dish photo card variant: shop-page grid thumbnail at up to ~2x DPR of the ~291x218 CSS px slot. */
+export const PRODUCT_IMAGE_CARD_SIZE: ExactImageSize = { width: 800, height: 600 };
+/** Dish photo thumb variant: smallest grid/list context. */
+export const PRODUCT_IMAGE_THUMB_SIZE: ExactImageSize = { width: 400, height: 300 };
+/** Shop cover card variant: shop-listing card banner, half the hero resolution. */
+export const COVER_IMAGE_CARD_SIZE: ExactImageSize = { width: 960, height: 320 };
+/** Shop logo thumb variant: small square-ish badge contexts (e.g. a ~77x77 CSS px home-card badge). */
+export const LOGO_THUMB_SIZE: ExactImageSize = { width: 160, height: 160 };
+
+/**
+ * Path of a derived variant blob: the suffix goes before the extension, so
+ * `shops/s1/products/p1/abc.jpg` + `thumb` -> `shops/s1/products/p1/abc-thumb.jpg`.
+ */
+export function variantSuffix(path: string, suffix: string): string {
+  const dot = path.lastIndexOf('.');
+  return `${path.slice(0, dot)}-${suffix}${path.slice(dot)}`;
+}
+
 /** Smallest source (after EXIF orientation) the server will resize; smaller is refused, never upscaled. */
 export const COVER_IMAGE_MIN_SOURCE: ExactImageSize = { width: 1200, height: 400 };
 export const DISH_IMAGE_MIN_SOURCE: ExactImageSize = { width: 800, height: 600 };

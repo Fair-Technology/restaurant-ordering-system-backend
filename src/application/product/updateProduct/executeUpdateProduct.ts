@@ -9,7 +9,7 @@ import { suggestedTaxClassId } from '../../../domain/order/tax';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { getReferenceLists } from '../../../infrastructure/cosmos/reference/CosmosReferenceListsRepository';
 import { authorizeShopAction, toAuditActor } from '../../_shared/shopAccess';
-import { deleteBlob } from '../../../infrastructure/storage/blobStorageHelpers';
+import { deleteBlobWithVariants } from '../../_shared/deleteBlobWithVariants';
 import { ownedBlobPath, productImageFolder } from '../../../infrastructure/storage/blobUrls';
 import { UpdateProductRequestDto, UpdateProductResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
@@ -286,7 +286,7 @@ export async function executeUpdateProduct(
       Promise.allSettled(
         removedImages.map((img) => {
           const path = ownedBlobPath(img.url, productImageFolder(shopId, productId));
-          return path ? deleteBlob(path) : Promise.resolve();
+          return path ? deleteBlobWithVariants(path, ['card', 'thumb']) : Promise.resolve();
         }),
       ),
     ]);

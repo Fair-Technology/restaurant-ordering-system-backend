@@ -123,8 +123,10 @@ describe('photo ownership', () => {
     store.product = stored([img('old', OLD), img('own', OWN)]);
     const r = await executeUpdateProduct({ productId: 'p1', shopId: 'shop-1', images: [{ id: 'own', url: OWN }] } as any, http);
     expect(r.ok).toBe(true);
-    expect(deleteBlob).toHaveBeenCalledTimes(1);
+    expect(deleteBlob).toHaveBeenCalledTimes(3); // canonical + card + thumb variants
     expect(deleteBlob).toHaveBeenCalledWith('shops/shop-1/products/p1/old.jpg');
+    expect(deleteBlob).toHaveBeenCalledWith('shops/shop-1/products/p1/old-card.jpg');
+    expect(deleteBlob).toHaveBeenCalledWith('shops/shop-1/products/p1/old-thumb.jpg');
   });
 
   it('update never deletes a stored photo outside this dish folder', async () => {
@@ -144,7 +146,9 @@ describe('photo ownership', () => {
     store.product = stored([img('own', OWN), img('planted', VICTIM), img('sib', SIBLING), img('u', UNSPLASH)]);
     const r = await executeDeleteProduct({ productId: 'p1', shopId: 'shop-1' } as any, http);
     expect(r.ok).toBe(true);
-    expect(deleteBlob).toHaveBeenCalledTimes(1);
+    expect(deleteBlob).toHaveBeenCalledTimes(3); // canonical + card + thumb variants
     expect(deleteBlob).toHaveBeenCalledWith('shops/shop-1/products/p1/own.jpg');
+    expect(deleteBlob).toHaveBeenCalledWith('shops/shop-1/products/p1/own-card.jpg');
+    expect(deleteBlob).toHaveBeenCalledWith('shops/shop-1/products/p1/own-thumb.jpg');
   });
 });
