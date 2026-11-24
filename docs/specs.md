@@ -1703,7 +1703,7 @@ pixel is a later opt-in that switches a banner on for that storefront only.
 
 ### URL
 
-`<domain>/shops/<slug>` (the `/shops/` prefix is fine — Manish, 2026-09-30; e.g. Ma Pasta is `/shops/mapasta`). **The owner types the slug at restaurant creation with a
+`<domain>/shops/<slug>` (the `/shops/` prefix is fine — Manish, 2026-09-30; e.g. Ma Pasta is `/shops/ma-pasta`). **The owner types the slug at restaurant creation with a
 live availability check, first-come-first-served.** It is **changeable only by
 asking Manish**, and the old slug redirects permanently — the existing
 request-and-approve rename flow implements exactly this. Custom domains: never.
