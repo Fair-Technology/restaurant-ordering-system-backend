@@ -1306,7 +1306,7 @@ is a translation file, not a code change. The admin app already has populated
 **Typed by the restaurant, per language.** No machine translation, offered by
 nobody. **Each restaurant chooses which languages it offers.** When a restaurant enables a second
 language it is expected to translate its dishes; anything left untranslated
-**shows its original text**, and the gaps are flagged to the owner in admin.
+**shows its original text**.
 Nothing is ever hidden from a customer because of missing data entry.
 
 **What carries translations, and in what shape.** Every restaurant-typed menu
