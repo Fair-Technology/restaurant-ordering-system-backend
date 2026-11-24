@@ -776,7 +776,7 @@ describe('executeCheckout card placement', () => {
     });
 
     it('refuses a slot that is gone', async () => {
-      for (const scheduledFor of ['2026-10-05T10:15:00.000Z', '2026-10-09T10:15:00.000Z']) {
+      for (const scheduledFor of ['2026-10-05T10:15:00.000Z', '2026-10-09T20:15:00.000Z']) {
         const res = await executeCheckout({ ...cardRequest, scheduledFor }, { now: NOW_OPEN });
         expect(res).toEqual({ ok: false, code: 'CONFLICT', error: SLOT_UNAVAILABLE_ERROR });
       }

@@ -10,6 +10,7 @@ import {
   readyAtFor,
   slotWithinHours,
 } from '../../src/domain/order/scheduling';
+import { localDate } from '../../src/domain/order/orderTimers';
 import {
   CARD_SHOP,
   DELIVERY_ZONE,
@@ -46,13 +47,16 @@ describe('scheduling', () => {
     expect(slotWithinHours(noLead, 'collection', d('2026-10-05T20:15:00.000Z'))).toBe(true);
   });
 
-  it('a slot can be booked up to exactly 96 hours ahead', () => {
+  it('a slot can be booked up to the end of the local day the 96-hour horizon falls on', () => {
     const book = (iso: string) => isBookableSlot(SCHEDULED_SHOP, 'collection', d(iso), NOW_OPEN);
     expect(book('2026-10-05T10:30:00.000Z')).toBe(true);
     expect(book('2026-10-05T10:15:00.000Z')).toBe(false);
     expect(book('2026-10-05T10:20:00.000Z')).toBe(false);
-    expect(book('2026-10-09T10:00:00.000Z')).toBe(true);
-    expect(book('2026-10-09T10:15:00.000Z')).toBe(false);
+    // 96 h after NOW_OPEN is 2026-10-09 12:00 Berlin; the window runs on to that day's last slot, the 22:00 closing slot (20:00Z).
+    expect(book('2026-10-09T10:15:00.000Z')).toBe(true);
+    expect(book('2026-10-09T20:00:00.000Z')).toBe(true);
+    expect(book('2026-10-09T20:15:00.000Z')).toBe(false);
+    expect(book('2026-10-10T07:00:00.000Z')).toBe(false);
   });
 
   it('only collection and delivery, only when switched on', () => {
@@ -80,10 +84,10 @@ describe('scheduling', () => {
 
   it('lists every free quarter hour', () => {
     const open = listSlots(SCHEDULED_SHOP, 'collection', NOW_OPEN);
-    expect(open).toHaveLength(171);
+    expect(open).toHaveLength(211);
     expect(open[0]).toBe('2026-10-05T10:30:00.000Z');
     expect(open[1]).toBe('2026-10-05T10:45:00.000Z');
-    expect(open[open.length - 1]).toBe('2026-10-09T10:00:00.000Z');
+    expect(open[open.length - 1]).toBe('2026-10-09T20:00:00.000Z');
     const closed = listSlots(SCHEDULED_SHOP, 'collection', NOW_CLOSED);
     expect(closed).toHaveLength(172);
     expect(closed[0]).toBe('2026-10-06T09:30:00.000Z');
@@ -95,6 +99,21 @@ describe('scheduling', () => {
     );
     expect(delivery).toHaveLength(168);
     expect(delivery[0]).toBe('2026-10-06T09:45:00.000Z');
+  });
+
+  it('the last day of the window is a full local day, not a stub', () => {
+    const ALL = [{ open: '00:00', close: '00:00' }];
+    const S = { ...SCHEDULED_SHOP, openingHours: { mon: ALL, tue: ALL, wed: ALL, thu: ALL, fri: ALL, sat: ALL, sun: ALL } };
+    // 00:30 Berlin on 2026-10-06; +96 h is 00:30 on 2026-10-10, so a fixed cutoff left only 00:00-00:30 on the last day.
+    const now = d('2026-10-05T22:30:00.000Z');
+    const slots = listSlots(S, 'collection', now);
+    expect(slots[slots.length - 1]).toBe('2026-10-10T21:45:00.000Z'); // 23:45 Berlin
+    const lastDay = slots.filter((s) => localDate(s, S.timezone) === '2026-10-10');
+    expect(lastDay).toHaveLength(96);
+    expect(lastDay[0]).toBe('2026-10-09T22:00:00.000Z'); // 00:00 Berlin
+    // checkout agrees with the picker: the last listed slot is bookable, the next one is not.
+    expect(isBookableSlot(S, 'collection', d('2026-10-10T21:45:00.000Z'), now)).toBe(true);
+    expect(isBookableSlot(S, 'collection', d('2026-10-10T22:00:00.000Z'), now)).toBe(false);
   });
 
   it('closing time follows the shop clock across the October clock change', () => {
