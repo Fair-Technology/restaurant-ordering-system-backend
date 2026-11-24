@@ -58,6 +58,7 @@ export interface CatalogProductDto {
   dietaryTags: CatalogLabelDto[];
   spice: CatalogLabelDto | null;
   unavailableModes: FulfilmentMode[]; // modes this dish is not offered for
+  ageRestricted: boolean; // 18+/alcohol dish
   availableNow: boolean; // one of its categories is inside its times right now
   combo: CatalogComboDto | null; // null for a dish
   createdAt: string;

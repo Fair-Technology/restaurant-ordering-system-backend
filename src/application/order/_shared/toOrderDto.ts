@@ -38,6 +38,7 @@ export function toOrderDto(order: Order, now: Date): OrderDto {
       lineTotalCents: item.lineTotalCents,
       discountCents: item.discountCents ?? 0,
       combo: item.combo ?? null,
+      ageRestricted: item.ageRestricted ?? false,
     })),
     subtotalCents: order.subtotalCents,
     totalCents: chargedCents(order),

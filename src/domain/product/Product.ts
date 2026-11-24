@@ -86,6 +86,7 @@ export interface Product {
   spiceLevel: SpiceLevel | null;
   prepMinutes: number | null; // 1..240
   unavailableModes?: FulfilmentMode[]; // absent = offered for every mode
+  ageRestricted?: boolean; // true = 18+/alcohol dish; absent/false = no restriction
 
   // Tax
   taxClassId: string | null; // per-dish override; null = inherit from category

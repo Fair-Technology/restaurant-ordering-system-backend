@@ -20,6 +20,7 @@ export interface UpdateProductRequestDto {
   spiceLevel?: SpiceLevel | null;
   prepMinutes?: number | null;
   unavailableModes?: FulfilmentMode[];
+  ageRestricted?: boolean;
   taxClassId?: string | null;
   variantGroups?: ProductVariantGroup[];
   optionGroupRefs?: string[];

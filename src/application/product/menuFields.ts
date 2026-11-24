@@ -15,6 +15,7 @@ export interface MenuFieldsInput {
   spiceLevel?: unknown;
   prepMinutes?: unknown;
   unavailableModes?: unknown;
+  ageRestricted?: unknown;
   taxClassId?: unknown;
   variantGroups?: ProductVariantGroup[];
   addonGroups?: ProductAddonGroup[];
@@ -30,6 +31,7 @@ export interface ValidMenuFields {
   spiceLevel?: SpiceLevel | null;
   prepMinutes?: number | null;
   unavailableModes?: FulfilmentMode[];
+  ageRestricted?: boolean;
   taxClassId?: string | null;
   variantGroups?: ProductVariantGroup[];
   addonGroups?: ProductAddonGroup[];
@@ -182,6 +184,11 @@ export function validateMenuFields(
       return { error: UNAVAILABLE_MODES_ERROR };
     }
     out.unavailableModes = FULFILMENT_MODES.filter((m) => (v as unknown[]).includes(m));
+  }
+
+  if ('ageRestricted' in input && input.ageRestricted !== undefined) {
+    if (typeof input.ageRestricted !== 'boolean') return { error: 'ageRestricted must be a boolean' };
+    out.ageRestricted = input.ageRestricted;
   }
 
   if ('taxClassId' in input && input.taxClassId !== undefined) {

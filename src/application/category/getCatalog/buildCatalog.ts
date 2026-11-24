@@ -153,6 +153,7 @@ export function buildCatalog(input: {
           dietaryTags: tagLabel(p.dietaryTagIds),
           spice: spice(p.spiceLevel),
           unavailableModes: p.unavailableModes ?? [],
+          ageRestricted: p.ageRestricted ?? false,
           availableNow: p.categoryIds.some((id) => liveCategoryIds.has(id)),
           combo: p.combo ? { groups: comboGroups(p) } : null,
           createdAt: p.createdAt,

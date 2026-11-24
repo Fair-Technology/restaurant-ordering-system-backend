@@ -1649,6 +1649,9 @@
                       "$ref": "#/components/schemas/FulfilmentMode"
                     }
                   },
+                  "ageRestricted": {
+                    "type": "boolean"
+                  },
                   "taxClassId": {
                     "type": "string",
                     "nullable": true
@@ -8373,6 +8376,9 @@
               "$ref": "#/components/schemas/FulfilmentMode"
             }
           },
+          "ageRestricted": {
+            "type": "boolean"
+          },
           "availableNow": {
             "type": "boolean"
           },
@@ -8407,6 +8413,7 @@
           "dietaryTags",
           "spice",
           "unavailableModes",
+          "ageRestricted",
           "availableNow",
           "combo",
           "createdAt",
@@ -9032,6 +9039,9 @@
               "$ref": "#/components/schemas/FulfilmentMode"
             }
           },
+          "ageRestricted": {
+            "type": "boolean"
+          },
           "taxClassId": {
             "type": "string",
             "nullable": true
@@ -9566,6 +9576,9 @@
           },
           "combo": {
             "$ref": "#/components/schemas/OrderItemCombo"
+          },
+          "ageRestricted": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -10619,6 +10632,9 @@
             ],
             "additionalProperties": false,
             "nullable": true
+          },
+          "ageRestricted": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -10628,7 +10644,8 @@
           "unitPriceCents",
           "lineTotalCents",
           "discountCents",
-          "combo"
+          "combo",
+          "ageRestricted"
         ],
         "additionalProperties": false
       },
@@ -11691,6 +11708,9 @@
               "$ref": "#/components/schemas/FulfilmentMode"
             }
           },
+          "ageRestricted": {
+            "type": "boolean"
+          },
           "taxClassId": {
             "type": "string",
             "nullable": true
@@ -11790,6 +11810,7 @@
         },
         "required": [
           "additiveIds",
+          "ageRestricted",
           "allergenIds",
           "categories",
           "createdAt",
@@ -15632,6 +15653,9 @@
                   ],
                   "additionalProperties": false,
                   "nullable": true
+                },
+                "ageRestricted": {
+                  "type": "boolean"
                 }
               },
               "required": [
@@ -15640,7 +15664,8 @@
                 "unitPriceCents",
                 "lineTotalCents",
                 "selectedVariantOptionName",
-                "selectedAddonOptionNames"
+                "selectedAddonOptionNames",
+                "ageRestricted"
               ],
               "additionalProperties": false
             }
@@ -15883,6 +15908,9 @@
                 "productName": {
                   "type": "string"
                 },
+                "ageRestricted": {
+                  "type": "boolean"
+                },
                 "quantity": {
                   "type": "number"
                 },
@@ -15914,6 +15942,7 @@
               "required": [
                 "productId",
                 "productName",
+                "ageRestricted",
                 "quantity",
                 "unitPriceCents",
                 "lineTotalCents"
@@ -16565,6 +16594,9 @@
               "$ref": "#/components/schemas/FulfilmentMode"
             }
           },
+          "ageRestricted": {
+            "type": "boolean"
+          },
           "taxClassId": {
             "type": "string",
             "nullable": true
@@ -16616,6 +16648,7 @@
         },
         "required": [
           "additiveIds",
+          "ageRestricted",
           "allergenIds",
           "createdAt",
           "description",
@@ -16708,6 +16741,9 @@
             "items": {
               "$ref": "#/components/schemas/FulfilmentMode"
             }
+          },
+          "ageRestricted": {
+            "type": "boolean"
           },
           "taxClassId": {
             "type": "string",
@@ -16876,6 +16912,9 @@
               "$ref": "#/components/schemas/FulfilmentMode"
             }
           },
+          "ageRestricted": {
+            "type": "boolean"
+          },
           "taxClassId": {
             "type": "string",
             "nullable": true
@@ -16975,6 +17014,7 @@
         },
         "required": [
           "additiveIds",
+          "ageRestricted",
           "allergenIds",
           "categories",
           "createdAt",
@@ -17081,6 +17121,9 @@
               "$ref": "#/components/schemas/FulfilmentMode"
             }
           },
+          "ageRestricted": {
+            "type": "boolean"
+          },
           "taxClassId": {
             "type": "string",
             "nullable": true
@@ -17136,6 +17179,7 @@
         },
         "required": [
           "additiveIds",
+          "ageRestricted",
           "allergenIds",
           "createdAt",
           "description",
@@ -17232,6 +17276,9 @@
             "items": {
               "$ref": "#/components/schemas/FulfilmentMode"
             }
+          },
+          "ageRestricted": {
+            "type": "boolean"
           },
           "taxClassId": {
             "type": "string",

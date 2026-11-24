@@ -31,6 +31,7 @@ export type OrderItemDto = {
   lineTotalCents: number;
   discountCents: number; // this line's share of the order discount; 0 when none
   combo: { line: number; productId: string; name: string } | null; // lines sharing `line` are one combo; null = a dish
+  ageRestricted: boolean; // snapshot at order time
 };
 
 export type OrderDto = {

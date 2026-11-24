@@ -169,6 +169,31 @@ describe('priceBasket', () => {
   });
 });
 
+describe('ageRestricted snapshot', () => {
+  it('snapshots the flag onto the order line and leaves plain dishes unflagged', () => {
+    const beer = { ...P_COLA, ageRestricted: true };
+    const r = price([{ productId: 'p2', quantity: 1 }, { productId: 'p1', quantity: 1 }], {}, [P_PASTA, beer]);
+    expect(r.items.find((i) => i.productId === 'p2')?.ageRestricted).toBe(true);
+    expect(r.items.find((i) => i.productId === 'p1')?.ageRestricted).toBeFalsy();
+  });
+
+  it('a later flag change on the dish does not alter an already-priced line', () => {
+    const before = price([{ productId: 'p2', quantity: 1 }], {}, [{ ...P_COLA, ageRestricted: true }]).items[0];
+    const after = price([{ productId: 'p2', quantity: 1 }], {}, [{ ...P_COLA, ageRestricted: false }]).items[0];
+    expect(before.ageRestricted).toBe(true);
+    expect(after.ageRestricted).toBeFalsy();
+    // The stored line is a plain copy: nothing re-reads the live product
+    expect({ ...before }.ageRestricted).toBe(true);
+  });
+
+  it('snapshots the flag of an age-restricted combo component', () => {
+    const wine = { ...P_COLA, ageRestricted: true };
+    const r = price([{ productId: 'p9', quantity: 1, comboChoices: COMBO_CHOICES }], {}, [P_PASTA, wine, P_SALAD, P_COMBO]);
+    expect(r.items.some((i) => i.productId === 'p2' && i.ageRestricted === true)).toBe(true);
+    expect(r.items.filter((i) => i.productId !== 'p2').every((i) => !i.ageRestricted)).toBe(true);
+  });
+});
+
 describe('combos', () => {
   const ALL = [P_PASTA, P_COLA, P_SALAD, P_COMBO, P_COMBO_BMF];
   const combo = (extra: Record<string, unknown> = {}, opts: Partial<Parameters<typeof priceBasket>[0]> = {}, products: Product[] = ALL) =>

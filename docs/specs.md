@@ -483,6 +483,22 @@ category's class is only the suggestion for a new dish (§2).
 The existing admin app has a multi-step product wizard; keep it — essentials on
 step one so a simple dish is four fields and a save.
 
+### Age-restricted dishes
+
+A dish can carry **`ageRestricted: boolean`** (optional, defaults to
+`false`) — set on alcoholic items (draught beer, house wine) so the
+platform can treat them as 18+/Jugendschutz-relevant. It is settable
+via the existing admin dish-editor update endpoint, included in the
+storefront catalog response per dish/variant, and **snapshotted onto
+the order line at order time** — like price and name — so a later
+change to the dish's flag never retroactively changes what a past
+order required. Existing dishes default to `false`; this flag alone
+has no customer-facing effect yet.
+
+> Checkout age-confirmation and the order-drawer handover reminder
+> that this flag will drive are specified separately once the
+> frontend ticket (age-gate UI) lands — not covered here.
+
 ### Sizes and extras
 
 - **Sizes** (variant groups): named options each with a price difference

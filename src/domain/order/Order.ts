@@ -150,6 +150,7 @@ export interface OrderItem {
   taxCents?: number; // VAT contained in lineTotalCents
   discountCents?: number; // this line's share of the order discount; absent = 0. lineTotalCents stays the menu price
   combo?: OrderItemCombo; // set when this line is one dish of a combo
+  ageRestricted?: boolean; // snapshot at time of order; absent/false = not restricted
 }
 
 /** Set on every line that is one dish of a combo. Lines sharing `line` are one combo. */
