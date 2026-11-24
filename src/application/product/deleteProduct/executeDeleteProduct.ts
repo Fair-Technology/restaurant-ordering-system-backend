@@ -5,7 +5,7 @@ import {
 } from '../../../infrastructure/cosmos/product/CosmosProductRepository';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { authorizeShopAction, toAuditActor } from '../../_shared/shopAccess';
-import { deleteBlob } from '../../../infrastructure/storage/blobStorageHelpers';
+import { deleteBlobWithVariants } from '../../_shared/deleteBlobWithVariants';
 import { ownedBlobPath, productImageFolder } from '../../../infrastructure/storage/blobUrls';
 import { DeleteProductRequestDto, DeleteProductResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
@@ -85,7 +85,7 @@ export async function executeDeleteProduct(
     await Promise.allSettled(
       (product.images ?? []).map((img) => {
         const path = ownedBlobPath(img.url, productImageFolder(product.shopId, product.id));
-        return path ? deleteBlob(path) : Promise.resolve();
+        return path ? deleteBlobWithVariants(path, ['card', 'thumb']) : Promise.resolve();
       }),
     );
 

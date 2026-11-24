@@ -4,7 +4,7 @@ import {
   updateShop as updateShopInRepo,
 } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { authorizeShopAction, toAuditActor } from '../../_shared/shopAccess';
-import { deleteBlob } from '../../../infrastructure/storage/blobStorageHelpers';
+import { deleteBlobWithVariants } from '../../_shared/deleteBlobWithVariants';
 import { ownedBlobPath, shopBrandingFolder } from '../../../infrastructure/storage/blobUrls';
 import { ShopCoverImageResultDto, toCoverImageResult } from '../setShopCoverImage/dtos';
 import { ApplicationResult } from '../../_shared/types';
@@ -42,7 +42,7 @@ export async function executeRemoveShopCoverImage(
     const oldPath = oldUrl !== shop.branding.logoUrl ? ownedBlobPath(oldUrl, shopBrandingFolder(shop.id)) : null;
     if (oldPath) {
       try {
-        await deleteBlob(oldPath);
+        await deleteBlobWithVariants(oldPath, ['card']);
       } catch (e: unknown) {
         console.error('[removeShopCoverImage] blob delete failed:', e instanceof Error ? e.message : e);
       }

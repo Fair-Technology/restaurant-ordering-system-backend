@@ -6,7 +6,7 @@ vi.mock('../../../src/infrastructure/cosmos/product/CosmosProductRepository', ()
   findProductById: vi.fn(),
   updateProduct: vi.fn(async (p: any) => p),
 }));
-vi.mock('../../../src/infrastructure/image/normalizeImage', () => ({ normalizeImage: vi.fn() }));
+vi.mock('../../../src/infrastructure/image/normalizeImage', () => ({ normalizeImage: vi.fn(), normalizeImageVariants: vi.fn(async () => []) }));
 vi.mock('../../../src/infrastructure/storage/blobStorageHelpers', () => ({
   deleteBlob: vi.fn(async () => {}),
   getBlobProperties: vi.fn(),
@@ -18,7 +18,7 @@ import { executeAddProductImage } from '../../../src/application/product/addProd
 import { authorizeShopAction } from '../../../src/application/_shared/shopAccess';
 import { findShopById } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
 import { findProductById, updateProduct } from '../../../src/infrastructure/cosmos/product/CosmosProductRepository';
-import { normalizeImage } from '../../../src/infrastructure/image/normalizeImage';
+import { normalizeImage, normalizeImageVariants } from '../../../src/infrastructure/image/normalizeImage';
 import { deleteBlob, getBlobProperties, uploadBlob } from '../../../src/infrastructure/storage/blobStorageHelpers';
 
 const BASE = 'https://acct.blob.core.windows.net/product-media/';
@@ -48,6 +48,19 @@ describe('addProductImage exact pixel size', () => {
     expect(uploadBlob).toHaveBeenCalledWith(path, Buffer.from('norm'), 'image/jpeg');
     expect(updateProduct).toHaveBeenCalledTimes(1);
     expect(deleteBlob).not.toHaveBeenCalled();
+  });
+
+  it('asks for the card and thumb variants of the original upload', async () => {
+    const r = await executeAddProductImage(req, httpRequest);
+    expect(r.ok).toBe(true);
+    expect(normalizeImageVariants).toHaveBeenCalledWith(
+      Buffer.from('x'),
+      [
+        { suffix: 'card', size: { width: 800, height: 600 }, fit: 'cover' },
+        { suffix: 'thumb', size: { width: 400, height: 300 }, fit: 'cover' },
+      ],
+      'jpg',
+    );
   });
 
   it('works for a combo and keeps its combo definition', async () => {

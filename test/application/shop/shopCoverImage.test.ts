@@ -119,8 +119,9 @@ describe('shop cover image', () => {
   it('set cover: deletes the previous cover file after saving', async () => {
     vi.mocked(findShopById).mockResolvedValue(withHero(BASE + 'shops/shop-1/branding/old.jpg'));
     await executeSetShopCoverImage(setReq, httpRequest);
-    expect(deleteBlob).toHaveBeenCalledTimes(1);
+    expect(deleteBlob).toHaveBeenCalledTimes(2); // canonical + card variant
     expect(deleteBlob).toHaveBeenCalledWith('shops/shop-1/branding/old.jpg');
+    expect(deleteBlob).toHaveBeenCalledWith('shops/shop-1/branding/old-card.jpg');
     expect(vi.mocked(updateShop).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(deleteBlob).mock.invocationCallOrder[0]);
   });
 

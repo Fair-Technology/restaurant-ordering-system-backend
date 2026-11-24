@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import sharp from 'sharp';
-import { normalizeImage, normalizeImageContain } from '../../src/infrastructure/image/normalizeImage';
+import { normalizeImage, normalizeImageContain, normalizeImageVariants } from '../../src/infrastructure/image/normalizeImage';
 
 const DISH = { width: 1200, height: 900 };
 const DISH_MIN = { width: 800, height: 600 };
@@ -143,5 +143,43 @@ describe('normalizeImageContain (logo: fit inside 640 x 96, never cropped or ups
   it('refuses SVG and garbage', async () => {
     expect(await normalizeImageContain(Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"/>'), LOGO, 'png')).toEqual({ status: 'unsupported' });
     expect(await normalizeImageContain(Buffer.from('nope'), LOGO, 'png')).toEqual({ status: 'unsupported' });
+  });
+});
+
+describe('normalizeImageVariants', () => {
+  it('returns one buffer per spec at the requested size', async () => {
+    const src = await halves(2400, 1800);
+    const r = await normalizeImageVariants(
+      src,
+      [
+        { suffix: 'card', size: { width: 800, height: 600 }, fit: 'cover' },
+        { suffix: 'thumb', size: { width: 400, height: 300 }, fit: 'cover' },
+        { suffix: 'badge', size: { width: 160, height: 160 }, fit: 'contain' },
+      ],
+      'jpg',
+    );
+    expect(r.map((v) => v.suffix)).toEqual(['card', 'thumb', 'badge']);
+    const dims = await Promise.all(r.map(async (v) => {
+      const m = await sharp(v.bytes).metadata();
+      return [m.format, m.width, m.height];
+    }));
+    expect(dims).toEqual([['jpeg', 800, 600], ['jpeg', 400, 300], ['jpeg', 160, 120]]);
+  });
+
+  it('skips a failing spec without throwing', async () => {
+    const src = await halves(2400, 1800);
+    const r = await normalizeImageVariants(
+      src,
+      [
+        { suffix: 'bad', size: { width: 0, height: -5 }, fit: 'cover' },
+        { suffix: 'thumb', size: { width: 400, height: 300 }, fit: 'cover' },
+      ],
+      'jpg',
+    );
+    expect(r.map((v) => v.suffix)).toEqual(['thumb']);
+  });
+
+  it('returns nothing for an undecodable input', async () => {
+    expect(await normalizeImageVariants(Buffer.from('nope'), [{ suffix: 'thumb', size: { width: 400, height: 300 }, fit: 'cover' }], 'jpg')).toEqual([]);
   });
 });

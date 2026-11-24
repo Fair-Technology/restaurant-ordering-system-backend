@@ -194,6 +194,9 @@ export async function downloadBlob(blobPath: string): Promise<Buffer | null> {
   }
 }
 
+/** Browser/CDN cache policy for stored images: a confirmed image is never rewritten at the same URL. */
+export const IMMUTABLE_CACHE_CONTROL = 'public, max-age=31536000, immutable';
+
 /** Overwrite a blob with `bytes` and the given content type (server-side write of a normalised image). */
 export async function uploadBlob(blobPath: string, bytes: Buffer, contentType: string): Promise<void> {
   const blob = new BlobServiceClient(
@@ -202,7 +205,9 @@ export async function uploadBlob(blobPath: string, bytes: Buffer, contentType: s
   )
     .getContainerClient(CONTAINER_NAME)
     .getBlockBlobClient(blobPath);
-  await blob.uploadData(bytes, { blobHTTPHeaders: { blobContentType: contentType } });
+  await blob.uploadData(bytes, {
+    blobHTTPHeaders: { blobContentType: contentType, blobCacheControl: IMMUTABLE_CACHE_CONTROL },
+  });
 }
 
 export interface BlobUploadProperties {

@@ -63,3 +63,39 @@ export async function normalizeImageContain(
     return { status: 'unsupported' };
   }
 }
+
+export interface ImageVariantSpec {
+  suffix: string;
+  size: ExactImageSize;
+  fit: 'cover' | 'contain';
+}
+export interface ImageVariantResult {
+  suffix: string;
+  bytes: Buffer;
+}
+
+/**
+ * Produces one resized buffer per variant spec from the same (decodable) input.
+ * Best-effort per variant: a variant that fails to encode is skipped (never throws), since the
+ * canonical image is the functional requirement and variants are an optimisation.
+ */
+export async function normalizeImageVariants(
+  input: Buffer,
+  specs: ImageVariantSpec[],
+  outFormat: 'jpg' | 'png' | 'webp',
+): Promise<ImageVariantResult[]> {
+  const results: ImageVariantResult[] = [];
+  for (const spec of specs) {
+    try {
+      const out =
+        spec.fit === 'contain'
+          ? await normalizeImageContain(input, spec.size, outFormat)
+          : await normalizeImage(input, spec.size, { width: 0, height: 0 }, outFormat);
+      if (out.status === 'ok') results.push({ suffix: spec.suffix, bytes: out.bytes });
+      else console.error(`[normalizeImageVariants] variant '${spec.suffix}' skipped: ${out.status}`);
+    } catch (e: unknown) {
+      console.error(`[normalizeImageVariants] variant '${spec.suffix}' failed:`, e instanceof Error ? e.message : e);
+    }
+  }
+  return results;
+}

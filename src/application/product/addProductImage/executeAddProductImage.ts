@@ -10,7 +10,7 @@ import { ProductImage } from '../../../domain/product/Product';
 import { HttpRequest } from '@azure/functions';
 import { ownedBlobPath, productImageFolder } from '../../../infrastructure/storage/blobUrls';
 import { verifyUploadedImageSize } from '../../_shared/verifyUploadedImageSize';
-import { PRODUCT_IMAGE_SIZE, DISH_IMAGE_MIN_SOURCE, PRODUCT_IMAGE_WRONG_SIZE } from '../../../domain/images/imageRules';
+import { PRODUCT_IMAGE_SIZE, PRODUCT_IMAGE_CARD_SIZE, PRODUCT_IMAGE_THUMB_SIZE, DISH_IMAGE_MIN_SOURCE, PRODUCT_IMAGE_WRONG_SIZE } from '../../../domain/images/imageRules';
 
 export async function executeAddProductImage(
   request: AddProductImageRequestDto,
@@ -95,7 +95,10 @@ export async function executeAddProductImage(
       return { ok: false, code: 'INVALID_INPUT', error: 'Image with this ID already exists' };
     }
 
-    const sizeError = await verifyUploadedImageSize(blobPath, PRODUCT_IMAGE_SIZE, DISH_IMAGE_MIN_SOURCE, 'Dish photo', PRODUCT_IMAGE_WRONG_SIZE);
+    const sizeError = await verifyUploadedImageSize(blobPath, PRODUCT_IMAGE_SIZE, DISH_IMAGE_MIN_SOURCE, 'Dish photo', PRODUCT_IMAGE_WRONG_SIZE, 'cover', [
+      { suffix: 'card', size: PRODUCT_IMAGE_CARD_SIZE },
+      { suffix: 'thumb', size: PRODUCT_IMAGE_THUMB_SIZE },
+    ]);
     if (sizeError) return sizeError;
 
     const now = new Date().toISOString();
