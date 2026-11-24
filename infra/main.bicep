@@ -333,6 +333,8 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
         // owner confirmation; a setting so the confirmed figure needs no code change (the job
         // defaults to 180 when this is unset).
         { name: 'DELIVERY_ADDRESS_RETENTION_DAYS', value: '180' }
+        // Hide the default Functions welcome page at the root URL (it disclosed the platform / Kestrel fingerprint publicly).
+        { name: 'AzureWebJobsDisableHomepage', value: 'true' }
         // Secrets — COSMOS_DB_KEY, STORAGE_ACCOUNT_KEY, ENTRA_*, STRIPE_*, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT (mailto:) — are
         // set after deployment from the vault .env, never committed here.
       ]
