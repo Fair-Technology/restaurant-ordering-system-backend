@@ -2,6 +2,7 @@ import {
   chargedCents,
   FULFILMENT_MODES,
   type FulfilmentMode,
+  type OrderCharge,
   type OrderPayment,
   type StoredOrderState,
   type RefundLine,
@@ -9,7 +10,7 @@ import {
 } from '../order/Order';
 import { isCaptured } from '../order/payment';
 import { baseByRate, refundPartsByRate } from '../order/refundAllocation';
-import { buildTaxBreakdown, extractVatCents } from '../order/tax';
+import { buildTaxBreakdownWithCharges, extractVatCents } from '../order/tax';
 import { localDate } from '../order/orderTimers';
 
 export const REPORT_MAX_DAYS = 92;
@@ -51,7 +52,7 @@ export interface ReportOrderRow {
   payment: OrderPayment;
   subtotalCents: number;
   totalCents?: number;
-  charges?: Array<{ kind: string; grossCents: number }>;
+  charges?: Array<Pick<OrderCharge, 'kind' | 'grossCents' | 'taxClassId' | 'taxRateBasisPoints' | 'taxCents'>>;
   discountCents?: number;
   taxBreakdown?: TaxBreakdownEntry[];
   items: ReportItemRow[];
@@ -157,7 +158,7 @@ export function localHour(at: Date, timeZone: string): number {
  * Positive amounts, rate ascending.
  */
 export function refundTaxParts(
-  o: Pick<ReportOrderRow, 'items' | 'taxBreakdown' | 'subtotalCents' | 'totalCents' | 'refunds'>,
+  o: Pick<ReportOrderRow, 'items' | 'charges' | 'taxBreakdown' | 'subtotalCents' | 'totalCents' | 'refunds'>,
   k: number,
 ): TaxBreakdownEntry[] {
   const refunds = o.refunds ?? [];
@@ -165,7 +166,7 @@ export function refundTaxParts(
   if (r.reversesIndex !== undefined) {
     return refundTaxParts(o, r.reversesIndex).map((e) => ({ ...e, grossCents: -e.grossCents, taxCents: -e.taxCents }));
   }
-  const base = o.taxBreakdown ?? buildTaxBreakdown(o.items);
+  const base = o.taxBreakdown ?? buildTaxBreakdownWithCharges(o.items, o.charges ?? []);
   if (k === 0 && r.amountCents === chargedCents(o)) {
     return base.map((e) => ({ rateBasisPoints: e.rateBasisPoints, grossCents: e.grossCents, taxCents: e.taxCents }));
   }
@@ -274,7 +275,7 @@ export function buildSalesReport(input: {
     if (saleDay && acceptedAt) {
       const gross = chargedCents(o);
       const fee = (o.charges ?? []).filter((c) => c.kind === 'delivery_fee').reduce((s, c) => s + c.grossCents, 0);
-      const rates = o.taxBreakdown ?? buildTaxBreakdown(o.items);
+      const rates = o.taxBreakdown ?? buildTaxBreakdownWithCharges(o.items, o.charges ?? []);
       for (const a of [saleDay, total]) {
         a.orderCount += 1;
         a.grossCents += gross;
