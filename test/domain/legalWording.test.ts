@@ -92,7 +92,7 @@ describe('legal wording', () => {
   });
 
   it('privacy notice version bumped and still draft', () => {
-    expect(PRIVACY_TEMPLATE_VERSION).toBe('2026-10-13-draft');
+    expect(PRIVACY_TEMPLATE_VERSION).toBe('2026-11-24-draft');
     expect(notice('de').isDraft).toBe(true);
     expect(notice('en').isDraft).toBe(true);
     expect(PRIVACY_IS_DRAFT).toBe(true);
@@ -103,7 +103,7 @@ describe('legal wording', () => {
       notice(lang, a).sections.map((s) => s.paragraphs.length);
     for (const a of [null, 'Eins\n\nZwei'])
       expect(shape('de', a)).toEqual(shape('en', a));
-    expect(shape('de', null)).toEqual([3, 4, 2, 3, 5, 4, 2, 2]);
+    expect(shape('de', null)).toEqual([3, 4, 2, 3, 5, 3, 2, 2]);
     for (const d of DPA_VERSIONS) {
       expect(d.sections.de.map((s) => s.paragraphs.length)).toEqual(
         d.sections.en.map((s) => s.paragraphs.length),

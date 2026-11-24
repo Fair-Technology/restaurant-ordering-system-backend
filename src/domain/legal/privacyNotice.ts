@@ -2,7 +2,7 @@ import { ImpressumFields, LegalLanguage } from './impressum';
 import { PlatformLegalIdentity } from './PlatformLegalIdentity';
 import { LegalSection, STRIPE_PRIVACY_URL, SUB_PROCESSORS } from './platformDocuments';
 
-export const PRIVACY_TEMPLATE_VERSION = '2026-10-13-draft';
+export const PRIVACY_TEMPLATE_VERSION = '2026-11-24-draft';
 export const PRIVACY_IS_DRAFT = true; // flip to false (and drop '-draft' from the version) once Manish approves
 
 export interface PrivacyNotice {
@@ -93,14 +93,12 @@ export function buildPrivacyNotice(input: {
       paragraphs: de
         ? [
             'Ihren Warenkorb speichern wir im lokalen Speicher Ihres Browsers (localStorage), getrennt für jedes Restaurant, damit er beim nächsten Öffnen der Seite noch da ist. Er enthält nur die gewählten Gerichte mit Größe, Extras, Menüauswahl, Menge und Preis, aber keine Angaben zu Ihrer Person. Nach einer Bestellung oder wenn Sie ihn leeren, ist er leer.',
-            'Nur für den aktuellen Browser-Tab (sessionStorage) merken wir uns außerdem die Tischnummer, wenn Sie einen Tisch-QR-Code gescannt haben, und die Postleitzahl, die Sie für eine Lieferung gewählt haben (beides wird nach zwei Stunden nicht mehr verwendet), sowie ob Sie den Hinweis, dass das Restaurant geschlossen hat, bereits weggeklickt haben. Öffnet das Restaurant die Seite als Vorschau in seiner Verwaltung, merkt sich der Tab auch das. Diese Angaben verschwinden, wenn Sie den Tab schließen.',
-            'Name, E-Mail-Adresse, Telefonnummer und Adressen aus dem Bestellformular speichern wir nicht in Ihrem Browser, mit Ausnahme der oben genannten Postleitzahl.',
+            'Nur für den aktuellen Browser-Tab (sessionStorage) merken wir uns außerdem die Tischnummer, wenn Sie einen Tisch-QR-Code gescannt haben, und die Postleitzahl, die Sie für eine Lieferung gewählt haben, sowie ob Sie den Hinweis, dass das Restaurant geschlossen hat, bereits weggeklickt haben. Öffnet das Restaurant die Seite als Vorschau in seiner Verwaltung, merkt sich der Tab auch das. Während der Bestellung halten wir im selben Tab außerdem Ihre Eingaben im Bestellformular fest (Name, E-Mail-Adresse, Telefonnummer, Anmerkungen sowie Rechnungs- und Lieferadresse), damit Sie nichts neu eingeben müssen, wenn Sie zur Speisekarte zurückgehen und danach wieder zur Kasse kommen. Diese Formulareingaben werden gelöscht, sobald Ihre Bestellung aufgegeben ist, und sind ebenso weg, wenn Sie den Tab vorher schließen. Tischnummer, Postleitzahl und Formulareingaben werden nach zwei Stunden auch im selben Tab nicht mehr verwendet. Alle diese Angaben verschwinden, wenn Sie den Tab schließen.',
             'Wir selbst setzen keine Cookies. Erst im Zahlungsschritt setzt Stripe eigene Cookies (__stripe_mid und __stripe_sid), um Betrug bei der Zahlung zu verhindern. Sie sind für die Zahlung unbedingt erforderlich (§ 25 Abs. 2 Nr. 2 TDDDG). Tracking-Cookies und Analysewerkzeuge verwenden wir nicht.',
           ]
         : [
             'We keep your basket in your browser’s local storage (localStorage), separately for each restaurant, so it is still there the next time you open the site. It holds only the dishes you chose, with size, extras, combo choices, quantity and price, and nothing about you. After you order, or when you empty it, it is empty.',
-            'For the current browser tab only (sessionStorage) we also remember your table number if you scanned a table QR code, the postcode you chose for delivery (neither is used after two hours), and whether you have dismissed the notice that the restaurant is closed. When the restaurant opens the site as a preview in its admin, the tab remembers that too. This information is gone when you close the tab.',
-            'Your name, email address, phone number and addresses from the order form are not stored in your browser, apart from the postcode above.',
+            'For the current browser tab only (sessionStorage) we also remember your table number if you scanned a table QR code, the postcode you chose for delivery, and whether you have dismissed the notice that the restaurant is closed. When the restaurant opens the site as a preview in its admin, the tab remembers that too. During checkout the same tab also keeps what you have typed into the order form (name, email address, phone number, notes, and billing and delivery address), so that you do not lose it if you go back to the menu and return to checkout. This form data is deleted as soon as your order is placed, and it is gone as well if you close the tab before that. The table number, the postcode and the form data are no longer used after two hours, even in the same tab. All of this information is gone when you close the tab.',
             'We set no cookies ourselves. Only at the payment step does Stripe set its own cookies (__stripe_mid and __stripe_sid) to prevent payment fraud. They are strictly necessary for the payment (§ 25(2) no. 2 TDDDG). We use no tracking cookies and no analytics.',
           ],
     },
