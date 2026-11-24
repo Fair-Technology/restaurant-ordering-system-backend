@@ -24,6 +24,9 @@ vi.mock('../../../src/infrastructure/cosmos/invoice/CosmosInvoiceRepository', ()
   findInvoiceCounter: vi.fn(async () => null),
   commitInvoice: vi.fn(async () => 'ok'),
 }));
+vi.mock('../../../src/application/order/stripeRefunds/executeRecordStripeRefunds', () => ({
+  executeRecordStripeRefunds: vi.fn(async () => undefined),
+}));
 vi.mock('../../../src/infrastructure/cosmos/usage/CosmosUsageRepository', () => ({ incrementAcceptedOrders: vi.fn() }));
 vi.mock('../../../src/infrastructure/pdf/invoicePdf', () => ({ renderInvoicePdf: vi.fn(async () => new Uint8Array([1])) }));
 vi.mock('../../../src/application/usage/orderLimitWarnings', () => ({ notifyOrderLimitThresholds: vi.fn(async () => undefined) }));
@@ -40,6 +43,7 @@ vi.mock('../../../src/infrastructure/email/emailSender', () => ({
 }));
 
 import { recordMissedOrder, resetMissedOrderStreak } from '../../../src/application/order/_shared/missedOrders';
+import { executeRecordStripeRefunds } from '../../../src/application/order/stripeRefunds/executeRecordStripeRefunds';
 import { executeProcessOrderTimers } from '../../../src/application/order/timers/executeProcessOrderTimers';
 import {
   findOrderWithEtag,
@@ -106,6 +110,8 @@ describe('executeProcessOrderTimers', () => {
     (findOrdersMissingInvoice as any).mockResolvedValue([]);
     (findInvoicedOrdersWithRefunds as any).mockResolvedValue([]);
     (findInvoiceById as any).mockImplementation(async () => null);
+    (executeRecordStripeRefunds as any).mockReset();
+    (executeRecordStripeRefunds as any).mockResolvedValue(undefined);
     (capturePaymentIntent as any).mockResolvedValue(undefined);
     storedOrder();
   });
@@ -617,6 +623,101 @@ describe('executeProcessOrderTimers', () => {
     expect(res.invoicesIssued).toBe(1);
     expect(store.current.invoiceNumber).toBe('R-2026-00001');
     expect(sendEmail).not.toHaveBeenCalled();
+  });
+
+  describe('refund reconciliation against Stripe', () => {
+    const now = new Date('2026-10-06T10:00:00Z');
+    const refundedOrder = (id = 'o1', pi: string | null = 'pi_1') => ({
+      ...ACCEPTED_CARD_ORDER,
+      id,
+      state: 'COMPLETED' as const,
+      invoiceNumber: 'R-2026-00001',
+      payment: { ...ACCEPTED_CARD_ORDER.payment, status: 'partially_refunded' as const, stripePaymentIntentId: pi },
+      refunds: [
+        { id: `r-${id}`, amountCents: 300, reason: 'cold', at: '2026-10-05T11:00:00.000Z', actor: { type: 'staff' as const, id: 'm1' }, stripeRefundId: 're_1' },
+      ],
+    });
+    const setup = (orders: ReturnType<typeof refundedOrder>[]) => {
+      (findPlacedOrdersCreatedBefore as any).mockResolvedValue([]);
+      (findInvoicedOrdersWithRefunds as any).mockResolvedValue(orders);
+      (findInvoiceById as any).mockImplementation(async (_s: string, id: string) => {
+        const o = orders.find((x) => x.id === id);
+        return o ? buildInvoice({ order: o, shop: CARD_SHOP, number: 'R-2026-00001', now: new Date('2026-10-05T10:05:00Z') }) : null;
+      });
+    };
+
+    it('re-checks Stripe for an invoiced order with refunds', async () => {
+      const order = refundedOrder();
+      setup([order]);
+      storedOrder(order);
+      await executeProcessOrderTimers({ now });
+      expect(executeRecordStripeRefunds).toHaveBeenCalledWith({ paymentIntentId: 'pi_1', connectAccountId: 'acct_1', now });
+    });
+
+    it('skips reconciliation without a connect account, corrections unaffected', async () => {
+      const order = refundedOrder();
+      setup([order]);
+      storedOrder(order);
+      (findShopById as any).mockResolvedValue({ ...CARD_SHOP, stripe: undefined });
+      const res = await executeProcessOrderTimers({ now });
+      expect(executeRecordStripeRefunds).not.toHaveBeenCalled();
+      expect(res.correctionsIssued).toBe(1);
+    });
+
+    it('skips reconciliation without a payment intent and the run still completes', async () => {
+      const noPi = refundedOrder('o1', null);
+      (findPlacedOrdersCreatedBefore as any).mockResolvedValue([]);
+      (findInvoicedOrdersWithRefunds as any).mockResolvedValue([noPi]);
+      storedOrder(noPi);
+      const errSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+      await expect(executeProcessOrderTimers({ now })).resolves.toBeDefined();
+      errSpy.mockRestore();
+      expect(executeRecordStripeRefunds).not.toHaveBeenCalled();
+    });
+
+    it('a failing reconciliation neither throws nor blocks corrections or sibling orders', async () => {
+      const a = refundedOrder('o1');
+      const b = refundedOrder('o2');
+      setup([a, b]);
+      const stores: Record<string, ReturnType<typeof orderStore>> = { o1: orderStore(a), o2: orderStore(b) };
+      (findOrderWithEtag as any).mockImplementation((id: string) => stores[id].findOrderWithEtag(id));
+      (replaceOrderIfMatch as any).mockImplementation((o: any, etag: string) => stores[o.id].replaceOrderIfMatch(o, etag));
+      (executeRecordStripeRefunds as any).mockRejectedValueOnce(new Error('stripe down'));
+      const errSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+      const res = await executeProcessOrderTimers({ now });
+      errSpy.mockRestore();
+      expect(executeRecordStripeRefunds).toHaveBeenCalledTimes(2);
+      expect(res.correctionsIssued).toBe(2);
+    });
+
+    it('uses the freshly re-read order, so a reversal added by reconciliation gets its correction', async () => {
+      const stale = refundedOrder();
+      const fresh = {
+        ...stale,
+        payment: { ...stale.payment, status: 'paid' as const },
+        refunds: [
+          { ...stale.refunds[0], correctionNumber: 'R-2026-00002', correctionKind: 'correction' as const },
+          { id: 'reversal-re_1', amountCents: -300, reason: 'stripe_refund_failed', at: '2026-10-05T13:00:00.000Z', actor: { type: 'system' as const }, stripeRefundId: 're_1', reversesIndex: 0 },
+        ],
+      } as any;
+      const original = buildInvoice({ order: stale, shop: CARD_SHOP, number: 'R-2026-00001', now: new Date('2026-10-05T10:05:00Z') });
+      const first = buildCorrection({
+        original, refunds: [{ amountCents: 300 }], index: 0, refundId: 'r-o1', number: 'R-2026-00002', now: new Date('2026-10-05T12:01:00Z'),
+      });
+      (findPlacedOrdersCreatedBefore as any).mockResolvedValue([]);
+      (findInvoicedOrdersWithRefunds as any).mockResolvedValue([stale]);
+      (findInvoiceById as any).mockImplementation(async (_s: string, id: string) =>
+        id === 'o1' ? original : id === 'o1-c1' ? first : null,
+      );
+      storedOrder(fresh);
+      const res = await executeProcessOrderTimers({ now });
+      expect(res.correctionsIssued).toBe(1);
+      expect(commitInvoice).toHaveBeenCalledWith(
+        expect.anything(),
+        null,
+        expect.objectContaining({ id: 'o1-c2', totalCents: 300, reverses: expect.objectContaining({ number: 'R-2026-00002' }) }),
+      );
+    });
   });
 
   describe('scheduled orders', () => {
