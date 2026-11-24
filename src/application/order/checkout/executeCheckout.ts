@@ -165,6 +165,9 @@ export async function executeCheckout(
   ) {
     return { ok: false, code: 'INVALID_INPUT', error: 'legalRevisions must have whole-number terms and withdrawal' };
   }
+  if (request.ageConfirmedAt !== undefined && typeof request.ageConfirmedAt !== 'string') {
+    return { ok: false, code: 'INVALID_INPUT', error: 'ageConfirmedAt must be a string' };
+  }
   const method: PaymentMethod = request.paymentMethod ?? 'card';
   if (typeof request.idempotencyKey !== 'string' || !IDEMPOTENCY_KEY_PATTERN.test(request.idempotencyKey)) {
     return { ok: false, code: 'INVALID_INPUT', error: IDEMPOTENCY_KEY_ERROR };
@@ -450,6 +453,7 @@ export async function executeCheckout(
       taxBreakdown,
       language,
       legalRevisions: requestedRevisions ?? current,
+      ageConfirmedAt: request.ageConfirmedAt,
       customerAccessToken: accessToken,
       idempotencyKey,
       orderRef,

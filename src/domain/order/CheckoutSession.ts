@@ -24,6 +24,7 @@ export interface CheckoutSession {
   taxBreakdown?: TaxBreakdownEntry[];
   language?: MenuLanguage;
   legalRevisions?: LegalRevisions;
+  ageConfirmedAt?: string;       // ISO, when the diner confirmed the age-restriction checkbox
   customerAccessToken?: string;  // the order-page link token, created at checkout
   idempotencyKey?: string;       // the diner's submit key
   orderRef?: string;             // human-readable reference, created at checkout
