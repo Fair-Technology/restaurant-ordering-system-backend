@@ -14,6 +14,7 @@ import { isShopOffline } from '../../../domain/shop/Shop';
 import type { Shop } from '../../../domain/shop/Shop';
 import {
   findInvoicedOrdersWithRefunds,
+  findOrderWithEtag,
   findOrdersAwaitingRelease,
   findOrdersMissingInvoice,
   findOrdersInState,
@@ -28,6 +29,7 @@ import { rejectTimedOutOrder } from '../_shared/rejectTimedOutOrder';
 import { recordMissedOrder } from '../_shared/missedOrders';
 import { releaseClosedOrderPayment } from '../_shared/releasePayment';
 import { renderInvoicePdf } from '../../../infrastructure/pdf/invoicePdf';
+import { executeRecordStripeRefunds } from '../stripeRefunds/executeRecordStripeRefunds';
 import { transitionOrder } from '../_shared/transitionOrder';
 import { errorBrief } from '../../_shared/errorBrief';
 
@@ -248,11 +250,27 @@ export async function executeProcessOrderTimers(input: { now: Date }): Promise<O
     try {
       const shop = await shopOf(o.shopId);
       if (!shop) continue;
-      const refunds = o.refunds ?? [];
+      // Webhook-independent reconciliation: re-check Stripe's refund status so a missed
+      // refund.failed/canceled event cannot leave the order "Refunded" forever.
+      if (o.payment.stripePaymentIntentId && shop.stripe?.connectAccountId) {
+        try {
+          await executeRecordStripeRefunds({
+            paymentIntentId: o.payment.stripePaymentIntentId,
+            connectAccountId: shop.stripe.connectAccountId,
+            now,
+          });
+        } catch (err: unknown) {
+          // Let Stripe/webhook retry later; must not block the correction catch-up below.
+          console.error('[timers:error] refund reconciliation', o.id, errorBrief(err));
+        }
+      }
+      // Reconciliation may have appended refunds, so the list-query copy is stale.
+      const latest = (await findOrderWithEtag(o.id))?.order ?? o;
+      const refunds = latest.refunds ?? [];
       for (let i = 0; i < refunds.length; i++) {
         if (refunds[i].correctionNumber) continue;
         const existed = !!(await findInvoiceById(shop.id, `${o.id}-c${i + 1}`));
-        const doc = await issueCorrectionForRefund(o, i, shop, now);
+        const doc = await issueCorrectionForRefund(latest, i, shop, now);
         if (!doc) continue;
         result.correctionsIssued++;
         if (existed) continue;
