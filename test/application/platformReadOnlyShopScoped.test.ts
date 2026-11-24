@@ -37,6 +37,7 @@ vi.mock('../../src/infrastructure/cosmos/order/CosmosOrderRepository', async (io
   findOrdersByShopIdAndStates: vi.fn(),
   findOrdersByShopIdPaginated: vi.fn(),
   countOrdersByShopId: vi.fn(),
+  countOrdersByShopIdByState: vi.fn(),
   listDiscountUseRows: vi.fn(),
   findReportRows: vi.fn(),
   createOrder: vi.fn(),
@@ -168,6 +169,7 @@ import {
   findOrdersByShopIdAndStates,
   findOrdersByShopIdPaginated,
   countOrdersByShopId,
+  countOrdersByShopIdByState,
   listDiscountUseRows,
   findReportRows,
   createOrder,
@@ -342,6 +344,7 @@ describe('Platform.ReadOnly on shop-scoped routes', () => {
     vi.mocked(findOrdersByShopIdAndStates).mockResolvedValue([] as never);
     vi.mocked(findOrdersByShopIdPaginated).mockResolvedValue([] as never);
     vi.mocked(countOrdersByShopId).mockResolvedValue(0 as never);
+    vi.mocked(countOrdersByShopIdByState).mockResolvedValue({} as never);
     vi.mocked(listDiscountUseRows).mockResolvedValue([] as never);
     vi.mocked(findReportRows).mockResolvedValue({ rows: [], requestCharge: 0 } as never);
     vi.mocked(findPromotions).mockResolvedValue(null as never);

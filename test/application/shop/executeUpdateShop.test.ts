@@ -183,6 +183,57 @@ describe('executeUpdateShop audit action key', () => {
   });
 });
 
+describe('executeUpdateShop audit action detail', () => {
+  const now = new Date('2026-10-01T08:00:00Z');
+  const closure = { id: 'c1', start: '2026-10-05T12:00:00+02:00', end: '2026-10-05T14:00:00+02:00', reason: 'Event' };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (authorizeShopAction as any).mockResolvedValue(ownerAccess);
+    (updateShop as any).mockImplementation(async (s: any) => s);
+    (diffFields as any).mockReset();
+    (diffFields as any).mockReturnValue([]);
+    (findShopById as any).mockResolvedValue(makeShop({ isPaused: false, closures: [] }));
+  });
+
+  it('pausing orders alone logs shop.orders_pause_toggle', async () => {
+    (diffFields as any).mockReturnValueOnce([
+      { field: 'ordersPaused', from: undefined, to: true },
+      { field: 'ordersPausedUntil', from: undefined, to: null },
+    ]);
+    await executeUpdateShop({ shopId: 'shop-1', ordersPaused: true } as any, {} as any, { now });
+    expect(logAudit).toHaveBeenCalledWith(expect.objectContaining({ action: 'shop.orders_pause_toggle' }));
+  });
+
+  it('adding a closure alone logs shop.closures_update naming its date range', async () => {
+    await executeUpdateShop({ shopId: 'shop-1', closures: [closure] } as any, {} as any, { now });
+    const call = (logAudit as any).mock.calls[0][0];
+    expect(call.action).toBe('shop.closures_update');
+    expect(call.changes).toEqual(
+      expect.arrayContaining([
+        { field: 'closures', from: '0 closure(s)', to: '1 closure(s)' },
+        { field: 'closures.added', from: null, to: `${closure.start}–${closure.end} (Event)` },
+      ]),
+    );
+  });
+
+  it('removing a closure is described too', async () => {
+    (findShopById as any).mockResolvedValue(makeShop({ isPaused: false, closures: [closure] }));
+    await executeUpdateShop({ shopId: 'shop-1', closures: [] } as any, {} as any, { now });
+    const call = (logAudit as any).mock.calls[0][0];
+    expect(call.action).toBe('shop.closures_update');
+    expect(call.changes).toEqual(
+      expect.arrayContaining([{ field: 'closures.removed', from: `${closure.start}–${closure.end}`, to: null }]),
+    );
+  });
+
+  it('a plain field update still logs shop.update', async () => {
+    (diffFields as any).mockReturnValueOnce([{ field: 'minOrderAmountCents', from: 500, to: 1000 }]);
+    await executeUpdateShop({ shopId: 'shop-1', minOrderAmountCents: 1000 } as any, {} as any, { now });
+    expect(logAudit).toHaveBeenCalledWith(expect.objectContaining({ action: 'shop.update' }));
+  });
+});
+
 describe('executeUpdateShop go-live', () => {
   function makeGoLiveReadyShop(overrides: any = {}) {
     return makeShop({

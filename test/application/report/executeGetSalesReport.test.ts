@@ -4,11 +4,13 @@ import type { HttpRequest } from '@azure/functions';
 vi.mock('../../../src/application/_shared/shopAccess', () => ({ authorizeShopAction: vi.fn() }));
 vi.mock('../../../src/infrastructure/cosmos/shop/CosmosShopRepository', () => ({ findShopById: vi.fn() }));
 vi.mock('../../../src/infrastructure/cosmos/order/CosmosOrderRepository', () => ({ findReportRows: vi.fn() }));
+vi.mock('../../../src/infrastructure/cosmos/product/CosmosProductRepository', () => ({ findProductsByShopId: vi.fn() }));
 
 import { authorizeShopAction } from '../../../src/application/_shared/shopAccess';
 import { executeGetSalesReport } from '../../../src/application/report/getSalesReport/executeGetSalesReport';
 import { REPORT_RANGE_ERROR, type ReportOrderRow } from '../../../src/domain/report/salesReport';
 import { findReportRows } from '../../../src/infrastructure/cosmos/order/CosmosOrderRepository';
+import { findProductsByShopId } from '../../../src/infrastructure/cosmos/product/CosmosProductRepository';
 import { findShopById } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
 import { CARD_SHOP } from '../../fixtures/orders';
 
@@ -34,6 +36,7 @@ describe('executeGetSalesReport', () => {
       permissions: ['view_reports'],
     } as never);
     vi.mocked(findReportRows).mockResolvedValue({ rows: [], requestCharge: 1 });
+    vi.mocked(findProductsByShopId).mockResolvedValue([]);
   });
 
   it('needs the view_reports permission', async () => {
@@ -60,6 +63,33 @@ describe('executeGetSalesReport', () => {
     if (!res.ok) throw new Error('expected ok');
     expect(res.data.days[0]).toMatchObject({ date: '2026-10-05', orderCount: 1, grossCents: 350 });
     expect(res.data.currency).toBe('EUR');
+  });
+
+  describe('top dish names', () => {
+    const pomodoro = {
+      productId: 'p1', productName: 'Pomodoro English', quantity: 1, unitPriceCents: 900, lineTotalCents: 900,
+      taxRateBasisPoints: 1900, taxCents: 144,
+    };
+    const rowWith = (item: typeof pomodoro): ReportOrderRow => ({ ...O7, items: [item] });
+
+    it('uses the current catalog name in the requested language, not the order snapshot', async () => {
+      vi.mocked(findShopById).mockResolvedValue({ ...CARD_SHOP, menuLanguages: ['de', 'en'] } as never);
+      vi.mocked(findReportRows).mockResolvedValue({ rows: [rowWith(pomodoro)], requestCharge: 1 });
+      vi.mocked(findProductsByShopId).mockResolvedValue([
+        { id: 'p1', name: 'Pomodoro', nameTranslations: { de: 'Pomodoro' }, isDeleted: false },
+      ] as never);
+      const res = await executeGetSalesReport({ ...input, lang: 'de' }, http);
+      if (!res.ok) throw new Error('expected ok');
+      expect(res.data.topDishes[0].name).toBe('Pomodoro');
+    });
+
+    it('keeps the order snapshot name when the dish is no longer in the catalog', async () => {
+      vi.mocked(findReportRows).mockResolvedValue({ rows: [rowWith(pomodoro)], requestCharge: 1 });
+      vi.mocked(findProductsByShopId).mockResolvedValue([]);
+      const res = await executeGetSalesReport({ ...input, lang: 'de' }, http);
+      if (!res.ok) throw new Error('expected ok');
+      expect(res.data.topDishes[0].name).toBe('Pomodoro English');
+    });
   });
 
   it('an unknown restaurant is 404', async () => {

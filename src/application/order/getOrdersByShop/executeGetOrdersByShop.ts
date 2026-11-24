@@ -1,6 +1,7 @@
 import { HttpRequest } from '@azure/functions';
 import {
   countOrdersByShopId,
+  countOrdersByShopIdByState,
   findOrdersByShopIdPaginated,
 } from '../../../infrastructure/cosmos/order/CosmosOrderRepository';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
@@ -71,9 +72,10 @@ export async function executeGetOrdersByShop(
     const access = await authorizeShopAction(httpRequest, shop, 'view_orders', { allowSuperadmin: true, allowPlatformRead: true });
     if (!access.ok) return access;
 
-    const [orders, total] = await Promise.all([
+    const [orders, total, stateCounts] = await Promise.all([
       findOrdersByShopIdPaginated(shopId, page, pageSize, fromIso, toIso),
       countOrdersByShopId(shopId, fromIso, toIso),
+      countOrdersByShopIdByState(shopId, fromIso, toIso),
     ]);
 
     const now = new Date();
@@ -83,7 +85,7 @@ export async function executeGetOrdersByShop(
 
     return {
       ok: true,
-      data: { orders: orderDtos, total, page, pageSize },
+      data: { orders: orderDtos, total, stateCounts, page, pageSize },
     };
   } catch (error: any) {
     if (error.message === 'Authentication required') {

@@ -265,14 +265,33 @@ export async function executeUpdateShop(
       shop as unknown as Record<string, unknown>,
       updatedShop as unknown as Record<string, unknown>,
       ['isPaused', 'pausedMessage', 'ordersPaused', 'ordersPausedUntil', 'ordersPausedMessage', 'minOrderAmountCents', 'currency', 'timezone'],
-      ['openingHours', 'branding', 'address', 'menuLanguages', 'closures'],
+      ['openingHours', 'branding', 'address', 'menuLanguages'],
     );
+    if (request.closures !== undefined) {
+      const before = shop.closures ?? [];
+      const added = nextClosures.filter((c) => !before.some((b) => b.id === c.id));
+      const removed = before.filter((b) => !nextClosures.some((c) => c.id === b.id));
+      if (added.length > 0 || removed.length > 0) {
+        changes.push({ field: 'closures', from: `${before.length} closure(s)`, to: `${nextClosures.length} closure(s)` });
+        for (const c of added) {
+          changes.push({ field: 'closures.added', from: null, to: `${c.start}–${c.end}${c.reason ? ` (${c.reason})` : ''}` });
+        }
+        for (const c of removed) changes.push({ field: 'closures.removed', from: `${c.start}–${c.end}`, to: null });
+      }
+    }
     // Switching the banner on or off is its own readable line, besides the generic branding entry.
     const heroBefore = shop.branding?.showHero !== false;
     const heroAfter = updatedShop.branding?.showHero !== false;
     if (heroBefore !== heroAfter) changes.push({ field: 'branding.showHero', from: heroBefore, to: heroAfter });
     // The owner's online/offline switch sends only isPaused; give it its own key so the Activity feed can tell it from a settings save.
-    const action = changes.some((c) => c.field === 'isPaused') ? 'shop.online_toggle' : 'shop.update';
+    const PAUSE_FIELDS = ['ordersPaused', 'ordersPausedUntil', 'ordersPausedMessage'];
+    const action = changes.some((c) => c.field === 'isPaused')
+      ? 'shop.online_toggle'
+      : changes.length > 0 && changes.every((c) => PAUSE_FIELDS.includes(c.field))
+        ? 'shop.orders_pause_toggle'
+        : changes.length > 0 && changes.every((c) => c.field.startsWith('closures'))
+          ? 'shop.closures_update'
+          : 'shop.update';
     await logAudit({
       shopId: result.id,
       ...toAuditActor(access.actor),

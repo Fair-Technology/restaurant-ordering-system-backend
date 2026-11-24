@@ -47,7 +47,7 @@ export async function executeGetOwnerOverview(
     const ids = await findOwnedShopIds(principal.userId);
     const loaded = (await Promise.all(ids.map((id) => findShopById(id))))
       .filter((s): s is Shop => !!s && !s.isDeleted)
-      .sort((a, b) => a.name.localeCompare(b.name, 'de'));
+      .sort((a, b) => Number(a.isPaused) - Number(b.isPaused) || a.name.localeCompare(b.name, 'de'));
     const shown = loaded.slice(0, MAX_OVERVIEW_SHOPS);
     const shops = await Promise.all(
       shown.map(async (shop): Promise<OwnerOverviewShop> => {

@@ -80,6 +80,7 @@ export type OrderDto = {
 export type GetOrdersByShopResultDto = {
   orders: OrderDto[];
   total: number;
+  stateCounts: Record<string, number>; // orders in the window per stored state; the sales report counts only accepted, captured ones
   page: number;
   pageSize: number;
 };
