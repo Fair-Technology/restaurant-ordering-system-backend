@@ -483,6 +483,10 @@ category's class is only the suggestion for a new dish (§2).
 The existing admin app has a multi-step product wizard; keep it — essentials on
 step one so a simple dish is four fields and a save.
 
+The dish editor has no live preview. The admin's Dishes page is a dish list plus
+the editor and nothing more: there is no embedded storefront and no side-by-side
+preview of how a dish will look to customers while it is being edited.
+
 ### Age-restricted dishes
 
 A dish can carry **`ageRestricted: boolean`** (optional, defaults to
