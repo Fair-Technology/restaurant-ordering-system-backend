@@ -57,3 +57,16 @@ export async function findContentReports(
 
   return { reports: reports ?? [], total };
 }
+
+export async function countRecentContentReportsByIpHash(ipHash: string, sinceIso: string): Promise<number> {
+  const { resources } = await contentReportContainer.items
+    .query<number>({
+      query: 'SELECT VALUE COUNT(1) FROM c WHERE c.ipHash = @ipHash AND c.receivedAt >= @since',
+      parameters: [
+        { name: '@ipHash', value: ipHash },
+        { name: '@since', value: sinceIso },
+      ],
+    })
+    .fetchAll();
+  return resources[0] ?? 0;
+}

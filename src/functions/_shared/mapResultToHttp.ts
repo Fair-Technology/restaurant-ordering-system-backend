@@ -76,6 +76,11 @@ export function mapResultToHttp<T>(result: ApplicationResult<T>): HttpResponseIn
         status: 503,
         jsonBody: { error: result.error }
       };
+    case 'RATE_LIMITED':
+      return {
+        status: 429,
+        jsonBody: { error: result.error, code: 'RATE_LIMITED' }
+      };
     case 'LIMIT_REACHED':
       return {
         status: 422,

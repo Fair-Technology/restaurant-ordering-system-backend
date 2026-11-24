@@ -12,6 +12,7 @@ vi.mock('@azure/functions', () => ({
 vi.mock('../../src/infrastructure/cosmos/shop/CosmosShopRepository', () => ({ findShopById: vi.fn() }));
 vi.mock('../../src/infrastructure/cosmos/contentReport/CosmosContentReportRepository', () => ({
   createContentReport: vi.fn(async (r: any) => r),
+  countRecentContentReportsByIpHash: vi.fn(async () => 0),
 }));
 
 import { findShopById } from '../../src/infrastructure/cosmos/shop/CosmosShopRepository';
@@ -24,6 +25,7 @@ const SHOP = { id: 'shop-1', slug: 'pizzeria', name: 'Pizzeria', isDeleted: fals
 /** The handler reads the raw body text off the request. */
 const request = (body: unknown) => ({
   params: { shopId: 'shop-1' },
+  headers: new Headers(),
   text: async () => JSON.stringify(body),
 });
 
