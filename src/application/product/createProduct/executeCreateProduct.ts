@@ -154,6 +154,7 @@ export async function executeCreateProduct(
       spiceLevel: menu.spiceLevel ?? null,
       prepMinutes: menu.prepMinutes ?? null,
       unavailableModes: menu.unavailableModes ?? [],
+      ageRestricted: menu.ageRestricted ?? false,
       // Every dish owns its class; without one sent, it copies its category's. A dish without a category
       // (e.g. from the menu import) can't be sold yet, so it gets its class with its first category
       taxClassId:

@@ -283,6 +283,7 @@ export function priceBasket(input: {
           taxRateBasisPoints: x.rate,
           taxCents: extractVatCents(lineTotalCents, x.rate),
           combo: { line: index, productId: p.id, name: comboDisplayName },
+          ...(x.dish.ageRestricted && { ageRestricted: true }), // only written when flagged
         };
       });
       const changed = entry.expectedUnitPriceCents !== undefined && entry.expectedUnitPriceCents !== unitPriceCents;
@@ -316,6 +317,7 @@ export function priceBasket(input: {
       taxClassId,
       taxRateBasisPoints: rate,
       taxCents: extractVatCents(lineTotalCents, rate),
+      ...(p.ageRestricted && { ageRestricted: true }), // only written when flagged
     };
     const changed = entry.expectedUnitPriceCents !== undefined && entry.expectedUnitPriceCents !== unitPriceCents;
     return {

@@ -12,6 +12,7 @@ export interface ProductMenuFieldsDto {
   spiceLevel: SpiceLevel | null;
   prepMinutes: number | null;
   unavailableModes: FulfilmentMode[];
+  ageRestricted: boolean;
   taxClassId: string | null;
   isDeclared: boolean;
   optionGroupRefs: string[];
@@ -27,6 +28,7 @@ export function toMenuFieldsDto(p: Product): ProductMenuFieldsDto {
     spiceLevel: p.spiceLevel ?? null,
     prepMinutes: p.prepMinutes ?? null,
     unavailableModes: p.unavailableModes ?? [],
+    ageRestricted: p.ageRestricted ?? false,
     taxClassId: p.taxClassId ?? null,
     isDeclared: isDeclared(p),
     optionGroupRefs: p.optionGroupRefs ?? [],

@@ -130,6 +130,19 @@ describe('validateMenuFields', () => {
   });
 });
 
+describe('validateMenuFields ageRestricted', () => {
+  it('accepts a boolean', () => {
+    expect(validateMenuFields({ ageRestricted: true }, refs, null)).toEqual({ ageRestricted: true });
+    expect(validateMenuFields({ ageRestricted: false }, refs, null)).toEqual({ ageRestricted: false });
+  });
+  it('leaves it out when not sent and rejects a non-boolean', () => {
+    expect(validateMenuFields({}, refs, null)).toEqual({});
+    expect(validateMenuFields({ ageRestricted: 'yes' }, refs, null)).toEqual({ error: 'ageRestricted must be a boolean' });
+    expect(validateMenuFields({ ageRestricted: 1 }, refs, null)).toEqual({ error: 'ageRestricted must be a boolean' });
+    expect(validateMenuFields({ ageRestricted: null }, refs, null)).toEqual({ error: 'ageRestricted must be a boolean' });
+  });
+});
+
 describe('validateMenuFields option allergens and additives', () => {
   const X = { id: 'x1', name: 'Thunfisch', priceDelta: 150, isAvailable: true };
   const group = (opts: any[]) => ({ id: 'a1', name: 'Extras', minSelectable: 0, maxSelectable: 1, options: opts });

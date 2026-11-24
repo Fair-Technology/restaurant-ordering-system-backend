@@ -253,7 +253,7 @@ export async function executeUpdateProduct(
     const changes = diffFields(
       product as unknown as Record<string, unknown>,
       updatedProduct as unknown as Record<string, unknown>,
-      ['name', 'price', 'isAvailable', 'spiceLevel', 'prepMinutes', 'taxClassId'],
+      ['name', 'price', 'isAvailable', 'spiceLevel', 'prepMinutes', 'taxClassId', 'ageRestricted'],
       [
         'variantGroups',
         'addonGroups',

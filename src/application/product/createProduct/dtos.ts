@@ -19,6 +19,7 @@ export interface CreateProductRequestDto {
   spiceLevel?: SpiceLevel | null;
   prepMinutes?: number | null;
   unavailableModes?: FulfilmentMode[];
+  ageRestricted?: boolean;
   taxClassId?: string | null;
   variantGroups?: ProductVariantGroup[];
   optionGroupRefs?: string[];

@@ -24,6 +24,7 @@ export interface GetOrderByPaymentIntentResultDto {
   items: Array<{
     productId: string;
     productName: string;
+    ageRestricted: boolean;
     quantity: number;
     unitPriceCents: number;
     selectedVariantOptionId?: string;
@@ -82,6 +83,7 @@ export async function getOrderByPaymentIntent(
           selectedAddonOptionIds: item.selectedAddonOptionIds,
           selectedAddonOptionNames: item.selectedAddonOptionNames,
           lineTotalCents: item.lineTotalCents,
+          ageRestricted: item.ageRestricted ?? false,
         })),
         subtotalCents: order.subtotalCents,
         totalCents: chargedCents(order),
