@@ -6,6 +6,7 @@ import { hashPassword } from '../src/infrastructure/auth/passwordHashing';
 import { assertSeedTargetIsDev } from './seedGuard';
 import { legacySpecialInfoToMenuFields } from './menus/legacySpecialInfo';
 import { MA_PASTA_MENU, MA_PASTA_SHOP, resolveDishAllergensAndAdditives } from './menus/mapasta';
+import { defaultDeps, storeUnsplashImage, type UnsplashBytesCache } from './unsplashImage';
 import { DE_REFERENCE_LISTS } from '../src/domain/reference/ReferenceLists';
 
 // ── 1. Load env vars BEFORE Cosmos modules initialize ────────────────────────
@@ -63,13 +64,33 @@ const { saveReferenceLists } =
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const now = () => new Date().toISOString();
+/**
+ * A dish photo reference. Resolved to our own blob storage by `resolveDishImages` at seed time; a raw Unsplash
+ * URL is never stored (privacy notice: no third-party requests; and a dead photo must fail the seed).
+ */
 const img = (photoId: string, alt: string) => ({
   id: randomUUID(),
-  url: `https://images.unsplash.com/photo-${photoId}?w=800&auto=format&fit=crop`,
+  photoId,
   alt,
   sortOrder: 0,
   createdAt: now(),
 });
+
+const unsplashCache: UnsplashBytesCache = new Map();
+const unsplashDeps = defaultDeps();
+
+async function resolveDishImages(product: any): Promise<any> {
+  const images = [];
+  for (const { photoId, ...image } of product.images as any[]) {
+    const url = await storeUnsplashImage(
+      { photoId, label: product.name, shopId: product.shopId, productId: product.id, imageId: image.id },
+      unsplashDeps,
+      unsplashCache,
+    );
+    images.push({ id: image.id, url, alt: image.alt, sortOrder: image.sortOrder, createdAt: image.createdAt });
+  }
+  return { ...product, images };
+}
 
 // ── 3. Delete ALL existing data ───────────────────────────────────────────────
 // users is never wiped — no seeder gets to invent who has signed in.
@@ -386,7 +407,7 @@ async function seedProducts(shops: any[], categoryMap: Map<string, any[]>): Prom
 
     const products = buildProducts(shop.key, shop.id, cat);
     for (const productDef of products) {
-      await createProduct(productDef);
+      await createProduct(await resolveDishImages(productDef));
       console.log(`   ✓ ${shop.name} → ${productDef.name} (€${(productDef.price / 100).toFixed(2)})`);
     }
   }
@@ -551,7 +572,7 @@ function buildProducts(shopKey: string, shopId: string, cat: (name: string) => s
         price: 2200,
         categoryIds: [cat('Sushi Rolls')],
         images: [
-          img('1617196034183-421b4040d609', 'Dragon roll topped with avocado'),
+          img('1579871494447-9811cf80d66c', 'Dragon roll topped with avocado'),
           img('1562802378-063ec186a863', 'Sushi rolls platter'),
         ],
         specialInfo: [
@@ -696,7 +717,7 @@ function buildProducts(shopKey: string, shopId: string, cat: (name: string) => s
         categoryIds: [cat('Sides & Fries')],
         images: [
           img('1573080496219-bb080dd4f877', 'Loaded fries overhead'),
-          img('1585325701957-76ea5c8b36ab', 'Cheese fries close-up'),
+          img('1576107232684-1279f390859f', 'Cheese fries close-up'),
         ],
         specialInfo: [
           { name: 'Contains Gluten', icon: 'Wheat' },
@@ -770,7 +791,7 @@ function buildProducts(shopKey: string, shopId: string, cat: (name: string) => s
         categoryIds: [cat('Breakfast')],
         images: [
           img('1504754524776-8f4f37790ca0', 'Full big breakfast plate'),
-          img('1551782618-c2d09b0e4c3f', 'Eggs and bacon breakfast'),
+          img('1533089860892-a7c6f0a88666', 'Sunny-side-up eggs with toast'),
         ],
         specialInfo: [
           { name: 'Contains Gluten', icon: 'Wheat' },
@@ -792,7 +813,7 @@ function buildProducts(shopKey: string, shopId: string, cat: (name: string) => s
         price: 600,
         categoryIds: [cat('Beverages')],
         images: [
-          img('1485808191679-5f86510bd3a7', 'Flat white coffee latte art'),
+          img('1514432324607-a09d9b4aefdd', 'Flat white coffee latte art'),
           img('1509042239860-f550ce710b93', 'Coffee in white cup'),
         ],
         specialInfo: [
@@ -854,7 +875,7 @@ function buildProducts(shopKey: string, shopId: string, cat: (name: string) => s
         categoryIds: [cat('Curries')],
         images: [
           img('1585937421612-70a008356fbe', 'Butter chicken curry in bowl'),
-          img('1631452180519-1b8dab981b82', 'Indian curry overhead'),
+          img('1565557623262-b51c2513a641', 'Indian curry overhead'),
         ],
         specialInfo: [
           { name: 'Contains Dairy', icon: 'Droplets' },
