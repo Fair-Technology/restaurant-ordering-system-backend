@@ -501,9 +501,9 @@ component — the storefront checkout shows a single confirmation checkbox
 that the diner must tick before they can submit the order; the
 place-order / continue-to-payment action stays disabled until it is
 checked. The gate is enforced entirely client-side. The confirmation is
-sent to the server as a timestamp alongside the order so there is a
-durable record of when the diner confirmed it; storing that timestamp on
-the Order is a small backend addition tracked separately.
+sent to the server as a timestamp (`ageConfirmedAt`) alongside the
+checkout request and is stored on the placed Order as a compliance record
+(not exposed on any admin order-read DTO).
 
 **Handover reminder.** In the admin order board and order drawer, an
 order containing one or more age-restricted items carries a clear visual

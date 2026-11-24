@@ -42,6 +42,7 @@ export function buildPlacedOrderFromSession(input: {
     ...(session.taxBreakdown ? { taxBreakdown: session.taxBreakdown } : {}),
     ...(session.language ? { language: session.language } : {}),
     ...(session.legalRevisions ? { legalRevisions: session.legalRevisions } : {}),
+    ...(session.ageConfirmedAt ? { ageConfirmedAt: session.ageConfirmedAt } : {}),
     ...(session.customerAccessToken ? { customerAccessToken: session.customerAccessToken } : {}),
     ...(session.idempotencyKey ? { idempotencyKey: session.idempotencyKey } : {}),
     ...(queued ? { autoRejectAt: new Date(input.now.getTime() + input.autoRejectMinutes * 60_000).toISOString() } : {}),

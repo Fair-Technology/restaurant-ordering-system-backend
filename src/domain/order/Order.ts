@@ -209,6 +209,7 @@ export interface Order {
   taxBreakdown?: TaxBreakdownEntry[]; // absent on orders from before slice 4
   language?: MenuLanguage; // the diner's page language (de|en), used for emails and the order page
   legalRevisions?: LegalRevisions; // terms/withdrawal revisions the diner was shown
+  ageConfirmedAt?: string; // ISO, when the diner confirmed the age-restriction checkbox at checkout
   customerAccessToken?: string; // secret order-page link token; removed by erasure and export
   idempotencyKey?: string;
   autoRejectAt?: string; // ISO, set only when the order needs manual acceptance

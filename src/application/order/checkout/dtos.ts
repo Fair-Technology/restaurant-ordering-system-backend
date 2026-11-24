@@ -32,6 +32,7 @@ export interface CheckoutRequestDto {
   idempotencyKey?: string;
   language?: string;
   legalRevisions?: LegalRevisions;
+  ageConfirmedAt?: string; // diner-sent timestamp of when they ticked the age-confirmation checkbox; only sent when the basket has an age-restricted item
 }
 
 export interface CardCheckoutResultDto {
