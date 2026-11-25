@@ -49,3 +49,45 @@ describe('executeUpdateUserLimits audit', () => {
     expect(logAudit).not.toHaveBeenCalled();
   });
 });
+
+describe('executeUpdateUserLimits input validation', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (verifySuperAdminToken as any).mockResolvedValue('admin-1');
+    (findUserById as any).mockResolvedValue({ id: 'u1', email: 'u1@x.com', maxShops: 2 });
+    (patchUserLimits as any).mockResolvedValue({ id: 'u1', email: 'u1@x.com', maxShops: 5 });
+  });
+
+  it.each([
+    ['a string', '5'],
+    ['undefined', undefined],
+  ])('rejects %s', async (_l, v) => {
+    expect(await executeUpdateUserLimits('u1', { maxShops: v as any }, {} as any)).toMatchObject({
+      ok: false, code: 'INVALID_INPUT',
+    });
+    expect(patchUserLimits).not.toHaveBeenCalled();
+    expect(logAudit).not.toHaveBeenCalled();
+  });
+
+  it.each([2.5, -2, -5, NaN])('rejects %s', async (v) => {
+    expect(await executeUpdateUserLimits('u1', { maxShops: v }, {} as any)).toMatchObject({
+      ok: false,
+      code: 'INVALID_INPUT',
+      error: 'maxShops must be an integer >= -1 (use -1 for unlimited, null to use global default)',
+    });
+    expect(patchUserLimits).not.toHaveBeenCalled();
+    expect(logAudit).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['-1 (unlimited)', -1],
+    ['null (global default)', null],
+  ])('accepts %s', async (_l, v) => {
+    (patchUserLimits as any).mockResolvedValue({ id: 'u1', email: 'u1@x.com', maxShops: v });
+    expect(await executeUpdateUserLimits('u1', { maxShops: v }, {} as any)).toEqual({
+      ok: true, data: { userId: 'u1', maxShops: v },
+    });
+    expect(patchUserLimits).toHaveBeenCalledWith('u1', v);
+    expect(logAudit).toHaveBeenCalledTimes(1);
+  });
+});
