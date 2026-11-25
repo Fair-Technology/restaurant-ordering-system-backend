@@ -31,6 +31,7 @@ import { CARD_SHOP, CATEGORIES, P_COLA, P_COMBO, P_PASTA, P_SALAD } from '../../
 const MENU_EDITOR = { ok: true, actor: { actorType: 'staff', actorId: 'm1', role: 'manager' }, permissions: ['manage_menu'] };
 const now = new Date('2026-10-09T10:00:00Z');
 const http = {} as any;
+const PHOTO = { id: 'i1', url: 'https://x/i1.jpg', sortOrder: 0, createdAt: 'x' };
 const body = {
   name: 'Pasta-Menü',
   priceCents: 1200,
@@ -64,7 +65,7 @@ describe('combo endpoints', () => {
         allergenIds: [],
         additiveIds: [],
         images: [],
-        isAvailable: true,
+        isAvailable: false,
         isDeleted: false,
         createdAt: '2026-10-09T10:00:00.000Z',
         combo: {
@@ -84,7 +85,7 @@ describe('combo endpoints', () => {
         changes: [{ field: 'name', from: null, to: 'Pasta-Menü' }],
       }),
     );
-    expect(res.ok && res.data).toMatchObject({ name: 'Pasta-Menü', priceCents: 1200, categoryId: 'pasta', bmfDrinkShare: false, isAvailable: true });
+    expect(res.ok && res.data).toMatchObject({ name: 'Pasta-Menü', priceCents: 1200, categoryId: 'pasta', bmfDrinkShare: false, isAvailable: false });
   });
 
   it("a combo can only hold the restaurant's dishes", async () => {
@@ -100,6 +101,7 @@ describe('combo endpoints', () => {
   });
 
   it('editing keeps the group ids and logs what changed', async () => {
+    (findProductById as any).mockResolvedValue({ ...P_COMBO, images: [PHOTO] });
     const res = await executeUpdateCombo(
       {
         shopId: 'shop-1',

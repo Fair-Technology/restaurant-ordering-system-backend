@@ -1,5 +1,11 @@
 import type { HttpRequest } from '@azure/functions';
-import { COMBO_NOT_FOUND_ERROR, parseComboInput } from '../../../domain/product/combo';
+import {
+  COMBO_ENABLE_NEEDS_PHOTO_ERROR,
+  COMBO_IMAGE_REQUIRED_TO_ENABLE,
+  COMBO_LEAVES_ON_WITHOUT_PHOTO_ERROR,
+  COMBO_NOT_FOUND_ERROR,
+  parseComboInput,
+} from '../../../domain/product/combo';
 import type { Product } from '../../../domain/product/Product';
 import { findCategoriesByShopId } from '../../../infrastructure/cosmos/category/CosmosCategoryRepository';
 import {
@@ -33,6 +39,18 @@ export async function executeUpdateCombo(
     ]);
     const f = parseComboInput(input.body ?? {}, comboContext(auth.shop, categories, products, before.combo));
     if ('error' in f) return { ok: false, code: 'INVALID_INPUT', error: f.error };
+    // Left out = keep the stored switch (the parser's default of "on" is for nothing now that on needs a photo).
+    const isAvailable = input.body?.isAvailable === undefined ? before.isAvailable : f.isAvailable;
+    // On with no photo is refused (SPECS §8): turning on in this request -> enable message, an already-on
+    // photo-less combo being edited -> leaves-on message. Same code; never switched off silently.
+    if (isAvailable && (before.images?.length ?? 0) === 0) {
+      const turningOn = input.body?.isAvailable === true;
+      return {
+        ok: false,
+        code: COMBO_IMAGE_REQUIRED_TO_ENABLE,
+        error: turningOn ? COMBO_ENABLE_NEEDS_PHOTO_ERROR : COMBO_LEAVES_ON_WITHOUT_PHOTO_ERROR,
+      };
+    }
     const after: Product = {
       ...before,
       name: f.name,
@@ -42,7 +60,7 @@ export async function executeUpdateCombo(
       ...(f.descriptionTranslations && { descriptionTranslations: f.descriptionTranslations }),
       price: f.price,
       categoryIds: f.categoryIds,
-      isAvailable: f.isAvailable,
+      isAvailable,
       combo: f.combo,
       updatedAt: now.toISOString(),
     };

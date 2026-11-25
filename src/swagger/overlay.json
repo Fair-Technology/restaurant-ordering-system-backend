@@ -319,6 +319,7 @@
     "POST /products": {
       "operationId": "createProduct",
       "summary": "Create a new product",
+      "description": "A new dish has no photo yet (photos are added after create), so it is created off: leaving isAvailable out creates it with isAvailable false, and isAvailable true is refused with 409 code PRODUCT_IMAGE_REQUIRED_TO_ENABLE (body { error, code }; message: a dish can't be turned on without a photo).",
       "tags": [
         "Products"
       ],
@@ -347,7 +348,7 @@
     "PATCH /products/{productId}": {
       "operationId": "updateProduct",
       "summary": "Update product",
-      "description": "Sending an images array that would leave a dish which has photos with none is refused with 409 code PRODUCT_IMAGE_REQUIRED (body { error, code }); nothing is changed. To replace a photo, add the new one first (POST .../images), then remove the old one.",
+      "description": "A dish or combo may have no photo only while it is off. A write that would leave it available (isAvailable true, sent now or already stored) with no photo is refused with 409 and body { error, code }; nothing is changed and nothing is switched off for you. Code PRODUCT_IMAGE_REQUIRED: an images array that removes the last photo while the dish stays on (message: the update was refused because it would leave an available dish with no photo). Code PRODUCT_IMAGE_REQUIRED_TO_ENABLE: the request sets isAvailable true on a dish with no photo (message: a dish can't be turned on without a photo). For a combo (a product with combo set) both situations return COMBO_IMAGE_REQUIRED_TO_ENABLE. To remove the last photo, send isAvailable false in the same request, or turn the item off first.",
       "tags": [
         "Products"
       ],
@@ -356,7 +357,7 @@
     "PATCH /products/{productId}/availability": {
       "operationId": "updateProductAvailability",
       "summary": "Mark a dish sold out (or back on sale)",
-      "description": "Stock-only write: switches a dish on or off (isAvailable). Nothing else about the dish can be changed here. Allowed with the manage_stock or manage_menu permission.",
+      "description": "Stock-only write: switches a dish on or off (isAvailable). Nothing else about the dish can be changed here. Allowed with the manage_stock or manage_menu permission. Turning a dish or combo on (isAvailable true) when it has no photo is refused with 409 code PRODUCT_IMAGE_REQUIRED_TO_ENABLE for a dish, or COMBO_IMAGE_REQUIRED_TO_ENABLE for a combo (message: it can't be turned on without a photo); turning off is always allowed.",
       "tags": [
         "Products"
       ],
@@ -411,7 +412,7 @@
     "POST /shops/{shopId}/combos": {
       "operationId": "createCombo",
       "summary": "Create combo",
-      "description": "Adds a combo. Translations are optional. A combo photo is uploaded like a dish photo: POST /shops/{shopId}/products/{comboId}/images/upload-url, PUT the file (exactly 1200 x 900 px), then POST /shops/{shopId}/products/{comboId}/images. Updates with images omitted keep the existing photo.",
+      "description": "Adds a combo, created off when isAvailable is left out. Translations are optional. A combo photo is uploaded like a dish photo: POST /shops/{shopId}/products/{comboId}/images/upload-url, PUT the file (exactly 1200 x 900 px), then POST /shops/{shopId}/products/{comboId}/images. Updates with images omitted keep the existing photo. A combo can be saved without a photo only while it is off: isAvailable true with no photo is refused with 409 code COMBO_IMAGE_REQUIRED_TO_ENABLE (body { error, code }; message: a combo can't be turned on without a photo).",
       "tags": [
         "Combos"
       ]
@@ -419,7 +420,7 @@
     "PUT /shops/{shopId}/combos/{comboId}": {
       "operationId": "updateCombo",
       "summary": "Replace combo",
-      "description": "Replaces the combo fields as a whole. Group ids sent back are kept. Translation fields left out keep their stored value. A combo photo is uploaded like a dish photo: POST /shops/{shopId}/products/{comboId}/images/upload-url, PUT the file (exactly 1200 x 900 px), then POST /shops/{shopId}/products/{comboId}/images. Updates with images omitted keep the existing photo.",
+      "description": "Replaces the combo fields as a whole (isAvailable left out keeps the stored value). Group ids sent back are kept. Translation fields left out keep their stored value. A combo photo is uploaded like a dish photo: POST /shops/{shopId}/products/{comboId}/images/upload-url, PUT the file (exactly 1200 x 900 px), then POST /shops/{shopId}/products/{comboId}/images. Updates with images omitted keep the existing photo. A combo can be saved without a photo only while it is off: isAvailable true with no photo is refused with 409 code COMBO_IMAGE_REQUIRED_TO_ENABLE (body { error, code }; message: a combo can't be turned on without a photo).",
       "tags": [
         "Combos"
       ],

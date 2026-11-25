@@ -13,7 +13,7 @@ import { findShopOptionGroupsByShopId } from '../../../infrastructure/cosmos/opt
 import { validateMenuFields } from '../menuFields';
 import { normaliseTranslations } from '../../../domain/menu/menuLanguage';
 import { toMenuFieldsDto } from '../menuFieldsDto';
-import { CREATE_WITH_PHOTOS_ERROR } from '../../../domain/images/imageRules';
+import { CREATE_WITH_PHOTOS_ERROR, DISH_ENABLE_NEEDS_PHOTO_ERROR, PRODUCT_IMAGE_REQUIRED_TO_ENABLE } from '../../../domain/images/imageRules';
 import { logAudit } from '../../_shared/auditHelpers';
 import { logServiceFailure } from '../../_shared/logServiceFailure';
 import { PRODUCT_PRICE_ERROR, isValidPriceCents } from '../../../domain/product/price';
@@ -134,6 +134,12 @@ export async function executeCreateProduct(
       return { ok: false, code: 'INVALID_INPUT', error: menu.error };
     }
 
+    // A new dish never has a photo yet (photos are uploaded after create), so it cannot be created ON:
+    // an explicit isAvailable:true is refused, and leaving it out creates the dish OFF (it used to default to on).
+    if (request.isAvailable === true) {
+      return { ok: false, code: PRODUCT_IMAGE_REQUIRED_TO_ENABLE, error: DISH_ENABLE_NEEDS_PHOTO_ERROR };
+    }
+
     const now = new Date().toISOString();
     const productId = crypto.randomUUID();
 
@@ -162,9 +168,7 @@ export async function executeCreateProduct(
       taxClassId:
         menu.taxClassId ??
         (uniqueCategoryIds.length > 0 ? suggestedTaxClassId(uniqueCategoryIds, shopCategories, refs.defaultTaxClassId) : null),
-      isAvailable: (request.categoryIds?.length ?? 0) > 0
-        ? (request.isAvailable ?? true)
-        : false,
+      isAvailable: false,
       isDeleted: false,
       schedule,
       createdAt: now,

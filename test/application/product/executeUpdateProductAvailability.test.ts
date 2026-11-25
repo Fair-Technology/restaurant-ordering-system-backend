@@ -36,7 +36,7 @@ function storedProduct(overrides: Record<string, unknown> = {}) {
     description: 'x',
     price: 1050,
     categoryIds: ['pasta'],
-    images: [],
+    images: [{ id: 'i1', url: 'https://x/i1.jpg', sortOrder: 0, createdAt: 'x' }],
     isAvailable: true,
     isDeleted: false,
     allergenIds: [],

@@ -7,6 +7,8 @@ import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepo
 import { authorizeShopAction, toAuditActor } from '../../_shared/shopAccess';
 import { diffFields, logAudit } from '../../_shared/auditHelpers';
 import { logServiceFailure } from '../../_shared/logServiceFailure';
+import { DISH_ENABLE_NEEDS_PHOTO_ERROR, PRODUCT_IMAGE_REQUIRED_TO_ENABLE } from '../../../domain/images/imageRules';
+import { COMBO_ENABLE_NEEDS_PHOTO_ERROR, COMBO_IMAGE_REQUIRED_TO_ENABLE } from '../../../domain/product/combo';
 import { ApplicationResult } from '../../_shared/types';
 import { UpdateProductAvailabilityRequestDto, UpdateProductAvailabilityResultDto } from './dtos';
 
@@ -65,6 +67,13 @@ export async function executeUpdateProductAvailability(
         code: 'INVALID_INPUT',
         error: 'A product must have at least one category before it can be made available.',
       };
+    }
+
+    // Turning on needs a photo (SPECS §8): 409, never a silent no-op. Turning off is always allowed.
+    if (request.isAvailable === true && (product.images?.length ?? 0) === 0) {
+      return product.combo
+        ? { ok: false, code: COMBO_IMAGE_REQUIRED_TO_ENABLE, error: COMBO_ENABLE_NEEDS_PHOTO_ERROR }
+        : { ok: false, code: PRODUCT_IMAGE_REQUIRED_TO_ENABLE, error: DISH_ENABLE_NEEDS_PHOTO_ERROR };
     }
 
     const now = new Date();

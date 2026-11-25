@@ -43,14 +43,46 @@ export function tooSmallMessage(what: string, min: ExactImageSize): string {
   return `${what} source must be at least ${min.width} x ${min.height} px`;
 }
 
-/** A dish that has a photo must keep one: an update may not empty its image list. */
+/**
+ * Photo rule (SPECS §8 menu photos): a dish or combo may be saved without a photo, but only while it is OFF.
+ * One that would end up ON with no photo is refused with 409; nothing is ever switched off silently.
+ *
+ * Code mapping (all 409, `{ error, code }`):
+ *  - PRODUCT_IMAGE_REQUIRED_TO_ENABLE: a dish write that turns the dish on (`isAvailable: true` in that
+ *    request, or on create) while it has no photo. Message: DISH_ENABLE_NEEDS_PHOTO_ERROR.
+ *  - PRODUCT_IMAGE_REQUIRED: the dish would be left ON with no photo without this request asking to turn it
+ *    on: its last photo is removed while it stays on, or an edit touches a legacy on-item that has none.
+ *    Message: DISH_LEAVES_ON_WITHOUT_PHOTO_ERROR.
+ *  - COMBO_IMAGE_REQUIRED_TO_ENABLE (domain/product/combo.ts): the same two situations for a combo (a product
+ *    row with `combo` set); the combo has one code, only the message differs.
+ */
 export const PRODUCT_IMAGE_REQUIRED = 'PRODUCT_IMAGE_REQUIRED';
+export const PRODUCT_IMAGE_REQUIRED_TO_ENABLE = 'PRODUCT_IMAGE_REQUIRED_TO_ENABLE';
+
+export const DISH_ENABLE_NEEDS_PHOTO_ERROR =
+  "A dish can't be turned on without a photo. Add a photo first, then turn it on.";
+export const DISH_LEAVES_ON_WITHOUT_PHOTO_ERROR =
+  'This update was refused because it would leave an available dish with no photo. Turn the dish off first, or keep a photo.';
 
 export function wouldRemoveLastProductImage(
   existing: readonly unknown[] | undefined,
   requested: readonly unknown[] | undefined,
 ): boolean {
   return requested !== undefined && (existing?.length ?? 0) > 0 && requested.length === 0;
+}
+
+/** Number of photos after a write: the requested list when the request sends one, else the stored list. */
+export function effectiveImageCount(existing: readonly unknown[] | undefined, requested: readonly unknown[] | undefined): number {
+  return (requested ?? existing)?.length ?? 0;
+}
+
+/** True when the item would be ON (`effectiveIsAvailable`) with no photo after the write: the state we refuse. */
+export function wouldBeAvailableWithoutImage(
+  existing: readonly unknown[] | undefined,
+  requested: readonly unknown[] | undefined,
+  effectiveIsAvailable: boolean,
+): boolean {
+  return effectiveIsAvailable && effectiveImageCount(existing, requested) === 0;
 }
 
 /**

@@ -1,6 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import type { HttpRequest } from '@azure/functions';
-import { parseComboInput } from '../../../domain/product/combo';
+import {
+  COMBO_ENABLE_NEEDS_PHOTO_ERROR,
+  COMBO_IMAGE_REQUIRED_TO_ENABLE,
+  parseComboInput,
+} from '../../../domain/product/combo';
 import type { Product } from '../../../domain/product/Product';
 import { findCategoriesByShopId } from '../../../infrastructure/cosmos/category/CosmosCategoryRepository';
 import { createProduct, findProductsByShopId } from '../../../infrastructure/cosmos/product/CosmosProductRepository';
@@ -26,6 +30,11 @@ export async function executeCreateCombo(
     ]);
     const f = parseComboInput(input.body ?? {}, comboContext(auth.shop, categories, products, null));
     if ('error' in f) return { ok: false, code: 'INVALID_INPUT', error: f.error };
+    // A new combo has no photo yet (it is added through the product photo upload afterwards), so it cannot be
+    // created ON: explicit isAvailable:true is refused; leaving it out creates the combo OFF (it used to default to on).
+    if (f.isAvailable && input.body?.isAvailable === true) {
+      return { ok: false, code: COMBO_IMAGE_REQUIRED_TO_ENABLE, error: COMBO_ENABLE_NEEDS_PHOTO_ERROR };
+    }
     const at = now.toISOString();
     const product: Product = {
       id: randomUUID(),
@@ -47,7 +56,7 @@ export async function executeCreateCombo(
       unavailableModes: [],
       taxClassId: null,
       schedule: null,
-      isAvailable: f.isAvailable,
+      isAvailable: false,
       isDeleted: false,
       combo: f.combo,
       createdAt: at,

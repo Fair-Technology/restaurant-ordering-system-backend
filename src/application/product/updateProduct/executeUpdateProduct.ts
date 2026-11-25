@@ -17,7 +17,20 @@ import { findShopOptionGroupsByShopId } from '../../../infrastructure/cosmos/opt
 import { validateMenuFields } from '../menuFields';
 import { normaliseTranslations } from '../../../domain/menu/menuLanguage';
 import { toMenuFieldsDto } from '../menuFieldsDto';
-import { PRODUCT_IMAGE_REQUIRED, mergeProductImages, unknownOrChangedImage, wouldRemoveLastProductImage } from '../../../domain/images/imageRules';
+import {
+  DISH_ENABLE_NEEDS_PHOTO_ERROR,
+  DISH_LEAVES_ON_WITHOUT_PHOTO_ERROR,
+  PRODUCT_IMAGE_REQUIRED,
+  PRODUCT_IMAGE_REQUIRED_TO_ENABLE,
+  mergeProductImages,
+  unknownOrChangedImage,
+  wouldBeAvailableWithoutImage,
+} from '../../../domain/images/imageRules';
+import {
+  COMBO_ENABLE_NEEDS_PHOTO_ERROR,
+  COMBO_IMAGE_REQUIRED_TO_ENABLE,
+  COMBO_LEAVES_ON_WITHOUT_PHOTO_ERROR,
+} from '../../../domain/product/combo';
 import { diffFields, logAudit } from '../../_shared/auditHelpers';
 import { logServiceFailure } from '../../_shared/logServiceFailure';
 import { PRODUCT_PRICE_ERROR, isValidPriceCents } from '../../../domain/product/price';
@@ -111,14 +124,6 @@ export async function executeUpdateProduct(
     if (!access.ok) return access;
 
     if (request.images !== undefined && !Array.isArray(request.images)) return { ok: false, code: 'INVALID_INPUT', error: 'images must be an array' };
-    if (wouldRemoveLastProductImage(product.images, request.images)) {
-      return {
-        ok: false,
-        code: PRODUCT_IMAGE_REQUIRED,
-        error: 'A dish must keep at least one photo. Add the new photo first, then remove the old one.',
-      };
-    }
-
     if (request.images !== undefined) {
       const imageError = unknownOrChangedImage(product.images, request.images);
       if (imageError) return { ok: false, code: 'INVALID_INPUT', error: imageError };
@@ -127,6 +132,25 @@ export async function executeUpdateProduct(
     const menu = validateMenuFields(request, refs, product, new Map(optionGroups.map((g) => [g.id, g])));
     if ('error' in menu) {
       return { ok: false, code: 'INVALID_INPUT', error: menu.error };
+    }
+
+    // Guard: a dish/combo may have no photo only while it is off (SPECS §8). Effective state after this write:
+    // photos = the requested list if sent, else the stored one; availability = the requested flag if sent, else
+    // the stored one. Turning on (isAvailable:true in this request) -> *_TO_ENABLE; otherwise (last photo removed
+    // while on, or an edit of a legacy on-item with none) -> PRODUCT_IMAGE_REQUIRED, or the combo code for a combo.
+    // Always refused, never silently switched off. Composes with the category guard below: either can fire.
+    if (wouldBeAvailableWithoutImage(product.images, request.images, request.isAvailable ?? product.isAvailable)) {
+      const turningOn = request.isAvailable === true;
+      if (product.combo) {
+        return {
+          ok: false,
+          code: COMBO_IMAGE_REQUIRED_TO_ENABLE,
+          error: turningOn ? COMBO_ENABLE_NEEDS_PHOTO_ERROR : COMBO_LEAVES_ON_WITHOUT_PHOTO_ERROR,
+        };
+      }
+      return turningOn
+        ? { ok: false, code: PRODUCT_IMAGE_REQUIRED_TO_ENABLE, error: DISH_ENABLE_NEEDS_PHOTO_ERROR }
+        : { ok: false, code: PRODUCT_IMAGE_REQUIRED, error: DISH_LEAVES_ON_WITHOUT_PHOTO_ERROR };
     }
 
     // Guard: cannot set isAvailable=true on a product with no categories
