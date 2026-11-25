@@ -2038,6 +2038,13 @@ Tailwind 4 is already in use in all four apps. The React-hooks lint plugin is at
 7.x in admin and superadmin; the storefront stays on 5.x until this design pass,
 because 7.x's compiler rules would fail its current clean lint gate.
 
+The admin app (`rs-admin`) uses self-hosted Roboto (via `@fontsource/roboto`) for
+all text, page titles included. Titles used to be set in Fraunces to match the
+storefront; admin now deliberately differs from it and uses Roboto throughout
+(the storefront keeps Fraunces). No third-party font requests are made: the font
+files are bundled by Vite and served from the app's own origin, so the CSP
+`font-src 'self' data:` is unaffected.
+
 ---
 
 ## 20. Infrastructure
