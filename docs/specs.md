@@ -560,7 +560,7 @@ language's button while that language's description is empty.
 4. **Availability.** Switches for Collection, Delivery and Dine in (a switch is on
    when the way of ordering is *not* in the dish's `unavailableModes`), the
    Age-restricted (18+) switch (`ageRestricted`), and Preparation time in minutes
-   (`prepMinutes`). Below them stay the schedule / special price and delete controls.
+   (`prepMinutes`). Below them stays the schedule / special price card. **Delete dish** is not tied to this tab: it sits at the left of the footer and is reachable from every section (Basics included), even with unsaved edits. It is a soft delete (past orders keep the dish). Clicking it shows a confirm step with Cancel and a red confirm button; success shows a toast and closes the editor without the unsaved-changes prompt, and a failure shows a toast with the exact reason from the server and keeps the editor open.
 
 **Section nav status lines.** Each nav item shows a label and a status line under it:
 
