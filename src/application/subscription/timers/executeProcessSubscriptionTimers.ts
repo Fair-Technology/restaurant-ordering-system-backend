@@ -59,7 +59,7 @@ export async function executeProcessSubscriptionTimers(input: { now: Date }): Pr
               graceEndsAt: grace,
               defaultPlanName: defaultPlan?.name ?? '',
               defaultOrderLimit: defaultPlan ? limitOf({ limits: Object.fromEntries(defaultPlan.limits.map((l) => [l.key, l.value])) }, PLAN_LIMIT_KEYS.ORDERS_PER_MONTH) : null,
-              url: `${process.env.ADMIN_APP_URL ?? 'http://localhost:5173'}/shops/${shop.id}/subscription`,
+              url: `${process.env.ADMIN_APP_URL ?? 'http://localhost:5174'}/shops/${shop.id}/subscription`,
             }),
             replyTo: null,
             tag: 'payment_grace_warning',

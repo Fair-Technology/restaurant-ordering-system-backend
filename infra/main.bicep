@@ -197,10 +197,10 @@ resource blobService 'Microsoft.Storage/storageAccounts/blobServices@2023-05-01'
           maxAgeInSeconds: 3600
         }
       ], env == 'dev' ? [
-        // Local admin/superadmin dev (Vite, port 5173) uploads via SAS straight to blob storage. Dev only, never prod/test.
+        // Local admin (port 5174) and superadmin (port 5175) dev uploads via SAS straight to blob storage. Dev only, never prod/test.
         // This rule already exists in the live dev account (added by hand); this brings the template back in sync with it.
         {
-          allowedOrigins: [ 'http://localhost:5173' ]
+          allowedOrigins: [ 'http://localhost:5174', 'http://localhost:5175' ]
           allowedMethods: [ 'GET', 'HEAD', 'PUT', 'OPTIONS' ]
           allowedHeaders: [ '*' ]
           exposedHeaders: [ '*' ]

@@ -198,7 +198,7 @@ describe('stripeClient', () => {
   it('storefront domain comes from the storefront URL', () => {
     process.env.STOREFRONT_BASE_URL = 'https://shop.example/menu';
     expect(storefrontDomainName()).toBe('shop.example');
-    process.env.STOREFRONT_BASE_URL = 'http://localhost:5175';
+    process.env.STOREFRONT_BASE_URL = 'http://localhost:5173';
     expect(storefrontDomainName()).toBeNull();
     delete process.env.STOREFRONT_BASE_URL;
     expect(storefrontDomainName()).toBeNull();
