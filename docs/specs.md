@@ -2115,8 +2115,9 @@ seed of this.
   While the platform holds it offline, the owner can't switch it back on. The
   storefront shows no menu and a popup that can't be closed.
 - **Paused** — the owner temporarily stops new orders (overloaded kitchen,
-  missing staff): Settings → Shop status → "Pause orders" switch, with an
-  optional message for diners (`ordersPaused`, `ordersPausedMessage`). The menu
+  missing staff): Settings → Shop status → "Accepting orders" switch (on =
+  taking orders, off = paused; switching off asks how long), with an optional
+  message for diners (`ordersPaused`, `ordersPausedMessage`). The menu
   stays visible; a popup says orders are paused and appears on every page load;
   checkout refuses with that message. Reaching the monthly order limit shows the
   same paused popup.
@@ -2139,9 +2140,11 @@ seed of this.
     monthly order limit was reached or auto-pause fired: all three set
     `ordersPaused` and get the same badge.
 - Closed outside opening hours keeps its own popup, shown once per visit.
-- The pause switch is on the Settings page **and** in the sidebar (Manish,
-  2026-10-13); both ask for the duration. The online switch is on Settings and
-  the Shops list, and the Shops list asks before taking a shop offline.
+- The "Accepting orders" switch is on the Settings page **and** in the sidebar
+  (Manish, 2026-10-13), both using the same wording (on = taking orders, off =
+  paused) and both asking for the duration when switched off. The online switch
+  is on Settings and the Shops list, and the Shops list asks before taking a
+  shop offline.
 
 ### Branding
 
