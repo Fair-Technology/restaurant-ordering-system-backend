@@ -72,7 +72,7 @@ describe('issueLoyaltyVoucher', () => {
     const text: string = (sendEmail as any).mock.calls[0][0].text;
     expect(text).toContain('danke für Ihre 5. Bestellung bei Ma Pasta!');
     expect(text).toContain('Gültig bis einschließlich 7. Januar 2027.');
-    expect(text).toContain('Jetzt bestellen: http://localhost:5175/shops/mapasta');
+    expect(text).toContain('Jetzt bestellen: http://localhost:5173/shops/mapasta');
     expect(text).toContain('weil Sie bei Ihrer Bestellung AB3-K7P zugestimmt haben');
   });
 

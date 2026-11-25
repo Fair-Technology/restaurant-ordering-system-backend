@@ -699,14 +699,19 @@ short-lived SAS link the backend generates; the backend never proxies the image
 bytes. Two things follow, and a missing one blocks uploads in the browser:
 
 1. The storage account's CORS rules must list every front-end origin that
-   uploads: the three deployed static apps, plus `http://localhost:5173` in
-   **dev only** (declared in `infra/main.bicep`, `env == 'dev'`). Production has
-   no localhost origin in storage CORS, ever.
+   uploads: the three deployed static apps, plus `http://localhost:5174` (admin)
+   and `http://localhost:5175` (superadmin) in **dev only** (declared in
+   `infra/main.bicep`, `env == 'dev'`). Production has no localhost origin in
+   storage CORS, ever.
 2. Every uploading front-end's CSP `connect-src` must include the storage blob
    host (`https://*.blob.core.windows.net`).
 
-Local admin/superadmin dev must therefore run on port **5173** (Vite
-`strictPort`), the only local origin allowlisted for direct blob uploads.
+The fixed local dev port map is: storefront **5173**, admin **5174**,
+superadmin **5175**, backend (Azure Functions) **7071**; port 5176 is retired.
+Admin and superadmin must therefore run on exactly 5174 and 5175 (Vite
+`strictPort`): those are the only local origins allowlisted for direct blob
+uploads in the dev storage CORS rule. The storefront (5173) does no direct blob
+uploads, so `http://localhost:5173` is deliberately not in that list.
 
 ### Where a dish lives
 

@@ -8,16 +8,16 @@ import { AttachedDocument, buildAutoPausedEmail, buildLoyaltyVoucherEmail, build
 import { errorBrief } from '../../_shared/errorBrief';
 
 export function customerOrderUrl(shop: Pick<Shop, 'slug'>, order: Pick<Order, 'id' | 'customerAccessToken'>): string {
-  const base = process.env.STOREFRONT_BASE_URL ?? 'http://localhost:5175';
+  const base = process.env.STOREFRONT_BASE_URL ?? 'http://localhost:5173';
   return `${base}/shops/${shop.slug}/orders/${order.id}?t=${order.customerAccessToken ?? ''}`;
 }
 
 export function shopUrl(shop: Pick<Shop, 'slug'>): string {
-  return `${process.env.STOREFRONT_BASE_URL ?? 'http://localhost:5175'}/shops/${shop.slug}`;
+  return `${process.env.STOREFRONT_BASE_URL ?? 'http://localhost:5173'}/shops/${shop.slug}`;
 }
 
 function adminOrdersUrl(shop: Pick<Shop, 'id'>): string {
-  return `${process.env.ADMIN_APP_URL ?? 'http://localhost:5173'}/shops/${shop.id}/orders`;
+  return `${process.env.ADMIN_APP_URL ?? 'http://localhost:5174'}/shops/${shop.id}/orders`;
 }
 
 /** Emails the diner about their order. Never throws: a mail problem must not undo an order. */
@@ -68,7 +68,7 @@ export async function notifyRestaurantEscalation(order: Order, shop: Shop): Prom
 }
 
 function adminShopStatusUrl(shop: Pick<Shop, 'id'>): string {
-  return `${process.env.ADMIN_APP_URL ?? 'http://localhost:5173'}/shops/${shop.id}/settings#shop-status`;
+  return `${process.env.ADMIN_APP_URL ?? 'http://localhost:5174'}/shops/${shop.id}/settings#shop-status`;
 }
 
 /** Emails the restaurant that missed orders paused ordering automatically. Never throws. */

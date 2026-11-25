@@ -72,7 +72,7 @@ export async function notifyOrderLimitThresholds(shop: Shop, after: ShopUsage, n
     if (limit === null || levels.length === 0) return;
     const to = await ownerRecipients(shop);
     if (to.length === 0) return;
-    const url = `${process.env.ADMIN_APP_URL ?? 'http://localhost:5173'}/shops/${shop.id}/subscription`;
+    const url = `${process.env.ADMIN_APP_URL ?? 'http://localhost:5174'}/shops/${shop.id}/subscription`;
     await sendEmail({
       to,
       ...buildOrderLimitEmail({ shop, level: levels[levels.length - 1], count: after.acceptedOrderCount, limit, subscriptionUrl: url }),
