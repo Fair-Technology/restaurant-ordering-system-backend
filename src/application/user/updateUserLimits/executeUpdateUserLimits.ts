@@ -1,8 +1,9 @@
 import { HttpRequest } from '@azure/functions';
-import { patchUserLimits } from '../../../infrastructure/cosmos/user/CosmosUserRepository';
+import { findUserById, patchUserLimits } from '../../../infrastructure/cosmos/user/CosmosUserRepository';
 import { ApplicationResult } from '../../_shared/types';
 import { UpdateUserLimitsRequestDto, UpdateUserLimitsResultDto } from './dtos';
 import { verifySuperAdminToken } from '../../../infrastructure/auth/superAdminAuthHelpers';
+import { logAudit } from '../../_shared/auditHelpers';
 import { logServiceFailure } from '../../_shared/logServiceFailure';
 
 export async function executeUpdateUserLimits(
@@ -30,10 +31,22 @@ export async function executeUpdateUserLimits(
       return { ok: false, code: 'FORBIDDEN', error: 'Superadmin access required' };
     }
 
+    const before = await findUserById(targetUserId);
     const updated = await patchUserLimits(targetUserId, request.maxShops);
     if (!updated) {
       return { ok: false, code: 'NOT_FOUND', error: 'User not found' };
     }
+
+    await logAudit({
+      shopId: 'platform',
+      actorType: 'superadmin',
+      actorId: adminId,
+      action: 'user.limits.update',
+      entityType: 'user',
+      entityId: updated.id,
+      entityName: updated.email ?? updated.id,
+      changes: [{ field: 'maxShops', from: before?.maxShops ?? null, to: updated.maxShops ?? null }],
+    });
 
     return {
       ok: true,

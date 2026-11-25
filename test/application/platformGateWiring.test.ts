@@ -18,7 +18,9 @@ vi.mock('../../src/infrastructure/cosmos/plan/CosmosPlanRepository', () => ({
 vi.mock('../../src/infrastructure/cosmos/plan/CosmosPlanPricingRepository', () => ({
   findPricingByPlan: vi.fn(async () => []),
 }));
+vi.mock('../../src/application/_shared/auditHelpers', () => ({ logAudit: vi.fn(async () => undefined) }));
 vi.mock('../../src/infrastructure/cosmos/system/CosmosSystemConfigRepository', () => ({
+  getSystemConfig: vi.fn(async () => ({ id: 'global', maxShopsDefault: 3 })),
   upsertSystemConfig: vi.fn(async (c: { maxShopsDefault: number }) => c),
 }));
 

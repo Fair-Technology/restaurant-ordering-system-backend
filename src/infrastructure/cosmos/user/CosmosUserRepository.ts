@@ -52,3 +52,35 @@ export async function patchUserLimits(
   await usersContainer.items.upsert<UserProfile>(updated);
   return updated;
 }
+
+/** Paged user list, optionally filtered by a case-insensitive substring of email or name. */
+export async function findUsers(
+  search: string | undefined,
+  page: number,
+  pageSize: number,
+): Promise<{ users: UserProfile[]; total: number }> {
+  const offset = (page - 1) * pageSize;
+  const term = search?.trim().toLowerCase();
+  const where = term
+    ? ' WHERE CONTAINS(LOWER(c.email), @search) OR CONTAINS(LOWER(c.name), @search)'
+    : '';
+  const filterParams = term ? [{ name: '@search', value: term }] : [];
+
+  const { resources: countResult } = await usersContainer.items
+    .query<number>({ query: `SELECT VALUE COUNT(1) FROM c${where}`, parameters: filterParams })
+    .fetchAll();
+  const total = countResult[0] ?? 0;
+
+  const { resources: users } = await usersContainer.items
+    .query<UserProfile>({
+      query: `SELECT * FROM c${where} ORDER BY c.email ASC, c.id ASC OFFSET @offset LIMIT @pageSize`,
+      parameters: [
+        ...filterParams,
+        { name: '@offset', value: offset },
+        { name: '@pageSize', value: pageSize },
+      ],
+    })
+    .fetchAll();
+
+  return { users: users ?? [], total };
+}

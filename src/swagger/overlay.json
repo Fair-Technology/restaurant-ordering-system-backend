@@ -695,6 +695,15 @@
         "Plans"
       ]
     },
+    "GET /platform/owners": {
+      "operationId": "listOwners",
+      "summary": "List restaurant owners with shop counts (platform staff)",
+      "description": "Paged, ordered by email. Optional search matches email or name (case-insensitive substring). shopCount uses the same rule as the create-shop limit check; effectiveLimit is the per-user maxShops or the global default.",
+      "tags": [
+        "Platform"
+      ],
+      "responseDescription": "Owners page"
+    },
     "GET /platform/content-reports": {
       "operationId": "listContentReports",
       "summary": "List content reports (platform staff)",

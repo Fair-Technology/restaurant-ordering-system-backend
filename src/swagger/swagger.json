@@ -1125,6 +1125,73 @@
         }
       }
     },
+    "/platform/owners": {
+      "get": {
+        "summary": "List restaurant owners with shop counts (platform staff)",
+        "description": "Paged, ordered by email. Optional search matches email or name (case-insensitive substring). shopCount uses the same rule as the create-shop limit check; effectiveLimit is the per-user maxShops or the global default.",
+        "operationId": "listOwners",
+        "tags": [
+          "Platform"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Owners page",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListOwnersResultDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
     "/platform/reference-lists/{countryCode}": {
       "put": {
         "operationId": "updateReferenceLists",
@@ -13791,6 +13858,37 @@
         ],
         "additionalProperties": false
       },
+      "OwnerSummaryDto": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "maxShops": {
+            "type": "number",
+            "nullable": true
+          },
+          "effectiveLimit": {
+            "type": "number"
+          },
+          "shopCount": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "userId",
+          "maxShops",
+          "effectiveLimit",
+          "shopCount"
+        ],
+        "additionalProperties": false
+      },
       "GetMeResultDto": {
         "type": "object",
         "properties": {
@@ -20281,6 +20379,48 @@
           "usage",
           "reconciledCount"
         ],
+        "additionalProperties": false
+      },
+      "ListOwnersResultDto": {
+        "type": "object",
+        "properties": {
+          "owners": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OwnerSummaryDto"
+            }
+          },
+          "total": {
+            "type": "number"
+          },
+          "page": {
+            "type": "number"
+          },
+          "pageSize": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "owners",
+          "total",
+          "page",
+          "pageSize"
+        ],
+        "additionalProperties": false
+      },
+      "ListOwnersRequestDto": {
+        "type": "object",
+        "properties": {
+          "search": {
+            "type": "string"
+          },
+          "page": {
+            "type": "number"
+          },
+          "pageSize": {
+            "type": "number"
+          }
+        },
         "additionalProperties": false
       },
       "UpdateMyLanguageResultDto": {

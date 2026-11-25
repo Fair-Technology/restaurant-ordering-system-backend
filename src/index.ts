@@ -179,6 +179,7 @@ import './functions/legal/runRetentionWithClock/index';
 
 // User admin endpoints
 import './functions/user/updateUserLimits/index';
+import './functions/user/listOwners/index';
 
 // Staff endpoints
 import './functions/staff/listStaff/index';
