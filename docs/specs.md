@@ -2214,6 +2214,53 @@ seed of this.
   is on Settings and the Shops list, and the Shops list asks before taking a
   shop offline.
 
+**Settings page layout (built 2026-11-26, rs-admin, t_fd82152e).** The owner
+Settings screen is organised into seven sections, chosen one at a time from a
+left nav (232 px on desktop; below `md` the nav becomes a horizontal scrolling
+chip row above the content). The selection is kept in the URL as
+`?section=<key>` (keys: `status`, `details`, `look`, `hours`, `orders`, `pay`,
+`danger`), set with replace, not push; a missing or unknown key falls back to
+Shop status. On desktop each nav item shows a live one-line status under its
+title (the chip row shows titles only):
+
+- **Shop status:** "Offline" / "Orders paused" / "Online, taking orders".
+- **Details:** "<shop name> · /<slug>".
+- **Look:** "Banner on" / "Banner off".
+- **Hours and closures:** "N of 7 days open".
+- **Orders:** "Auto-accept" / "Auto-accept at set times" / "Manual accept", with
+  " · delivery" appended when delivery is on.
+- **Payments and tax:** "Stripe connected", or the real Stripe state
+  ("Stripe pending" / "Stripe not connected").
+- **Danger zone:** no status line; its title is in the danger colour. It is
+  listed only for the owner (`canDeleteShop`).
+
+Only the active section's cards render. Cards in each section:
+
+1. **Shop status:** "Shop online" switch card; "Accepting orders" switch card
+   (see §16 above); "Storefront link" card (real storefront URL, Copy link).
+2. **Details:** "Shop details" card (ID, slug, name with "Request name change",
+   currency, time zone read-only; editable minimum order); "Address" card;
+   "QR Code" card (preview, storefront URL, Download PNG).
+3. **Look:** Logo; Cover image (with the "Show banner" switch); Accent colour;
+   Menu languages.
+4. **Hours and closures:** Opening hours; Closures.
+5. **Orders:** Order alerts; Automatic acceptance; Kitchen timing; Orders for
+   later; Delivery; Dine in.
+6. **Payments and tax:** Payments; Tax classes.
+7. **Danger zone:** Delete shop (inline confirm: type the shop name to enable
+   the red Delete button, plus Cancel).
+
+Save model. Each card keeps its own save button, spinner and inline error, as
+before. There is no page-wide "unsaved changes" bar and no generic
+leave-confirm. The switches for Shop online and Accepting orders act
+immediately with no save step. "Accepting orders" is on = accepting, off =
+paused, same wording as the sidebar status chip.
+
+Tax classes card. Shown in Payments and tax. It lists the shop's active tax
+classes with their rates from the country tax data. When the shop has no active
+tax classes, it shows an empty-state note naming the country, with no rates
+shown.
+
 ### Branding
 
 **Logo, cover image and one accent colour, with an automatic contrast check**
