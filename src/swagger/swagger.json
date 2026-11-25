@@ -18138,8 +18138,7 @@
           "timezone",
           "minOrderAmountCents",
           "address",
-          "openingHours",
-          "industry"
+          "openingHours"
         ],
         "additionalProperties": false
       },
