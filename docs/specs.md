@@ -571,6 +571,29 @@ updates as the diner picks; a combo adds the extras picked inside it. An option
 with nothing ticked adds nothing — the dish's own declaration is still what gates
 the menu. Decision: [[option-allergens-undeclared-adds-nothing]].
 
+### Dish order within a category
+
+The owner sets the order of the dishes inside each category. It is stored on the dish, **per category**
+(`categoryOrder: { [categoryId]: position }`), so a dish that lives in two categories has an independent
+position in each. A category never reordered sorts by name; a dish without a position in a category (newly
+added to it, or never ordered) sorts **after** every ordered dish, by name — adding a dish to a category does
+not assign it a position, so it lands last. Removing a dish from a category, or soft-deleting it, needs no
+cleanup: the menu filters by `categoryIds` first, and gaps in the numbering are fine because only the
+relative value matters. The public catalog (`GET /shops/{id}/catalog`) applies the order
+(`sortByCategoryOrder`, `domain/product/Product.ts`); the admin dish list stays one shop-wide list and
+carries each dish's `categoryOrder` so the client sorts per category tab. Combos are not part of the
+reorderable set and sort as unordered.
+
+`PUT /shops/{shopId}/categories/{categoryId}/dish-order` with `{ "productIds": [...] }` (permission
+`manage_menu`) saves the order. The body must be **exactly** the category's current dishes — no fewer, no
+more, no duplicates, none from another shop or category — in the intended order, otherwise `INVALID_INPUT`
+naming the offending ids; an empty list is valid only for a category with no dishes. Position is the 0-based
+array index. It is idempotent: a dish whose position is already right is not written (its `updatedAt` is not
+touched), so resubmitting the same order writes nothing. The response is the saved order (`{ id, name }[]`).
+It is **not transactional** across the dishes: two admins reordering at once is last-write-wins per dish, and
+a failure partway can leave a mixed order (no rollback; the owner just saves again). Audited as
+`category.dishOrder.update`.
+
 ### Availability
 
 - **Sold-out switch** per dish, and per size or extra option, with an optional

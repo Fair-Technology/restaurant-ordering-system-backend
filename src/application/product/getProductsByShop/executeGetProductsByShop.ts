@@ -85,6 +85,7 @@ export async function executeGetProductsByShop(
         description: product.description,
         price: product.price,
         categories: categories,
+        categoryOrder: product.categoryOrder,
         images: product.images,
         variantGroups: product.variantGroups,
         addonGroups: product.addonGroups,

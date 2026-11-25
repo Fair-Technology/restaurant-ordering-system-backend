@@ -213,6 +213,15 @@
       ],
       "responseDescription": "Category updated successfully"
     },
+    "PUT /shops/{shopId}/categories/{categoryId}/dish-order": {
+      "operationId": "setCategoryDishOrder",
+      "summary": "Set the order of a category's dishes",
+      "description": "Access: manage_menu. Body: { productIds } — exactly the dishes currently in the category (combos excluded), in the intended order; unknown, foreign, deleted, duplicate or missing ids are rejected. Idempotent: only dishes whose position changes are written. Not transactional across dishes (last write wins per dish).",
+      "tags": [
+        "Categories"
+      ],
+      "responseDescription": "Dish order saved"
+    },
     "DELETE /shops/{shopId}/categories/{categoryId}": {
       "operationId": "deleteCategory",
       "summary": "Delete category (soft delete)",
