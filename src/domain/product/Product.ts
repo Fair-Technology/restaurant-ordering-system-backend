@@ -66,6 +66,10 @@ export interface Product {
 
   // Categorisation
   categoryIds: string[]; // references Category ids (no duplication)
+  // Per-category display order. Key = category id, value = position (ascending). A dish not
+  // present in the map for a category it belongs to is "unordered" for that category — sorts
+  // after every ordered dish, by name. Do NOT reuse `images[].sortOrder` (that's image order only).
+  categoryOrder?: { [categoryId: string]: number };
 
   // Images
   images: ProductImage[];
@@ -141,4 +145,26 @@ export function isOnMenu(p: {
   additiveIds?: string[] | null;
 }): boolean {
   return p.isAvailable && !p.isDeleted && isDeclared(p);
+}
+
+/**
+ * Sort a category's dishes: ordered ones first by categoryOrder[categoryId] ascending, then unordered
+ * ones by name (locale compare). Stable for ties; returns a new array.
+ */
+export function sortByCategoryOrder<T extends { id: string; name: string; categoryOrder?: Record<string, number> }>(
+  products: T[],
+  categoryId: string,
+): T[] {
+  const pos = (p: T): number | undefined => {
+    const v = p.categoryOrder?.[categoryId];
+    return typeof v === 'number' && Number.isFinite(v) ? v : undefined;
+  };
+  return [...products].sort((a, b) => {
+    const pa = pos(a);
+    const pb = pos(b);
+    if (pa !== undefined && pb !== undefined) return pa - pb;
+    if (pa !== undefined) return -1;
+    if (pb !== undefined) return 1;
+    return a.name.localeCompare(b.name);
+  });
 }

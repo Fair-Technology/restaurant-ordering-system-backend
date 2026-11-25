@@ -25,6 +25,9 @@ export interface ProductDto extends ProductMenuFieldsDto {
     icon?: string;
   }>;
 
+  // The dish's own per-category position (category id → position); see sortByCategoryOrder
+  categoryOrder?: { [categoryId: string]: number };
+
   // Images
   images: ProductImage[];
 

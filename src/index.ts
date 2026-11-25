@@ -33,6 +33,7 @@ import './functions/product/getProductsByShop/index';
 import './functions/product/getProduct/index';
 import './functions/product/createProduct/index';
 import './functions/product/updateProduct/index';
+import './functions/product/setCategoryDishOrder/index';
 import './functions/product/deleteProduct/index';
 import './functions/product/generateImageUploadUrl/index';
 import './functions/product/addProductImage/index';

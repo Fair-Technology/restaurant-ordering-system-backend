@@ -1,6 +1,6 @@
 import { Category, isCategoryLive } from '../../../domain/category/Category';
 import { menuLanguagesOf, localize, resolveMenuLanguage, TranslationMap } from '../../../domain/menu/menuLanguage';
-import { isOnMenu, isSoldOut, Product, ProductOption, ProductSchedule } from '../../../domain/product/Product';
+import { isOnMenu, isSoldOut, Product, ProductOption, ProductSchedule, sortByCategoryOrder } from '../../../domain/product/Product';
 import { DIETARY_TAGS, SPICE_LEVELS, SpiceLevel } from '../../../domain/product/dietary';
 import { MenuLanguage, ReferenceListsDoc } from '../../../domain/reference/ReferenceLists';
 import { activeBasePriceCents } from '../../order/_shared/priceBasket';
@@ -119,8 +119,10 @@ export function buildCatalog(input: {
       schedule: c.schedule
         ? { daysOfWeek: [...c.schedule.daysOfWeek], startTime: c.schedule.startTime, endTime: c.schedule.endTime }
         : null,
-      products: offered
-        .filter((p) => p.categoryIds.includes(c.id))
+      products: sortByCategoryOrder(
+        offered.filter((p) => p.categoryIds.includes(c.id)),
+        c.id,
+      )
         .map((p): CatalogProductDto => ({
           id: p.id,
           name: L(p.name, p.nameTranslations),
