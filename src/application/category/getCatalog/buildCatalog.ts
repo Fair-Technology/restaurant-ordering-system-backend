@@ -1,6 +1,6 @@
 import { Category, isCategoryLive } from '../../../domain/category/Category';
 import { menuLanguagesOf, localize, resolveMenuLanguage, TranslationMap } from '../../../domain/menu/menuLanguage';
-import { isOnMenu, isSoldOut, Product, ProductOption, ProductSchedule, sortByCategoryOrder } from '../../../domain/product/Product';
+import { isOnMenu, Product, ProductOption, ProductSchedule, sortByCategoryOrder } from '../../../domain/product/Product';
 import { DIETARY_TAGS, SPICE_LEVELS, SpiceLevel } from '../../../domain/product/dietary';
 import { MenuLanguage, ReferenceListsDoc } from '../../../domain/reference/ReferenceLists';
 import { activeBasePriceCents } from '../../order/_shared/priceBasket';
@@ -149,8 +149,6 @@ export function buildCatalog(input: {
             options: g.options.map(opt),
           })),
           isAvailable: p.isAvailable,
-          unavailableUntil: p.unavailableUntil ?? null,
-          soldOut: isSoldOut(p, now),
           allergens: allergenLabel(p.combo ? unionOf(p, 'allergenIds') : p.allergenIds),
           additives: additiveLabel(p.combo ? unionOf(p, 'additiveIds') : p.additiveIds),
           dietaryTags: tagLabel(p.dietaryTagIds),

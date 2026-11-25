@@ -356,7 +356,7 @@
     "PATCH /products/{productId}/availability": {
       "operationId": "updateProductAvailability",
       "summary": "Mark a dish sold out (or back on sale)",
-      "description": "Stock-only write: sets isAvailable and/or the sold-out window unavailableUntil (ISO-8601 instant, or null to clear). Nothing else about the dish can be changed here. Allowed with the manage_stock or manage_menu permission. A dish inside its sold-out window stays on the menu marked sold out but cannot be ordered.",
+      "description": "Stock-only write: switches a dish on or off (isAvailable). Nothing else about the dish can be changed here. Allowed with the manage_stock or manage_menu permission.",
       "tags": [
         "Products"
       ],

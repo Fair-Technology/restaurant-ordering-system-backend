@@ -51,36 +51,12 @@ function storedProduct(overrides: Record<string, unknown> = {}) {
   };
 }
 
-const FUTURE = '2999-01-01T22:00:00.000Z';
-
 describe('executeUpdateProductAvailability', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     (authorizeShopAction as any).mockResolvedValue(accessWith(['manage_stock']));
     (updateProduct as any).mockImplementation(async (p: any) => p);
     (findProductById as any).mockResolvedValue(storedProduct());
-  });
-
-  it('a stock-only staff member can mark a dish sold out until an instant', async () => {
-    const result = await executeUpdateProductAvailability(
-      { productId: 'p1', shopId: 'shop-1', unavailableUntil: '2999-01-01T23:00:00+01:00' },
-      {} as any,
-    );
-
-    expect(result).toMatchObject({
-      ok: true,
-      data: { id: 'p1', shopId: 'shop-1', isAvailable: true, unavailableUntil: FUTURE, soldOut: true },
-    });
-    expect(updateProduct).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'p1', isAvailable: true, unavailableUntil: FUTURE }),
-    );
-    expect(logAudit).toHaveBeenCalledWith(
-      expect.objectContaining({
-        action: 'product.availability',
-        entityId: 'p1',
-        changes: [{ field: 'unavailableUntil', from: undefined, to: FUTURE }],
-      }),
-    );
   });
 
   it('manage_menu alone is enough', async () => {
@@ -133,47 +109,41 @@ describe('executeUpdateProductAvailability', () => {
     expect(updateProduct).not.toHaveBeenCalled();
   });
 
-  it('null clears the sold-out window and the dish is orderable again', async () => {
-    (findProductById as any).mockResolvedValue(storedProduct({ unavailableUntil: FUTURE }));
-
-    const result = await executeUpdateProductAvailability(
-      { productId: 'p1', shopId: 'shop-1', unavailableUntil: null },
-      {} as any,
-    );
-
-    expect(result).toMatchObject({ ok: true, data: { unavailableUntil: null, soldOut: false } });
-  });
-
-  it('an expired window is not sold out', async () => {
-    const result = await executeUpdateProductAvailability(
-      { productId: 'p1', shopId: 'shop-1', unavailableUntil: '2000-01-01T00:00:00Z' },
-      {} as any,
-    );
-
-    expect(result).toMatchObject({ ok: true, data: { soldOut: false } });
-  });
-
   it('refuses a body that changes nothing', async () => {
     const result = await executeUpdateProductAvailability({ productId: 'p1', shopId: 'shop-1' }, {} as any);
 
-    expect(result).toMatchObject({ ok: false, code: 'INVALID_INPUT' });
+    expect(result).toMatchObject({ ok: false, code: 'INVALID_INPUT', error: 'Send isAvailable' });
     expect(findProductById).not.toHaveBeenCalled();
   });
 
-  it.each([
-    ['not-a-date'],
-    ['2026-11-16'],
-    ['2026-11-16T10:00:00'],
-    [42],
-    [true],
-  ])('refuses unavailableUntil %j', async (value) => {
+  it('silently ignores an unavailableUntil key in the body', async () => {
     const result = await executeUpdateProductAvailability(
-      { productId: 'p1', shopId: 'shop-1', unavailableUntil: value as any },
+      { productId: 'p1', shopId: 'shop-1', isAvailable: true, unavailableUntil: '2999-01-01T00:00:00Z' } as any,
       {} as any,
     );
 
-    expect(result).toMatchObject({ ok: false, code: 'INVALID_INPUT' });
-    expect(updateProduct).not.toHaveBeenCalled();
+    expect(result.ok).toBe(true);
+    const written = (updateProduct as any).mock.calls[0][0];
+    expect('unavailableUntil' in written).toBe(false);
+    const data = (result as any).data;
+    expect(data).not.toHaveProperty('unavailableUntil');
+    expect(data).not.toHaveProperty('soldOut');
+  });
+
+  it('does not read or echo a legacy unavailableUntil stored on the product', async () => {
+    (findProductById as any).mockResolvedValue(storedProduct({ unavailableUntil: '2099-01-01T00:00:00Z' } as any));
+
+    const result = await executeUpdateProductAvailability(
+      { productId: 'p1', shopId: 'shop-1', isAvailable: true },
+      {} as any,
+    );
+
+    expect(result.ok).toBe(true);
+    expect(updateProduct).toHaveBeenCalledWith(expect.objectContaining({ id: 'p1', isAvailable: true }));
+    const data = (result as any).data;
+    expect(data).not.toHaveProperty('unavailableUntil');
+    expect(data).not.toHaveProperty('soldOut');
+    expect(logAudit).toHaveBeenCalledWith(expect.objectContaining({ changes: [] }));
   });
 
   it('refuses a non-boolean isAvailable', async () => {

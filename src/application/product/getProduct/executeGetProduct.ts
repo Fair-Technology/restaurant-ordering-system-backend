@@ -73,7 +73,6 @@ export async function executeGetProduct(
       description: product.description,
       price: product.price,
       isAvailable: product.isAvailable,
-      unavailableUntil: product.unavailableUntil ?? null,
       isDeleted: product.isDeleted,
       createdAt: product.createdAt,
       updatedAt: product.updatedAt,

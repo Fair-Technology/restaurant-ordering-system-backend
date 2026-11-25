@@ -91,7 +91,6 @@ export async function executeGetProductsByShop(
         addonGroups: product.addonGroups,
         schedule: product.schedule ?? null,
         isAvailable: product.isAvailable,
-        unavailableUntil: product.unavailableUntil ?? null,
         isDeleted: product.isDeleted,
         createdAt: product.createdAt,
         updatedAt: product.updatedAt,
