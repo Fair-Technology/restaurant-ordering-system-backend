@@ -692,6 +692,12 @@ downstream is unchanged, and an option switched off in the library ("out of
 Coke") disappears from every dish that uses it. Unknown or deleted refs are
 skipped on read. Inline variant/add-on groups remain supported.
 
+The admin library page filters the groups by kind with **All / Variants /
+Extras** tabs. The Variants and Extras tabs show their group counts, and the
+active tab is kept in the URL (`?kind=variant|addon`). Each group's option list
+is a collapsible accordion: collapsed by default past five options, with an
+"N unavailable" badge in the header and expand-all / collapse-all controls.
+
 ### Allergens and additives are mandatory
 
 **Platform-owned fixed lists per country** (§13), ticked per dish. Germany
