@@ -25,8 +25,8 @@ export interface CreateShopRequestDto {
     }>
   >;
 
-  // Required
-  industry: string;
+  /** Legacy optional field; no longer collected by any client. */
+  industry?: string;
 
   // Optional fields
   pausedMessage?: string;

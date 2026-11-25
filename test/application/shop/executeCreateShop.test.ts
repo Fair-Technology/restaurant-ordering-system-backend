@@ -206,3 +206,25 @@ describe('executeCreateShop owner-typed slug and name length', () => {
     expect(res).toEqual({ ok: false, code: 'INVALID_INPUT', error: 'Shop name must be at most 80 characters long' });
   });
 });
+
+describe('executeCreateShop optional industry', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (createShopInRepo as any).mockImplementation(async (s: any) => s);
+  });
+
+  it('creates a shop when industry is not sent', async () => {
+    const result = await executeCreateShop(baseRequest({ industry: undefined }), {} as any);
+
+    expect(result.ok).toBe(true);
+    expect(createShopInRepo).toHaveBeenCalledTimes(1);
+    expect((createShopInRepo as any).mock.calls[0][0].industry).toBeUndefined();
+  });
+
+  it('still stores a trimmed industry when an older client sends one', async () => {
+    const result = await executeCreateShop(baseRequest({ industry: '  restaurant  ' }), {} as any);
+
+    expect(result.ok).toBe(true);
+    expect(createShopInRepo).toHaveBeenCalledWith(expect.objectContaining({ industry: 'restaurant' }));
+  });
+});

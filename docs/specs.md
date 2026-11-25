@@ -2018,6 +2018,14 @@ no Latin letters or digits (e.g. "寿司屋") generates nothing: the API refuses
 clear error and never guesses, so the owner must type a slug; a rename request whose
 name generates no slug is refused the same way. A generated slug is cut to 64 characters.
 
+**What creating a restaurant asks for.** The owner provides the shop name, the web
+address (slug, with the live-availability check above, or left blank to generate one),
+the country, and ticking acceptance of the current data processing agreement (§15).
+There is no industry picker — the platform is restaurants only. `industry` remains an
+optional, unused field on `POST /shops` for backward compatibility with older clients;
+it is no longer collected or shown anywhere, and existing shops keep whatever value
+they already have stored.
+
 The root domain is the sales site. Storefronts carry **`noindex`**; no SEO
 work. One exception that is not SEO: a page title and a **link-preview card**
 (image, name, one line) injected into the storefront's HTML shell by a small
