@@ -612,6 +612,23 @@ the handles stay visible but greyed out, with a tooltip saying to clear the filt
   `manage_menu` staff permission. The route was never imported in `src/index.ts`
   until 2026-11-25 (every PATCH returned a bare 404); `src/index.test.ts` now
   fails if any `src/functions/**/index.ts` is left unregistered.
+- **"Sold out today" control (admin Dishes list):** each dish row has one
+  button with two states.
+  - **Idle:** a quiet action control, "Mark sold out" / "Heute ausverkauft
+    melden", with a dashed ghost border. It is an affordance, not a status
+    badge: it does the marking, it does not report a status.
+  - **Active:** while `unavailableUntil` is in the future the row also shows a
+    separate solid red "Sold out today" badge, and the button becomes
+    "Back on sale" / "Wieder verfügbar", which sends `unavailableUntil: null`.
+  - **Window:** "Mark sold out" sends the end of the shop's current service day
+    in the shop's own time zone (local midnight), computed client-side, not a
+    fixed duration. The dish returns by itself once that instant passes.
+  - **Feedback:** success shows a short toast ("Marked sold out" / "Back on
+    sale", and the German equivalents). A failed PATCH shows the server's exact
+    error reason in a toast, the spinner always clears, and the row is usable
+    again at once. There is no optimistic state to revert: the button's state is
+    derived from the `unavailableUntil` last confirmed by the server, so a
+    failed write leaves it showing what it showed before.
 - **Time-limited availability:** date range, days of week, daily time window
   (a lunch menu 11:00–15:00), with an optional offer price and label for that
   window. Already exists. **The offer price is now actually charged** — before
