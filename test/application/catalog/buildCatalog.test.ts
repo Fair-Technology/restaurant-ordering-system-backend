@@ -73,7 +73,7 @@ describe('buildCatalog', () => {
     const product = result.categories[0].products[0];
     expect(product.name).toBe('Apple spritzer');
     expect(product.description).toBe('Hausgemacht');
-    expect(product.variants).toEqual([{ id: 'g1', name: 'Size', options: [{ id: 'o1', name: 'Klein', priceDelta: 0, isAvailable: true, allergens: [], additives: [] }] }]);
+    expect(product.variants).toEqual([{ id: 'g1', name: 'Size', options: [{ id: 'o1', name: 'Klein', priceDelta: 0, isAvailable: true, allergens: [], additives: [], category: null }] }]);
     expect(product.additives).toEqual([{ id: 'caffeine', code: 11, label: 'contains caffeine' }]);
     expect(product.allergens).toEqual([]);
     expect(product.dietaryTags).toEqual([{ id: 'vegan', label: 'Vegan' }]);
@@ -200,7 +200,7 @@ describe('buildCatalog combos', () => {
       categories: [category],
       products: [{
         ...p1,
-        addonGroups: [{ id: 'a1', name: 'Extras', nameTranslations: {}, minSelectable: 0, maxSelectable: 2, options: [{ id: 'x1', name: 'Thunfisch', priceDelta: 150, isAvailable: true, allergenIds: ['fish'], additiveIds: ['preservative'] }] }],
+        addonGroups: [{ id: 'a1', name: 'Extras', nameTranslations: {}, minSelectable: 0, maxSelectable: 2, options: [{ id: 'x1', name: 'Thunfisch', priceDelta: 150, isAvailable: true, allergenIds: ['fish'], additiveIds: ['preservative'], category: 'Protein' }] }],
         variantGroups: [{ id: 'g1', name: 'Rand', options: [{ id: 'o1', name: 'Käserand', priceDelta: 200, isAvailable: true, allergenIds: ['milk'], additiveIds: [] }] }],
       }],
       refs: DE_REFERENCE_LISTS,
@@ -208,7 +208,7 @@ describe('buildCatalog combos', () => {
       now,
     });
     const product = result.categories[0].products[0];
-    expect(product.addons[0].options[0]).toEqual({ id: 'x1', name: 'Thunfisch', priceDelta: 150, isAvailable: true, allergens: [{ id: 'fish', label: 'Fisch' }], additives: [{ id: 'preservative', code: 2, label: 'mit Konservierungsstoff' }] });
+    expect(product.addons[0].options[0]).toEqual({ id: 'x1', name: 'Thunfisch', priceDelta: 150, isAvailable: true, allergens: [{ id: 'fish', label: 'Fisch' }], additives: [{ id: 'preservative', code: 2, label: 'mit Konservierungsstoff' }], category: 'Protein' });
     expect(product.variants[0].options[0].allergens).toEqual([{ id: 'milk', label: 'Milch (einschließlich Laktose)' }]);
     expect(product.allergens).toEqual([]);
   });

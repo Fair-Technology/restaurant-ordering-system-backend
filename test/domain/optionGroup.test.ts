@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   isShopOptionGroupKind,
   MAX_OPTION_GROUP_OPTIONS,
+  OPTION_CATEGORY_ERROR,
   SHOP_OPTION_GROUP_DUPLICATE_OPTION_ID_ERROR,
   SHOP_OPTION_GROUP_MAX_SELECTABLE_ERROR,
   SHOP_OPTION_GROUP_NAME_ERROR,
@@ -64,5 +65,29 @@ describe('validateShopOptionGroupFields', () => {
     expect(
       validateShopOptionGroupFields({ name: 'G', options: [opt({ additiveIds: ['msg'] })] }, 'addon', known, [], newId),
     ).toEqual({ error: 'Unknown additive: msg' });
+  });
+
+  describe('option category', () => {
+    const run = (options: unknown[], previous: never[] = []) =>
+      validateShopOptionGroupFields({ name: 'G', options }, 'addon', known, previous, newId) as any;
+
+    it('trims it, and treats missing, null and blank as ungrouped', () => {
+      expect(run([opt({ category: '  Cheese ' })]).options[0].category).toBe('Cheese');
+      for (const category of [undefined, null, '   ']) {
+        expect('category' in run([opt({ category })]).options[0]).toBe(false);
+      }
+    });
+
+    it('rejects non-text and over-long values', () => {
+      for (const category of [5, 'x'.repeat(41)]) {
+        expect(run([opt({ category })])).toEqual({ error: OPTION_CATEGORY_ERROR });
+      }
+    });
+
+    it('keeps the stored category when an update omits it, and clears it on null', () => {
+      const previous = [{ id: 'a', name: 'Coke', priceDelta: 0, isAvailable: true, category: 'Drinks' }] as never[];
+      expect(run([opt({ id: 'a' })], previous).options[0].category).toBe('Drinks');
+      expect('category' in run([opt({ id: 'a', category: null })], previous).options[0]).toBe(false);
+    });
   });
 });

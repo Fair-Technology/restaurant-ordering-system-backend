@@ -8470,6 +8470,10 @@
             "items": {
               "$ref": "#/components/schemas/CatalogAdditiveDto"
             }
+          },
+          "category": {
+            "type": "string",
+            "nullable": true
           }
         },
         "required": [
@@ -8478,7 +8482,8 @@
           "priceDelta",
           "isAvailable",
           "allergens",
-          "additives"
+          "additives",
+          "category"
         ],
         "additionalProperties": false
       },
@@ -9155,6 +9160,9 @@
             "items": {
               "type": "string"
             }
+          },
+          "category": {
+            "type": "string"
           }
         },
         "required": [
@@ -10500,6 +10508,9 @@
             "items": {
               "type": "string"
             }
+          },
+          "category": {
+            "type": "string"
           }
         },
         "required": [
@@ -10539,6 +10550,10 @@
             "items": {
               "type": "string"
             }
+          },
+          "category": {
+            "type": "string",
+            "nullable": true
           }
         },
         "required": [

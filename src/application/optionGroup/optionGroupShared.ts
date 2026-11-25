@@ -29,6 +29,7 @@ export interface ShopOptionGroupOptionInputDto {
   isAvailable?: boolean;
   allergenIds?: string[];
   additiveIds?: string[];
+  category?: string | null;
 }
 
 export function toShopOptionGroupDto(group: ShopOptionGroup): ShopOptionGroupDto {

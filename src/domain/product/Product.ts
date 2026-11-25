@@ -31,6 +31,7 @@ export interface ProductOption {
   isAvailable: boolean; // independent availability
   allergenIds?: string[]; // what choosing this option adds to the dish; absent on records saved before 2026-10 = none
   additiveIds?: string[];
+  category?: string; // storefront groups extras under this heading; absent = ungrouped
 }
 
 export interface ProductVariantGroup {

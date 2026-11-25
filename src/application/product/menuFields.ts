@@ -1,5 +1,5 @@
 import { FULFILMENT_MODES, FulfilmentMode } from '../../domain/order/Order';
-import { addonSelectionError, isValidPriceDelta, ShopOptionGroup } from '../../domain/optionGroup/ShopOptionGroup';
+import { addonSelectionError, isValidPriceDelta, resolveOptionCategory, ShopOptionGroup } from '../../domain/optionGroup/ShopOptionGroup';
 import { DELIVERY_TAX_CLASS_FOR_DISHES_ERROR, UNAVAILABLE_MODES_ERROR } from '../../domain/order/orderErrors';
 import { dietaryConflict, DIETARY_TAGS, SpiceLevel } from '../../domain/product/dietary';
 import { normaliseTranslations, TranslationMap } from '../../domain/menu/menuLanguage';
@@ -105,7 +105,16 @@ function validateGroup(
     if (!Array.isArray(a)) return a.error;
     const d = optionIdList(raw.additiveIds, prev?.additiveIds, known.additives, 'additiveIds', 'additive', OPTION_ADDITIVES_ERROR);
     if (!Array.isArray(d)) return d.error;
-    options.push({ ...option, nameTranslations: optionTranslations, allergenIds: a, additiveIds: d });
+    const category = resolveOptionCategory((option as { category?: unknown }).category, prev?.category);
+    if (typeof category === 'object') return category.error;
+    const { category: _dropped, ...rest } = option as ProductOption;
+    options.push({
+      ...rest,
+      nameTranslations: optionTranslations,
+      allergenIds: a,
+      additiveIds: d,
+      ...(category !== undefined ? { category } : {}),
+    });
   }
 
   if (kind === 'addon') {
