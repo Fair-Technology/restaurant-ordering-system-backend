@@ -607,6 +607,11 @@ the handles stay visible but greyed out, with a tooltip saying to clear the filt
 
 - **Sold-out switch** per dish, and per size or extra option, with an optional
   **`unavailableUntil`** window after which the dish returns by itself.
+  The switch is read through `GET /products/by-shop` and toggled through
+  `PATCH /products/{productId}/availability`, which needs the `manage_stock` or
+  `manage_menu` staff permission. The route was never imported in `src/index.ts`
+  until 2026-11-25 (every PATCH returned a bare 404); `src/index.test.ts` now
+  fails if any `src/functions/**/index.ts` is left unregistered.
 - **Time-limited availability:** date range, days of week, daily time window
   (a lunch menu 11:00–15:00), with an optional offer price and label for that
   window. Already exists. **The offer price is now actually charged** — before
