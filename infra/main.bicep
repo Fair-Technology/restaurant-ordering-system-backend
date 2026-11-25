@@ -94,7 +94,8 @@ var containers = [
   { name: 'option_groups', pk: '/shopId', uniqueKeys: [] }
   { name: 'orders', pk: '/id', uniqueKeys: [] }
   { name: 'checkout_sessions', pk: '/id', uniqueKeys: [] }
-  { name: 'users', pk: '/id', uniqueKeys: [] }
+  // Cosmos needs a composite index for any multi-property ORDER BY; this backs findUsers()'s `ORDER BY c.email ASC, c.id ASC`.
+  { name: 'users', pk: '/id', uniqueKeys: [], compositeIndexes: [ [ { path: '/email', order: 'ascending' }, { path: '/id', order: 'ascending' } ] ] }
   { name: 'plans', pk: '/id', uniqueKeys: [] }
   { name: 'plan_pricing', pk: '/id', uniqueKeys: [] }
   { name: 'shop_subscriptions', pk: '/id', uniqueKeys: [] }
@@ -152,6 +153,15 @@ resource cosmosContainers 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/co
       id: c.name
       partitionKey: { paths: [ c.pk ], kind: 'Hash' }
       uniqueKeyPolicy: empty(c.uniqueKeys) ? null : { uniqueKeys: [ { paths: c.uniqueKeys } ] }
+      // Only containers that declare composite indexes get an explicit policy (today's defaults plus
+      // the composites); every other container keeps Cosmos's default indexing untouched.
+      indexingPolicy: empty(c.?compositeIndexes ?? []) ? null : {
+        indexingMode: 'consistent'
+        automatic: true
+        includedPaths: [ { path: '/*' } ]
+        excludedPaths: [ { path: '/"_etag"/?' } ]
+        compositeIndexes: c.compositeIndexes
+      }
       // -1 = each item's own ttl applies (checkout sessions set 3600); nothing expires without one
       defaultTtl: c.name == 'checkout_sessions' ? -1 : null
     }
