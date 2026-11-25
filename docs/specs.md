@@ -1835,6 +1835,21 @@ its current slug.
 - Owner-only **export** (JSON + German-Excel CSVs, no order notes) and
   **erasure** (anonymise, keep amounts; refused while an order is open).
 
+**As built in t_f66b62b5 (admin Legal page redesign):**
+
+- The admin Legal page shows a **go-live summary** at the top: "N of 5 required
+  items complete" (DPA, Impressum, Terms, Withdrawal policy, Privacy notice),
+  with the missing ones linking straight to their section. All complete shows
+  "Ready to go live".
+- The page shows **one section at a time** via a left-hand nav (persisted in
+  the URL as `?section=`), each item carrying a live status line (e.g.
+  "Accepted 12 Jan 2026, version 2", "2 fields missing", "IBAN set"). Invoice
+  details is optional and never shown as incomplete; required items and the
+  go-live gating rule (§16) are unchanged.
+- **Erasure confirmation** is typed, not a browser dialog: the owner must type
+  the customer's email again in an inline panel before the anonymise button
+  enables, replacing the old `window.confirm`.
+
 ### Manish is a processor, not a controller — except for owners
 
 Manish is based in Australia with no EU establishment and wants no controller
