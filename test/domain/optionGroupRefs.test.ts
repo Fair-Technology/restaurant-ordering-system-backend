@@ -54,6 +54,14 @@ describe('resolveProductOptionGroups', () => {
     expect(r.name).toBe(P_PASTA.name);
   });
 
+  it('keeps addon groups in the dish\'s own optionGroupRefs order, not alphabetical or library order', () => {
+    const mk = (id: string): ShopOptionGroup => ({ ...sauces, id, name: id });
+    const lib = new Map([mk('g-aa'), mk('g-mm'), mk('g-zz')].map((g) => [g.id, g]));
+    const refs = ['g-zz', 'g-aa', 'g-mm'];
+    const r = resolveProductOptionGroups({ ...P_PASTA, optionGroupRefs: refs }, lib);
+    expect(r.addonGroups?.map((g) => g.id)).toEqual(['ag', ...refs]);
+  });
+
   it('skips unknown and deleted refs, and dedupes', () => {
     const p = { ...P_PASTA, optionGroupRefs: ['nope', 'g-gone', 'g-sauce', 'g-sauce'] };
     const r = resolveProductOptionGroups(p, library);

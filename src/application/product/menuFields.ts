@@ -42,6 +42,9 @@ export const OPTION_ALLERGENS_ERROR = "Each option's allergenIds must be a list 
 export const OPTION_PRICE_DELTA_ERROR = "Each option's priceDelta must be a whole number of cents from 0 to 100000";
 export const OPTION_ADDITIVES_ERROR = "Each option's additiveIds must be a list of additive ids";
 
+export const TOO_MANY_VARIANT_GROUPS_ERROR =
+  'A dish can have at most one variant group (e.g. size). Remove the current one before attaching or adding another.';
+
 export const OPTION_GROUP_REFS_SHAPE_ERROR = 'optionGroupRefs must be an array of option group ids';
 
 const SPICE_VALUES: ReadonlyArray<SpiceLevel | null> = [null, 'mild', 'medium', 'hot'];
@@ -52,6 +55,20 @@ function dedupe(ids: string[]): string[] {
     if (!out.includes(id)) out.push(id);
   }
   return out;
+}
+
+/** Inline variant groups plus distinct library refs whose group is a (live) variant - what a dish effectively carries. */
+function countEffectiveVariantGroups(
+  variantGroups: ReadonlyArray<unknown> | undefined,
+  optionGroupRefs: ReadonlyArray<string> | undefined,
+  optionGroups: ReadonlyMap<string, ShopOptionGroup>,
+): number {
+  let n = variantGroups?.length ?? 0;
+  for (const id of new Set(optionGroupRefs ?? [])) {
+    const group = optionGroups.get(id);
+    if (group && !group.isDeleted && group.kind === 'variant') n++;
+  }
+  return n;
 }
 
 function validateIdList(
@@ -137,6 +154,7 @@ export function validateMenuFields(
     dietaryTagIds?: string[];
     variantGroups?: ProductVariantGroup[];
     addonGroups?: ProductAddonGroup[];
+    optionGroupRefs?: string[];
   } | null,
   optionGroups: ReadonlyMap<string, ShopOptionGroup> = new Map(),
 ): ValidMenuFields | { error: string } {
@@ -256,6 +274,15 @@ export function validateMenuFields(
     out.allergenIds ?? existing?.allergenIds ?? [],
   );
   if (conflict) return { error: conflict };
+
+  // At most one variant group going forward; dishes that already carry 2+ stay editable as long as they don't gain more.
+  const newCount = countEffectiveVariantGroups(
+    out.variantGroups ?? existing?.variantGroups ?? [],
+    out.optionGroupRefs ?? existing?.optionGroupRefs ?? [],
+    optionGroups,
+  );
+  const existingCount = countEffectiveVariantGroups(existing?.variantGroups ?? [], existing?.optionGroupRefs ?? [], optionGroups);
+  if (newCount > 1 && newCount > existingCount) return { error: TOO_MANY_VARIANT_GROUPS_ERROR };
 
   return out;
 }

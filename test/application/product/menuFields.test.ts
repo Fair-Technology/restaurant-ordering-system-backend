@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { validateMenuFields, OPTION_ALLERGENS_ERROR, OPTION_ADDITIVES_ERROR, OPTION_PRICE_DELTA_ERROR } from '../../../src/application/product/menuFields';
+import { validateMenuFields, TOO_MANY_VARIANT_GROUPS_ERROR, OPTION_ALLERGENS_ERROR, OPTION_ADDITIVES_ERROR, OPTION_PRICE_DELTA_ERROR } from '../../../src/application/product/menuFields';
 import { SHOP_OPTION_GROUP_SELECTION_ERROR, SHOP_OPTION_GROUP_MAX_SELECTABLE_ERROR } from '../../../src/domain/optionGroup/ShopOptionGroup';
 import { DE_REFERENCE_LISTS } from '../../../src/domain/reference/ReferenceLists';
 
@@ -7,13 +7,71 @@ import { DELIVERY_TAX_CLASS_FOR_DISHES_ERROR, UNAVAILABLE_MODES_ERROR } from '..
 
 const refs = DE_REFERENCE_LISTS;
 
-const libGroup = (id: string, isDeleted = false) =>
-  ({ id, shopId: 's', kind: 'variant', name: 'G', minSelectable: 1, maxSelectable: 1, options: [], isDeleted, createdAt: 'x', updatedAt: 'x' }) as any;
-const library = new Map([['g1', libGroup('g1')], ['g2', libGroup('g2')], ['gx', libGroup('gx', true)]]);
+const libGroup = (id: string, isDeleted = false, kind: 'variant' | 'addon' = 'variant') =>
+  ({ id, shopId: 's', kind, name: 'G', minSelectable: 1, maxSelectable: 1, options: [], isDeleted, createdAt: 'x', updatedAt: 'x' }) as any;
+const library = new Map([
+  ['g1', libGroup('g1')],
+  ['g2', libGroup('g2')],
+  ['g3', libGroup('g3')],
+  ['gx', libGroup('gx', true)],
+  ['a1', libGroup('a1', false, 'addon')],
+  ['a2', libGroup('a2', false, 'addon')],
+  ['a3', libGroup('a3', false, 'addon')],
+]);
+const inlineVariant = (id: string) => ({ id, name: id, options: [{ id: `${id}-o`, name: 'O', priceDelta: 0, isAvailable: true }] });
+
+describe('validateMenuFields variant group limit', () => {
+  it('rejects a create with two inline variant groups', () => {
+    expect(validateMenuFields({ variantGroups: [inlineVariant('v1'), inlineVariant('v2')] }, refs, null, library)).toEqual({
+      error: TOO_MANY_VARIANT_GROUPS_ERROR,
+    });
+  });
+  it('rejects a create with one inline variant group plus a variant ref', () => {
+    expect(validateMenuFields({ variantGroups: [inlineVariant('v1')], optionGroupRefs: ['g1'] }, refs, null, library)).toEqual({
+      error: TOO_MANY_VARIANT_GROUPS_ERROR,
+    });
+  });
+  it('rejects attaching a variant ref when the dish already has an inline variant group', () => {
+    const existing = { variantGroups: [inlineVariant('v1')] as any };
+    expect(validateMenuFields({ optionGroupRefs: ['g1'] }, refs, existing, library)).toEqual({ error: TOO_MANY_VARIANT_GROUPS_ERROR });
+  });
+  it('does not double-count a duplicated variant ref', () => {
+    expect(validateMenuFields({ optionGroupRefs: ['g1', 'g1'] }, refs, null, library)).toEqual({ optionGroupRefs: ['g1'] });
+  });
+
+  describe('legacy dish already carrying two variant groups', () => {
+    const legacy = { optionGroupRefs: ['g1', 'g2'] };
+    it('allows saving an unrelated field', () => {
+      expect(validateMenuFields({ prepMinutes: 10 }, refs, legacy, library)).toEqual({ prepMinutes: 10 });
+    });
+    it('allows re-sending the same two refs', () => {
+      expect(validateMenuFields({ optionGroupRefs: ['g1', 'g2'] }, refs, legacy, library)).toEqual({ optionGroupRefs: ['g1', 'g2'] });
+    });
+    it('allows reducing to one', () => {
+      expect(validateMenuFields({ optionGroupRefs: ['g1'] }, refs, legacy, library)).toEqual({ optionGroupRefs: ['g1'] });
+    });
+    it('rejects adding a third', () => {
+      expect(validateMenuFields({ optionGroupRefs: ['g1', 'g2', 'g3'] }, refs, legacy, library)).toEqual({
+        error: TOO_MANY_VARIANT_GROUPS_ERROR,
+      });
+    });
+    it('works for one inline plus one ref', () => {
+      const mixed = { variantGroups: [inlineVariant('v1')] as any, optionGroupRefs: ['g1'] };
+      expect(validateMenuFields({ prepMinutes: 5 }, refs, mixed, library)).toEqual({ prepMinutes: 5 });
+    });
+  });
+
+  it('never counts addon-kind refs toward the limit', () => {
+    const existing = { variantGroups: [inlineVariant('v1')] as any };
+    expect(validateMenuFields({ optionGroupRefs: ['a1', 'a2', 'a3'] }, refs, existing, library)).toEqual({
+      optionGroupRefs: ['a1', 'a2', 'a3'],
+    });
+  });
+});
 
 describe('validateMenuFields optionGroupRefs', () => {
   it('accepts and dedupes valid refs', () => {
-    expect(validateMenuFields({ optionGroupRefs: ['g1', 'g2', 'g1'] }, refs, null, library)).toEqual({ optionGroupRefs: ['g1', 'g2'] });
+    expect(validateMenuFields({ optionGroupRefs: ['g1', 'a1', 'g1'] }, refs, null, library)).toEqual({ optionGroupRefs: ['g1', 'a1'] });
   });
   it('leaves refs absent when not sent', () => {
     expect(validateMenuFields({}, refs, null, library)).toEqual({});

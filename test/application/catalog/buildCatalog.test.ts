@@ -232,4 +232,17 @@ describe('buildCatalog combos', () => {
     expect(labelOf(unlabelled, 'en')).toBeNull();
     expect(labelOf(withLabel({ ...window }), 'de')).toBeNull();
   });
+
+  it("lists a dish's extras in the order its addonGroups are given", () => {
+    const addon = (id: string) => ({
+      id,
+      name: id,
+      minSelectable: 0,
+      maxSelectable: 1,
+      options: [{ id: `${id}-o`, name: 'O', priceDelta: 0, isAvailable: true }],
+    });
+    const ordered: Product = { ...p1, addonGroups: [addon('g-zz'), addon('g-aa'), addon('g-mm')] };
+    const dto = buildCatalog({ shop, categories: [category], products: [ordered], refs: DE_REFERENCE_LISTS, lang: 'en', now });
+    expect(dto.categories[0].products[0].addons.map((a) => a.id)).toEqual(['g-zz', 'g-aa', 'g-mm']);
+  });
 });

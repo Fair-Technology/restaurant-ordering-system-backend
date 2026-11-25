@@ -547,16 +547,27 @@ language's button while that language's description is empty.
    Then dietary tags (a plain chip row) and spiciness (a single-select control: "Not
    spicy" is the unset state, `spiceLevel: null`, followed by the levels from the
    reference list). Every label, in both languages, comes from the reference data.
-3. **Options and extras.** One card per option group attached to the dish, in the
-   dish's own order: group name, a badge ("Required · choose 1" for variants; for extras
-   "Optional · up to N" or "Required · choose …" from the group's own minimum and
-   maximum), the kind (Variants / Addons), its options with their price deltas, and
-   "Edit group" and "Remove from dish". Groups are shared: editing one opens the
-   library group editor and changes every dish that uses it; "Remove from dish" only
-   detaches the reference. "+ Attach existing group" lists the library groups not yet
-   attached; "Create new group" creates one in the library and attaches it. A dish that
-   still carries groups saved on the dish itself (from before the library) shows them
-   under "Only on this dish" and they stay editable there.
+3. **Options and extras.** Two sections, **Variant** and **Extras**. Each group is
+   shown as a card: group name, a badge ("Required · choose 1" for the variant; for
+   extras "Optional · up to N" or "Required · choose …" from the group's own minimum and
+   maximum), its options with their price deltas, and "Edit group". Groups are shared:
+   editing one opens the library group editor and changes every dish that uses it.
+   - *Variant* is a single slot holding at most one group; it is empty when none is
+     attached. An empty slot offers "+ Attach existing group" (lists the library
+     variant groups) and "Create new group" (creates one in the library and attaches
+     it). Once filled, the action becomes **Replace**, which swaps the one variant
+     group for a different library group; it never adds a second.
+   - *Extras* holds any number of groups, drag-to-reorder: the order shown is the
+     order customers see them in. It offers "+ Attach existing group" (library extras
+     groups not yet attached), "Create new group" and, on each card, "Remove from
+     dish", which only detaches the reference.
+   - A dish that still carries groups saved on the dish itself (from before the
+     library) shows them under "Only on this dish" and they stay editable there.
+   - A legacy dish that already carries two or more variant groups shows the first one
+     (the one the storefront uses) normally in the Variant slot. Any further ones
+     appear in a read-only list marked **"Not shown to customers"**. They stay until
+     the admin removes them (grandfathered), but no variant group can be attached
+     while two or more already exist.
 4. **Availability.** Switches for Collection, Delivery and Dine in (a switch is on
    when the way of ordering is *not* in the dish's `unavailableModes`), the
    Age-restricted (18+) switch (`ageRestricted`), and Preparation time in minutes
@@ -571,8 +582,10 @@ language's button while that language's description is empty.
 - *Food info* — "Complete" only when allergens **and** additives are each confirmed
   (something selected, or the "none" checkbox ticked); otherwise, in orange,
   "Confirm allergens".
-- *Options and extras* — "<n> groups" (grey), n = the number of attached option
-  groups (library groups plus any groups saved on the dish itself).
+- *Options and extras* — "<v> variant · <e> extras" (grey), v = 0 or 1 (whether a
+  variant group is in the Variant slot) and e = the number of extras groups, e.g.
+  "1 variant · 3 extras" or "0 variant · 2 extras". Groups saved on the dish itself
+  count in the same way.
 - *Availability* — "On the menu" (grey) or "Hidden from the menu" (orange),
   mirroring the header switch.
 
@@ -668,6 +681,14 @@ reflects what the order required when it was placed.
 
 ### Sizes and extras
 
+A dish has **at most one** size (variant group): the storefront only ever shows the
+first, and the cart and the order line each hold a single size choice. Extras
+(add-on groups) are unlimited in number. A dish saved before this rule with two or
+more variant groups keeps the extra ones; nothing is silently deleted or migrated.
+Only a save that *adds* another variant group where one already exists (inline or by
+attaching a library group) is rejected, with `INVALID_INPUT`; a save that leaves the
+count the same or reduces it still succeeds.
+
 - **Sizes** (variant groups): named options each with a price difference
   (26cm +€0, 32cm +€3.50) and its own availability.
 - **Extras** (add-on groups): one or more groups ("Choose a base", "Toppings"),
@@ -690,7 +711,10 @@ read that matters (storefront catalog, quote and checkout pricing) the reference
 groups are materialised alongside the dish's own inline groups, so everything
 downstream is unchanged, and an option switched off in the library ("out of
 Coke") disappears from every dish that uses it. Unknown or deleted refs are
-skipped on read. Inline variant/add-on groups remain supported.
+skipped on read. Inline variant/add-on groups remain supported. Extras reach the
+storefront catalog, the quote and checkout in the order the admin set them on the
+dish, that is the order of the dish's own `optionGroupRefs` array, not any other
+ordering (alphabetical, creation date, etc.).
 
 The admin library page filters the groups by kind with **All / Variants /
 Extras** tabs. The Variants and Extras tabs show their group counts, and the
