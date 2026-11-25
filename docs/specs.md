@@ -2377,6 +2377,21 @@ house between businesses.
   least €0.50 always charged. On the invoice each dish keeps its menu price and
   the discount is one "Rabatt CODE" line per VAT rate. *Built 8d (2026-10-09).*
   Offer prices (a dish's lunch price) were fixed separately on 2026-10-08.
+- **Discounts page UI (admin → Shop → Discounts), redesigned 2026-11-26 in the
+  Settings design language:** one card for codes, one for loyalty, both in a
+  720px column. The codes card lists each code with its value, validity,
+  minimum order, usage ("N of M used"), a status chip (Active / Switched off /
+  Not started / Expired / Used up) and an on/off switch — no edit button, codes
+  stay immutable once created. "New code" opens an inline form (not a dialog)
+  with the existing fields and limits (percentage/fixed-amount pills, optional
+  minimum order, dates, total limit, per-customer limit default 1); the button
+  disables with a reason once the shop has 50 codes. An empty shop shows a
+  tinted empty-state note with a "New code" button. The loyalty card carries
+  its on/off switch in the card header, shows a one-line status ("On, earns €X
+  every N orders." / "Off."), hides its fields (with an explanatory line) while
+  off, and always shows the consent note that a voucher email is advertising
+  and only goes out to diners who ticked the unticked checkout box. No change
+  to any validation, limit, or API behaviour — layout and copy only.
 - **Loyalty as emailed single-use vouchers.** No balance, no account: the
   restaurant sets a rule ("every 5th order earns €5 off"), the platform counts
   accepted orders against the customer's email, and when they qualify it emails
