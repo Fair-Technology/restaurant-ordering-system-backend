@@ -481,8 +481,8 @@ photo, dietary and spice tags, sizes, extras, availability window, preparation
 time, per-mode availability, sort order. **The dish owns its own tax class**; a
 category's class is only the suggestion for a new dish (§2).
 
-The existing admin app has a multi-step product wizard; keep it — essentials on
-step one so a simple dish is four fields and a save.
+Adding a dish uses the Add dish screen (below), the same screen as editing with a
+required-items checklist; the old five-step wizard is gone.
 
 The dish editor has no live preview: there is no embedded storefront and no
 side-by-side preview of how a dish will look to customers while it is being edited.
@@ -508,8 +508,8 @@ The panel that opens from Admin → Dishes is one screen with a 72 px header, a
 236 px section nav on the left, a scrolling main column (max 720 px) holding the
 active section, and a 72 px footer. It is built as one shared dish-form component
 (`mode: edit | add`) so the Add dish screen can reuse the same header, nav, sections
-and footer; Add additionally gets a "Start from a similar dish" box above Basics.
-The multi-step wizard stays for Add dish until that replacement lands.
+and footer; Add additionally gets a "Start from a similar dish" box above Basics
+(see "The Add dish screen" below).
 
 **Header.** A round close button (44 px), the dish name in the shop's original
 language (truncated) as the title, and the subtitle "Edit dish · <categories>"
@@ -533,7 +533,10 @@ language's button while that language's description is empty.
    there is no single VAT figure, so only "Customers pay €X." is shown. In the
    second language, an empty description shows an orange border and "Missing
    translation"; the original text is displayed only as a grey placeholder and is never
-   copied into the field, so saving an empty translation saves it empty.
+   copied into the field, so saving an empty translation saves it empty. Beside the
+   counter, a **"Use the German text"** button (the original language's name) appears
+   while the extra-language description is empty: one click copies the original name
+   and description into that language's fields. It is on both Edit and Add.
 2. **Food info.** Allergens and additives, each a chip row with a status pill
    ("n selected", "None", or "Not confirmed") and a checkbox ("Contains none of the N
    allergens", "Contains no declarable additives"; N is the number of allergens in the
@@ -582,6 +585,56 @@ missing), then calls the existing dish update with every field above; a new phot
 uploaded after the update succeeds. A failed save leaves the panel open with the edits
 intact. Leaving the page, or closing the panel, with unsaved changes still asks for
 confirmation first.
+
+### The Add dish screen
+
+Admin → Dishes → **Add dish** (the `?addProduct=1` query parameter) opens the same
+1240 px right-hand drawer with the same shared dish form in `mode: add`. It differs
+from Edit in these ways; everything else (sections, labels, languages, option groups)
+is identical.
+
+**Header.** Close button, the German name typed so far (or "New dish") as the title,
+the subtitle "Add dish · not on the menu yet", and the language toggle, with English
+marked "optional". There is **no On the menu switch**: a new dish has nothing to
+toggle yet.
+
+**Required list and "N required left".** Six things are required before a dish goes on
+the menu: **Photo, German name, Price above 0, at least one Category, Allergens
+confirmed, Additives confirmed** ("none" counts as confirmed, as in Edit). Under the nav
+a "Before you add it" checklist shows the six rows (a round tick when done); each row is
+a button that jumps to its section. Add mode's nav status lines are: Basics "N required
+left" / "Complete"; Food info "Confirm allergens and additives" / "Complete"; Options
+"Optional" / "N groups"; Availability "Available everywhere" / "Customised". Description
+is **not** required when adding (it is in Edit). Labels carry "Required"/"optional"
+badges only in Add.
+
+The primary footer button is never disabled. While anything is open it reads "N required
+left"; clicking it shows the inline errors ("A photo is required.", "Enter a German
+name.", "Enter a price above €0.00.", "Choose at least one category.") and jumps to the
+first open section (Basics before Food info). With all six done it reads **Add to
+menu** and creates the dish (`createProduct`, then the photo upload; a failed upload
+keeps the dish and the next press retries only the photo).
+
+**Save as draft.** Disabled only while the German name is empty, never for any other
+reason. It creates the dish with whatever has been entered, always with
+`isAvailable: false`, so even a complete draft stays off the menu until "Add to menu".
+Later saves update that same dish rather than creating another. The footer reads
+"Draft · not on the menu yet", then "Draft saved" (green). Because the backend now accepts an empty
+description (t_9c6b1042), a name-only draft succeeds; a backend older than that change
+answers 400 "description is required".
+
+**Start from a similar dish.** An optional select of the shop's own dishes. Choosing one
+copies its **categories, tax class (the dish's effective class), option-group
+references and any dish-only variant/addon groups**, and says "Copied category, tax
+class and option groups from <dish>. Allergens and additives are not copied; please
+confirm them yourself." It deliberately **does not copy allergens, additives, dietary
+tags or the spice level**: those are declarations the owner must make for each dish.
+
+**After adding.** A green banner at the top of the content reads "<dish> was added to
+the menu." and the footer buttons become **View in menu** (closes the drawer back to the
+list) and **Add another dish** (clears the whole form and photo, back to Basics, stays
+open). Availability for a new dish reads "New dishes are available everywhere. Turn off
+any way of ordering that does not suit this dish."
 
 ### Age-restricted dishes
 
