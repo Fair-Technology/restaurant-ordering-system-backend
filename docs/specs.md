@@ -2117,9 +2117,17 @@ seed of this.
 - **Paused** — the owner temporarily stops new orders (overloaded kitchen,
   missing staff): Settings → Shop status → "Pause orders" switch, with an
   optional message for diners (`ordersPaused`, `ordersPausedMessage`). The menu
-  stays visible; a popup says orders are paused and appears on every page load;
-  checkout refuses with that message. Reaching the monthly order limit shows the
-  same paused popup.
+  stays visible; a popup says orders are paused and appears on every page load.
+  At checkout, a paused shop shows a calm notice card in place of the details
+  form, not a form error: "Ordering is paused", the owner's message or a generic
+  one, the resume time for a timed pause, a "Back to menu" action and "Call us"
+  when the shop has a phone. The diner's cart stays visible, but there is no
+  retry button and no Pay button while paused. This covers the price quote's own
+  `orderLimitReached` flag, a 409 `ORDERS_PAUSED` from quoting and the same
+  refusal when the diner presses Pay: one state, one card. Genuine checkout
+  failures (network, pricing unavailable, below minimum, invalid discount code)
+  are unchanged. Reaching the monthly order limit, and auto-pause, show the same
+  popup and card.
   - **How long** (2026-10-17): switching pause on asks 30 minutes / rest of
     today (ends 04:00 shop time) / until switched back. A timed pause ends on
     its own; while it runs, the diner popup adds "We take orders again from
@@ -2135,7 +2143,7 @@ seed of this.
     to the popup. There is no separate paused banner under the header; the badge
     and the popup are the only two signals. The owner's message and the timed
     pause's "we take orders again" time appear in the popup and the checkout
-    refusal, not in the badge. This is the same whether the owner paused, the
+    notice card, not in the badge. This is the same whether the owner paused, the
     monthly order limit was reached or auto-pause fired: all three set
     `ordersPaused` and get the same badge.
 - Closed outside opening hours keeps its own popup, shown once per visit.
