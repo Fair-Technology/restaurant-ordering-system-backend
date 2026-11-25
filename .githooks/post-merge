@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Runs after every successful merge/pull; prunes branches already merged into main.
+# Never fails the merge. Active via core.hooksPath=.githooks (already set in this repo).
+root=$(git rev-parse --show-toplevel) || exit 0
+[ -x "$root/scripts/cleanup-merged-branches.sh" ] && "$root/scripts/cleanup-merged-branches.sh" || true
+exit 0
