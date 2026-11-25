@@ -2068,13 +2068,18 @@ house between businesses.
   (2026-10-09).* Why: [[discount-codes-and-loyalty-vouchers]].
 - **Multi-location dashboard** for owners with several restaurants — the owner
   **Overview** after sign-in: today's takings and orders, waiting orders, and
-  each restaurant's month against its own limit. Owners only. *Built 8f.*
+  each restaurant's month against its own limit. Owners only. *Built 8f.* As of
+  2026-11-25 (Manish's decision) `/` no longer routes to this Overview — it
+  redirects to `/shops` (the shops list) — and the Overview page component is
+  left unrouted at `src/pages/DashboardPage.tsx` pending a separate decision on
+  deleting it.
 - **Owner's order app** — a phone-shaped page for managing orders: `/phone`,
   the board one column at a time, installable to the home screen, for anyone
   who sees orders. *Built 8f.*
 - **Naming: "Overview" vs "Dashboard" (decided 2026-11-23).** The account-level
-  `/` landing page keeps the label **"Overview"** (matches its "Welcome back"
-  greeting). The per-shop sidebar top item, which actually routes to
+  `/` is no longer an Overview landing page: it redirects to `/shops`. The
+  Overview page itself (still called "Overview" in its own UI, just unrouted) is
+  currently reachable nowhere. The per-shop sidebar top item, which actually routes to
   `/shops/:id/reports` and renders `ReportsPage.tsx`, is renamed from
   "Dashboard" to **"Reports"** so the label matches its own route/component
   instead of overlapping in meaning with the account-level Overview. i18n key
