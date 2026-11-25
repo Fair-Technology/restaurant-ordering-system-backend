@@ -2206,13 +2206,18 @@ house between businesses.
   (2026-10-09).* Why: [[discount-codes-and-loyalty-vouchers]].
 - **Multi-location dashboard** for owners with several restaurants — the owner
   **Overview** after sign-in: today's takings and orders, waiting orders, and
-  each restaurant's month against its own limit. Owners only. *Built 8f.*
+  each restaurant's month against its own limit. Owners only. *Built 8f.* As of
+  2026-11-25 (Manish's decision) `/` no longer routes to this Overview — it
+  redirects to `/shops` (the shops list) — and the Overview page component is
+  left unrouted at `src/pages/DashboardPage.tsx` pending a separate decision on
+  deleting it.
 - **Owner's order app** — a phone-shaped page for managing orders: `/phone`,
   the board one column at a time, installable to the home screen, for anyone
   who sees orders. *Built 8f.*
 - **Naming: "Overview" vs "Dashboard" (decided 2026-11-23).** The account-level
-  `/` landing page keeps the label **"Overview"** (matches its "Welcome back"
-  greeting). The per-shop sidebar top item, which actually routes to
+  `/` is no longer an Overview landing page: it redirects to `/shops`. The
+  Overview page itself (still called "Overview" in its own UI, just unrouted) is
+  currently reachable nowhere. The per-shop sidebar top item, which actually routes to
   `/shops/:id/reports` and renders `ReportsPage.tsx`, is renamed from
   "Dashboard" to **"Reports"** so the label matches its own route/component
   instead of overlapping in meaning with the account-level Overview. i18n key
@@ -2737,6 +2742,24 @@ bringing it back means undoing a decision something else depends on.
   shop names, instead of ids, in the activity log. (Since built, so no longer
   parked: the option-group library admin screens; translated offer labels; removing a
   logo once set — see §6.)
+- **Parked 2026-11-25 (Manish chose to stay with polling for now): instant
+  order updates over Azure Web PubSub in the admin.** Today the admin polls:
+  `order-queue` every 10 s on the Orders page and phone view, every 30 s from
+  the sidebar badge, and `order-limit` every 60 s on every shop page. The
+  backend half already exists (`publishToShop` sends `{type:'new-order'}` to the
+  shop's group; `GET /shops/{id}/realtime/negotiate` hands out a 60-minute
+  connection token; `main.bicep` provisions Web PubSub, Free in dev, Standard
+  S1 elsewhere), but on 2026-11-25 a search of `rs-admin/src` found nothing that
+  opens the connection, so the item-1 "open connection ... built" claim in §6
+  holds for the backend only. To pick it up: have the admin negotiate, open the
+  WebSocket, refetch the queue on `new-order`, fall back to polling when
+  negotiate returns `url: null`, and slow the poll to about 60 s while the
+  socket is healthy (keep the poll as a safety net). Cost: Standard S1 is a flat
+  fee, guessed at about 50 EUR a month and unconfirmed; polling for 20 shops was
+  guessed at about 10 EUR a month; break-even is around 100 shops. Worth doing
+  for speed more than for savings, and only needs the Standard unit once there
+  are real shops. Cheap polling trims to do first: skip the sidebar poll while
+  the Orders page is open, and stop the fixed `order-limit` timer.
 - **Dependency majors:** admin i18next 26 / react-i18next 17 /
   i18next-http-backend 4 are **adopted** (browser pass done, commit `83deaad`);
   the backend is on Stripe **23** (§20); Tailwind **4** is in use in all four
