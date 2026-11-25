@@ -594,6 +594,15 @@ It is **not transactional** across the dishes: two admins reordering at once is 
 a failure partway can leave a mixed order (no rollback; the owner just saves again). Audited as
 `category.dishOrder.update`.
 
+In the admin (`rs-admin`) Dishes list each dish row inside a category group has a drag handle; one drag
+reorders one category. There is no cross-category drag — moving a dish to another category is done in the dish
+editor. The new order shows at once and is saved with the endpoint above; if the save fails the list reverts
+and an error message is shown. Mouse, touch and keyboard dragging are supported.
+
+Reordering a filtered subset is ambiguous, so while a filter chip other than "All" or a search query is active
+the handles stay visible but greyed out, with a tooltip saying to clear the filter and search. The
+"uncategorized" group has no handle at all, since there is no category to order within.
+
 ### Availability
 
 - **Sold-out switch** per dish, and per size or extra option, with an optional
