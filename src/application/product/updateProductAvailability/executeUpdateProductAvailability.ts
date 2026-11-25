@@ -4,21 +4,18 @@ import {
   updateProduct as updateProductInRepo,
 } from '../../../infrastructure/cosmos/product/CosmosProductRepository';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
-import { isSoldOut } from '../../../domain/product/Product';
 import { authorizeShopAction, toAuditActor } from '../../_shared/shopAccess';
 import { diffFields, logAudit } from '../../_shared/auditHelpers';
 import { logServiceFailure } from '../../_shared/logServiceFailure';
 import { ApplicationResult } from '../../_shared/types';
 import { UpdateProductAvailabilityRequestDto, UpdateProductAvailabilityResultDto } from './dtos';
 
-/** Accepts a full ISO-8601 instant (date, time, optional seconds/fraction, Z or ±hh:mm offset). */
-const ISO_INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,3})?)?(Z|[+-]\d{2}:\d{2})$/;
-
 const nonEmpty = (value: unknown): value is string => typeof value === 'string' && value.trim() !== '';
 
 /**
- * Stock-only write path: switches a dish on/off and sets or clears its sold-out window, and nothing else.
- * Gated on `manage_stock` OR `manage_menu`, so a counter hand can mark a dish sold out without menu rights.
+ * Stock-only write path: switches a dish on or off (`isAvailable`), and nothing else.
+ * Gated on `manage_stock` OR `manage_menu`, so a counter hand can turn a dish off without menu rights.
+ * Any other key in the body (e.g. a retired field from an old client) is never read, so a stale client is not rejected.
  */
 export async function executeUpdateProductAvailability(
   request: UpdateProductAvailabilityRequestDto,
@@ -32,37 +29,16 @@ export async function executeUpdateProductAvailability(
   }
 
   const setsFlag = Object.prototype.hasOwnProperty.call(request, 'isAvailable') && request.isAvailable !== undefined;
-  const setsWindow =
-    Object.prototype.hasOwnProperty.call(request, 'unavailableUntil') && request.unavailableUntil !== undefined;
 
-  if (!setsFlag && !setsWindow) {
+  if (!setsFlag) {
     return {
       ok: false,
       code: 'INVALID_INPUT',
-      error: 'Send isAvailable and/or unavailableUntil',
+      error: 'Send isAvailable',
     };
   }
   if (setsFlag && typeof request.isAvailable !== 'boolean') {
     return { ok: false, code: 'INVALID_INPUT', error: 'isAvailable must be true or false' };
-  }
-
-  let unavailableUntil: string | null | undefined;
-  if (setsWindow) {
-    if (request.unavailableUntil === null) {
-      unavailableUntil = null;
-    } else if (typeof request.unavailableUntil === 'string' && ISO_INSTANT.test(request.unavailableUntil)) {
-      const at = Date.parse(request.unavailableUntil);
-      if (!Number.isFinite(at)) {
-        return { ok: false, code: 'INVALID_INPUT', error: 'unavailableUntil must be a valid ISO-8601 instant' };
-      }
-      unavailableUntil = new Date(at).toISOString();
-    } else {
-      return {
-        ok: false,
-        code: 'INVALID_INPUT',
-        error: 'unavailableUntil must be a valid ISO-8601 instant or null',
-      };
-    }
   }
 
   try {
@@ -94,8 +70,7 @@ export async function executeUpdateProductAvailability(
     const now = new Date();
     const updatedProduct = {
       ...product,
-      ...(setsFlag && { isAvailable: request.isAvailable }),
-      ...(setsWindow && { unavailableUntil }),
+      ...(typeof request.isAvailable === 'boolean' && { isAvailable: request.isAvailable }),
       updatedAt: now.toISOString(),
     };
 
@@ -104,7 +79,7 @@ export async function executeUpdateProductAvailability(
     const changes = diffFields(
       product as unknown as Record<string, unknown>,
       updatedProduct as unknown as Record<string, unknown>,
-      ['isAvailable', 'unavailableUntil'],
+      ['isAvailable'],
       [],
     );
     await logAudit({
@@ -123,8 +98,6 @@ export async function executeUpdateProductAvailability(
         id: result.id,
         shopId: result.shopId,
         isAvailable: result.isAvailable,
-        unavailableUntil: result.unavailableUntil ?? null,
-        soldOut: isSoldOut(result, now),
         updatedAt: result.updatedAt,
       },
     };

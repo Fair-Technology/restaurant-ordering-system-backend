@@ -605,30 +605,20 @@ the handles stay visible but greyed out, with a tooltip saying to clear the filt
 
 ### Availability
 
-- **Sold-out switch** per dish, and per size or extra option, with an optional
-  **`unavailableUntil`** window after which the dish returns by itself.
+- **Availability switch** per dish (on/off, permanent — there is no
+  sold-out-until-a-time concept), and independently per size or extra option.
   The switch is read through `GET /products/by-shop` and toggled through
   `PATCH /products/{productId}/availability`, which needs the `manage_stock` or
   `manage_menu` staff permission. The route was never imported in `src/index.ts`
   until 2026-11-25 (every PATCH returned a bare 404); `src/index.test.ts` now
   fails if any `src/functions/**/index.ts` is left unregistered.
-- **"Sold out today" control (admin Dishes list):** each dish row has one
-  button with two states.
-  - **Idle:** a quiet action control, "Mark sold out" / "Heute ausverkauft
-    melden", with a dashed ghost border. It is an affordance, not a status
-    badge: it does the marking, it does not report a status.
-  - **Active:** while `unavailableUntil` is in the future the row also shows a
-    separate solid red "Sold out today" badge, and the button becomes
-    "Back on sale" / "Wieder verfügbar", which sends `unavailableUntil: null`.
-  - **Window:** "Mark sold out" sends the end of the shop's current service day
-    in the shop's own time zone (local midnight), computed client-side, not a
-    fixed duration. The dish returns by itself once that instant passes.
-  - **Feedback:** success shows a short toast ("Marked sold out" / "Back on
-    sale", and the German equivalents). A failed PATCH shows the server's exact
-    error reason in a toast, the spinner always clears, and the row is usable
-    again at once. There is no optimistic state to revert: the button's state is
-    derived from the `unavailableUntil` last confirmed by the server, so a
-    failed write leaves it showing what it showed before.
+- **Removed 2026-11-25:** the dish-level sold-out-until-a-time control
+  (`unavailableUntil`, `isSoldOut`/`isAvailableNow`, the catalog `soldOut`
+  field, the admin "Sold out today" button). A dish's availability is now
+  decided by `isAvailable` alone; any `unavailableUntil` previously stored in
+  the database is no longer read. The availability PATCH route silently ignores
+  an `unavailableUntil` field in its body rather than rejecting it, so a stale
+  client does not start getting errors.
 - **Time-limited availability:** date range, days of week, daily time window
   (a lunch menu 11:00–15:00), with an optional offer price and label for that
   window. Already exists. **The offer price is now actually charged** — before
@@ -1301,7 +1291,7 @@ claim source. Solve at tenant setup; copyshop lost a debugging session to it.
 **Owner** (everything, including billing), **Manager** (menu, prices, orders,
 staff, refunds, and **reports by default** via "View reports and takings",
 which Manish can untick in superadmin — not billing), **Staff** (see and accept
-orders, mark ready, toggle sold-out, and **see full customer details on every
+orders, mark ready, turn dishes on/off, and **see full customer details on every
 order** — name, email, phone, notes, billing and delivery address, on
 collection, dine-in and delivery orders alike, so staff can call or hand off
 correctly; still no prices, never reports, no refunds). This was decided
@@ -2598,13 +2588,11 @@ bringing it back means undoing a decision something else depends on.
 - **Ideas parked on 2026-10-11 (Manish chose these for later):** an "add a
   drink?" upsell before checkout; menu search on the storefront (Ma Pasta has 50
   items); diet and allergen filters for diners; an "order again" that refills the
-  basket from the order's secret link; "sold out until tomorrow" from the order
-  board (the dish returns by itself next morning); "popular" badges from the
+  basket from the order's secret link; "popular" badges from the
   sales report; suggested translations on a two-language menu.
 - **Parked from the 2026-10-13 triage (real but someday):** resolving staff and
   shop names, instead of ids, in the activity log. (Since built, so no longer
-  parked: a dish `unavailableUntil` and its `manage_stock` availability window;
-  the option-group library admin screens; translated offer labels; removing a
+  parked: the option-group library admin screens; translated offer labels; removing a
   logo once set — see §6.)
 - **Dependency majors:** admin i18next 26 / react-i18next 17 /
   i18next-http-backend 4 are **adopted** (browser pass done, commit `83deaad`);

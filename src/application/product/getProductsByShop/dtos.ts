@@ -42,7 +42,6 @@ export interface ProductDto extends ProductMenuFieldsDto {
 
   // Availability & lifecycle
   isAvailable: boolean;
-  unavailableUntil: string | null;
   isDeleted: boolean;
 
   // Audit
