@@ -652,10 +652,25 @@ availability and delete each answer `NOT_FOUND` rather than silently editing or
 re-flagging it — while `findProductById` itself stays unfiltered so the combo
 and pricing paths can still tell a missing dish from a deleted one.
 
-### Menu content is typed by hand
+### Menu content is typed by hand, or bulk-imported from JSON
 
 No import from photos or competitor exports in v1; the model must not preclude
 one.
+
+The admin has one bulk path: Products page → "Import Products" → upload a JSON
+array of `{ name, description, price }`. `name` and `description` are strings
+(`description` may be empty); `price` is a plain number in the shop's major
+currency unit (`12.5`) and is converted to cents on create. Photos are never
+imported: any `image_url` is ignored and the photo is added afterwards in the
+dish editor.
+
+The modal offers a downloadable example file (`dishes-import-example.json`) so
+a user starts from a working template.
+
+Clicking the dimmed backdrop outside the dialog or pressing Escape closes the
+modal, same as the close button. Both are ignored while an import is running.
+On the preview step (parsed rows not yet imported) they ask for confirmation
+before discarding.
 
 ---
 
