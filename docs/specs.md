@@ -486,7 +486,7 @@ step one so a simple dish is four fields and a save.
 The dish editor has no live preview: there is no embedded storefront and no
 side-by-side preview of how a dish will look to customers while it is being edited.
 Clicking a dish opens the editor in a right-hand drawer that slides in over the dish
-list (65% of the window width, at least 560 px; full screen on phones); the list stays visible and in place behind it. The drawer closes via its X
+list (a 1240 px panel on desktop, narrower windows get the full width; full screen on phones); the list stays visible and in place behind it. The drawer closes via its X
 button, Escape, a click on the backdrop, clicking a different dish row (which instead
 swaps the drawer to that dish), or browser back. Every close path goes through the
 same unsaved-changes guard: if the editor has unsaved edits, closing prompts for
@@ -500,6 +500,87 @@ longer than a success toast and can be dismissed early. A failed save or delete 
 the drawer open with the user's edits intact so they can retry. The rs-admin test
 `src/components/ui/pendingControls.test.ts` enforces the spinner automatically: it fails
 if any source file calls a mutation without pending wiring.
+
+### The edit-dish screen
+
+The panel that opens from Admin → Dishes is one screen with a 72 px header, a
+236 px section nav on the left, a scrolling main column (max 720 px) holding the
+active section, and a 72 px footer. It is built as one shared dish-form component
+(`mode: edit | add`) so the Add dish screen can reuse the same header, nav, sections
+and footer; Add additionally gets a "Start from a similar dish" box above Basics.
+The multi-step wizard stays for Add dish until that replacement lands.
+
+**Header.** A round close button (44 px), the dish name in the shop's original
+language (truncated) as the title, and the subtitle "Edit dish · <categories>"
+("No category" when none is chosen). On the right: the **On the menu / Hidden**
+switch — this is the dish's existing `isAvailable` flag, and it is the only on/off
+control on the screen (there is no "mark sold out" control anywhere) — and, when the
+shop offers two menu languages, a language toggle. The toggle switches the Name and
+Description fields between the languages; a small orange dot sits on the second
+language's button while that language's description is empty.
+
+**The four sections.**
+
+1. **Basics.** Photo (176 px square, required, "Replace photo"), Name and
+   Description for the language selected in the header (labelled "Name (German)" etc.;
+   description capped at 160 characters with a live "n / 160" counter), Price and Tax
+   class, and the categories as removable chips with "+ Add category". Below the price a
+   line reads "Customers pay €X. That includes €Y VAT; net €Z.": X is the typed
+   gross price, the rate comes from the dish's *effective* tax class (its own class, else
+   the first chosen category's suggestion, §2), VAT is the portion extracted from the
+   gross price and net is gross minus VAT. When the rates differ per way of ordering
+   there is no single VAT figure, so only "Customers pay €X." is shown. In the
+   second language, an empty description shows an orange border and "Missing
+   translation"; the original text is displayed only as a grey placeholder and is never
+   copied into the field, so saving an empty translation saves it empty.
+2. **Food info.** Allergens and additives, each a chip row with a status pill
+   ("n selected", "None", or "Not confirmed") and a checkbox ("Contains none of the N
+   allergens", "Contains no declarable additives"; N is the number of allergens in the
+   shop's reference list, never a fixed number). `null` means not confirmed; the
+   checkbox is the affirmative `[]`. Picking any chip clears the checkbox, ticking the
+   checkbox clears all chips, and removing the last chip returns to `null`.
+   Then dietary tags (a plain chip row) and spiciness (a single-select control: "Not
+   spicy" is the unset state, `spiceLevel: null`, followed by the levels from the
+   reference list). Every label, in both languages, comes from the reference data.
+3. **Options and extras.** One card per option group attached to the dish, in the
+   dish's own order: group name, a badge ("Required · choose 1" for variants; for extras
+   "Optional · up to N" or "Required · choose …" from the group's own minimum and
+   maximum), the kind (Variants / Addons), its options with their price deltas, and
+   "Edit group" and "Remove from dish". Groups are shared: editing one opens the
+   library group editor and changes every dish that uses it; "Remove from dish" only
+   detaches the reference. "+ Attach existing group" lists the library groups not yet
+   attached; "Create new group" creates one in the library and attaches it. A dish that
+   still carries groups saved on the dish itself (from before the library) shows them
+   under "Only on this dish" and they stay editable there.
+4. **Availability.** Switches for Collection, Delivery and Dine in (a switch is on
+   when the way of ordering is *not* in the dish's `unavailableModes`), the
+   Age-restricted (18+) switch (`ageRestricted`), and Preparation time in minutes
+   (`prepMinutes`). Below them stay the schedule / special price and delete controls.
+
+**Section nav status lines.** Each nav item shows a label and a status line under it:
+
+- *Basics* — "Complete", or, in orange, "English description missing" (the second
+  menu language's name, e.g. "German description missing" in an English-original
+  shop) when that language's description is empty. A shop with one menu language is
+  always "Complete".
+- *Food info* — "Complete" only when allergens **and** additives are each confirmed
+  (something selected, or the "none" checkbox ticked); otherwise, in orange,
+  "Confirm allergens".
+- *Options and extras* — "<n> groups" (grey), n = the number of attached option
+  groups (library groups plus any groups saved on the dish itself).
+- *Availability* — "On the menu" (grey) or "Hidden from the menu" (orange),
+  mirroring the header switch.
+
+**Footer: Discard and Save changes.** The footer shows a status dot and text —
+"Unsaved changes" (orange) while the form differs from what was last saved or a new photo
+is waiting, "All changes saved" (green) otherwise. **Discard** and **Save changes** are
+both `disabled` (not merely faded) until there is an unsaved change. Discard reverts
+every field, and a pending photo, to the last-saved dish. Save changes first checks name,
+description, photo and at least one category (a failure jumps to Basics and says what is
+missing), then calls the existing dish update with every field above; a new photo is
+uploaded after the update succeeds. A failed save leaves the panel open with the edits
+intact. Leaving the page, or closing the panel, with unsaved changes still asks for
+confirmation first.
 
 ### Age-restricted dishes
 
