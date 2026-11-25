@@ -2130,6 +2130,14 @@ seed of this.
     pause resets the count. N is per shop, set only by the superadmin (Shops
     list → "Auto-pause"): off or 1–10, default 3.
     Decision: [[pause-durations-and-auto-pause]].
+  - **Storefront signal:** while orders are paused the header shows a red
+    "Ordering paused" badge in place of the open/closed status pill, in addition
+    to the popup. There is no separate paused banner under the header; the badge
+    and the popup are the only two signals. The owner's message and the timed
+    pause's "we take orders again" time appear in the popup and the checkout
+    refusal, not in the badge. This is the same whether the owner paused, the
+    monthly order limit was reached or auto-pause fired: all three set
+    `ordersPaused` and get the same badge.
 - Closed outside opening hours keeps its own popup, shown once per visit.
 - The pause switch is on the Settings page **and** in the sidebar (Manish,
   2026-10-13); both ask for the duration. The online switch is on Settings and
