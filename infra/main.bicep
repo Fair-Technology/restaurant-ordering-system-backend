@@ -184,15 +184,29 @@ resource blobService 'Microsoft.Storage/storageAccounts/blobServices@2023-05-01'
     deleteRetentionPolicy: { enabled: blobSoftDeleteDays > 0, days: max(blobSoftDeleteDays, 1) }
     containerDeleteRetentionPolicy: { enabled: blobSoftDeleteDays > 0, days: max(blobSoftDeleteDays, 1) }
     cors: {
-      corsRules: [
+      corsRules: concat([
         {
-          allowedOrigins: [for (app, i) in staticApps: 'https://${staticSites[i].properties.defaultHostname}']
+          allowedOrigins: [
+            'https://${staticSites[indexOf(staticApps, 'storefront')].properties.defaultHostname}'
+            'https://${staticSites[indexOf(staticApps, 'admin')].properties.defaultHostname}'
+            'https://${staticSites[indexOf(staticApps, 'superadmin')].properties.defaultHostname}'
+          ]
           allowedMethods: [ 'GET', 'HEAD', 'PUT', 'OPTIONS' ]
           allowedHeaders: [ '*' ]
           exposedHeaders: [ '*' ]
           maxAgeInSeconds: 3600
         }
-      ]
+      ], env == 'dev' ? [
+        // Local admin/superadmin dev (Vite, port 5173) uploads via SAS straight to blob storage. Dev only, never prod/test.
+        // This rule already exists in the live dev account (added by hand); this brings the template back in sync with it.
+        {
+          allowedOrigins: [ 'http://localhost:5173' ]
+          allowedMethods: [ 'GET', 'HEAD', 'PUT', 'OPTIONS' ]
+          allowedHeaders: [ '*' ]
+          exposedHeaders: [ '*' ]
+          maxAgeInSeconds: 3600
+        }
+      ] : [])
     }
   }
 }
