@@ -527,7 +527,12 @@ reflects what the order required when it was placed.
   (26cm +€0, 32cm +€3.50) and its own availability.
 - **Extras** (add-on groups): one or more groups ("Choose a base", "Toppings"),
   each with a minimum and maximum number of picks, options with price
-  differences and their own availability.
+  differences and their own availability. An extra can also carry an optional
+**category** (text, up to 40 characters: "Cheese", "Protein"). The storefront
+groups the extras on a dish under these headings, in the order they first
+appear, and puts extras without one under the add-on group's own name. It is
+plain text, not translated per language. Set it in the dish editor or the
+option-group library; it flows through library groups unchanged.
 
 These already exist in the code and are the one thing that cannot be bolted on
 later, because every historic order references them.

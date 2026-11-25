@@ -10,6 +10,7 @@ function toProductOption(o: ShopOptionGroupOption): ProductOption {
     isAvailable: o.isAvailable,
     allergenIds: o.allergenIds,
     additiveIds: o.additiveIds,
+    category: o.category,
   };
 }
 

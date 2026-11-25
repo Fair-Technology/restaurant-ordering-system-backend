@@ -8,6 +8,8 @@ export interface CatalogOptionDto {
   isAvailable: boolean;
   allergens: CatalogLabelDto[];
   additives: CatalogAdditiveDto[];
+  /** Heading the storefront groups this extra under; null = ungrouped. */
+  category: string | null;
 }
 
 export interface CatalogVariantGroupDto {

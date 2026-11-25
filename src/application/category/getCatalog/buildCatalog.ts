@@ -106,6 +106,7 @@ export function buildCatalog(input: {
     isAvailable: o.isAvailable,
     allergens: allergenLabel(o.allergenIds ?? []),
     additives: additiveLabel(o.additiveIds ?? []),
+    category: o.category ?? null,
   });
 
   const categoryDtos: CatalogCategoryDto[] = shownCategories

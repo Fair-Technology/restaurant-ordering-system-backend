@@ -14,6 +14,8 @@ export interface ShopOptionGroupOption {
   isAvailable: boolean; // the one "out of Coke" switch
   allergenIds?: string[];
   additiveIds?: string[];
+  /** Optional heading the storefront groups extras under ("Cheese", "Protein"); absent = ungrouped. */
+  category?: string;
 }
 
 export interface ShopOptionGroup {
@@ -46,6 +48,9 @@ export const SHOP_OPTION_GROUP_DUPLICATE_OPTION_ID_ERROR = 'option ids must be u
 export const SHOP_OPTION_GROUP_OPTION_AVAILABILITY_ERROR = 'isAvailable must be true or false';
 export const SHOP_OPTION_GROUP_OPTION_ALLERGENS_ERROR = "Each option's allergenIds must be a list of allergen ids";
 export const SHOP_OPTION_GROUP_OPTION_ADDITIVES_ERROR = "Each option's additiveIds must be a list of additive ids";
+
+export const OPTION_CATEGORY_MAX = 40;
+export const OPTION_CATEGORY_ERROR = "Each option's category must be text of 1 to 40 characters, or empty";
 
 const NAME_MAX = 60;
 const TRANSLATION_MAX = 120;
@@ -100,6 +105,22 @@ function referenceIdList(
     if (!out.includes(id)) out.push(id);
   }
   return out;
+}
+
+/**
+ * An option's category as stored: undefined (not sent) keeps `previous`, null or blank clears it,
+ * otherwise the trimmed text of 1..40 characters. Returns an error object for anything else.
+ */
+export function resolveOptionCategory(
+  value: unknown,
+  previous: string | undefined,
+): string | undefined | { error: string } {
+  if (value === undefined) return previous;
+  if (value === null) return undefined;
+  if (typeof value !== 'string') return { error: OPTION_CATEGORY_ERROR };
+  const trimmed = value.trim();
+  if (trimmed === '') return undefined;
+  return trimmed.length <= OPTION_CATEGORY_MAX ? trimmed : { error: OPTION_CATEGORY_ERROR };
 }
 
 /** True when `value` is a whole number of cents in 0..100000 — the shape every priceDelta must have. */
@@ -185,6 +206,9 @@ export function validateShopOptionGroupFields(
     );
     if (!Array.isArray(additiveIds)) return additiveIds;
 
+    const category = resolveOptionCategory(o.category, prev?.category);
+    if (typeof category === 'object') return category;
+
     options.push({
       id,
       name: optionName,
@@ -193,6 +217,7 @@ export function validateShopOptionGroupFields(
       isAvailable,
       allergenIds,
       additiveIds,
+      ...(category !== undefined ? { category } : {}),
     });
   }
 
