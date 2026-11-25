@@ -638,6 +638,21 @@ other declared types is a product decision, not made. **The logo** (built
 orientation and metadata drop, but is never cropped: it is shrunk to fit inside
 640 x 96 px (2x its §16 display box), never upscaled, with no minimum size.
 
+**Uploads go browser → blob storage directly.** Dish photos, shop logos and shop
+cover images are uploaded straight from the browser to Azure Blob Storage with a
+short-lived SAS link the backend generates; the backend never proxies the image
+bytes. Two things follow, and a missing one blocks uploads in the browser:
+
+1. The storage account's CORS rules must list every front-end origin that
+   uploads: the three deployed static apps, plus `http://localhost:5173` in
+   **dev only** (declared in `infra/main.bicep`, `env == 'dev'`). Production has
+   no localhost origin in storage CORS, ever.
+2. Every uploading front-end's CSP `connect-src` must include the storage blob
+   host (`https://*.blob.core.windows.net`).
+
+Local admin/superadmin dev must therefore run on port **5173** (Vite
+`strictPort`), the only local origin allowlisted for direct blob uploads.
+
 ### Where a dish lives
 
 A product belongs to exactly one shop — never to a user — and carries its own
