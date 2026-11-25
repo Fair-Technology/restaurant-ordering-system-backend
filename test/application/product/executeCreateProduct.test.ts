@@ -64,6 +64,23 @@ describe('executeCreateProduct menu fields', () => {
     expect('taxRateId' in result.data).toBe(false);
   });
 
+  it('creates a name-only draft with an empty description', async () => {
+    const { description: _omit, ...noDescription } = base;
+    const result = await executeCreateProduct(noDescription as any, {} as any);
+
+    expect(result.ok).toBe(true);
+    expect(createProduct).toHaveBeenCalledWith(expect.objectContaining({ description: '' }));
+    if (result.ok) expect(result.data.description).toBe('');
+  });
+
+  it('rejects a non-string description', async () => {
+    const result = await executeCreateProduct({ ...base, description: 123 } as any, {} as any);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.code).toBe('INVALID_INPUT');
+    expect(createProduct).not.toHaveBeenCalled();
+  });
+
   it('leaves a new dish undeclared without a declaration', async () => {
     const result = await executeCreateProduct(base as any, {} as any);
 

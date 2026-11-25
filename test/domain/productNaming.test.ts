@@ -12,11 +12,11 @@ describe('isValidProductName', () => {
 });
 
 describe('isValidProductDescription', () => {
-  it.each(['Folded', '  '])('accepts %j', (value) => {
+  it.each(['Folded', '  ', '', undefined])('accepts %j', (value) => {
     expect(isValidProductDescription(value)).toBe(true);
   });
 
-  it.each(['', 123, null])('rejects %s', (value) => {
+  it.each([123, null, {}])('rejects %j', (value) => {
     expect(isValidProductDescription(value)).toBe(false);
   });
 });

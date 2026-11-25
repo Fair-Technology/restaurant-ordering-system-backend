@@ -474,8 +474,9 @@ built (§22).
 
 ### What a dish carries
 
-**Required:** name and description (per offered language, §12), price, one or
-more categories, allergens, additives, and an available flag. **Optional:**
+**Required:** name (per offered language, §12), price, one or more categories,
+allergens, additives, and an available flag. **Optional:** description (defaults
+to empty, so a dish can be created as a name-only draft and filled in later),
 photo, dietary and spice tags, sizes, extras, availability window, preparation
 time, per-mode availability, sort order. **The dish owns its own tax class**; a
 category's class is only the suggestion for a new dish (§2).

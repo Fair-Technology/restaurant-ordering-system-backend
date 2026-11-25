@@ -7,7 +7,7 @@ import { ProductMenuFieldsDto } from '../menuFieldsDto';
 export interface CreateProductRequestDto {
   shopId: string;
   name: string;
-  description: string;
+  description?: string;
   price: number;
   categoryIds?: string[];
   images?: ProductImage[];
