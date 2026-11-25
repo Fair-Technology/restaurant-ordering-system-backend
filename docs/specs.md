@@ -486,7 +486,7 @@ step one so a simple dish is four fields and a save.
 The dish editor has no live preview: there is no embedded storefront and no
 side-by-side preview of how a dish will look to customers while it is being edited.
 Clicking a dish opens the editor in a right-hand drawer that slides in over the dish
-list; the list stays visible and in place behind it. The drawer closes via its X
+list (65% of the window width, at least 560 px; full screen on phones); the list stays visible and in place behind it. The drawer closes via its X
 button, Escape, a click on the backdrop, clicking a different dish row (which instead
 swaps the drawer to that dish), or browser back. Every close path goes through the
 same unsaved-changes guard: if the editor has unsaved edits, closing prompts for
