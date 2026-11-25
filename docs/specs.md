@@ -492,11 +492,14 @@ swaps the drawer to that dish), or browser back. Every close path goes through t
 same unsaved-changes guard: if the editor has unsaved edits, closing prompts for
 confirmation instead of discarding them silently.
 
-Every API call the editor makes gives feedback: its trigger shows a spinner and is
+Every API call any rs-admin control makes (editor, orders, lists, toggles, drag-and-drop
+saves, uploads, downloads, sign-out) gives feedback: its trigger shows a spinner and is
 disabled while the call is in flight, a success shows a specific toast, and a failure
 shows the server's own error message (not a generic string) in a toast that stays up
 longer than a success toast and can be dismissed early. A failed save or delete leaves
-the drawer open with the user's edits intact so they can retry.
+the drawer open with the user's edits intact so they can retry. The rs-admin test
+`src/components/ui/pendingControls.test.ts` enforces the spinner automatically: it fails
+if any source file calls a mutation without pending wiring.
 
 ### Age-restricted dishes
 
