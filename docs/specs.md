@@ -523,7 +523,7 @@ language's button while that language's description is empty.
 
 **The four sections.**
 
-1. **Basics.** Photo (176 px square, required, "Replace photo"), Name and
+1. **Basics.** Photo (176 px square, optional, "Replace photo"; the dish can only be on the menu with one, see "Photo rule" below), Name and
    Description for the language selected in the header (labelled "Name (German)" etc.;
    description capped at 160 characters with a live "n / 160" counter), Price and Tax
    class, and the categories as removable chips with "+ Add category". Below the price a
@@ -594,8 +594,8 @@ language's button while that language's description is empty.
 is waiting, "All changes saved" (green) otherwise. **Discard** and **Save changes** are
 both `disabled` (not merely faded) until there is an unsaved change. Discard reverts
 every field, and a pending photo, to the last-saved dish. Save changes first checks name,
-description, photo and at least one category (a failure jumps to Basics and says what is
-missing), then calls the existing dish update with every field above; a new photo is
+description and at least one category (a failure jumps to Basics and says what is
+missing; a missing photo is not one, it never blocks a save), then calls the existing dish update with every field above; a new photo is
 uploaded after the update succeeds. A failed save leaves the panel open with the edits
 intact. Leaving the page, or closing the panel, with unsaved changes still asks for
 confirmation first.
@@ -612,10 +612,12 @@ the subtitle "Add dish · not on the menu yet", and the language toggle, with En
 marked "optional". There is **no On the menu switch**: a new dish has nothing to
 toggle yet.
 
-**Required list and "N required left".** Six things are required before a dish goes on
-the menu: **Photo, German name, Price above 0, at least one Category, Allergens
-confirmed, Additives confirmed** ("none" counts as confirmed, as in Edit). Under the nav
-a "Before you add it" checklist shows the six rows (a round tick when done); each row is
+**Required list and "N required left".** Five things are required before a dish goes on
+the menu: **German name, Price above 0, at least one Category, Allergens
+confirmed, Additives confirmed** ("none" counts as confirmed, as in Edit). The **photo is
+optional** (changed 2026-11-26): a dish can be added and saved without one, but is created
+**off** and can only be turned on once it has a photo (Photo rule below). Under the nav
+a "Before you add it" checklist shows the five rows (a round tick when done); each row is
 a button that jumps to its section. Add mode's nav status lines are: Basics "N required
 left" / "Complete"; Food info "Confirm allergens and additives" / "Complete"; Options
 "Optional" / "N groups"; Availability "Available everywhere" / "Customised". Description
@@ -623,9 +625,9 @@ is **not** required when adding (it is in Edit). Labels carry "Required"/"option
 badges only in Add.
 
 The primary footer button is never disabled. While anything is open it reads "N required
-left"; clicking it shows the inline errors ("A photo is required.", "Enter a German
+left"; clicking it shows the inline errors ("Enter a German
 name.", "Enter a price above €0.00.", "Choose at least one category.") and jumps to the
-first open section (Basics before Food info). With all six done it reads **Add to
+first open section (Basics before Food info). With all five done it reads **Add to
 menu** and creates the dish (`createProduct`, then the photo upload; a failed upload
 keeps the dish and the next press retries only the photo).
 
@@ -826,8 +828,8 @@ computed from the components (§2).
 - **An item refund always takes the whole combo** (§7).
 - A combo vanishes from the menu when any choice has nothing orderable left.
   Its allergens are the union of every dish it offers.
-- **A combo has one photo** (4:3, same crop and size check as a dish); the admin
-  won't save a combo without one. **Its name, description and choice-step names
+- **A combo has one optional photo** (4:3, same crop and size check as a dish). It can be
+  saved without one, but only while it is off; see "Photo rule" in §6 (`COMBO_IMAGE_REQUIRED_TO_ENABLE`). **Its name, description and choice-step names
   can be translated** into the second menu language. *(Built 2026-10-11.)*
 - Not yet: time windows, offer prices or per-mode switches for combos. All three
   are **later, not v1** (decided 2026-11-16, §22): a combo is a fixed offer at a
@@ -845,6 +847,43 @@ line ("no onions") and per-item preparation time are built. **Checkout upsell
 ("add a drink?") is parked — see §22.**
 
 ### Photos
+
+**Photo rule (changed 2026-11-26; replaces "a dish/combo cannot be saved without a photo").**
+A dish or combo can be created, edited and saved **without a photo, and its last photo
+can be removed, but only while it is off** (`isAvailable: false`). A write that would
+leave it **on with no photo is refused with 409 `{ error, code }` and changes nothing**;
+the server never switches an item off on its own. Exact mapping:
+
+| Situation | Code | Message |
+|---|---|---|
+| Dish: turned on (create with `isAvailable: true`; update or `PATCH .../availability` with `isAvailable: true`) with no photo | `PRODUCT_IMAGE_REQUIRED_TO_ENABLE` | "A dish can't be turned on without a photo. Add a photo first, then turn it on." |
+| Dish: the write would leave it on with no photo without asking to turn it on (remove the last photo while it stays on; any edit of a legacy on-dish that has none) | `PRODUCT_IMAGE_REQUIRED` | "This update was refused because it would leave an available dish with no photo. Turn the dish off first, or keep a photo." |
+| Combo: turned on with no photo (create, `PUT`, availability) | `COMBO_IMAGE_REQUIRED_TO_ENABLE` | "A combo can't be turned on without a photo. Add a photo first, then turn it on." |
+| Combo: left on with no photo (last photo removed while on, or `PUT` of a legacy on-combo with none) | `COMBO_IMAGE_REQUIRED_TO_ENABLE` | "This update was refused because it would leave an available combo with no photo. Turn the combo off first, or keep a photo." |
+
+"After the write" means the photos the request sends (else the stored ones) and the
+`isAvailable` it sends (else the stored one). Removing the last photo and sending
+`isAvailable: false` in the same request is allowed. Turning off is always allowed. The
+photo check runs before the "needs a category" check; either can refuse. A combo removed
+of its photo through the generic dish update (`PATCH /products/{id}`, `images: []`) gets the
+combo code, picked by `combo` being set on the row.
+
+**Create-time defaults.** A brand-new dish or combo can never have a photo yet (photos
+are uploaded after create), so creation never produces an item that is on: an explicit
+`isAvailable: true` is refused (the "turned on" row above), and leaving `isAvailable` out
+creates it **off** (it used to default to on when the dish had a category). A combo `PUT` that
+leaves `isAvailable` out keeps the stored value (it used to mean "on").
+
+**Bulk and automatic paths (checked 2026-11-26).** Nothing else can turn an item on:
+the only writers of a product's `isAvailable` are create, update, availability and the
+combo create/update above. The admin's JSON dish import calls `createProduct` per row,
+so imported dishes arrive off. Order, category, option-group (ref clean-up), tax-class
+bulk-apply, shop restore and wind-down writes copy the product unchanged or delete it;
+option-level `setOptionAvailability` switches an option, not a dish. A product `schedule`
+is only an offer price and times; it never touches `isAvailable`. **Existing data:** rows
+saved before this rule may be on with no photo; they stay as they are (the storefront
+shows what is stored), but any edit that would keep them on is refused until a photo is
+added or the item is turned off.
 
 One per dish, one per option, a logo and a cover per restaurant. **Accept
 anything up to 10 MB; auto-orient, resize and re-encode on upload**, with an
@@ -2309,7 +2348,7 @@ merged to `dev` in storefront + admin, not yet pushed):**
 - **Dish photos — same approach, 4:3** (same date and status): stored exactly
   **1200 × 900**, min source 800 × 600, cropped in the same crop window with a centre-square
   "Phone list" area; backend refuses others (`PRODUCT_IMAGE_WRONG_SIZE`). The dish popup
-  shows the photo at 4:3. A combo also has a required photo, cropped and stored
+  shows the photo at 4:3. A combo also has an optional photo (needed only to turn it on), cropped and stored
 4:3 like a dish (§6).
 - **Logo when uploaded:**
   - Shown whole, bare (no border, rounding or background) and with **no name beside it** in the header.

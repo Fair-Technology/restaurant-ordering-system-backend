@@ -49,7 +49,7 @@ function storedProduct(overrides: any = {}) {
     description: 'x',
     price: 900,
     categoryIds: ['c1'],
-    images: [],
+    images: [{ id: 'i1', url: 'https://x/i1.jpg', sortOrder: 0, createdAt: 'x' }],
     isAvailable: true,
     isDeleted: false,
     allergenIds: null,

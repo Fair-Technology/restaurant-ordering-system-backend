@@ -51,6 +51,16 @@ export const COMBO_DISH_ERROR = "Every dish in a combo must be one of the restau
 export const COMBO_BMF_ERROR = 'bmfDrinkShare must be true or false, and true only for restaurants in Germany';
 export const COMBO_AVAILABLE_ERROR = 'isAvailable must be true or false';
 export const COMBO_NOT_FOUND_ERROR = 'Combo not found';
+/**
+ * A combo may be saved without a photo, but only while it is off (SPECS §8). Every refusal of "on with no
+ * photo" for a combo (create, update, or removing the last photo) is 409 with this one code; the message
+ * tells the cases apart. Dishes use PRODUCT_IMAGE_REQUIRED(_TO_ENABLE) in domain/images/imageRules.ts.
+ */
+export const COMBO_IMAGE_REQUIRED_TO_ENABLE = 'COMBO_IMAGE_REQUIRED_TO_ENABLE';
+export const COMBO_ENABLE_NEEDS_PHOTO_ERROR =
+  "A combo can't be turned on without a photo. Add a photo first, then turn it on.";
+export const COMBO_LEAVES_ON_WITHOUT_PHOTO_ERROR =
+  'This update was refused because it would leave an available combo with no photo. Turn the combo off first, or keep a photo.';
 
 /** Splits one combo's price over its parts by weight; leftover cents by largest remainder. Sums to unitCents. */
 export function splitComboUnit(unitCents: number, parts: readonly ComboPart[], bmfDrinkShare: boolean): number[] {
