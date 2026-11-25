@@ -1555,9 +1555,18 @@ restricted later without a rewrite. **Impersonating an owner is not offered**
   20, max 100) and searchable by email or name. Owners with zero shops are
   included. Each row: `userId`, `email`, `name`, `maxShops` (null = follows the
   global default), `effectiveLimit`, `shopCount`.
-- **Owners page in superadmin: not built yet.** The API client hook exists; no
-  page uses it. Planned: view and search owners, set a per-owner limit (default
-  / unlimited / custom number), and change the global default.
+- **Owners page in superadmin (built):** route `owners`, reachable from the
+  sidebar nav. Server-paginated, debounced-search table of owners (email/name),
+  showing `maxShops`, `effectiveLimit`, `shopCount`, and an "At limit" badge
+  when `shopCount >= effectiveLimit` (never shown when `effectiveLimit` is
+  unlimited). A "Default max shops" card on the page reads and writes the
+  global default (integer ≥ 1; -1/unlimited is not offered for the global
+  default). Per-row "Edit shop limit" dialog offers **Use global default**
+  (clears the override, i.e. sends `maxShops: null`), **Unlimited** (`-1`), or
+  **Custom** (integer ≥ 1); it shows the current global default inline and, if
+  the chosen limit is below the owner's current `shopCount`, a note that this
+  never deletes or disables existing shops — it only blocks new ones. Invalid
+  values are rejected client-side before any request is sent.
 - **Audit entries (built):** every change writes an audit entry with shopId
   `platform` and actorType `superadmin`. A per-owner change is action
   `user.limits.update`, entityType `user`, change field `maxShops` (from/to). A
