@@ -142,8 +142,9 @@ already taken, which is the one thing that cannot be undone.
   keeps its own copy. Changing a category, or listing a dish in a second
   category, never re-taxes it. The box is shown in every wizard mode. An amber
   note appears when a chosen category suggests a different class ("Kids suggests
-  Food — 7 %. This dish uses Beverages — 19 %."). The category edit page has
-  "Apply to all dishes in this category" for a section that was set wrong.
+  Food — 7 %. This dish uses Beverages — 19 %."). The category editor opens in a
+  drawer over the category list (no separate edit page, no permanent side column)
+  and has "Apply to all dishes in this category" for a section that was set wrong.
   Existing dishes got their own copy by a one-off script (61 dishes on dev,
   2026-10-12; `scripts/convert-dish-tax-classes.ts`, dry run unless `--apply`;
   run it once against any other environment's database after deploying). Why:
