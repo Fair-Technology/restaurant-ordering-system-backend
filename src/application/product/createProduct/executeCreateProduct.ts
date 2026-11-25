@@ -43,6 +43,8 @@ export async function executeCreateProduct(
   if (!isValidProductDescription(request.description)) {
     return { ok: false, code: 'INVALID_INPUT', error: PRODUCT_DESCRIPTION_ERROR };
   }
+  // A name-only draft dish has no description yet; persist it as ''.
+  const description = request.description ?? '';
 
   if (!isValidPriceCents(request.price)) {
     return {
@@ -139,7 +141,7 @@ export async function executeCreateProduct(
       id: productId,
       shopId: request.shopId.trim(),
       name: request.name.trim(),
-      description: request.description,
+      description,
       nameTranslations: menu.nameTranslations ?? {},
       descriptionTranslations: menu.descriptionTranslations ?? {},
       price: request.price,

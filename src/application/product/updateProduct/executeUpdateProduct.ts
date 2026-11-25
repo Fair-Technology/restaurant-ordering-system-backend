@@ -63,7 +63,10 @@ export async function executeUpdateProduct(
   if (request.name !== undefined && !isValidProductName(request.name)) {
     return { ok: false, code: 'INVALID_INPUT', error: PRODUCT_NAME_ERROR };
   }
-  if (request.description !== undefined && !isValidProductDescription(request.description)) {
+  if (
+    request.description !== undefined &&
+    (!isValidProductDescription(request.description) || request.description === '')
+  ) {
     return { ok: false, code: 'INVALID_INPUT', error: PRODUCT_DESCRIPTION_ERROR };
   }
 
