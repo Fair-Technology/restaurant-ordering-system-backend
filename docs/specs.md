@@ -1238,6 +1238,41 @@ per restaurant, not one combined bill (default 27; the old "billed together"
 wording is retired). **Limits never pool**: the overview shows each
 restaurant's limit on its own and never adds them up.
 
+### Shops per owner
+
+> **Built:** the shop-count limit is enforced when a shop is created.
+
+Every owner account may own up to a number of shops. The default is **3**.
+
+**Effective limit** = the owner's own `maxShops` if it is set (not null), else
+the global `maxShopsDefault` (stored in system config, default 3).
+
+- **Per-owner override:** superadmin `PATCH /platform/users/{userId}/limits`
+  with body `{ "maxShops": <integer >= -1> | null }`. `-1` means unlimited (the
+  shop-count check is skipped); `null` means follow the global default. Any
+  other value (non-integer, below -1, not a number) is rejected with
+  `INVALID_INPUT` and nothing changes.
+- **Global default:** `maxShopsDefault`, changed by superadmin
+  `PATCH /platform/config`. It must be an integer **>= 1**. `-1` is **not**
+  accepted globally; unlimited exists per owner only.
+
+**What counts.** The rule is the same when creating a shop and in
+`GET /platform/owners` (both use `findOwnedShopIds`): a shop counts if it is
+not deleted (`isDeleted = false`) **and** the owner has an active
+(`isActive = true`) membership with role `owner` on it. Shop status does not
+matter: live, paused, auto-paused and superadmin-suspended shops all count.
+Deleted shops never count.
+
+Platform staff (superadmin) are exempt from the check. If the system-config
+read fails during shop creation, the check fails open to a default of 3.
+
+**Lowering a limit never deletes, pauses or disables any existing shop.** It
+only blocks creating new shops until the owner's count is under the limit.
+
+This shop-count limit is separate from the monthly order limit earlier in this
+section: "Superadmin can override any limit per restaurant" refers to order
+limits, not shop count.
+
 ---
 
 ## 10. Invoices and receipts
@@ -1514,6 +1549,22 @@ audit log and visible to that restaurant.** A superadmin permission model exists
 from the start, everyone defaulting to full access, so an invited helper can be
 restricted later without a rewrite. **Impersonating an owner is not offered**
 (parked, §22). A per-owner `maxShops` override set here is durable: it survives the owner's own sign-ins and audited actions, not just the moment it was set.
+
+- **Owners API (built):** `GET /platform/owners` (read level; any platform
+  role) lists restaurant owners, paginated (`page` default 1, `pageSize` default
+  20, max 100) and searchable by email or name. Owners with zero shops are
+  included. Each row: `userId`, `email`, `name`, `maxShops` (null = follows the
+  global default), `effectiveLimit`, `shopCount`.
+- **Owners page in superadmin: not built yet.** The API client hook exists; no
+  page uses it. Planned: view and search owners, set a per-owner limit (default
+  / unlimited / custom number), and change the global default.
+- **Audit entries (built):** every change writes an audit entry with shopId
+  `platform` and actorType `superadmin`. A per-owner change is action
+  `user.limits.update`, entityType `user`, change field `maxShops` (from/to). A
+  global default change is action `config.maxShopsDefault.update`, entityType
+  `systemConfig`, entityId `global`.
+- Lowering a limit below the owner's current shop count never deletes or
+  disables shops (§9).
 
 **Who counts as platform staff is decided by where the identity comes from.**
 The API trusts two token issuers and they mean different things: the **customer
