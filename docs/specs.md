@@ -2559,6 +2559,10 @@ Entra registration → create a restaurant (name, slug) → a checklist in admin
 turning the remaining setup into visible progress, including connecting Stripe
 and passing its identity checks → LIVE toggle.
 
+The My Shops page explains this before the first shop exists: the empty state tells
+the owner to choose New Shop, and that doing so leads into the setup checklist
+(including connecting Stripe) before going live.
+
 ---
 
 ## 17. Email
