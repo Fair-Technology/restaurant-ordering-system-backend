@@ -224,6 +224,30 @@ describe('executeQuoteBasket', () => {
     expect(res.data.scheduledFor).toBeNull();
   });
 
+  describe('an empty basket', () => {
+    it('quotes nothing but still reports openness and the horizon', async () => {
+      const res = await executeQuoteBasket({ shopId: 'shop-1', items: [] }, { now: NOW_OPEN });
+      expect(res.ok).toBe(true);
+      if (!res.ok) return;
+      expect(res.data.lines).toEqual([]);
+      expect(res.data.subtotalCents).toBe(0);
+      expect(res.data.totalCents).toBe(0);
+      expect(typeof res.data.openNow).toBe('boolean');
+      expect(res.data.scheduleHorizonDays).toBeDefined();
+      expect(typeof res.data.belowMinimum).toBe('boolean');
+    });
+
+    it('lists every bookable slot', async () => {
+      (findShopById as any).mockResolvedValue(SCHEDULED_SHOP);
+      const res = await executeQuoteBasket({ shopId: 'shop-1', items: [] }, { now: NOW_CLOSED });
+      expect(res.ok).toBe(true);
+      if (!res.ok) return;
+      expect(res.data.openNow).toBe(false);
+      expect(res.data.slots).toHaveLength(172);
+      expect(res.data.slots[0]).toBe('2026-10-06T09:30:00.000Z');
+    });
+  });
+
   it('returns the configured booking horizon and shortens the slot list with it', async () => {
     (findShopById as any).mockResolvedValue(SCHEDULED_SHOP);
     const four = await executeQuoteBasket(request, { now: NOW_CLOSED });

@@ -103,6 +103,13 @@ const baseRequest: CheckoutRequestDto = {
   idempotencyKey: 'key-12345678',
 };
 
+describe('executeCheckout items validation', () => {
+  it('still refuses an empty basket', async () => {
+    const res = await executeCheckout({ ...baseRequest, items: [] });
+    expect(res).toEqual({ ok: false, code: 'INVALID_INPUT', error: 'items must be a non-empty array' });
+  });
+});
+
 describe('executeCheckout fulfilmentMode validation', () => {
   it('rejects an unknown mode', async () => {
     const res = await executeCheckout({ ...baseRequest, fulfilmentMode: 'teleport' as any });

@@ -36,7 +36,7 @@ export async function executeQuoteBasket(
   if (!request.shopId || typeof request.shopId !== 'string') {
     return { ok: false, code: 'INVALID_INPUT', error: 'shopId is required' };
   }
-  const itemsError = validateBasketItems(request.items);
+  const itemsError = validateBasketItems(request.items, { allowEmpty: true });
   if (itemsError) return { ok: false, code: 'INVALID_INPUT', error: itemsError };
 
   const mode = request.fulfilmentMode ?? 'collection';
