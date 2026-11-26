@@ -2339,6 +2339,28 @@ it is also how Ma Pasta stays dark until the switch is intended.
 The existing `isPaused` + `pausedMessage` and the Go Live checklist are the
 seed of this.
 
+**The go-live checklist dialog (rs-admin, 2026-11-26).** When the owner
+tries to switch a shop online while `getGoLiveStatus` reports any
+criterion unmet, a dialog lists every criterion the server returns, met
+and unmet, grouped as Payments (`stripe_connected`), Menu (`has_products`,
+`has_categories`), Shop (`profile_name`, `profile_address`,
+`opening_hours`) and Legal and invoices (`dpa_accepted`, `impressum`,
+`terms`, `withdrawal`, `privacy_notice`, `invoice_tax_id`). Any criterion
+key the server adds later that is not in one of those groups still
+renders, under a fallback "Other" group, using the server's own
+description text. The header shows "X of Y done", a percentage and a
+progress bar. Each row shows a title, a one-line hint, and either a green
+"Done" or a "Set up" link that goes to where that item is fixed
+(Settings, Products, Categories or Legal, with the matching section
+pre-selected) and closes the dialog. The footer shows how many items are
+still open, with "Close" and "Switch shop online". The latter is disabled
+while anything is open; once everything is met it makes the same update
+as the fast path (`isPaused: false`), and on failure it shows an inline
+error and stays open so the owner can retry. The dialog is an accessible
+modal: `role="dialog"`, labelled, focus trapped and returned to the
+opener on close, Escape closes it, and it scrolls internally on small
+screens while the header and footer stay pinned.
+
 **Paused versus offline (Manish, 2026-10-12; built the same day).** Two separate states:
 
 - **Offline** — the shop isn't presented. Set by the owner (Settings → Shop status →
