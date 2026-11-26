@@ -1092,6 +1092,69 @@
       ],
       "summary": "Remove a device from new-order push notifications",
       "description": "Soft-deletes the push subscription with the given endpoint. Succeeds even if it was not registered."
+    },
+    "POST /platform/cover-images/upload-url": {
+      "operationId": "executeGenerateCoverLibraryUploadUrl",
+      "summary": "Generate upload URL for a library cover image",
+      "description": "Superadmin only. Generates a short-lived SAS URL for uploading a platform library cover image to Azure Blob Storage (platform/cover-library/).",
+      "tags": [
+        "Cover Image Library"
+      ],
+      "responseDescription": "Upload URL generated successfully"
+    },
+    "POST /platform/cover-images": {
+      "operationId": "executeRegisterCoverLibraryImage",
+      "summary": "Register a library cover image",
+      "description": "Superadmin only. Registers an uploaded image in the platform cover library (max 50). The URL must be the blob issued for this imageId; the image is size-checked and a card variant is generated. Audited as platform.cover_image.register.",
+      "tags": [
+        "Cover Image Library"
+      ],
+      "responseDescription": "Library cover image registered successfully"
+    },
+    "PATCH /platform/cover-images/{imageId}": {
+      "operationId": "executeRenameCoverLibraryImage",
+      "summary": "Rename a library cover image",
+      "description": "Superadmin only. Changes the display name of a library cover image. No audit entry is written when the name is unchanged.",
+      "tags": [
+        "Cover Image Library"
+      ],
+      "responseDescription": "Library cover image renamed successfully"
+    },
+    "DELETE /platform/cover-images/{imageId}": {
+      "operationId": "executeDeleteCoverLibraryImage",
+      "summary": "Delete a library cover image",
+      "description": "Superadmin only. Removes the image from the library and deletes its stored files. Shops that already picked it keep their own copy.",
+      "tags": [
+        "Cover Image Library"
+      ],
+      "responseDescription": "Library cover image deleted successfully"
+    },
+    "GET /platform/cover-images": {
+      "operationId": "executeListCoverImageLibraryForPlatform",
+      "summary": "List the cover image library (platform)",
+      "description": "Superadmin or Platform.ReadOnly. Returns the library sorted by order.",
+      "tags": [
+        "Cover Image Library"
+      ],
+      "responseDescription": "Cover image library retrieved successfully"
+    },
+    "GET /shops/{shopId}/cover-image-library": {
+      "operationId": "executeListCoverImageLibraryForShop",
+      "summary": "List the cover image library for a shop",
+      "description": "Requires manage_shop on the shop. Returns the platform cover image library sorted by order.",
+      "tags": [
+        "Cover Image Library"
+      ],
+      "responseDescription": "Cover image library retrieved successfully"
+    },
+    "POST /shops/{shopId}/cover-image/from-library": {
+      "operationId": "executeUseLibraryCoverImageForShop",
+      "summary": "Use a library image as the shop cover",
+      "description": "Requires manage_shop. Body is { libraryImageId }. The server copies the image and its card variant into the shop's own branding folder and sets branding.heroImageUrl; the previous cover is deleted.",
+      "tags": [
+        "Cover Image Library"
+      ],
+      "responseDescription": "Shop cover image updated successfully"
     }
   }
 }

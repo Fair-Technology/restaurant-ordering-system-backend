@@ -78,6 +78,9 @@ export const AUDIT_ACTION_AREAS: Record<string, AuditArea> = {
   'config.maxShopsDefault.update': shop,
   'config.emailEnabled.update': shop,
   'config.scheduleHorizonDays.update': shop,
+  'platform.cover_image.register': shop,
+  'platform.cover_image.rename': shop,
+  'platform.cover_image.delete': shop,
   'reference_lists.update': shop,
   'user.limits.update': shop,
 };

@@ -5,6 +5,7 @@ const SAFE_LEAF = /^[A-Za-z0-9-]+\.(jpg|png|webp)$/;
 
 export const productImageFolder = (shopId: string, productId: string): string => `shops/${shopId}/products/${productId}/`;
 export const shopBrandingFolder = (shopId: string): string => `shops/${shopId}/branding/`;
+export const coverLibraryFolder = (): string => 'platform/cover-library/';
 
 /** Blob path if `url` is exactly an own-storage blob URL inside `folder` with a single safe file name; else null. */
 export function ownedBlobPath(url: unknown, folder: string): string | null {

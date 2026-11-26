@@ -1711,6 +1711,17 @@ restricted later without a rewrite. **Impersonating an owner is not offered**
   `config.scheduleHorizonDays.update`, actor type superadmin, shop `platform`,
   entityType `systemConfig`, entityId `global`, change field
   `scheduleHorizonDays` (from/to) — and an unchanged value writes no entry.
+- **Cover image library (built, 2026-11-26):** superadmin keeps a platform-wide
+  library of pre-made shop cover images, **at most 50**. Superadmin-only write
+  (`POST platform/cover-images/upload-url`, `POST platform/cover-images`,
+  `PATCH` and `DELETE platform/cover-images/{imageId}`); `GET platform/cover-images`
+  is read level, so Platform.ReadOnly sees it too. It is stored in the existing
+  system-config container as its own singleton document (id `cover_image_library`),
+  not folded into the `global` config doc, and the files live under
+  `platform/cover-library/`, never under a shop. Images are held to the shop-cover
+  rules (1920 × 640, card 960 × 320). Every change is audited — actions
+  `platform.cover_image.register`, `.rename` and `.delete`, actor type superadmin,
+  shop `platform`, entityType `coverImageLibrary`; an unchanged rename writes no entry.
 - Lowering a limit below the owner's current shop count never deletes or
   disables shops (§9).
 
@@ -2469,6 +2480,16 @@ preview, remove; JPG/PNG/WebP up to 10 MB; guidance for a ~3:1 banner); the
 storefront ships its own default cover instead of loading Unsplash. Resize,
 re-encode and orientation on upload are done server-side for cover and dish
 photos (§6). A restaurant can set and remove a logo, and set and remove a cover.
+
+**Cover image library (2026-11-26, built):** a shop admin with `manage_shop` can
+list the platform's pre-made covers (`GET /shops/{shopId}/cover-image-library`)
+and pick one (`POST /shops/{shopId}/cover-image/from-library`, body
+`{ libraryImageId }` — never a URL). The server copies the image and its card
+variant into the shop's own branding folder and sets `branding.heroImageUrl`, with
+the same old-cover cleanup and `shop.cover_image` audit entry as a direct upload.
+Deleting or replacing a library image never affects a shop that already picked it,
+because the shop holds its own independent copy. The library itself is managed in
+superadmin (§11 "Superadmin").
 
 **How banner and logo are shown (Manish, 2026-10-10, decided live in the UI;
 merged to `dev` in storefront + admin, not yet pushed):**
