@@ -1638,7 +1638,10 @@ manager work on the same restaurant in their own languages.
   `en`; otherwise **fall back to the restaurant's language** (never a hard-coded `'en'`), derived
   from the shop's country the same way as the legal page (§15): `de` for `DE`/`AT`/`CH`, `en`
   otherwise. The chosen language is persisted back to the account immediately so it sticks for
-  every later sign-in.
+  every later sign-in. If there is **no restaurant yet** and the browser's language isn't `de`/`en`,
+  show English for that session but **do not persist it**: the account's language stays unset, so
+  the restaurant-language fallback above applies (and is persisted) as soon as a restaurant exists —
+  including immediately after the first restaurant is created, without requiring a reload.
 - **Every later sign-in**: the stored language wins outright; the browser's language is never
   consulted again.
 - **Staff on a shared tablet**: logging in always applies that staff member's own language (by
