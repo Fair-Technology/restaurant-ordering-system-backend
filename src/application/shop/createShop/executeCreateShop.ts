@@ -24,6 +24,7 @@ import { ShopUsage } from '../../../domain/usage/ShopUsage';
 import { periodKeyFor } from '../../../domain/usage/usagePeriod';
 import { validateAccentColor } from '../../_shared/contrast';
 import { logServiceFailure } from '../../_shared/logServiceFailure';
+import { seedDefaultOptionGroupsForShop } from '../../optionGroup/seedDefaultOptionGroups';
 
 function validateBranding(branding: unknown): string | null {
   if (branding === null || branding === undefined) return null;
@@ -285,6 +286,13 @@ export async function executeCreateShop(
       updatedAt: now,
     };
     await upsertUsage(usage);
+
+    try {
+      await seedDefaultOptionGroupsForShop(createdShop);
+    } catch (seedError: any) {
+      logServiceFailure('seedDefaultOptionGroups', seedError);
+      // Shop creation must still succeed — the owner can create option groups by hand.
+    }
 
     const resultDto: CreateShopResultDto = {
       id: createdShop.id,
