@@ -1038,6 +1038,266 @@
         }
       }
     },
+    "/platform/cover-images": {
+      "get": {
+        "summary": "List the cover image library (platform)",
+        "description": "Superadmin or Platform.ReadOnly. Returns the library sorted by order.",
+        "operationId": "executeListCoverImageLibraryForPlatform",
+        "tags": [
+          "Cover Image Library"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Cover image library retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListCoverImageLibraryResultDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "post": {
+        "summary": "Register a library cover image",
+        "description": "Superadmin only. Registers an uploaded image in the platform cover library (max 50). The URL must be the blob issued for this imageId; the image is size-checked and a card variant is generated. Audited as platform.cover_image.register.",
+        "operationId": "executeRegisterCoverLibraryImage",
+        "tags": [
+          "Cover Image Library"
+        ],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterCoverLibraryImageRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Library cover image registered successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CoverLibraryImage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/platform/cover-images/{imageId}": {
+      "delete": {
+        "summary": "Delete a library cover image",
+        "description": "Superadmin only. Removes the image from the library and deletes its stored files. Shops that already picked it keep their own copy.",
+        "operationId": "executeDeleteCoverLibraryImage",
+        "tags": [
+          "Cover Image Library"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "imageId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Library cover image deleted successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteCoverLibraryImageResultDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "patch": {
+        "summary": "Rename a library cover image",
+        "description": "Superadmin only. Changes the display name of a library cover image. No audit entry is written when the name is unchanged.",
+        "operationId": "executeRenameCoverLibraryImage",
+        "tags": [
+          "Cover Image Library"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "imageId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "name"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Library cover image renamed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CoverLibraryImage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/platform/cover-images/upload-url": {
+      "post": {
+        "summary": "Generate upload URL for a library cover image",
+        "description": "Superadmin only. Generates a short-lived SAS URL for uploading a platform library cover image to Azure Blob Storage (platform/cover-library/).",
+        "operationId": "executeGenerateCoverLibraryUploadUrl",
+        "tags": [
+          "Cover Image Library"
+        ],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GenerateCoverLibraryUploadUrlRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Upload URL generated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GenerateCoverLibraryUploadUrlResultDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
     "/platform/legal-identity": {
       "get": {
         "operationId": "getPlatformLegalIdentity",
@@ -3495,6 +3755,127 @@
                 "required": [
                   "imageId",
                   "url"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Shop cover image updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShopCoverImageResultDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/shops/{shopId}/cover-image-library": {
+      "get": {
+        "summary": "List the cover image library for a shop",
+        "description": "Requires manage_shop on the shop. Returns the platform cover image library sorted by order.",
+        "operationId": "executeListCoverImageLibraryForShop",
+        "tags": [
+          "Cover Image Library"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "shopId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cover image library retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListCoverImageLibraryResultDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/shops/{shopId}/cover-image/from-library": {
+      "post": {
+        "summary": "Use a library image as the shop cover",
+        "description": "Requires manage_shop. Body is { libraryImageId }. The server copies the image and its card variant into the shop's own branding folder and sets branding.heroImageUrl; the previous cover is deleted.",
+        "operationId": "executeUseLibraryCoverImageForShop",
+        "tags": [
+          "Cover Image Library"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "shopId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "libraryImageId": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "libraryImageId"
                 ]
               }
             }
@@ -11981,6 +12362,38 @@
         ],
         "additionalProperties": false
       },
+      "CoverLibraryImage": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "imageUrl": {
+            "type": "string"
+          },
+          "cardImageUrl": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "order": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "imageUrl",
+          "cardImageUrl",
+          "createdAt",
+          "order"
+        ],
+        "additionalProperties": false
+      },
       "ProductDto": {
         "type": "object",
         "properties": {
@@ -16951,6 +17364,122 @@
         },
         "additionalProperties": false
       },
+      "DeleteCoverLibraryImageResultDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "deleted": {
+            "type": "boolean",
+            "const": true
+          }
+        },
+        "required": [
+          "id",
+          "deleted"
+        ],
+        "additionalProperties": false
+      },
+      "DeleteCoverLibraryImageRequestDto": {
+        "type": "object",
+        "properties": {
+          "imageId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "imageId"
+        ],
+        "additionalProperties": false
+      },
+      "GenerateCoverLibraryUploadUrlResultDto": {
+        "type": "object",
+        "properties": {
+          "imageId": {
+            "type": "string"
+          },
+          "uploadUrl": {
+            "type": "string"
+          },
+          "blobUrl": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "imageId",
+          "uploadUrl",
+          "blobUrl",
+          "expiresAt"
+        ],
+        "additionalProperties": false
+      },
+      "GenerateCoverLibraryUploadUrlRequestDto": {
+        "type": "object",
+        "properties": {
+          "contentType": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "contentType"
+        ],
+        "additionalProperties": false
+      },
+      "ListCoverImageLibraryResultDto": {
+        "type": "object",
+        "properties": {
+          "images": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CoverLibraryImage"
+            }
+          }
+        },
+        "required": [
+          "images"
+        ],
+        "additionalProperties": false
+      },
+      "RegisterCoverLibraryImageRequestDto": {
+        "type": "object",
+        "properties": {
+          "imageId": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "imageId",
+          "url",
+          "name"
+        ],
+        "additionalProperties": false
+      },
+      "RenameCoverLibraryImageRequestDto": {
+        "type": "object",
+        "properties": {
+          "imageId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "imageId",
+          "name"
+        ],
+        "additionalProperties": false
+      },
       "AddProductImageResultDto": {
         "type": "object",
         "additionalProperties": false,
@@ -19375,6 +19904,18 @@
         ],
         "additionalProperties": false
       },
+      "ListCoverImageLibraryForShopRequestDto": {
+        "type": "object",
+        "properties": {
+          "shopId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "shopId"
+        ],
+        "additionalProperties": false
+      },
       "RejectShopNameChangeResultDto": {
         "type": "object",
         "properties": {
@@ -19875,6 +20416,22 @@
         },
         "required": [
           "shopId"
+        ],
+        "additionalProperties": false
+      },
+      "UseLibraryCoverImageForShopRequestDto": {
+        "type": "object",
+        "properties": {
+          "shopId": {
+            "type": "string"
+          },
+          "libraryImageId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "shopId",
+          "libraryImageId"
         ],
         "additionalProperties": false
       },

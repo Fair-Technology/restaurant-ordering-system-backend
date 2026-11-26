@@ -104,6 +104,13 @@ export function generateShopBrandingBlobPath(shopId: string, imageId: string, ex
 }
 
 /**
+ * Generate blob path for a platform cover library image: platform/cover-library/{imageId}{ext}
+ */
+export function generateCoverLibraryBlobPath(imageId: string, extension: string): string {
+  return `platform/cover-library/${imageId}${extension}`;
+}
+
+/**
  * Delete a blob by its path — no-op if it no longer exists
  */
 export async function deleteBlob(blobPath: string): Promise<void> {
@@ -208,6 +215,13 @@ export async function uploadBlob(blobPath: string, bytes: Buffer, contentType: s
   await blob.uploadData(bytes, {
     blobHTTPHeaders: { blobContentType: contentType, blobCacheControl: IMMUTABLE_CACHE_CONTROL },
   });
+}
+
+/** Copy a blob by downloading it and writing it to `destPath`. Throws if the source does not exist. */
+export async function copyBlob(sourcePath: string, destPath: string, contentType: string): Promise<void> {
+  const bytes = await downloadBlob(sourcePath);
+  if (!bytes) throw new Error(`Source blob not found: ${sourcePath}`);
+  await uploadBlob(destPath, bytes, contentType);
 }
 
 export interface BlobUploadProperties {
