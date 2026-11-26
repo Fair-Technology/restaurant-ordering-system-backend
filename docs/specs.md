@@ -1682,7 +1682,7 @@ restricted later without a rewrite. **Impersonating an owner is not offered**
   sidebar nav. Server-paginated, debounced-search table of owners (email/name),
   showing `maxShops`, `effectiveLimit`, `shopCount`, and an "At limit" badge
   when `shopCount >= effectiveLimit` (never shown when `effectiveLimit` is
-  unlimited). A "Default max shops" card on the page reads and writes the
+  unlimited). A compact "Default max shops" control sits above the table and reads and writes the
   global default (integer ≥ 1; -1/unlimited is not offered for the global
   default). Per-row "Edit shop limit" dialog offers **Use global default**
   (clears the override, i.e. sends `maxShops: null`), **Unlimited** (`-1`), or
@@ -1717,6 +1717,12 @@ restricted later without a rewrite. **Impersonating an owner is not offered**
   `scheduleHorizonDays` (from/to) — and an unchanged value writes no entry.
 - Lowering a limit below the owner's current shop count never deletes or
   disables shops (§9).
+
+**Settings page (`/settings`).** Platform-wide switches and limits that are not owner-specific live on their own page, reached from the superadmin sidebar (last item). The Owners page (`/owners`) holds only the owner list and the default shop limit. Settings currently holds:
+- **Order emails** — on/off switch for all diner and restaurant transactional email (order confirmations, invoices, order-waiting alerts, vouchers, warnings). Turning it off requires confirmation. Shows a "not configured" note when the environment has no email transport configured (`emailTransportConfigured` is false).
+- **Order ahead limit** — the furthest number of days ahead a diner can place a collection or delivery order (1 to 6, default 4). Payment cards are only held, not charged, until the order is due, which bounds the limit at 6 days (card holds last about 7 days). Changing it does not affect orders already booked.
+
+Both settings read and write the same `GET` / `PATCH platform/config` endpoints as before; only their page moved. Settings are read-only for superadmin users without write permission.
 
 **Who counts as platform staff is decided by where the identity comes from.**
 The API trusts two token issuers and they mean different things: the **customer
