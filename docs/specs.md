@@ -718,6 +718,19 @@ storefront catalog, the quote and checkout in the order the admin set them on th
 dish, that is the order of the dish's own `optionGroupRefs` array, not any other
 ordering (alphabetical, creation date, etc.).
 
+A newly created shop starts with two library groups, seeded by `executeCreateShop`
+through the same validation and repository code the manual create path uses: a
+**Size** variant group (Small, Medium, Large; min 1 / max 1, as all variant groups
+are) and an **Extras** add-on group (Extra cheese, Extra sauce, Extra portion;
+min 0 / max 3). Every seeded price is a neutral `priceDelta` of 0 cents, since the
+owner has not set real prices yet. Names are stored in the shop's original menu
+language, with translations for the other supported menu language(s). Both are
+ordinary option groups: the owner can rename, reprice, add or remove options, or
+delete them. Nothing is locked, and deleting one does not bring it back. If seeding
+fails, the shop is still created. Shops created before this change are not
+backfilled, and restoring a wound-down shop does not seed again (it only flips
+`isDeleted`).
+
 The admin library page filters the groups by kind with **All / Variants /
 Extras** tabs. The Variants and Extras tabs show their group counts, and the
 active tab is kept in the URL (`?kind=variant|addon`). Each group's option list
@@ -2416,7 +2429,7 @@ house between businesses.
   least €0.50 always charged. On the invoice each dish keeps its menu price and
   the discount is one "Rabatt CODE" line per VAT rate. *Built 8d (2026-10-09).*
   Offer prices (a dish's lunch price) were fixed separately on 2026-10-08.
-- **Discounts page UI (admin → Shop → Discounts), redesigned 2026-11-26 in the
+- **Discounts page UI (admin → Menu → Discounts), redesigned 2026-11-26 in the
   Settings design language:** one card for codes, one for loyalty, both in a
   720px column. The codes card lists each code with its value, validity,
   minimum order, usage ("N of M used"), a status chip (Active / Switched off /
@@ -2448,14 +2461,20 @@ house between businesses.
 - **Owner's order app** — a phone-shaped page for managing orders: `/phone`,
   the board one column at a time, installable to the home screen, for anyone
   who sees orders. *Built 8f.*
-- **Naming: "Overview" vs "Dashboard" (decided 2026-11-23).** The account-level
-  `/` is no longer an Overview landing page: it redirects to `/shops`. The
-  Overview page itself (still called "Overview" in its own UI, just unrouted) is
-  currently reachable nowhere. The per-shop sidebar top item, which actually routes to
-  `/shops/:id/reports` and renders `ReportsPage.tsx`, is renamed from
-  "Dashboard" to **"Reports"** so the label matches its own route/component
-  instead of overlapping in meaning with the account-level Overview. i18n key
-  `nav.reports` in `common.json` changes value from "Dashboard" to "Reports".
+- **Naming: "Overview" vs "Dashboard" (decided 2026-11-23, reversed 2026-11-26).** The
+  account-level `/` is no longer an Overview landing page: it redirects to `/shops`. The
+  Overview page itself (still called "Overview" in its own UI, just unrouted) is currently
+  reachable nowhere. The per-shop sidebar top item (`ReportsPage.tsx`) is renamed back from
+  "Reports" to **"Dashboard"** and is now the shop's default landing page, routed at
+  `/shops/:id/dashboard` (`/shops/:id/reports` redirects there for old bookmarks). i18n key
+  `nav.dashboard` in `common.json` (already present) is used instead of `nav.reports`; the
+  page's own `reports.title` locale value is now "Dashboard".
+- **Per-shop sidebar order (decided 2026-11-26):** Dashboard (ungrouped, first, default landing) →
+  Service: Orders → Menu: Dishes, Combos, Categories, Option groups, Discounts → Shop: Tables & QR
+  codes, Legal → Business: Subscription, Staff, Activity → Settings (ungrouped, last, no group
+  header — same visual pattern as Dashboard). Every sidebar item has a `lucide-react` icon. Settings'
+  permission rule (`manage_shop`) is unchanged; it simply moved out of the Shop group to a trailing
+  position.
 - **Reports, v1 set:** daily takings, orders by hour, top dishes, collection vs
   delivery vs dine-in split, month-to-date orders against the limit, VAT per
   rate, CSV. "Professional but not everything." An order counts on the day it
