@@ -328,7 +328,7 @@
     "POST /products": {
       "operationId": "createProduct",
       "summary": "Create a new product",
-      "description": "A new dish has no photo yet (photos are added after create), so it is created off: leaving isAvailable out creates it with isAvailable false, and isAvailable true is refused with 409 code PRODUCT_IMAGE_REQUIRED_TO_ENABLE (body { error, code }; message: a dish can't be turned on without a photo).",
+      "description": "A new dish has no photo yet (photos are added after create), so it is created off: leaving isAvailable out creates it with isAvailable false, and isAvailable true is refused with 400 code PRODUCT_IMAGE_REQUIRED_TO_ENABLE (body { error, code }; message: a dish can't be turned on without a photo).",
       "tags": [
         "Products"
       ],
@@ -421,7 +421,7 @@
     "POST /shops/{shopId}/combos": {
       "operationId": "createCombo",
       "summary": "Create combo",
-      "description": "Adds a combo, created off when isAvailable is left out. Translations are optional. A combo photo is uploaded like a dish photo: POST /shops/{shopId}/products/{comboId}/images/upload-url, PUT the file (exactly 1200 x 900 px), then POST /shops/{shopId}/products/{comboId}/images. Updates with images omitted keep the existing photo. A combo can be saved without a photo only while it is off: isAvailable true with no photo is refused with 409 code COMBO_IMAGE_REQUIRED_TO_ENABLE (body { error, code }; message: a combo can't be turned on without a photo).",
+      "description": "Adds a combo, created off when isAvailable is left out. Translations are optional. A combo photo is uploaded like a dish photo: POST /shops/{shopId}/products/{comboId}/images/upload-url, PUT the file (exactly 1200 x 900 px), then POST /shops/{shopId}/products/{comboId}/images. Updates with images omitted keep the existing photo. A combo can be saved without a photo only while it is off: isAvailable true with no photo is refused with 400 code COMBO_IMAGE_REQUIRED_TO_ENABLE (body { error, code }; message: a combo can't be turned on without a photo).",
       "tags": [
         "Combos"
       ]
