@@ -6,9 +6,13 @@ vi.mock('../../../src/infrastructure/cosmos/shop/CosmosShopRepository', () => ({
   isSlugReservedByAnother: vi.fn(async () => false),
   updateShop: vi.fn(async (s: any) => s),
 }));
+vi.mock('../../../src/infrastructure/cosmos/optionGroup/CosmosShopOptionGroupRepository', () => ({
+  createShopOptionGroup: vi.fn(async (g: any) => g),
+}));
 vi.mock('../../../src/application/_shared/auditHelpers', () => ({ logAudit: vi.fn() }));
 
 import { findShopById, isSlugReservedByAnother, updateShop } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
+import { createShopOptionGroup } from '../../../src/infrastructure/cosmos/optionGroup/CosmosShopOptionGroupRepository';
 import { logAudit } from '../../../src/application/_shared/auditHelpers';
 import { executeRestoreShop } from '../../../src/application/shop/restoreShop/executeRestoreShop';
 import { verifySuperAdminToken } from '../../../src/infrastructure/auth/superAdminAuthHelpers';
@@ -30,6 +34,11 @@ describe('executeRestoreShop', () => {
     expect('deletedAt' in saved).toBe(false);
     expect('deletedBy' in saved).toBe(false);
     expect(logAudit).toHaveBeenCalledWith(expect.objectContaining({ action: 'shop.restore', actorType: 'superadmin' }));
+  });
+
+  it('does not seed default option groups again', async () => {
+    await executeRestoreShop({ shopId: 'shop-1' }, {} as any);
+    expect(createShopOptionGroup).not.toHaveBeenCalled();
   });
 
   it('anyone else gets 403', async () => {

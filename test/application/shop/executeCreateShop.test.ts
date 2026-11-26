@@ -26,7 +26,13 @@ vi.mock('../../../src/infrastructure/cosmos/usage/CosmosUsageRepository', () => 
 vi.mock('../../../src/infrastructure/cosmos/plan/CosmosPlanRepository', () => ({
   findDefaultPlan: vi.fn(async () => ({ id: 'plan-free' })),
 }));
+vi.mock('../../../src/infrastructure/cosmos/optionGroup/CosmosShopOptionGroupRepository', () => ({
+  createShopOptionGroup: vi.fn(async (g: any) => g),
+}));
+vi.mock('../../../src/application/_shared/logServiceFailure', () => ({ logServiceFailure: vi.fn() }));
 
+import { createShopOptionGroup } from '../../../src/infrastructure/cosmos/optionGroup/CosmosShopOptionGroupRepository';
+import { logServiceFailure } from '../../../src/application/_shared/logServiceFailure';
 import { createShop as createShopInRepo, isSlugReservedByAnother } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
 import { CURRENT_DPA } from '../../../src/domain/legal/platformDocuments';
 import { executeCreateShop } from '../../../src/application/shop/createShop/executeCreateShop';
@@ -226,5 +232,41 @@ describe('executeCreateShop optional industry', () => {
 
     expect(result.ok).toBe(true);
     expect(createShopInRepo).toHaveBeenCalledWith(expect.objectContaining({ industry: 'restaurant' }));
+  });
+});
+
+describe('executeCreateShop default option-group seeding', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (createShopInRepo as any).mockImplementation(async (s: any) => s);
+    (createShopOptionGroup as any).mockImplementation(async (g: any) => g);
+  });
+
+  it('seeds a Size variant group and an Extras add-on group', async () => {
+    const result = await executeCreateShop(baseRequest({ menuLanguage: 'en' }), {} as any);
+    expect(result.ok).toBe(true);
+    const shopId = (result as any).data.id;
+    expect(createShopOptionGroup).toHaveBeenCalledTimes(2);
+    expect(createShopOptionGroup).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: 'variant', name: 'Size', shopId, isDeleted: false }),
+    );
+    expect(createShopOptionGroup).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: 'addon', name: 'Extras', shopId, isDeleted: false }),
+    );
+  });
+
+  it('seeds German original names for a DE shop', async () => {
+    await executeCreateShop(baseRequest(), {} as any);
+    const names = (createShopOptionGroup as any).mock.calls.map((c: any[]) => c[0].name);
+    expect(names).toEqual(['Größe', 'Extras']);
+    const size = (createShopOptionGroup as any).mock.calls[0][0];
+    expect(size.nameTranslations).toEqual({ en: 'Size' });
+  });
+
+  it('still succeeds, and logs, when seeding fails', async () => {
+    (createShopOptionGroup as any).mockRejectedValueOnce(new Error('cosmos down'));
+    const result = await executeCreateShop(baseRequest(), {} as any);
+    expect(result.ok).toBe(true);
+    expect(logServiceFailure).toHaveBeenCalledWith('seedDefaultOptionGroups', expect.any(Error));
   });
 });
