@@ -180,4 +180,16 @@ describe('executeUpdateProductAvailability', () => {
       await executeUpdateProductAvailability({ productId: 'p1', shopId: 'shop-1', isAvailable: false }, {} as any),
     ).toMatchObject({ ok: false, code: 'NOT_FOUND' });
   });
+
+  it("keeps a combo's categoryOrder when flipping isAvailable", async () => {
+    (authorizeShopAction as any).mockResolvedValue(accessWith(['manage_menu']));
+    (findProductById as any).mockResolvedValue(
+      storedProduct({ combo: { groups: [], bmfDrinkShare: false }, categoryOrder: { pasta: 3, other: 0 } }),
+    );
+    const result = await executeUpdateProductAvailability({ productId: 'p1', shopId: 'shop-1', isAvailable: false }, {} as any);
+    expect(result.ok).toBe(true);
+    expect(updateProduct).toHaveBeenCalledWith(
+      expect.objectContaining({ isAvailable: false, categoryOrder: { pasta: 3, other: 0 } }),
+    );
+  });
 });

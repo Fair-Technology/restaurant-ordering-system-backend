@@ -14,6 +14,7 @@ export interface ComboDto {
   isAvailable: boolean;
   bmfDrinkShare: boolean;
   groups: Array<ComboGroup & { nameTranslations: TranslationMap }>;
+  categoryOrder?: { [categoryId: string]: number };
   createdAt: string;
   updatedAt: string;
 }
@@ -31,6 +32,7 @@ export function toComboDto(p: Product): ComboDto {
     isAvailable: p.isAvailable,
     bmfDrinkShare: p.combo?.bmfDrinkShare ?? false,
     groups: (p.combo?.groups ?? []).map((g) => ({ ...g, nameTranslations: g.nameTranslations ?? {} })),
+    categoryOrder: p.categoryOrder,
     createdAt: p.createdAt,
     updatedAt: p.updatedAt,
   };

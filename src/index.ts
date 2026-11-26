@@ -105,6 +105,7 @@ import './functions/report/getOwnerOverview/index';
 import './functions/combo/getCombos/index';
 import './functions/combo/createCombo/index';
 import './functions/combo/updateCombo/index';
+import './functions/combo/setCategoryComboOrder/index';
 
 // Audit endpoints
 import './functions/audit/getAuditEntries/index';

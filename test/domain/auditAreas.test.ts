@@ -14,8 +14,9 @@ function tsFiles(dir: string): string[] {
 }
 
 const STR = `(?:'([^'\\n]+)'|"([^"\\n]+)")`;
-// `action: 'a'` or `action: cond ? 'a' : 'b'` (both branches captured).
-const ACTION_RE = new RegExp(`\\baction:\\s*(?:[^,'"\\n}?]+\\?\\s*${STR}\\s*:\\s*${STR}|${STR})`, 'g');
+// `action: 'a'` or `action: cond ? 'a' : 'b'` (both branches captured). `auditAction:` is the same thing
+// passed to the shared category-order core by its dish/combo wrappers.
+const ACTION_RE = new RegExp(`\\b(?:auditA|a)ction:\\s*(?:[^,'"\\n}?]+\\?\\s*${STR}\\s*:\\s*${STR}|${STR})`, 'g');
 
 function usedActions(): Set<string> {
   const used = new Set<string>();

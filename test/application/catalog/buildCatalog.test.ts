@@ -246,3 +246,40 @@ describe('buildCatalog combos', () => {
     expect(dto.categories[0].products[0].addons.map((a) => a.id)).toEqual(['g-zz', 'g-aa', 'g-mm']);
   });
 });
+
+describe('buildCatalog dishes before combos', () => {
+  const base: Product = { ...p1, allergenIds: [], additiveIds: [], variantGroups: [] };
+  const dish = (id: string, name: string, pos?: number): Product => ({
+    ...base,
+    id,
+    name,
+    nameTranslations: {},
+    ...(pos === undefined ? {} : { categoryOrder: { c1: pos } }),
+  });
+  const combo = (id: string, name: string, pos?: number): Product => ({
+    ...dish(id, name, pos),
+    combo: { groups: [{ id: 'g', name: 'G', productIds: ['d1'] }], bmfDrinkShare: false },
+  });
+  const ids = (products: Product[]) =>
+    buildCatalog({ shop, categories: [category], products, refs: DE_REFERENCE_LISTS, lang: 'de', now }).categories[0].products.map((p) => p.id);
+
+  it('every dish precedes every combo, whatever the names or positions', () => {
+    expect(
+      ids([combo('m1', 'Aaa Menü'), dish('d2', 'Zebra'), combo('m2', 'Bbb Menü', 0), dish('d1', 'Yak', 5), dish('d3', 'Xylo')]),
+    ).toEqual(['d1', 'd3', 'd2', 'm2', 'm1']);
+  });
+
+  it('a never-reordered category: dishes by name, then combos by name', () => {
+    expect(ids([combo('m2', 'Zz'), dish('d2', 'Zebra'), combo('m1', 'Aa'), dish('d1', 'Apfel')])).toEqual(['d1', 'd2', 'm1', 'm2']);
+  });
+
+  it('combos rank by their own categoryOrder, unordered ones trailing by name', () => {
+    expect(
+      ids([dish('d1', 'Dish'), combo('m3', 'Aaa'), combo('m1', 'Zzz', 0), combo('m2', 'Mmm', 1), combo('m4', 'Bbb')]),
+    ).toEqual(['d1', 'm1', 'm2', 'm3', 'm4']);
+  });
+
+  it("a combo's lower position never jumps ahead of a dish", () => {
+    expect(ids([dish('d1', 'Dish', 9), combo('m1', 'Menü', 0)])).toEqual(['d1', 'm1']);
+  });
+});
