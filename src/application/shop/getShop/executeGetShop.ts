@@ -9,6 +9,7 @@ import { realDeps, resolveShopAccess } from '../../_shared/shopAccess';
 import { menuLanguagesOf } from '../../../domain/menu/menuLanguage';
 import { GetShopRequestDto, GetShopResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
+import { getScheduleHorizonDays } from '../../_shared/scheduleHorizon';
 
 export async function executeGetShop(
   request: GetShopRequestDto,
@@ -89,6 +90,7 @@ export async function executeGetShop(
           }
         : null,
       orderSettings: orderSettingsOf(shop),
+      scheduleHorizonDays: await getScheduleHorizonDays(),
       createdAt: shop.createdAt,
       updatedAt: shop.updatedAt,
     };

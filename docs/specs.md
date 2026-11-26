@@ -327,7 +327,8 @@ simplicity.
 whole number of days from **1 to 6, default 4** (was a fixed 4 days / 96 hours),
 set by a superadmin through `PATCH /platform/config` (§11). The window runs to
 the end of its last shop-local calendar day. The storefront reads the current
-value as `scheduleHorizonDays` on the basket quote. **Lowering the limit never
+value as `scheduleHorizonDays` on the basket quote, and shop admins read it (read-only) as
+`scheduleHorizonDays` on `GET /shops/{shopId}`. **Lowering the limit never
 cancels or breaks an order already booked** — it only stops *new* bookings
 beyond the new, shorter window; an existing booking whose slot now falls
 outside the window still ships, is still charged/held, and still shows normally

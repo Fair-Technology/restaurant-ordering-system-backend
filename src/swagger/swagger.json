@@ -18955,6 +18955,9 @@
           "orderSettings": {
             "$ref": "#/components/schemas/OrderSettings"
           },
+          "scheduleHorizonDays": {
+            "type": "number"
+          },
           "createdAt": {
             "type": "string"
           },
@@ -18988,6 +18991,7 @@
           "pendingNameChange",
           "stripe",
           "orderSettings",
+          "scheduleHorizonDays",
           "createdAt",
           "updatedAt"
         ],
