@@ -26,6 +26,7 @@ export interface GetShopResultDto {
   currency: string;
   timezone: string;
   minOrderAmountCents: number;
+  addressLocked: boolean;
   address: {
     street?: string;
     city?: string;

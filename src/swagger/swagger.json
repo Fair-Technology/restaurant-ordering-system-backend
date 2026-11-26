@@ -13180,6 +13180,9 @@
           "minOrderAmountCents": {
             "type": "number"
           },
+          "addressLocked": {
+            "type": "boolean"
+          },
           "address": {
             "type": "object",
             "properties": {
@@ -13431,6 +13434,7 @@
           "currency",
           "timezone",
           "minOrderAmountCents",
+          "addressLocked",
           "address",
           "openingHours",
           "closures",
@@ -19202,6 +19206,9 @@
           "minOrderAmountCents": {
             "type": "number"
           },
+          "addressLocked": {
+            "type": "boolean"
+          },
           "address": {
             "type": "object",
             "properties": {
@@ -19509,6 +19516,7 @@
           "currency",
           "timezone",
           "minOrderAmountCents",
+          "addressLocked",
           "address",
           "openingHours",
           "closures",

@@ -53,6 +53,11 @@ export function mapResultToHttp<T>(result: ApplicationResult<T>): HttpResponseIn
         status: 409,
         jsonBody: { error: result.error, code: 'OPEN_ORDERS' }
       };
+    case 'SHOP_ADDRESS_LOCKED':
+      return {
+        status: 403,
+        jsonBody: { error: result.error, code: result.code }
+      };
     case 'SHOP_OFFLINE_BY_SUPERADMIN':
     case 'ORDERS_PAUSED':
     case 'TAX_RATE_MISSING':

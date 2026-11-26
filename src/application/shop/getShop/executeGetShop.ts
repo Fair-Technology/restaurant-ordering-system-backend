@@ -1,5 +1,6 @@
 import { logServiceFailure } from '../../_shared/logServiceFailure';
 import { ordersPauseFieldsOf } from '../../../domain/shop/ordersPause';
+import { isShopAddressComplete } from '../../../domain/shop/addressReadiness';
 import { isShopOffline } from '../../../domain/shop/Shop';
 import { orderSettingsOf } from '../../../domain/order/orderSettings';
 import { HttpRequest } from '@azure/functions';
@@ -74,6 +75,7 @@ export async function executeGetShop(
       currency: shop.currency,
       timezone: shop.timezone,
       minOrderAmountCents: shop.minOrderAmountCents,
+      addressLocked: isShopAddressComplete(shop.address, shop.countryCode),
       address: shop.address,
       openingHours: shop.openingHours,
       closures: shop.closures,

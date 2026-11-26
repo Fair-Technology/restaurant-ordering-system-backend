@@ -644,3 +644,106 @@ describe('executeUpdateShop closures', () => {
     expect(slots).toContain('2026-10-05T12:30:00.000Z');
   });
 });
+
+describe('executeUpdateShop address lock', () => {
+  const FULL = { street: 'Main St 1', city: 'Berlin', state: 'Berlin', postcode: '10115', country: 'Germany' };
+  const superadminAccess = {
+    ok: true,
+    actor: { actorType: 'superadmin', actorId: 'sa1', role: null },
+    permissions: ['manage_shop'],
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (diffFields as any).mockReset();
+    (diffFields as any).mockReturnValue([]);
+    (authorizeShopAction as any).mockResolvedValue(ownerAccess);
+    (updateShop as any).mockImplementation(async (s: any) => s);
+  });
+
+  it('lets the owner enter a full address while incomplete', async () => {
+    (findShopById as any).mockResolvedValue(makeShop({ address: { country: 'Germany' } }));
+    const r = await executeUpdateShop({ shopId: 'shop-1', address: FULL } as any, {} as any);
+    expect(r.ok).toBe(true);
+    expect(updateShop).toHaveBeenCalledWith(expect.objectContaining({ address: FULL }));
+  });
+
+  it('allows the save that completes the address', async () => {
+    (findShopById as any).mockResolvedValue(makeShop({ address: { street: 'Main St 1', country: 'Germany' } }));
+    const r = await executeUpdateShop(
+      { shopId: 'shop-1', address: { city: 'Berlin', state: 'BE', postcode: '10115' } } as any,
+      {} as any,
+    );
+    expect(r.ok).toBe(true);
+  });
+
+  it('accepts an unchanged address on a locked shop (whitespace aside)', async () => {
+    (findShopById as any).mockResolvedValue(makeShop({ address: FULL }));
+    const r = await executeUpdateShop(
+      { shopId: 'shop-1', address: { ...FULL, street: '  Main St 1 ' } } as any,
+      {} as any,
+    );
+    expect(r.ok).toBe(true);
+  });
+
+  it('refuses an owner change on a locked address', async () => {
+    (findShopById as any).mockResolvedValue(makeShop({ address: FULL }));
+    const r = await executeUpdateShop({ shopId: 'shop-1', address: { street: 'Other 2' } } as any, {} as any);
+    expect(r).toMatchObject({ ok: false, code: 'SHOP_ADDRESS_LOCKED' });
+    expect(updateShop).not.toHaveBeenCalled();
+  });
+
+  it.each([{ address: {} }, { address: FULL }])('never lets the country change', async ({ address }) => {
+    (findShopById as any).mockResolvedValue(makeShop({ address }));
+    const r = await executeUpdateShop({ shopId: 'shop-1', address: { country: 'France' } } as any, {} as any);
+    expect(r).toMatchObject({ ok: false, code: 'INVALID_INPUT' });
+  });
+
+  it('lets a superadmin change a locked address and audits real values', async () => {
+    (authorizeShopAction as any).mockResolvedValue(superadminAccess);
+    (findShopById as any).mockResolvedValue(makeShop({ address: FULL }));
+    const r = await executeUpdateShop({ shopId: 'shop-1', address: { street: 'New 9' } } as any, {} as any);
+    expect(r.ok).toBe(true);
+    expect(updateShop).toHaveBeenCalledWith(
+      expect.objectContaining({ address: expect.objectContaining({ street: 'New 9' }) }),
+    );
+    expect(authorizeShopAction).toHaveBeenCalledWith(expect.anything(), expect.anything(), 'manage_shop', {
+      allowSuperadmin: true,
+    });
+    const call = (logAudit as any).mock.calls[0][0];
+    expect(call.action).toBe('shop.address_override_by_superadmin');
+    expect(call.changes).toEqual([
+      {
+        field: 'address',
+        from: JSON.stringify(FULL),
+        to: JSON.stringify({ ...FULL, street: 'New 9' }),
+      },
+    ]);
+  });
+
+  it('refuses a superadmin change that leaves the address incomplete', async () => {
+    (authorizeShopAction as any).mockResolvedValue(superadminAccess);
+    (findShopById as any).mockResolvedValue(makeShop({ address: FULL }));
+    const r = await executeUpdateShop({ shopId: 'shop-1', address: { street: '' } } as any, {} as any);
+    expect(r).toMatchObject({ ok: false, code: 'INVALID_INPUT' });
+  });
+
+  it.each([
+    ['DE', 'Germany'],
+    ['AU', 'Australia'],
+    ['US', 'United States'],
+  ])('validates a new %s state against the country subdivisions', async (cc, country) => {
+    (findShopById as any).mockResolvedValue(
+      makeShop({ countryCode: cc, address: { country } }),
+    );
+    const bad = await executeUpdateShop({ shopId: 'shop-1', address: { state: 'Atlantis' } } as any, {} as any);
+    expect(bad).toMatchObject({ ok: false, code: 'INVALID_INPUT' });
+    const good = {
+      DE: 'bAyErN',
+      AU: 'nsw',
+      US: 'california',
+    }[cc];
+    const ok = await executeUpdateShop({ shopId: 'shop-1', address: { state: good } } as any, {} as any);
+    expect(ok.ok).toBe(true);
+  });
+});

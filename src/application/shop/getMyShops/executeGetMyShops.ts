@@ -1,4 +1,5 @@
 import { ordersPauseFieldsOf } from '../../../domain/shop/ordersPause';
+import { isShopAddressComplete } from '../../../domain/shop/addressReadiness';
 import { isShopOffline } from '../../../domain/shop/Shop';
 import { HttpRequest } from '@azure/functions';
 import { findShopsByMemberId } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
@@ -31,6 +32,7 @@ export async function executeGetMyShops(
       currency: shop.currency,
       timezone: shop.timezone,
       minOrderAmountCents: shop.minOrderAmountCents,
+      addressLocked: isShopAddressComplete(shop.address, shop.countryCode),
       address: shop.address,
       openingHours: shop.openingHours,
       closures: shop.closures,

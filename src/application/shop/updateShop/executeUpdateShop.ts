@@ -17,8 +17,8 @@ import { validateAccentColor } from '../../_shared/contrast';
 import { GO_LIVE_STRIPE_ERROR, GO_LIVE_TAX_ID_ERROR } from '../../../domain/order/orderErrors';
 import { menuLanguagesOf, validateMenuLanguagesChange } from '../../../domain/menu/menuLanguage';
 import { MenuLanguage } from '../../../domain/reference/ReferenceLists';
-import { isShopAddressComplete } from '../../../domain/shop/addressReadiness';
-import { countryRequiresState } from '../../../domain/reference/subdivisions';
+import { addressFieldsChanged, isShopAddressComplete } from '../../../domain/shop/addressReadiness';
+import { countryRequiresState, isKnownState } from '../../../domain/reference/subdivisions';
 import { isOnMenu } from '../../../domain/product/Product';
 import { LEGAL_GO_LIVE_ERRORS, legalCriteria } from '../../../domain/legal/legalReadiness';
 import { hasInvoiceTaxId } from '../../../domain/legal/legalTexts';
@@ -120,6 +120,30 @@ function validateBranding(branding: unknown): string | null {
   return null;
 }
 
+function validateAddressChange(
+  current: Shop['address'] | undefined,
+  incoming: NonNullable<UpdateShopRequestDto['address']>,
+  countryCode: string,
+): string | null {
+  const norm = (v: string | undefined) => (v ?? '').trim();
+  if (incoming.country !== undefined && norm(incoming.country) !== norm(current?.country)) {
+    return 'address.country cannot be changed; it was fixed when the shop registered';
+  }
+  if (incoming.state !== undefined) {
+    const nextState = norm(incoming.state);
+    const prevState = norm(current?.state);
+    if (
+      nextState !== '' &&
+      nextState !== prevState &&
+      countryRequiresState(countryCode) &&
+      !isKnownState(nextState, countryCode)
+    ) {
+      return `address.state must be one of ${countryCode}'s known states/regions`;
+    }
+  }
+  return null;
+}
+
 export async function executeUpdateShop(
   request: UpdateShopRequestDto,
   httpRequest: HttpRequest,
@@ -199,8 +223,35 @@ export async function executeUpdateShop(
       };
     }
 
-    const access = await authorizeShopAction(httpRequest, shop, 'manage_shop');
+    const access = await authorizeShopAction(httpRequest, shop, 'manage_shop', { allowSuperadmin: true });
     if (!access.ok) return access;
+
+    let nextAddress: Shop['address'] | undefined;
+    if (request.address !== undefined) {
+      const addrError = validateAddressChange(shop.address, request.address, shop.countryCode);
+      if (addrError) {
+        return { ok: false, code: 'INVALID_INPUT', error: addrError };
+      }
+      const merged = { ...shop.address, ...request.address };
+      const changed = addressFieldsChanged(shop.address, merged);
+      const isSuperadmin = access.actor.actorType === 'superadmin';
+      const locked = isShopAddressComplete(shop.address, shop.countryCode);
+      if (changed && locked && !isSuperadmin) {
+        return {
+          ok: false,
+          code: 'SHOP_ADDRESS_LOCKED',
+          error: 'The shop address is locked after first entry. Contact platform support to change it.',
+        };
+      }
+      if (changed && isSuperadmin && !isShopAddressComplete(merged, shop.countryCode)) {
+        return {
+          ok: false,
+          code: 'INVALID_INPUT',
+          error: 'A superadmin address change must leave the address complete.',
+        };
+      }
+      nextAddress = merged;
+    }
 
     let nextLanguages: MenuLanguage[] | undefined;
     if (request.menuLanguages !== undefined) {
@@ -249,9 +300,7 @@ export async function executeUpdateShop(
       ...(request.minOrderAmountCents !== undefined && {
         minOrderAmountCents: request.minOrderAmountCents,
       }),
-      ...(request.address !== undefined && {
-        address: { ...shop.address, ...request.address },
-      }),
+      ...(nextAddress !== undefined && { address: nextAddress }),
       ...(request.branding !== undefined && { branding: request.branding }),
       ...(request.openingHours !== undefined && { openingHours: request.openingHours }),
       ...(request.closures !== undefined && { closures: nextClosures }),
@@ -265,8 +314,13 @@ export async function executeUpdateShop(
       shop as unknown as Record<string, unknown>,
       updatedShop as unknown as Record<string, unknown>,
       ['isPaused', 'pausedMessage', 'ordersPaused', 'ordersPausedUntil', 'ordersPausedMessage', 'minOrderAmountCents', 'currency', 'timezone'],
-      ['openingHours', 'branding', 'address', 'menuLanguages'],
+      ['openingHours', 'branding', 'menuLanguages'],
     );
+    if (nextAddress !== undefined) {
+      const before = JSON.stringify(shop.address ?? {});
+      const after = JSON.stringify(updatedShop.address ?? {});
+      if (before !== after) changes.push({ field: 'address', from: before, to: after });
+    }
     if (request.closures !== undefined) {
       const before = shop.closures ?? [];
       const added = nextClosures.filter((c) => !before.some((b) => b.id === c.id));
@@ -291,7 +345,9 @@ export async function executeUpdateShop(
         ? 'shop.orders_pause_toggle'
         : changes.length > 0 && changes.every((c) => c.field.startsWith('closures'))
           ? 'shop.closures_update'
-          : 'shop.update';
+          : changes.length > 0 && changes.every((c) => c.field === 'address') && access.actor.actorType === 'superadmin'
+            ? 'shop.address_override_by_superadmin'
+            : 'shop.update';
     await logAudit({
       shopId: result.id,
       ...toAuditActor(access.actor),

@@ -46,3 +46,23 @@ describe('executeGetShop scheduleHorizonDays', () => {
     expect(result.ok && result.data.scheduleHorizonDays).toBe(4);
   });
 });
+
+describe('executeGetShop addressLocked', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (authenticate as any).mockResolvedValue({ kind: 'staff', shopId: CARD_SHOP.id });
+    (resolveShopAccess as any).mockResolvedValue({ actor: { actorType: 'staff', role: 'owner' }, permissions: [] });
+    (getSystemConfig as any).mockResolvedValue({ id: 'global' });
+  });
+
+  it('is true for a complete address and false for an incomplete one', async () => {
+    const full = { street: 'A 1', city: 'B', state: 'Bayern', postcode: '1', country: 'Germany' };
+    (findShopById as any).mockResolvedValue({ ...CARD_SHOP, countryCode: 'DE', address: full });
+    const locked = await executeGetShop({ shopId: CARD_SHOP.id }, http);
+    expect(locked.ok && locked.data.addressLocked).toBe(true);
+
+    (findShopById as any).mockResolvedValue({ ...CARD_SHOP, countryCode: 'DE', address: { city: 'B' } });
+    const open = await executeGetShop({ shopId: CARD_SHOP.id }, http);
+    expect(open.ok && open.data.addressLocked).toBe(false);
+  });
+});

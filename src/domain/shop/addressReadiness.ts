@@ -26,3 +26,13 @@ export function shopAddressRequirement(countryCode: string | undefined | null): 
     ? 'Full address is filled in (street, city, state, postcode, country)'
     : 'Full address is filled in (street, city, postcode, country)';
 }
+
+/** True when any of street/city/state/postcode/country differs (trimmed) between two addresses. */
+export function addressFieldsChanged(
+  a: Shop['address'] | undefined | null,
+  b: Shop['address'] | undefined | null,
+): boolean {
+  const norm = (v: string | undefined) => (v ?? '').trim();
+  const keys: Array<keyof NonNullable<Shop['address']>> = ['street', 'city', 'state', 'postcode', 'country'];
+  return keys.some((k) => norm(a?.[k]) !== norm(b?.[k]));
+}

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isShopAddressComplete, shopAddressRequirement } from '../../src/domain/shop/addressReadiness';
+import { addressFieldsChanged, isShopAddressComplete, shopAddressRequirement } from '../../src/domain/shop/addressReadiness';
 
 const base = { street: 'Main St 1', city: 'Munich', postcode: '80331', country: 'Germany' };
 
@@ -29,5 +29,18 @@ describe('shopAddressRequirement', () => {
   it('mentions state only where it is required', () => {
     expect(shopAddressRequirement('DE')).toContain('state');
     expect(shopAddressRequirement('GB')).not.toContain('state');
+  });
+});
+
+describe('addressFieldsChanged', () => {
+  it('is false for the same values ignoring whitespace and undefined-vs-empty', () => {
+    expect(addressFieldsChanged({ street: ' A ', city: undefined }, { street: 'A', city: '' })).toBe(false);
+  });
+  it('is true when a field differs', () => {
+    expect(addressFieldsChanged({ street: 'A' }, { street: 'B' })).toBe(true);
+  });
+  it('compares against undefined/null', () => {
+    expect(addressFieldsChanged(undefined, {})).toBe(false);
+    expect(addressFieldsChanged(null, { city: 'X' })).toBe(true);
   });
 });
