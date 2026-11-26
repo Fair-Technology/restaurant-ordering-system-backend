@@ -932,14 +932,18 @@ line ("no onions") and per-item preparation time are built. **Checkout upsell
 **Photo rule (changed 2026-11-26; replaces "a dish/combo cannot be saved without a photo").**
 A dish or combo can be created, edited and saved **without a photo, and its last photo
 can be removed, but only while it is off** (`isAvailable: false`). A write that would
-leave it **on with no photo is refused with 409 `{ error, code }` and changes nothing**;
+leave it **on with no photo is refused with 409 `{ error, code }` and changes nothing**
+(the one exception is creating one already switched on: nothing exists yet to conflict
+with, so that refusal is **400**, with the same body);
 the server never switches an item off on its own. Exact mapping:
 
 | Situation | Code | Message |
 |---|---|---|
-| Dish: turned on (create with `isAvailable: true`; update or `PATCH .../availability` with `isAvailable: true`) with no photo | `PRODUCT_IMAGE_REQUIRED_TO_ENABLE` | "A dish can't be turned on without a photo. Add a photo first, then turn it on." |
+| Dish: create with `isAvailable: true` (**400**) | `PRODUCT_IMAGE_REQUIRED_TO_ENABLE` | "A dish can't be turned on without a photo. Add a photo first, then turn it on." |
+| Dish: update or `PATCH .../availability` with `isAvailable: true`, no photo (409) | `PRODUCT_IMAGE_REQUIRED_TO_ENABLE` | "A dish can't be turned on without a photo. Add a photo first, then turn it on." |
 | Dish: the write would leave it on with no photo without asking to turn it on (remove the last photo while it stays on; any edit of a legacy on-dish that has none) | `PRODUCT_IMAGE_REQUIRED` | "This update was refused because it would leave an available dish with no photo. Turn the dish off first, or keep a photo." |
-| Combo: turned on with no photo (create, `PUT`, availability) | `COMBO_IMAGE_REQUIRED_TO_ENABLE` | "A combo can't be turned on without a photo. Add a photo first, then turn it on." |
+| Combo: create with `isAvailable: true` (**400**) | `COMBO_IMAGE_REQUIRED_TO_ENABLE` | "A combo can't be turned on without a photo. Add a photo first, then turn it on." |
+| Combo: turned on with no photo by `PUT` or availability (409) | `COMBO_IMAGE_REQUIRED_TO_ENABLE` | "A combo can't be turned on without a photo. Add a photo first, then turn it on." |
 | Combo: left on with no photo (last photo removed while on, or `PUT` of a legacy on-combo with none) | `COMBO_IMAGE_REQUIRED_TO_ENABLE` | "This update was refused because it would leave an available combo with no photo. Turn the combo off first, or keep a photo." |
 
 "After the write" means the photos the request sends (else the stored ones) and the
@@ -951,7 +955,7 @@ combo code, picked by `combo` being set on the row.
 
 **Create-time defaults.** A brand-new dish or combo can never have a photo yet (photos
 are uploaded after create), so creation never produces an item that is on: an explicit
-`isAvailable: true` is refused (the "turned on" row above), and leaving `isAvailable` out
+`isAvailable: true` is refused with **400** (the "create" rows above), and leaving `isAvailable` out
 creates it **off** (it used to default to on when the dish had a category). A combo `PUT` that
 leaves `isAvailable` out keeps the stored value (it used to mean "on").
 
