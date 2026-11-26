@@ -141,7 +141,7 @@ describe('executeCreateShop reserved slugs', () => {
     vi.clearAllMocks();
   });
 
-  it('refuses a name whose web address is live or retired on another shop', async () => {
+  it('refuses a name whose link is live or retired on another shop', async () => {
     (isSlugReservedByAnother as any).mockResolvedValueOnce(true);
     const result = await executeCreateShop(baseRequest(), {} as any);
 
@@ -181,7 +181,7 @@ describe('executeCreateShop owner-typed slug and name length', () => {
     expect(result).toMatchObject({
       ok: false,
       code: 'INVALID_INPUT',
-      error: 'This web address is already taken. Please choose another.',
+      error: 'This link is already taken. Please choose another.',
     });
     expect(createShopInRepo).not.toHaveBeenCalled();
   });
@@ -197,7 +197,7 @@ describe('executeCreateShop owner-typed slug and name length', () => {
     expect(result).toEqual({
       ok: false,
       code: 'INVALID_INPUT',
-      error: 'Could not generate a web address from this name; please choose one',
+      error: 'Could not generate a link from this name; please choose one',
     });
   });
 

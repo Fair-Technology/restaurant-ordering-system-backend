@@ -4,7 +4,7 @@ import { MenuLanguage } from '../../../domain/reference/ReferenceLists';
 export interface CreateShopRequestDto {
   // Required fields from user
   name: string;
-  /** Owner-typed web address; if omitted, generated from name. */
+  /** Owner-typed link; if omitted, generated from name. */
   slug?: string;
   countryCode: string;
   currency: string;

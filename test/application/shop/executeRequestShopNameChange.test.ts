@@ -24,7 +24,7 @@ describe('executeRequestShopNameChange reserved slugs', () => {
     (findShopById as any).mockResolvedValue({ id: 'shop-1', name: 'Old', slug: 'old-name', previousSlugs: ['older'] });
   });
 
-  it('refuses when the web address is live or retired on another shop', async () => {
+  it('refuses when the link is live or retired on another shop', async () => {
     (isSlugReservedByAnother as any).mockResolvedValueOnce(true);
     const res = await executeRequestShopNameChange({ shopId: 'shop-1', requestedName: 'Taken Name' }, {} as any);
 
@@ -63,7 +63,7 @@ describe('executeRequestShopNameChange name length and empty slug', () => {
     expect(res).toEqual({
       ok: false,
       code: 'INVALID_INPUT',
-      error: 'Could not generate a web address from this name; please choose one',
+      error: 'Could not generate a link from this name; please choose one',
     });
     expect(updateShop).not.toHaveBeenCalled();
   });

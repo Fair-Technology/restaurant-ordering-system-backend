@@ -6,7 +6,7 @@ describe('validateSlugFormat', () => {
     expect(validateSlugFormat(s)).toBeNull();
   });
   it.each(['', 'Abc', 'a_b', '-abc', 'a'.repeat(65), 'café', '寿司'])('rejects %s', (s) => {
-    expect(validateSlugFormat(s)).toBe('Please choose a web address using letters, numbers and hyphens');
+    expect(validateSlugFormat(s)).toBe('Please choose a link using letters, numbers and hyphens');
   });
 });
 
@@ -31,7 +31,7 @@ describe('generateSlugFromName', () => {
   });
   it('validateUniqueSlug throws a clear error on empty result', async () => {
     await expect(validateUniqueSlug('寿司屋', async () => false)).rejects.toThrow(
-      'Could not generate a web address from this name; please choose one',
+      'Could not generate a link from this name; please choose one',
     );
   });
 });

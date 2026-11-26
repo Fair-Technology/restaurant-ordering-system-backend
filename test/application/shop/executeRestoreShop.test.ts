@@ -53,7 +53,7 @@ describe('executeRestoreShop', () => {
     expect(await executeRestoreShop({ shopId: 'shop-1' }, {} as any)).toMatchObject({ ok: false, code: 'CONFLICT' });
   });
 
-  it('refuses when another live shop now uses the same web address', async () => {
+  it('refuses when another live shop now uses the same link', async () => {
     (findShopById as any).mockResolvedValue({ id: 'shop-1', name: 'Pizzeria', slug: 'pizzeria', isDeleted: true });
     (isSlugReservedByAnother as any).mockResolvedValueOnce(true);
     const r = await executeRestoreShop({ shopId: 'shop-1' }, {} as any);

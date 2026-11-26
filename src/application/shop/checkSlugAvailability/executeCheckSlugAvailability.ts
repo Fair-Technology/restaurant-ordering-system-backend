@@ -19,7 +19,7 @@ export async function executeCheckSlugAvailability(request: {
     return {
       ok: false,
       code: 'INTERNAL_ERROR',
-      error: 'Failed to check web address availability',
+      error: 'Failed to check link availability',
     };
   }
 }

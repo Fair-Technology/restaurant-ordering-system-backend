@@ -1,11 +1,11 @@
-/** Owner-visible web address rule: ASCII lowercase letters, digits and hyphens; 1-64 chars; starts with a letter/digit. */
+/** Owner-visible link rule: ASCII lowercase letters, digits and hyphens; 1-64 chars; starts with a letter/digit. */
 export const SLUG_RE = /^[a-z0-9][a-z0-9-]{0,63}$/;
 
-const SLUG_FORMAT_MESSAGE = 'Please choose a web address using letters, numbers and hyphens';
-export const SLUG_EMPTY_MESSAGE = 'Could not generate a web address from this name; please choose one';
+const SLUG_FORMAT_MESSAGE = 'Please choose a link using letters, numbers and hyphens';
+export const SLUG_EMPTY_MESSAGE = 'Could not generate a link from this name; please choose one';
 
 /**
- * Returns an error message if the slug is not a valid web address, or null if it is valid.
+ * Returns an error message if the slug is not a valid link, or null if it is valid.
  */
 export function validateSlugFormat(slug: string): string | null {
   if (typeof slug !== 'string' || slug === '' || !SLUG_RE.test(slug)) {
