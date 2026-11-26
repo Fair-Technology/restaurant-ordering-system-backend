@@ -56,8 +56,9 @@ export function basketProductIds(items: readonly BasketItemInput[]): string[] {
 }
 
 /** Returns the first problem with the basket's shape, or null when it is well-formed. */
-export function validateBasketItems(items: unknown): string | null {
-  if (!Array.isArray(items) || items.length === 0) return 'items must be a non-empty array';
+export function validateBasketItems(items: unknown, options: { allowEmpty?: boolean } = {}): string | null {
+  if (!Array.isArray(items)) return 'items must be a non-empty array';
+  if (items.length === 0) return options.allowEmpty ? null : 'items must be a non-empty array';
   for (let i = 0; i < items.length; i++) {
     const item = items[i] as Record<string, unknown> | null;
     if (!item || typeof item.productId !== 'string' || !item.productId) return `items[${i}].productId is required`;

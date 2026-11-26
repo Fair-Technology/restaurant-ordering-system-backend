@@ -339,6 +339,14 @@ before the booked time, so the horizon (which runs to the end of its last
 calendar day) must stay inside that window; see
 https://docs.stripe.com/payments/place-a-hold-on-a-payment-method.
 
+**`POST /orders/quote` also accepts an empty basket** (2026-11-26): `items: []` is
+valid and returns `scheduleHorizonDays`, `slots` and `openNow` with `lines: []`
+and every money field at zero — a way to read what can be booked at a shop
+before the diner has added anything (used by the storefront's "Other times"
+day/time picker to populate itself for a shop whose entire menu is
+schedule-restricted, instead of quoting a stand-in dish). `POST /orders/checkout`
+is unaffected and still refuses `items: []`.
+
 **Each restaurant switches it on itself** ("Accept orders for later", off by
 default), so no kitchen gets booked orders it wasn't told about.
 

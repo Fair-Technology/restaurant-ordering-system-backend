@@ -276,6 +276,13 @@ describe('combos', () => {
     expect(validateBasketItems([{ productId: 'p9', quantity: 1, comboChoices: COMBO_CHOICES }])).toBeNull();
   });
 
+  it('refuses an empty basket unless allowEmpty is set', () => {
+    const msg = 'items must be a non-empty array';
+    expect(validateBasketItems([])).toBe(msg);
+    expect(validateBasketItems([], { allowEmpty: true })).toBeNull();
+    expect(validateBasketItems('not-an-array', { allowEmpty: true })).toBe(msg);
+  });
+
   it('names every product the basket needs', () => {
     expect(basketProductIds([{ productId: 'p1', quantity: 1 }, { productId: 'p9', quantity: 1, comboChoices: COMBO_CHOICES }])).toEqual(['p1', 'p9', 'p1', 'p2']);
   });
