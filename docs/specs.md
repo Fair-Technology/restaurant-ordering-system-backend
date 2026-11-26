@@ -2562,6 +2562,10 @@ and passing its identity checks → LIVE toggle.
 Admin has no floating action button. Creating a shop, dish or category is done from
 each page's own "New …" button (My Shops, Dishes, Categories).
 
+The My Shops page explains this before the first shop exists: the empty state tells
+the owner to choose New Shop, and that doing so leads into the setup checklist
+(including connecting Stripe) before going live.
+
 ---
 
 ## 17. Email
