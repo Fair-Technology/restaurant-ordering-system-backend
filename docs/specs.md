@@ -2441,21 +2441,46 @@ house between businesses.
   least €0.50 always charged. On the invoice each dish keeps its menu price and
   the discount is one "Rabatt CODE" line per VAT rate. *Built 8d (2026-10-09).*
   Offer prices (a dish's lunch price) were fixed separately on 2026-10-08.
-- **Discounts page UI (admin → Menu → Discounts), redesigned 2026-11-26 in the
-  Settings design language:** one card for codes, one for loyalty, both in a
-  720px column. The codes card lists each code with its value, validity,
-  minimum order, usage ("N of M used"), a status chip (Active / Switched off /
-  Not started / Expired / Used up) and an on/off switch — no edit button, codes
-  stay immutable once created. "New code" opens an inline form (not a dialog)
-  with the existing fields and limits (percentage/fixed-amount pills, optional
-  minimum order, dates, total limit, per-customer limit default 1); the button
-  disables with a reason once the shop has 50 codes. An empty shop shows a
-  tinted empty-state note with a "New code" button. The loyalty card carries
-  its on/off switch in the card header, shows a one-line status ("On, earns €X
-  every N orders." / "Off."), hides its fields (with an explanatory line) while
-  off, and always shows the consent note that a voucher email is advertising
-  and only goes out to diners who ticked the unticked checkout box. No change
-  to any validation, limit, or API behaviour — layout and copy only.
+- **Discounts page UI (admin → Menu → Discounts), redesigned 2026-11-26:** full-width
+  page with a filterable code table, search, and a drawer for new codes. The page
+  header spans the full content width and carries a "New code" button. It is
+  disabled once the shop has 50 codes, with the reason "You've reached the limit of
+  50 codes." There is no delete, so the page never says that switching a code off
+  makes room.
+  **Discount codes card:** title, a green "N active codes" count, and a right-aligned
+  "N of 50 codes" count, then the helper line. Below it, status filter chips with
+  live counts (All / Active / Not started / Expired or used up / Off) and a "Search
+  codes" box that matches the code text (case-insensitive substring). Filter and
+  search combine (AND) and run client-side over the codes already loaded.
+  Codes render as a real table with columns Code, Discount, Min. order, Valid, Uses,
+  Per customer, Status, On. On narrow screens the table scrolls inside the card; the
+  page itself never scrolls sideways. Min. order shows "None" when zero. Valid shows
+  "Always" when there is no date range, otherwise "From d" / "Until d" / "d – d".
+  Uses shows "N of M" with a thin progress bar when there is a total-use limit,
+  otherwise the count. Per customer shows "Unlimited" when there is no per-customer
+  limit. The status badge uses the shared badge tokens: Active green, Not started
+  amber, Off / Used up / Expired neutral. Rows that are neither Active nor Not
+  started use the muted text colour, not reduced opacity, to keep AA contrast. Each
+  On switch is labelled "Switch on/off CODE", shows a spinner while pending, and
+  rolls back on error.
+  If no code matches the filter and search, the table shows "No codes match this
+  filter." A shop with no codes at all keeps the "No codes yet." empty state with
+  its own "New code" button. The footer reads "Up to 50 codes."; at the limit it
+  shows the "limit of 50 codes" line above. That is the only explanation of why
+  "New code" is disabled.
+  **New code** opens a right-hand drawer (a modal dialog), not an inline form. Esc,
+  the close button, and Cancel close it; focus is trapped inside and returns to the
+  trigger. Fields, validation and submit are unchanged: Code, Percentage / Fixed
+  amount pills, value, optional minimum order (with the €0.50 minimum-charge note),
+  optional first and last day, optional total uses, and uses per customer (default
+  1). "Create code" and "Cancel" sit in a footer pinned to the bottom of the drawer.
+  If the form has unsaved input, closing asks for confirmation before discarding.
+  **Loyalty vouchers card:** the on/off switch sits in the card header with a one-line
+  status ("On, earns €X every N orders." / "Off."), and the fields are hidden while
+  off. The consent note ("Vouchers are only emailed to diners who tick an unticked
+  consent box at checkout — never sent without it.") is always visible, whether
+  loyalty is on or off.
+  No change to any validation, limit, or API behaviour — layout and copy only.
 - **Loyalty as emailed single-use vouchers.** No balance, no account: the
   restaurant sets a rule ("every 5th order earns €5 off"), the platform counts
   accepted orders against the customer's email, and when they qualify it emails
