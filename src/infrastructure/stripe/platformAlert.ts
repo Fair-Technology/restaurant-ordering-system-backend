@@ -61,7 +61,7 @@ export async function alertOnStripeConfigFailure(
     if (outcome === 'sent') {
       lastSentAt = now;
       try {
-        await sendEmail(buildAlertEmail(detail, refs, recipient as string));
+        await sendEmail(buildAlertEmail(detail, refs, recipient as string), { bypassPlatformSwitch: true });
       } catch (sendErr: unknown) {
         outcome = 'failed';
         why = ` reason=send_threw:${sendErr instanceof Error ? sendErr.name : 'unknown'}`;

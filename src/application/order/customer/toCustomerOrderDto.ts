@@ -10,7 +10,7 @@ import type { CustomerOrderDto } from './dtos';
 const KNOWN_REASONS: readonly string[] = [...REJECT_REASON_CODES, 'no_response', 'payment_failed', 'payment_unavailable', 'shop_unavailable'];
 
 /** The diner's view of an order: never the staff note, the token, or other people's data. */
-export function toCustomerOrderDto(order: Order, shop: Shop, now: Date): CustomerOrderDto {
+export function toCustomerOrderDto(order: Order, shop: Shop, now: Date, emailsEnabled: boolean): CustomerOrderDto {
   const rejection = [...order.history].reverse().find((h) => h.to === 'REJECTED');
   const rejectionReason: RejectReason | null = rejection
     ? rejection.reason && KNOWN_REASONS.includes(rejection.reason)
@@ -20,6 +20,7 @@ export function toCustomerOrderDto(order: Order, shop: Shop, now: Date): Custome
   return {
     orderId: order.id,
     orderRef: order.orderRef,
+    emailsEnabled,
     shopSlug: shop.slug,
     shopName: shop.name,
     sellerPhone: legalOf(shop).impressum?.phone?.trim() || null,

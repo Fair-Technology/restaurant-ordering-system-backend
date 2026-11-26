@@ -32,6 +32,7 @@ describe('alertOnStripeConfigFailure', () => {
   it('fires on permission_or_config: one email and a greppable log line', async () => {
     expect(await alertOnStripeConfigFailure('capture', permissionError, { orderId: 'o1' }, 1000)).toBe('sent');
     expect(sendEmail).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(sendEmail).mock.calls[0][1]).toEqual({ bypassPlatformSwitch: true });
     expect(vi.mocked(sendEmail).mock.calls[0][0].to).toEqual(['ops@example.test']);
     const line = String(errorSpy.mock.calls[0][0]);
     expect(line).toContain('[alert:platform] kind=stripe_permission_or_config op=capture');

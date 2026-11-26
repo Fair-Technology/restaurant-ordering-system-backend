@@ -75,6 +75,7 @@ export const AUDIT_ACTION_AREAS: Record<string, AuditArea> = {
   'platform_legal_identity.update': shop,
   'role_permissions.update': shop,
   'config.maxShopsDefault.update': shop,
+  'config.emailEnabled.update': shop,
   'reference_lists.update': shop,
   'user.limits.update': shop,
 };

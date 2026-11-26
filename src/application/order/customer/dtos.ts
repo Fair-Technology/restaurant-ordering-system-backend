@@ -17,6 +17,7 @@ export interface CustomerOrderTokenBody {
 export interface CustomerOrderDto {
   orderId: string;
   orderRef: string;
+  emailsEnabled: boolean; // true only when the platform email switch is on AND the ACS transport is configured
   shopSlug: string;
   shopName: string;
   sellerPhone: string | null;

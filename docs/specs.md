@@ -1637,6 +1637,16 @@ restricted later without a rewrite. **Impersonating an owner is not offered**
   `user.limits.update`, entityType `user`, change field `maxShops` (from/to). A
   global default change is action `config.maxShopsDefault.update`, entityType
   `systemConfig`, entityId `global`.
+- **Platform email switch (built):** the platform config also holds `emailEnabled`
+  (default **off**; §17). `GET platform/config` returns `maxShopsDefault`,
+  `emailEnabled` and the read-only `emailTransportConfigured` (true when the
+  email transport is fully configured, independent of the switch).
+  `PATCH platform/config` accepts `maxShopsDefault`, `emailEnabled`, or both; a
+  patch changes only the fields it names and an empty one is rejected. Each
+  change is audited per field — action `config.emailEnabled.update` (or
+  `config.maxShopsDefault.update`), actor type superadmin, shop `platform`,
+  entityType `systemConfig`, entityId `global` — and a field sent with an
+  unchanged value writes no entry.
 - Lowering a limit below the owner's current shop count never deletes or
   disables shops (§9).
 
@@ -2426,9 +2436,43 @@ rejection, cancellation, refund with the correction invoice, loyalty vouchers,
 escalations, limit warnings — sends through
 **Azure Communication Services Email** from the platform's own domain, with the
 restaurant's address as reply-to (display name: see below).
-No custom sending domains, ever. One sending reputation to protect, no new
-sub-processor, EU data location. Provider sits behind one interface so it can
-be swapped without touching a template.
+Provider sits behind one interface so it can be swapped without touching a
+template. EU data location, no new sub-processor.
+
+**Sending domain — a changed decision.** This section used to say "No custom
+sending domains, ever" (one sending reputation to protect). That no longer holds:
+**dev keeps the free Azure-managed sender address, and prod moves to our own
+verified domain**, because the managed address's send limits are too low for real
+traffic and a restaurant-facing product should not send from a shared Azure
+address (infra ticket t_0a91aefa). Customers' own domains are still not offered —
+there is one platform sender.
+
+**Send-rate limits.** The Azure-managed dev address allows **5 emails per minute
+and 10 per hour**, and that cannot be raised. A custom domain (prod) allows
+**30 per minute and 100 per hour**, raisable by an Azure support request. A send
+that hits the limit is capped: it retries at most once, briefly, and is given up
+after a few seconds, so a rate limit never holds the order request open. The
+email is lost, not queued (callers already treat a failed email as non-fatal).
+
+**The platform email switch.** `emailEnabled` on the platform config (§11,
+superadmin) is the on/off switch for order email and is **off by default**. While
+it is off **no diner or restaurant order email is sent**: not confirmation,
+acceptance with the invoice, ready, rejection, cancellation, refund with the
+correction invoice, loyalty vouchers, escalation, auto-paused, payment-release or
+refund failure, order-limit warnings, or the subscription payment-grace timer
+emails. The switch is checked in exactly one place, the shared send function, so
+every email type — including any added later — is covered. A skipped email is
+**not queued or replayed** when the switch is later turned on: the timers that
+mark something as sent (grace-warning count, escalation, auto-pause) advance
+exactly as before, so switching it off silently skips and never builds a backlog.
+If the setting cannot be read, email is treated as off; email never fails an
+order. The customer order response carries a read-only `emailsEnabled` flag — true
+only when the switch is on **and** the email transport is configured — so the
+storefront only says "we emailed you" when that is true.
+
+**Not covered by the switch:** platform-operator alert emails (Stripe key/config
+failure, `platformAlert.ts`) always go out when the transport is configured,
+whatever the switch is set to.
 
 **The per-restaurant display name can't be done** (found in slice 4a): Azure
 Communication Services fixes the sender name per configured sender address, not

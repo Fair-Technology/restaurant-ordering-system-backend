@@ -3,6 +3,7 @@ import { getSystemConfig } from '../../../infrastructure/cosmos/system/CosmosSys
 import { ApplicationResult } from '../../_shared/types';
 import { GetSystemConfigResultDto } from './dtos';
 import { requirePlatform } from '../../../infrastructure/auth/superAdminAuthHelpers';
+import { emailTransportName } from '../../../infrastructure/email/emailSender';
 import { logServiceFailure } from '../../_shared/logServiceFailure';
 
 export async function executeGetSystemConfig(
@@ -15,7 +16,12 @@ export async function executeGetSystemConfig(
     }
 
     const config = await getSystemConfig();
-    return { ok: true, data: { maxShopsDefault: config.maxShopsDefault } };
+    return { ok: true, data: {
+        maxShopsDefault: config.maxShopsDefault,
+        emailEnabled: config.emailEnabled === true,
+        emailTransportConfigured: emailTransportName() === 'acs',
+      },
+    };
   } catch (error: any) {
     if (error.message === 'Authentication required') {
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };

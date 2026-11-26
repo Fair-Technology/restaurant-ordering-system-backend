@@ -15775,6 +15775,9 @@
           "orderRef": {
             "type": "string"
           },
+          "emailsEnabled": {
+            "type": "boolean"
+          },
           "shopSlug": {
             "type": "string"
           },
@@ -15963,6 +15966,7 @@
         "required": [
           "orderId",
           "orderRef",
+          "emailsEnabled",
           "shopSlug",
           "shopName",
           "sellerPhone",
@@ -20263,10 +20267,18 @@
         "properties": {
           "maxShopsDefault": {
             "type": "number"
+          },
+          "emailEnabled": {
+            "type": "boolean"
+          },
+          "emailTransportConfigured": {
+            "type": "boolean"
           }
         },
         "required": [
-          "maxShopsDefault"
+          "maxShopsDefault",
+          "emailEnabled",
+          "emailTransportConfigured"
         ],
         "additionalProperties": false
       },
@@ -20297,10 +20309,14 @@
         "properties": {
           "maxShopsDefault": {
             "type": "number"
+          },
+          "emailEnabled": {
+            "type": "boolean"
           }
         },
         "required": [
-          "maxShopsDefault"
+          "maxShopsDefault",
+          "emailEnabled"
         ],
         "additionalProperties": false
       },
@@ -20309,11 +20325,11 @@
         "properties": {
           "maxShopsDefault": {
             "type": "number"
+          },
+          "emailEnabled": {
+            "type": "boolean"
           }
         },
-        "required": [
-          "maxShopsDefault"
-        ],
         "additionalProperties": false
       },
       "OrderLimitWithPaymentDto": {

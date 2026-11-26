@@ -11,7 +11,7 @@ app.http('updateSystemConfig', {
     try {
       const body = (await request.json()) as Record<string, unknown>;
       const result = await executeUpdateSystemConfig(
-        { maxShopsDefault: body.maxShopsDefault as number },
+        { maxShopsDefault: body.maxShopsDefault as number | undefined, emailEnabled: body.emailEnabled as boolean | undefined },
         request,
       );
       return mapResultToHttp(result);
