@@ -1712,6 +1712,18 @@ erasure can blank the identity table while the trail stays intact and true.
 The existing entry's TTL (self-deleting) and `actorEmail`/`actorName` fields
 are removed.
 
+The admin Activity page can filter the log by **area** and by **who** (actor),
+server-side. Filters combine, `total` and pagination reflect the filtered set,
+and with no filter the result is identical to before. The area is derived from
+the action rather than stored on the entry, so it cannot drift from the entries
+it labels: `menu`, `orders`, `shop`, `discounts`, `staff`, `subscription`. Every
+action the backend writes is mapped to exactly one of them in
+`src/domain/audit/auditAreas.ts` (the source of truth; a test fails when a new
+action is left unmapped). The actor filter accepts `actorType:actorId` for one
+specific person, or a bare `actorType` for Platform/System. The "Who" dropdown is
+served from a cheap `DISTINCT` projection over `actorType`/`actorId`, not by
+reading every log entry, to keep Cosmos RU cost down.
+
 ---
 
 ## 12. Languages

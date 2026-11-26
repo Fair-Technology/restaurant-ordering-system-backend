@@ -18,6 +18,8 @@ app.http('getAuditEntries', {
           shopId,
           page: page ? parseInt(page, 10) : undefined,
           pageSize: pageSize ? parseInt(pageSize, 10) : undefined,
+          area: request.query.get('area') ?? undefined,
+          actor: request.query.get('actor') ?? undefined,
         },
         request,
       );

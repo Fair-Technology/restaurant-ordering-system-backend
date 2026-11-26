@@ -778,7 +778,7 @@
       ]
     },
     "GET /shops/{shopId}/audit": {
-      "description": "Access: the restaurant's owner or staff with the `view_audit` permission; platform operators (Platform.Owner, Platform.Support, Platform.ReadOnly) may also read. A read never writes.",
+      "description": "Access: the restaurant's owner or staff with the `view_audit` permission; platform operators (Platform.Owner, Platform.Support, Platform.ReadOnly) may also read. A read never writes. Optional filters combine and `total` reflects the filtered set: `area` (menu, orders, shop, discounts, staff, subscription) and `actor` (`actorType:actorId` for one actor, or a bare `actorType` such as `superadmin`/`system`). `actors` lists every actor in the shop's log for the \"Who\" dropdown, regardless of filters.",
       "tags": [
         "Audit"
       ]
