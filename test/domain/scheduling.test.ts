@@ -8,6 +8,7 @@ import {
   parseSlotStart,
   queueEntryAt,
   readyAtFor,
+  horizonEndMs,
   slotWithinHours,
 } from '../../src/domain/order/scheduling';
 import { localDate } from '../../src/domain/order/orderTimers';
@@ -191,5 +192,35 @@ describe('scheduling', () => {
     expect(readyAtFor(SCHEDULED_ORDER, d('2026-10-05T15:42:00Z'), 20).toISOString()).toBe('2026-10-05T16:00:00.000Z');
     expect(readyAtFor(SCHEDULED_ORDER, d('2026-10-05T16:10:00Z'), 20).toISOString()).toBe('2026-10-05T16:30:00.000Z');
     expect(readyAtFor(PLACED_CARD_ORDER, d('2026-10-05T10:05:00Z'), 20).toISOString()).toBe('2026-10-05T10:25:00.000Z');
+  });
+
+  describe('configured horizon', () => {
+    const iso = (days?: number) => listSlots(SCHEDULED_SHOP, 'collection', NOW_OPEN, days);
+
+    it('defaults to 4 days', () => {
+      expect(iso()).toEqual(iso(4));
+    });
+
+    it('a shorter or longer horizon gives a shorter or longer list', () => {
+      expect(iso(1).length).toBeLessThan(iso(4).length);
+      expect(iso(6).length).toBeGreaterThan(iso(4).length);
+      expect(iso(1).at(-1)).toBe('2026-10-06T20:00:00.000Z'); // end of the local day 24 h after NOW_OPEN
+      expect(iso(6).at(-1)).toBe('2026-10-11T20:00:00.000Z');
+    });
+
+    it('isBookableSlot follows it', () => {
+      const slot = d('2026-10-09T10:15:00.000Z');
+      expect(isBookableSlot(SCHEDULED_SHOP, 'collection', slot, NOW_OPEN, 4)).toBe(true);
+      expect(isBookableSlot(SCHEDULED_SHOP, 'collection', slot, NOW_OPEN, 1)).toBe(false);
+      expect(isBookableSlot(SCHEDULED_SHOP, 'collection', d('2026-10-10T10:15:00.000Z'), NOW_OPEN, 4)).toBe(false);
+      expect(isBookableSlot(SCHEDULED_SHOP, 'collection', d('2026-10-10T10:15:00.000Z'), NOW_OPEN, 6)).toBe(true);
+    });
+
+    it('horizonEndMs runs to the last quarter hour of the shop-local day, also across a DST change', () => {
+      const shop = { timezone: 'Europe/Berlin' };
+      expect(horizonEndMs(shop, d('2026-10-22T10:00:00Z'), 4)).toBe(Date.parse('2026-10-26T22:45:00Z'));
+      // 25 Oct 2026 is the day Berlin goes back to winter time (23:45 local = 22:45Z)
+      expect(horizonEndMs(shop, d('2026-10-23T10:00:00Z'), 2)).toBe(Date.parse('2026-10-25T22:45:00Z'));
+    });
   });
 });

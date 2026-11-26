@@ -309,8 +309,8 @@ for the restaurant's plain menu link (no table) exists in admin Settings.
 
 ### ASAP or scheduled
 
-Both. A scheduled order is placed **up to 4 days (96 hours) ahead in 15-minute
-slots** (Manish, 2026-10-09; was 7 days), for **collection and delivery only** —
+Both. A scheduled order is placed **ahead in 15-minute slots**, for **collection
+and delivery only** —
 a table order is always "now". The card is reserved at once and charged on
 acceptance like any order. It counts against that slot's capacity (§4), sits in
 a silent "Upcoming" list under the order board (no alarm, email or
@@ -323,6 +323,21 @@ accepted. A scheduled order is cancellable by the customer until accepted —
 which for a Saturday order placed on Wednesday means days. That is accepted for
 simplicity.
 
+**How far ahead is a platform setting** (2026-11-26): `scheduleHorizonDays`, a
+whole number of days from **1 to 6, default 4** (was a fixed 4 days / 96 hours),
+set by a superadmin through `PATCH /platform/config` (§11). The window runs to
+the end of its last shop-local calendar day. The storefront reads the current
+value as `scheduleHorizonDays` on the basket quote. **Lowering the limit never
+cancels or breaks an order already booked** — it only stops *new* bookings
+beyond the new, shorter window; an existing booking whose slot now falls
+outside the window still ships, is still charged/held, and still shows normally
+on the order board (nothing re-checks an existing order's `scheduledFor`
+against the horizon). The maximum is 6 because a Stripe card hold on a payment
+method generally lasts about 7 days and the hold runs from order until just
+before the booked time, so the horizon (which runs to the end of its last
+calendar day) must stay inside that window; see
+https://docs.stripe.com/payments/place-a-hold-on-a-payment-method.
+
 **Each restaurant switches it on itself** ("Accept orders for later", off by
 default), so no kitchen gets booked orders it wasn't told about.
 
@@ -333,6 +348,24 @@ when every dish in the basket is served, and "as soon as possible" only if all
 of it is served now. A dish in a timed and a normal category counts as available
 whenever any of them is open. Re-submitting checkout frees the diner's own
 earlier unpaid slot hold. Why: [[timed-categories-other-times-pill]].
+
+**Dishes with their own schedule** (2026-11-26). A dish or combo whose own
+`schedule` is not active right now is no longer silently dropped from the
+catalog: `GET /shops/{shopId}/catalog` lists it separately as `otherTimeDishes`
+(`id`, `name`, normal `price`, and its `schedule`: dates, days, times) so the
+storefront can show it under "Other times" without making it orderable now. It
+is display data only and never appears in `categories`. Only on-menu dishes in
+a switched-on category are listed, and a dish whose `schedule.endDate` has
+passed is hidden entirely, as always. The list is always judged from the real
+current time, whatever `at` says.
+
+**Catalog at a chosen moment** (2026-11-26). `GET /shops/{shopId}/catalog`
+takes an optional `at` query parameter: an ISO instant on a quarter hour that
+must be strictly in the future and within the configured booking horizon, or
+the endpoint returns 400 (`INVALID_INPUT`). When given, every category, dish,
+combo, offer price and label (`availableNow`, `offerPrice`, `offerLabel`, combo
+choices) is computed as of that moment instead of now — the same rules an order
+for that time would be priced with. Omitting it behaves exactly as before.
 
 > **Built: 8c (2026-10-09; pushed, deployed to dev and browser-checked).** Why:
 > [[scheduled-orders]].
@@ -1660,6 +1693,16 @@ restricted later without a rewrite. **Impersonating an owner is not offered**
   `config.maxShopsDefault.update`), actor type superadmin, shop `platform`,
   entityType `systemConfig`, entityId `global` — and a field sent with an
   unchanged value writes no entry.
+- **Booking-ahead limit (built, 2026-11-26):** the platform config also holds
+  `scheduleHorizonDays` — whole days a diner may book ahead, **1 to 6, default
+  4** (§4 "ASAP or scheduled"). `GET platform/config` returns it (an old
+  document without it, or with an out-of-range value, reads as 4);
+  `PATCH platform/config` accepts it alone or with the other settings, rejects
+  anything that is not an integer from 1 to 6, and leaves untouched whatever
+  settings it does not name. A change is audited per field — action
+  `config.scheduleHorizonDays.update`, actor type superadmin, shop `platform`,
+  entityType `systemConfig`, entityId `global`, change field
+  `scheduleHorizonDays` (from/to) — and an unchanged value writes no entry.
 - Lowering a limit below the owner's current shop count never deletes or
   disables shops (§9).
 

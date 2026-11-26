@@ -9,7 +9,9 @@ app.http('getCatalog', {
   route: 'shops/{shopId}/catalog',
   handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
     const shopId = request.params.shopId;
-    const result = await executeGetCatalog({ shopId, lang: request.query.get('lang') ?? undefined });
+    const result = await executeGetCatalog({ shopId, lang: request.query.get('lang') ?? undefined,
+      at: request.query.get('at') ?? undefined,
+    });
     if (!result.ok) return mapResultToHttp(result);
     return compressJsonResponse(request, result.data);
   },

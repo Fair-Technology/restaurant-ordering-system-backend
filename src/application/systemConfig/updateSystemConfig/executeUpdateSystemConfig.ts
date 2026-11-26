@@ -3,6 +3,7 @@ import { getSystemConfig, upsertSystemConfig } from '../../../infrastructure/cos
 import { ApplicationResult } from '../../_shared/types';
 import { UpdateSystemConfigRequestDto, UpdateSystemConfigResultDto } from './dtos';
 import { verifySuperAdminToken } from '../../../infrastructure/auth/superAdminAuthHelpers';
+import { MAX_SCHEDULE_HORIZON_DAYS, MIN_SCHEDULE_HORIZON_DAYS } from '../../../domain/order/scheduling';
 import { logAudit } from '../../_shared/auditHelpers';
 import { logServiceFailure } from '../../_shared/logServiceFailure';
 
@@ -21,7 +22,21 @@ export async function executeUpdateSystemConfig(
   if (request.emailEnabled !== undefined && typeof request.emailEnabled !== 'boolean') {
     return { ok: false, code: 'INVALID_INPUT', error: 'emailEnabled must be a boolean' };
   }
-  if (request.maxShopsDefault === undefined && request.emailEnabled === undefined) {
+  if (request.scheduleHorizonDays !== undefined) {
+    const d = request.scheduleHorizonDays;
+    if (typeof d !== 'number' || !Number.isInteger(d) || d < MIN_SCHEDULE_HORIZON_DAYS || d > MAX_SCHEDULE_HORIZON_DAYS) {
+      return {
+        ok: false,
+        code: 'INVALID_INPUT',
+        error: `scheduleHorizonDays must be a whole number from ${MIN_SCHEDULE_HORIZON_DAYS} to ${MAX_SCHEDULE_HORIZON_DAYS}`,
+      };
+    }
+  }
+  if (
+    request.maxShopsDefault === undefined &&
+    request.emailEnabled === undefined &&
+    request.scheduleHorizonDays === undefined
+  ) {
     return { ok: false, code: 'INVALID_INPUT', error: 'No fields to update' };
   }
 
@@ -32,9 +47,10 @@ export async function executeUpdateSystemConfig(
     }
 
     const previousConfig = await getSystemConfig();
-    const patch: { maxShopsDefault?: number; emailEnabled?: boolean } = {};
+    const patch: { maxShopsDefault?: number; emailEnabled?: boolean; scheduleHorizonDays?: number } = {};
     if (request.maxShopsDefault !== undefined) patch.maxShopsDefault = request.maxShopsDefault;
     if (request.emailEnabled !== undefined) patch.emailEnabled = request.emailEnabled;
+    if (request.scheduleHorizonDays !== undefined) patch.scheduleHorizonDays = request.scheduleHorizonDays;
     const updated = await upsertSystemConfig(patch);
 
     if (patch.maxShopsDefault !== undefined && previousConfig.maxShopsDefault !== updated.maxShopsDefault) {
@@ -61,8 +77,27 @@ export async function executeUpdateSystemConfig(
         changes: [{ field: 'emailEnabled', from: previousConfig.emailEnabled === true, to: updated.emailEnabled }],
       });
     }
+    if (patch.scheduleHorizonDays !== undefined && previousConfig.scheduleHorizonDays !== updated.scheduleHorizonDays) {
+      await logAudit({
+        shopId: 'platform',
+        actorType: 'superadmin',
+        actorId: adminId,
+        action: 'config.scheduleHorizonDays.update',
+        entityType: 'systemConfig',
+        entityId: 'global',
+        entityName: 'Booking-ahead limit',
+        changes: [{ field: 'scheduleHorizonDays', from: previousConfig.scheduleHorizonDays, to: updated.scheduleHorizonDays }],
+      });
+    }
 
-    return { ok: true, data: { maxShopsDefault: updated.maxShopsDefault, emailEnabled: updated.emailEnabled === true } };
+    return {
+      ok: true,
+      data: {
+        maxShopsDefault: updated.maxShopsDefault,
+        emailEnabled: updated.emailEnabled === true,
+        scheduleHorizonDays: updated.scheduleHorizonDays,
+      },
+    };
   } catch (error: any) {
     if (error.message === 'Authentication required') {
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };

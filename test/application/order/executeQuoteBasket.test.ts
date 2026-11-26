@@ -16,6 +16,9 @@ vi.mock('../../../src/infrastructure/cosmos/promotion/CosmosPromotionRepository'
 }));
 vi.mock('../../../src/infrastructure/cosmos/order/CosmosOrderRepository', () => ({ findDiscountUseRows: vi.fn(async () => []) }));
 
+vi.mock('../../../src/infrastructure/cosmos/system/CosmosSystemConfigRepository', () => ({
+  getSystemConfig: vi.fn(async () => ({ id: 'global', scheduleHorizonDays: 4 })),
+}));
 vi.mock('../../../src/infrastructure/cosmos/usage/CosmosSlotPlacesRepository', () => ({
   findSlotPlacesWithEtag: vi.fn(async () => null),
   createSlotPlaces: vi.fn(async () => 'ok'),
@@ -26,6 +29,7 @@ vi.mock('../../../src/application/usage/orderLimitStatus', () => ({
 }));
 
 import { loadOrderLimitStatus } from '../../../src/application/usage/orderLimitStatus';
+import { getSystemConfig } from '../../../src/infrastructure/cosmos/system/CosmosSystemConfigRepository';
 import { executeQuoteBasket } from '../../../src/application/order/quoteBasket/executeQuoteBasket';
 import { findDiscountUseRows } from '../../../src/infrastructure/cosmos/order/CosmosOrderRepository';
 import { findPromotions, findVoucher } from '../../../src/infrastructure/cosmos/promotion/CosmosPromotionRepository';
@@ -218,6 +222,22 @@ describe('executeQuoteBasket', () => {
     expect(res.data.slots[0]).toBe('2026-10-06T09:30:00.000Z');
     expect(res.data.slotAvailable).toBeNull();
     expect(res.data.scheduledFor).toBeNull();
+  });
+
+  it('returns the configured booking horizon and shortens the slot list with it', async () => {
+    (findShopById as any).mockResolvedValue(SCHEDULED_SHOP);
+    const four = await executeQuoteBasket(request, { now: NOW_CLOSED });
+    expect(four.ok && four.data.scheduleHorizonDays).toBe(4);
+    (getSystemConfig as any).mockResolvedValueOnce({ id: 'global', scheduleHorizonDays: 2 });
+    const two = await executeQuoteBasket(request, { now: NOW_CLOSED });
+    expect(two.ok && two.data.scheduleHorizonDays).toBe(2);
+    expect(two.ok && four.ok && two.data.slots.length).toBeLessThan(four.ok ? four.data.slots.length : 0);
+  });
+
+  it('falls back to 4 when the setting cannot be read', async () => {
+    (getSystemConfig as any).mockRejectedValueOnce(new Error('cosmos down'));
+    const res = await executeQuoteBasket(request, { now: NOW_OPEN });
+    expect(res.ok && res.data.scheduleHorizonDays).toBe(4);
   });
 
   it('no slots while scheduling is off or for table orders', async () => {

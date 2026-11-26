@@ -7,10 +7,11 @@ import { orderSettingsOf } from './orderSettings';
 import { localDate } from './orderTimers';
 
 export const SLOT_MINUTES = 15;
-export const SCHEDULE_HORIZON_HOURS = 96; // default 16 (Manish 2026-10-09): 4 days
+export const DEFAULT_SCHEDULE_HORIZON_DAYS = 4;
+export const MIN_SCHEDULE_HORIZON_DAYS = 1;
+export const MAX_SCHEDULE_HORIZON_DAYS = 6; // a Stripe card hold lasts about 7 days
 export const SCHEDULABLE_MODES: readonly FulfilmentMode[] = ['collection', 'delivery'];
 const SLOT_MS = SLOT_MINUTES * 60_000;
-const HORIZON_MS = SCHEDULE_HORIZON_HOURS * 3_600_000;
 const ISO_INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,3})?)?(Z|[+-]\d{2}:\d{2})$/;
 
 /** Pushes `ms` forward, one slot at a time, to the last slot still inside its own local calendar day. */
@@ -21,9 +22,10 @@ function extendToLocalDayEnd(ms: number, timeZone: string): number {
   return t;
 }
 
-/** The last bookable instant: the 96-hour horizon rounded up to the end of the shop's local day, so the picker's last day is a full one. */
-function horizonEndMs(shop: Pick<SlotShop, 'timezone'>, now: Date): number {
-  return extendToLocalDayEnd(now.getTime() + HORIZON_MS, shop.timezone);
+/** The last bookable instant: the horizon (in days) rounded up to the end of the shop's local day, so the picker's last day is a full one. */
+export function horizonEndMs(shop: Pick<SlotShop, 'timezone'>, now: Date, horizonDays: number): number {
+  const horizonMs = horizonDays * 24 * 3_600_000;
+  return extendToLocalDayEnd(now.getTime() + horizonMs, shop.timezone);
 }
 
 export type SlotShop = Pick<Shop, 'openingHours' | 'closures' | 'timezone' | 'orderSettings' | 'busyMode'>;
@@ -49,20 +51,20 @@ export function slotWithinHours(shop: SlotShop, mode: FulfilmentMode, slot: Date
 }
 
 /** Whether a diner may book this slot now. */
-export function isBookableSlot(shop: SlotShop, mode: FulfilmentMode, slot: Date, now: Date): boolean {
+export function isBookableSlot(shop: SlotShop, mode: FulfilmentMode, slot: Date, now: Date, horizonDays: number = DEFAULT_SCHEDULE_HORIZON_DAYS): boolean {
   if (!orderSettingsOf(shop).scheduledOrders || !SCHEDULABLE_MODES.includes(mode)) return false;
   const t = slot.getTime();
   if (t % SLOT_MS !== 0) return false;
   if (t < now.getTime() + effectivePrepMinutes(shop, mode, now) * 60_000) return false;
-  if (t > horizonEndMs(shop, now)) return false;
+  if (t > horizonEndMs(shop, now, horizonDays)) return false;
   return slotWithinHours(shop, mode, slot);
 }
 
-/** Every bookable slot start from the earliest possible to the end of the local calendar day the 96-hour horizon falls into, oldest first, as ISO strings. */
-export function listSlots(shop: SlotShop, mode: FulfilmentMode, now: Date): string[] {
+/** Every bookable slot start from the earliest possible to the end of the local calendar day the booking horizon falls into, oldest first, as ISO strings. */
+export function listSlots(shop: SlotShop, mode: FulfilmentMode, now: Date, horizonDays: number = DEFAULT_SCHEDULE_HORIZON_DAYS): string[] {
   if (!orderSettingsOf(shop).scheduledOrders || !SCHEDULABLE_MODES.includes(mode)) return [];
   const first = Math.ceil((now.getTime() + effectivePrepMinutes(shop, mode, now) * 60_000) / SLOT_MS) * SLOT_MS;
-  const last = horizonEndMs(shop, now);
+  const last = horizonEndMs(shop, now, horizonDays);
   const out: string[] = [];
   for (let t = first; t <= last; t += SLOT_MS) {
     const slot = new Date(t);

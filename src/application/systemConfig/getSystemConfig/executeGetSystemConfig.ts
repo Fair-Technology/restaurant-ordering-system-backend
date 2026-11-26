@@ -19,6 +19,7 @@ export async function executeGetSystemConfig(
     return { ok: true, data: {
         maxShopsDefault: config.maxShopsDefault,
         emailEnabled: config.emailEnabled === true,
+        scheduleHorizonDays: config.scheduleHorizonDays,
         emailTransportConfigured: emailTransportName() === 'acs',
       },
     };

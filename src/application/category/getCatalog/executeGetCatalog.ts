@@ -6,6 +6,8 @@ import { findShopOptionGroupsByShopId } from '../../../infrastructure/cosmos/opt
 import { resolveProductOptionGroups } from '../../../domain/product/optionGroupRefs';
 import { isShopOffline } from '../../../domain/shop/Shop';
 import { ApplicationResult } from '../../_shared/types';
+import { horizonEndMs, parseSlotStart } from '../../../domain/order/scheduling';
+import { getScheduleHorizonDays } from '../../_shared/scheduleHorizon';
 import { buildCatalog } from './buildCatalog';
 import { GetCatalogResultDto } from './dtos';
 import { logServiceFailure } from '../../_shared/logServiceFailure';
@@ -13,6 +15,7 @@ import { logServiceFailure } from '../../_shared/logServiceFailure';
 interface GetCatalogRequestDto {
   shopId: string;
   lang?: string;
+  at?: string; // ISO instant on a quarter hour: judge the menu as of that moment
 }
 
 export async function executeGetCatalog(
@@ -24,6 +27,12 @@ export async function executeGetCatalog(
       code: 'INVALID_INPUT',
       error: 'shopId is required and must be a non-empty string',
     };
+  }
+
+  let parsedAt: Date | null = null;
+  if (request.at !== undefined) {
+    parsedAt = parseSlotStart(request.at);
+    if (!parsedAt) return { ok: false, code: 'INVALID_INPUT', error: 'at must be an ISO instant on a quarter hour' };
   }
 
   try {
@@ -48,6 +57,15 @@ export async function executeGetCatalog(
       };
     }
 
+    const now = new Date();
+    if (parsedAt) {
+      if (parsedAt.getTime() <= now.getTime()) return { ok: false, code: 'INVALID_INPUT', error: 'at must be in the future' };
+      const horizonDays = await getScheduleHorizonDays();
+      if (parsedAt.getTime() > horizonEndMs(shop, now, horizonDays)) {
+        return { ok: false, code: 'INVALID_INPUT', error: 'at is beyond the booking horizon' };
+      }
+    }
+
     const refs = await getReferenceLists(shop.countryCode ?? '');
 
     const libraryMap = new Map(library.map((g) => [g.id, g]));
@@ -55,7 +73,7 @@ export async function executeGetCatalog(
 
     return {
       ok: true,
-      data: buildCatalog({ shop, categories, products: resolved, refs, lang: request.lang, now: new Date() }),
+      data: buildCatalog({ shop, categories, products: resolved, refs, lang: request.lang, now, ...(parsedAt ? { at: parsedAt } : {}) }),
     };
   } catch (error) {
     logServiceFailure('getCatalog', error);

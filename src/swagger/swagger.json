@@ -2561,6 +2561,14 @@
               "type": "string"
             },
             "description": "Preferred menu language; falls back to the original"
+          },
+          {
+            "name": "at",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -8830,6 +8838,65 @@
         ],
         "additionalProperties": false
       },
+      "CatalogOtherTimeDishDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "price": {
+            "type": "number"
+          },
+          "schedule": {
+            "$ref": "#/components/schemas/CatalogProductScheduleDto"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "price",
+          "schedule"
+        ],
+        "additionalProperties": false
+      },
+      "CatalogProductScheduleDto": {
+        "type": "object",
+        "properties": {
+          "startDate": {
+            "type": "string"
+          },
+          "endDate": {
+            "type": "string",
+            "nullable": true
+          },
+          "daysOfWeek": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "nullable": true
+          },
+          "startTime": {
+            "type": "string",
+            "nullable": true
+          },
+          "endTime": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "startDate",
+          "endDate",
+          "daysOfWeek",
+          "startTime",
+          "endTime"
+        ],
+        "additionalProperties": false
+      },
       "CategoryDto": {
         "type": "object",
         "properties": {
@@ -14294,12 +14361,19 @@
             "items": {
               "$ref": "#/components/schemas/CatalogCategoryDto"
             }
+          },
+          "otherTimeDishes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CatalogOtherTimeDishDto"
+            }
           }
         },
         "required": [
           "language",
           "languages",
-          "categories"
+          "categories",
+          "otherTimeDishes"
         ],
         "additionalProperties": false
       },
@@ -14310,6 +14384,9 @@
             "type": "string"
           },
           "lang": {
+            "type": "string"
+          },
+          "at": {
             "type": "string"
           }
         },
@@ -16430,6 +16507,9 @@
           "fulfilmentMode": {
             "$ref": "#/components/schemas/FulfilmentMode"
           },
+          "scheduleHorizonDays": {
+            "type": "number"
+          },
           "lines": {
             "type": "array",
             "items": {
@@ -16557,6 +16637,7 @@
         "required": [
           "currency",
           "fulfilmentMode",
+          "scheduleHorizonDays",
           "lines",
           "subtotalCents",
           "deliveryFeeCents",
@@ -20413,6 +20494,9 @@
           "emailEnabled": {
             "type": "boolean"
           },
+          "scheduleHorizonDays": {
+            "type": "number"
+          },
           "emailTransportConfigured": {
             "type": "boolean"
           }
@@ -20420,6 +20504,7 @@
         "required": [
           "maxShopsDefault",
           "emailEnabled",
+          "scheduleHorizonDays",
           "emailTransportConfigured"
         ],
         "additionalProperties": false
@@ -20454,11 +20539,15 @@
           },
           "emailEnabled": {
             "type": "boolean"
+          },
+          "scheduleHorizonDays": {
+            "type": "number"
           }
         },
         "required": [
           "maxShopsDefault",
-          "emailEnabled"
+          "emailEnabled",
+          "scheduleHorizonDays"
         ],
         "additionalProperties": false
       },
@@ -20470,6 +20559,9 @@
           },
           "emailEnabled": {
             "type": "boolean"
+          },
+          "scheduleHorizonDays": {
+            "type": "number"
           }
         },
         "additionalProperties": false
