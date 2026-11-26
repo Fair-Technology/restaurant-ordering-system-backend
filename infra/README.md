@@ -43,14 +43,14 @@ az functionapp config appsettings set \
              STRIPE_CONNECT_WEBHOOK_SECRET=… \
              STAFF_JWT_SECRET=… \
              VAPID_PUBLIC_KEY=… VAPID_PRIVATE_KEY=… \
-             VAPID_SUBJECT='mailto:…' \
-             WEB_PUBSUB_CONNECTION_STRING=…
+             VAPID_SUBJECT='mailto:…'
 ```
 
-Vault keys for the last four: `RESTAURANT_ORDERING_<ENV>_VAPID_PUBLIC_KEY`,
-`RESTAURANT_ORDERING_<ENV>_VAPID_PRIVATE_KEY`,
-`RESTAURANT_ORDERING_<ENV>_VAPID_SUBJECT` and
-`RESTAURANT_ORDERING_<ENV>_WEB_PUBSUB_CONNECTION_STRING`.
+Vault keys for the last three: `RESTAURANT_ORDERING_<ENV>_VAPID_PUBLIC_KEY`,
+`RESTAURANT_ORDERING_<ENV>_VAPID_PRIVATE_KEY` and
+`RESTAURANT_ORDERING_<ENV>_VAPID_SUBJECT`.
+
+`WEB_PUBSUB_CONNECTION_STRING` is template-managed and does not belong in this command.
 
 **The live order channel loses its settings quietly.** The kitchen board holds
 a WebSocket to Web PubSub and receives Web Push on installed devices; both are
