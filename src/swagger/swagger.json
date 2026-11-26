@@ -2392,7 +2392,7 @@
     },
     "/shops/{shopId}/audit": {
       "get": {
-        "description": "Access: the restaurant's owner or staff with the `view_audit` permission; platform operators (Platform.Owner, Platform.Support, Platform.ReadOnly) may also read. A read never writes.",
+        "description": "Access: the restaurant's owner or staff with the `view_audit` permission; platform operators (Platform.Owner, Platform.Support, Platform.ReadOnly) may also read. A read never writes. Optional filters combine and `total` reflects the filtered set: `area` (menu, orders, shop, discounts, staff, subscription) and `actor` (`actorType:actorId` for one actor, or a bare `actorType` such as `superadmin`/`system`). `actors` lists every actor in the shop's log for the \"Who\" dropdown, regardless of filters.",
         "operationId": "getAuditEntries",
         "tags": [
           "Audit"
@@ -2421,6 +2421,22 @@
             "required": false,
             "schema": {
               "type": "number"
+            }
+          },
+          {
+            "name": "area",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "actor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
             }
           }
         ],
@@ -13952,6 +13968,25 @@
             "additionalProperties": {
               "type": "string"
             }
+          },
+          "actors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "key": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "key",
+                "label"
+              ],
+              "additionalProperties": false
+            }
           }
         },
         "required": [
@@ -13959,7 +13994,8 @@
           "total",
           "page",
           "pageSize",
-          "actorLabels"
+          "actorLabels",
+          "actors"
         ],
         "additionalProperties": false
       },
@@ -13974,6 +14010,12 @@
           },
           "pageSize": {
             "type": "number"
+          },
+          "area": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
           }
         },
         "required": [

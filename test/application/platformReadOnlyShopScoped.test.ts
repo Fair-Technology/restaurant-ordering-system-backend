@@ -92,6 +92,7 @@ vi.mock('../../src/infrastructure/cosmos/staff/CosmosStaffAccountRepository', as
 vi.mock('../../src/infrastructure/cosmos/audit/CosmosAuditRepository', async (io) => ({
   ...(await io<object>()),
   findAuditEntriesByShop: vi.fn(),
+  findDistinctAuditActors: vi.fn(async () => []),
   createAuditEntry: vi.fn(),
 }));
 vi.mock('../../src/infrastructure/cosmos/user/CosmosUserRepository', async (io) => ({

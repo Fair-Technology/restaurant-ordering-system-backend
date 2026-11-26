@@ -4,6 +4,8 @@ export interface GetAuditEntriesRequestDto {
   shopId: string;
   page?: number;
   pageSize?: number;
+  area?: string;
+  actor?: string;
 }
 
 export interface GetAuditEntriesResultDto {
@@ -12,4 +14,5 @@ export interface GetAuditEntriesResultDto {
   page: number;
   pageSize: number;
   actorLabels: Record<string, string>;
+  actors: Array<{ key: string; label: string }>;
 }
