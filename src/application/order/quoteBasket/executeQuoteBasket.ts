@@ -14,6 +14,7 @@ import { parseSlotStart } from '../../../domain/order/scheduling';
 import { offeredPaymentMethods } from '../../../domain/order/paymentMethods';
 import { findPromotions } from '../../../infrastructure/cosmos/promotion/CosmosPromotionRepository';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
+import { getScheduleHorizonDays } from '../../_shared/scheduleHorizon';
 import { loadBookableSlots } from '../_shared/slotPlaces';
 import { isShopOffline } from '../../../domain/shop/Shop';
 import { ApplicationResult } from '../../_shared/types';
@@ -102,7 +103,8 @@ export async function executeQuoteBasket(
     const totalCents = applied ? applied.totalCents : priced.subtotalCents + chargesTotalCents(charges);
     const taxBreakdown = applied ? applied.taxBreakdown : buildTaxBreakdownWithCharges(priced.items, charges);
     const minimum = zone ? zone.minOrderCents : shop.minOrderAmountCents;
-    const booking = await loadBookableSlots(shop, mode, now, slot);
+    const scheduleHorizonDays = await getScheduleHorizonDays();
+    const booking = await loadBookableSlots(shop, mode, now, slot, scheduleHorizonDays);
     const openNow = isOpenForAsapOrder(hoursForMode(shop, mode), shop.closures, shop.timezone, now, lastOrdersLeadMinutes(shop, mode));
     const times = judgeBasketTimes({
       items: request.items,
@@ -121,6 +123,7 @@ export async function executeQuoteBasket(
       data: {
         currency: shop.currency,
         fulfilmentMode: mode,
+        scheduleHorizonDays,
         lines: priced.lines.map((l) => ({
           index: l.index,
           productId: l.productId,

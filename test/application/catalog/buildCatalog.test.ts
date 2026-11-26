@@ -282,4 +282,109 @@ describe('buildCatalog dishes before combos', () => {
   it("a combo's lower position never jumps ahead of a dish", () => {
     expect(ids([dish('d1', 'Dish', 9), combo('m1', 'Menü', 0)])).toEqual(['d1', 'm1']);
   });
+
+  describe('at a chosen moment and other times', () => {
+    // now = Friday 12:00 Berlin; SAT_NOON = Saturday 11:00 Berlin
+    const SAT = new Date('2026-09-26T09:00:00Z');
+    const run = (over: { categories?: Category[]; products?: Product[]; at?: Date; now?: Date }) =>
+      buildCatalog({
+        shop,
+        categories: over.categories ?? [category],
+        products: over.products ?? [p1],
+        refs: DE_REFERENCE_LISTS,
+        lang: 'de',
+        now: over.now ?? now,
+        at: over.at,
+      });
+    const satCategory: Category = {
+      ...category,
+      schedule: { daysOfWeek: [6], startTime: '10:00', endTime: '14:00' },
+    };
+    const satDish: Product = {
+      ...p1,
+      id: 'sat',
+      name: 'Samstagsbraten',
+      schedule: { startDate: '2026-09-01', daysOfWeek: [6], startTime: '10:00', endTime: '14:00', offerPrice: 250 },
+    };
+
+    it('without at the result is the same as with at = now', () => {
+      expect(run({ products: [p1, satDish], categories: [satCategory] })).toEqual(
+        run({ products: [p1, satDish], categories: [satCategory], at: now }),
+      );
+    });
+
+    it('a timed category inactive now is available at a moment inside its window', () => {
+      expect(run({ categories: [satCategory] }).categories[0].availableNow).toBe(false);
+      const at = run({ categories: [satCategory], at: SAT }).categories[0];
+      expect(at.availableNow).toBe(true);
+      expect(at.products[0].availableNow).toBe(true);
+    });
+
+    it('a scheduled dish excluded now appears at a moment inside its schedule, with its offer', () => {
+      expect(run({ products: [satDish] }).categories[0].products).toEqual([]);
+      const dish = run({ products: [satDish], at: SAT }).categories[0].products[0];
+      expect(dish.id).toBe('sat');
+      expect(dish.price).toBe(350);
+    });
+
+    it('a combo whose only dish is available at the chosen moment resolves', () => {
+      const combo: Product = {
+        ...p1,
+        id: 'cmb',
+        name: 'Menü',
+        combo: { groups: [{ id: 'g', name: 'Wahl', productIds: ['sat'] }], bmfDrinkShare: false },
+      } as Product;
+      const now0 = run({ products: [satDish, combo] }).categories[0].products;
+      expect(now0.map((p) => p.id)).toEqual([]); // no dish -> combo not offered
+      const at = run({ products: [satDish, combo], at: SAT }).categories[0].products;
+      expect(at.find((p) => p.id === 'cmb')?.combo?.groups[0].productIds).toEqual(['sat']);
+    });
+
+    it('lists a scheduled dish not served now under otherTimeDishes, with its normal price', () => {
+      const res = run({ products: [p1, satDish] });
+      expect(res.otherTimeDishes).toEqual([
+        {
+          id: 'sat',
+          name: 'Samstagsbraten',
+          price: 350,
+          schedule: { startDate: '2026-09-01', endDate: null, daysOfWeek: [6], startTime: '10:00', endTime: '14:00' },
+        },
+      ]);
+      expect(res.categories[0].products.map((p) => p.id)).toEqual(['p1']); // never orderable from there
+    });
+
+    it('otherTimeDishes ignores at: it is judged from the real now', () => {
+      expect(run({ products: [satDish], at: SAT }).otherTimeDishes.map((p) => p.id)).toEqual(['sat']);
+    });
+
+    it('does not list a dish served right now', () => {
+      expect(run({ products: [satDish], now: SAT }).otherTimeDishes).toEqual([]);
+    });
+
+    it('does not list dishes in a switched-off or deleted category', () => {
+      expect(run({ categories: [{ ...category, isAvailable: false }], products: [satDish] }).otherTimeDishes).toEqual([]);
+      expect(run({ categories: [{ ...category, isDeleted: true }], products: [satDish] }).otherTimeDishes).toEqual([]);
+    });
+
+    it('does not list a switched-off, deleted or undeclared dish', () => {
+      expect(run({ products: [{ ...satDish, isAvailable: false }] }).otherTimeDishes).toEqual([]);
+      expect(run({ products: [{ ...satDish, isDeleted: true }] }).otherTimeDishes).toEqual([]);
+      expect(run({ products: [{ ...satDish, allergenIds: null }] }).otherTimeDishes).toEqual([]);
+    });
+
+    it('does not list a dish whose date range has ended', () => {
+      const ended: Product = { ...satDish, schedule: { ...satDish.schedule!, endDate: '2026-09-24' } };
+      expect(run({ products: [ended] }).otherTimeDishes).toEqual([]);
+      const lastDay: Product = { ...satDish, schedule: { ...satDish.schedule!, endDate: '2026-09-25' } };
+      expect(run({ products: [lastDay] }).otherTimeDishes.map((p) => p.id)).toEqual(['sat']);
+    });
+
+    it('judges the schedule in the shop time zone across a DST change', () => {
+      // 25 Oct 2026 (Berlin back to winter time): 23:30Z on the 24th is already 00:30 on Sunday the 25th local
+      const sunDish: Product = { ...satDish, schedule: { startDate: '2026-09-01', daysOfWeek: [0] } };
+      const at = new Date('2026-10-24T23:30:00Z');
+      expect(run({ products: [sunDish], at }).categories[0].products.map((p) => p.id)).toEqual(['sat']);
+      expect(run({ products: [sunDish], at: new Date('2026-10-24T21:30:00Z') }).categories[0].products).toEqual([]);
+    });
+  });
 });

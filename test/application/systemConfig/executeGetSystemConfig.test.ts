@@ -18,11 +18,11 @@ describe('executeGetSystemConfig', () => {
     [false, 'acs', false, true],
     [false, 'log', false, false],
   ] as const)('switch %s + transport %s', async (enabled, transport, emailEnabled, emailTransportConfigured) => {
-    vi.mocked(getSystemConfig).mockResolvedValue({ id: 'global', maxShopsDefault: 3, emailEnabled, updatedAt: 'x' });
+    vi.mocked(getSystemConfig).mockResolvedValue({ id: 'global', maxShopsDefault: 3, emailEnabled, scheduleHorizonDays: 5, updatedAt: 'x' });
     vi.mocked(emailTransportName).mockReturnValue(transport);
     expect(await executeGetSystemConfig({} as any)).toEqual({
       ok: true,
-      data: { maxShopsDefault: 3, emailEnabled, emailTransportConfigured },
+      data: { maxShopsDefault: 3, emailEnabled, scheduleHorizonDays: 5, emailTransportConfigured },
     });
   });
 

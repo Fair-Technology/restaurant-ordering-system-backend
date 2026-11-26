@@ -81,8 +81,26 @@ export interface CatalogCategoryDto {
   products: CatalogProductDto[];
 }
 
+/** A dish/combo's own weekly+date-range schedule, for display only (no offer fields). */
+export interface CatalogProductScheduleDto {
+  startDate: string;
+  endDate: string | null;
+  daysOfWeek: number[] | null; // null = every day
+  startTime: string | null; // null = 00:00
+  endTime: string | null; // null = 23:59
+}
+
+/** A dish or combo not served right now because of its own schedule, informational only — never orderable from this entry. */
+export interface CatalogOtherTimeDishDto {
+  id: string;
+  name: string;
+  price: number; // the dish's normal price (its offer, if any, only applies inside its own window)
+  schedule: CatalogProductScheduleDto;
+}
+
 export interface GetCatalogResultDto {
   language: MenuLanguage;
   languages: MenuLanguage[];
   categories: CatalogCategoryDto[];
+  otherTimeDishes: CatalogOtherTimeDishDto[]; // scheduled dishes not served right now, display only
 }

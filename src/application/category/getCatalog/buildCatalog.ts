@@ -10,6 +10,7 @@ import {
   CatalogCategoryDto,
   CatalogLabelDto,
   CatalogOptionDto,
+  CatalogOtherTimeDishDto,
   CatalogProductDto,
   GetCatalogResultDto,
 } from './dtos';
@@ -46,6 +47,12 @@ export function isWithinSchedule(
   return true;
 }
 
+/** The schedule's date range lies wholly in the past (shop-local date after its end date). */
+function scheduleHasEnded(schedule: ProductSchedule, timezone: string, now: Date): boolean {
+  if (!schedule.endDate) return false;
+  return now.toLocaleDateString('en-CA', { timeZone: timezone }) > schedule.endDate;
+}
+
 export function buildCatalog(input: {
   shop: Pick<Shop, 'timezone' | 'countryCode'> & { menuLanguages?: MenuLanguage[] };
   categories: Category[];
@@ -53,20 +60,22 @@ export function buildCatalog(input: {
   refs: ReferenceListsDoc;
   lang: string | undefined;
   now: Date;
+  at?: Date; // a chosen moment; everything is judged as of it instead of now
 }): GetCatalogResultDto {
   const { shop, categories, products, refs, lang, now } = input;
+  const serveTime = input.at ?? now;
 
   const languages = menuLanguagesOf(shop);
   const original = languages[0];
   const language = resolveMenuLanguage(lang, languages);
   const L = (o: string, tr?: TranslationMap) => localize(o, tr, language, original);
 
-  const visible = products.filter((p) => isOnMenu(p) && isWithinSchedule(p.schedule ?? null, shop.timezone, now));
+  const visible = products.filter((p) => isOnMenu(p) && isWithinSchedule(p.schedule ?? null, shop.timezone, serveTime));
 
   // Every switched-on category goes to the storefront, also those outside their times (marked, so the menu can offer
   // them under "Other times"). Combos only offer dishes listed under a category that is live right now.
   const shownCategories = categories.filter((c) => !c.isDeleted && c.isAvailable !== false);
-  const liveCategoryIds = new Set(shownCategories.filter((c) => isCategoryLive(c, shop.timezone, now)).map((c) => c.id));
+  const liveCategoryIds = new Set(shownCategories.filter((c) => isCategoryLive(c, shop.timezone, serveTime)).map((c) => c.id));
   const listed = new Map(
     visible.filter((p) => !p.combo && p.categoryIds.some((id) => liveCategoryIds.has(id))).map((p) => [p.id, p]),
   );
@@ -162,5 +171,26 @@ export function buildCatalog(input: {
         })),
     }));
 
-  return { language, languages, categories: categoryDtos };
+  // Scheduled dishes not served this instant (real now, whatever `at` says), listed for display only.
+  const otherTimeDishes: CatalogOtherTimeDishDto[] = [];
+  for (const p of products) {
+    const schedule = p.schedule;
+    if (!schedule || !isOnMenu(p)) continue;
+    if (!p.categoryIds.some((id) => shownCategories.some((c) => c.id === id))) continue;
+    if (isWithinSchedule(schedule, shop.timezone, now) || scheduleHasEnded(schedule, shop.timezone, now)) continue;
+    otherTimeDishes.push({
+      id: p.id,
+      name: L(p.name, p.nameTranslations),
+      price: p.price,
+      schedule: {
+        startDate: schedule.startDate,
+        endDate: schedule.endDate ?? null,
+        daysOfWeek: schedule.daysOfWeek ?? null,
+        startTime: schedule.startTime ?? null,
+        endTime: schedule.endTime ?? null,
+      },
+    });
+  }
+
+  return { language, languages, categories: categoryDtos, otherTimeDishes };
 }

@@ -28,6 +28,7 @@ export interface QuoteLineDto {
 export interface BasketQuoteDto {
   currency: string;
   fulfilmentMode: FulfilmentMode;
+  scheduleHorizonDays: number; // how many days ahead a diner may book
   lines: QuoteLineDto[];
   subtotalCents: number;
   deliveryFeeCents: number | null; // null unless delivery to a served postcode

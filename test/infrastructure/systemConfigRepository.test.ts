@@ -31,3 +31,27 @@ describe('system config repository: emailEnabled', () => {
     expect(await upsertSystemConfig({ maxShopsDefault: 2 })).toMatchObject({ maxShopsDefault: 2, emailEnabled: true });
   });
 });
+
+describe('system config repository: scheduleHorizonDays', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('defaults to 4 without a document and on a 404', async () => {
+    read.mockResolvedValue({ resource: undefined });
+    expect((await getSystemConfig()).scheduleHorizonDays).toBe(4);
+    read.mockRejectedValue({ code: 404 });
+    expect((await getSystemConfig()).scheduleHorizonDays).toBe(4);
+  });
+  it.each([[undefined], [0], [7], [1.5], ['4'], [null]])('reads %s from an existing document as 4', async (v) => {
+    read.mockResolvedValue({ resource: { id: 'global', maxShopsDefault: 7, scheduleHorizonDays: v, updatedAt: 'x' } });
+    expect((await getSystemConfig()).scheduleHorizonDays).toBe(4);
+  });
+  it.each([1, 6])('keeps a stored %s', async (v) => {
+    read.mockResolvedValue({ resource: { id: 'global', maxShopsDefault: 7, scheduleHorizonDays: v, updatedAt: 'x' } });
+    expect((await getSystemConfig()).scheduleHorizonDays).toBe(v);
+  });
+  it('a patch of another field preserves it, and vice versa', async () => {
+    read.mockResolvedValue({ resource: { id: 'global', maxShopsDefault: 7, emailEnabled: true, scheduleHorizonDays: 2, updatedAt: 'x' } });
+    expect(await upsertSystemConfig({ maxShopsDefault: 2 })).toMatchObject({ maxShopsDefault: 2, emailEnabled: true, scheduleHorizonDays: 2 });
+    expect(await upsertSystemConfig({ scheduleHorizonDays: 5 })).toMatchObject({ maxShopsDefault: 7, emailEnabled: true, scheduleHorizonDays: 5 });
+  });
+});

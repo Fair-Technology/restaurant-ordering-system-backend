@@ -75,6 +75,7 @@ import { isShopOffline } from '../../../domain/shop/Shop';
 import { ApplicationResult } from '../../_shared/types';
 import { resolveDiscount } from '../../promotion/resolveDiscount';
 import { loadOrderLimitStatus } from '../../usage/orderLimitStatus';
+import { getScheduleHorizonDays } from '../../_shared/scheduleHorizon';
 import { holdSlotPlace, releaseSlotPlace } from '../_shared/slotPlaces';
 import { loadPricingContext } from '../_shared/loadPricingContext';
 import { retireReplacedCheckout } from './retireReplacedCheckout';
@@ -308,7 +309,7 @@ export async function executeCheckout(
     }
 
     if (scheduledFor) {
-      if (!isBookableSlot(shop, mode, scheduledFor, now)) return { ok: false, code: 'CONFLICT', error: SLOT_UNAVAILABLE_ERROR };
+      if (!isBookableSlot(shop, mode, scheduledFor, now, await getScheduleHorizonDays())) return { ok: false, code: 'CONFLICT', error: SLOT_UNAVAILABLE_ERROR };
       // A slot in a later month may not pre-book past that month's limit.
       if (
         periodKeyFor(scheduledFor, shop.timezone) !== periodKeyFor(now, shop.timezone) &&

@@ -110,9 +110,10 @@ export async function loadBookableSlots(
   mode: FulfilmentMode,
   now: Date,
   chosen: Date | null,
+  horizonDays: number,
 ): Promise<BookableSlots> {
-  const all = listSlots(shop, mode, now);
-  const bookable = chosen ? isBookableSlot(shop, mode, chosen, now) : null;
+  const all = listSlots(shop, mode, now, horizonDays);
+  const bookable = chosen ? isBookableSlot(shop, mode, chosen, now, horizonDays) : null;
   const cap = slotCapacityOf(shop);
   if (cap === null || (all.length === 0 && bookable !== true)) return { slots: all, slotAvailable: bookable };
   const chosenIso = chosen ? chosen.toISOString() : null;
