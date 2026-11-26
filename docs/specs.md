@@ -2410,14 +2410,14 @@ Only the active section's cards render. Cards in each section:
 
 1. **Shop status:** "Shop online" switch card; "Accepting orders" switch card
    (see §16 above); "Storefront link" card (real storefront URL, Copy link).
-2. **Details:** "Shop details" card (ID, slug, name with "Request name change",
-   currency, time zone read-only; editable minimum order); "Address" card;
-   "QR Code" card (preview, storefront URL, Download PNG).
+2. **Details:** "Shop details" card (slug, name with "Request name change",
+   currency, time zone — all read-only); "Address" card; "QR Code" card
+   (preview, storefront URL, Download PNG).
 3. **Look:** Logo; Cover image (with the "Show banner" switch); Accent colour;
    Menu languages.
 4. **Hours and closures:** Opening hours; Closures.
 5. **Orders:** Order alerts; Automatic acceptance; Kitchen timing; Orders for
-   later; Delivery; Dine in.
+   later; Minimum order; Delivery; Dine in.
 6. **Payments and tax:** Payments; Tax classes.
 7. **Danger zone:** Delete shop (inline confirm: type the shop name to enable
    the red Delete button, plus Cancel).
