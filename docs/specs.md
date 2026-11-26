@@ -2721,6 +2721,14 @@ deliberate differences:
   invoice PDFs are only logged, never sent, and diners would receive nothing.
   Going live with real email is an explicit go-live decision, with the sending
   domain authenticated (SPF, DKIM, DMARC).
+- **Email resources:** `infra/main.bicep` provisions `Microsoft.Communication/emailServices`,
+  `.../emailServices/domains` and `Microsoft.Communication/communicationServices`
+  (data location Europe) and sets `EMAIL_TRANSPORT`, `ACS_EMAIL_SENDER` and
+  `ACS_EMAIL_CONNECTION_STRING` itself. Dev uses the Azure-managed domain
+  (auto-verified, free, rate-limited to 5/min and 10/hour). Prod uses a
+  customer-managed domain named by `prodEmailDomainName`, and stays on
+  `EMAIL_TRANSPORT=log` until `enableAcsEmail` is set after DNS verification;
+  once verified it allows 30/min and 100/hour, raisable by support request.
 - **Idle cost is not zero:** the three timers (orders every minute, checkout
   reconciliation every two minutes, subscriptions hourly) bill a few dollars a
   month per environment and grow with the number of shops.

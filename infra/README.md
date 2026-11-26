@@ -162,28 +162,65 @@ Release order for any change that adds a container:
 ## Order emails and timer
 
 Order emails (received, accepted, ready, declined, cancelled, and the
-restaurant's "order waiting" alert) go through one sender. Until the Azure
-email service exists, every email is only written to the log (kind and
-recipient count, never the contents), so the order flow works without it.
+restaurant's "order waiting" alert) and invoice PDFs go through one sender. The
+template now creates the Email Communication Service, the domain and the
+Communication Service, and sets `EMAIL_TRANSPORT`, `ACS_EMAIL_SENDER` and
+`ACS_EMAIL_CONNECTION_STRING` itself via `listKeys()` — these three (plus
+`STOREFRONT_BASE_URL`) are **no longer wiped** by a redeploy, unlike the
+secrets in step 1. With `EMAIL_TRANSPORT=log`, emails are only written to the
+log (kind and recipient count, never the contents).
 
-App settings, all set by hand (the template does not create them):
+Runbook, in order:
 
-| Setting | Meaning |
-|---|---|
-| `EMAIL_TRANSPORT` | `log` (default) or `acs`. `acs` is used only when the next two are also set. |
-| `ACS_EMAIL_CONNECTION_STRING` | Secret. Vault key `RESTAURANT_ORDERING_DEV_ACS_EMAIL_CONNECTION_STRING`. |
-| `ACS_EMAIL_SENDER` | The sender address of the Azure email domain. |
-| `STOREFRONT_BASE_URL` | Base URL of the storefront; the order link in each email is built from it. |
+1. **Dev: nothing to do.** The next `main.bicep` deploy to dev creates the
+   Azure-managed domain (auto-verified) and dev's `EMAIL_TRANSPORT` becomes
+   `acs` automatically. **Check `STOREFRONT_BASE_URL`:** dev's hand-set value
+   today is `https://salmon-mushroom-015326603.2.azurestaticapps.net`; the
+   template overwrites it with the storefront Static Web App's own
+   `defaultHostname`. After the deploy, confirm the computed value still
+   resolves to the live storefront
+   (`az staticwebapp show -g <rg> -n restaurant-ordering-system-storefront-dev --query defaultHostname`)
+   and, if the live storefront is really a custom domain pointing elsewhere,
+   update DNS / any external reference.
+2. **Prod domain.** Name it: set `prodEmailDomainName` (empty/commented in
+   `main.prod.bicepparam` today) and deploy. Then add the DNS records ACS gives
+   you for that domain: a TXT ownership/verification record, an SPF TXT record
+   and a DKIM CNAME pair (two records). Exact values come from
+   `az communication email domain show` or the portal's "Verify domain" blade
+   once the domain resource exists.
+3. **Verify.** Run
+   `az communication email domain show -g <rg> --email-service-name <name> --domain-name <domain> --query verificationStates`
+   until every required record shows `Verified`. The template already links the
+   domain to the Communication Service (`linkedDomains`), so once DNS verifies
+   the existing link becomes usable — no further linking step.
+4. **Switch on.** Only then set `enableAcsEmail = true` in
+   `main.prod.bicepparam` and redeploy. Before that, prod keeps
+   `EMAIL_TRANSPORT=log` even though the domain and connection string already
+   exist — by design (see the comment on `enableAcsEmail` in the bicep).
+5. **Raising the send limit** once live volume needs it: self-service is not
+   available. Raise a support request against the Communication Service
+   resource asking for a higher email sending limit, and quote the resource
+   (`restaurant-ordering-system-acs-<env>`) in the ticket.
+6. **Limits:**
+
+   | Domain type | Per-minute | Per-hour | Raisable? |
+   |---|---|---|---|
+   | Azure-managed (dev) | 5 | 10 | No — fixed, cannot be raised |
+   | Customer-managed, verified (prod) | 30 | 100 | Yes, via Azure support request |
 
 The one-minute order timer (3-minute alert, auto-decline, auto-complete four
 hours after the ready time) is a timer trigger, so it needs `AzureWebJobsStorage` on the
 Function App. The dev app already has it.
 
-**Warning: redeploying `main.bicep` replaces the Function App's whole app
-settings list.** Every hand-set secret and the settings above would be wiped.
-Re-apply them from the vault `.env` straight after any deployment — including
-the Web PubSub and VAPID settings in step 1, whose absence disables the live
-order channel without any error.
+**Warning: redeploying `main.bicep` still replaces the Function App's whole app
+settings list, so every OTHER hand-set app setting is wiped.** Re-apply these
+from the vault `.env` (step 1) straight after any deployment: `COSMOS_DB_KEY`,
+`STORAGE_ACCOUNT_KEY`, `ENTRA_TENANT_ID`, `ENTRA_CLIENT_ID`,
+`ENTRA_TENANT_NAME`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`,
+`STRIPE_CONNECT_WEBHOOK_SECRET`, `STAFF_JWT_SECRET`, `VAPID_PUBLIC_KEY`,
+`VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`. Their absence disables the live order
+channel (VAPID) without any error. `WEB_PUBSUB_CONNECTION_STRING`, the email
+settings and `STOREFRONT_BASE_URL` are template-managed and need no re-apply.
 
 ## Eight-year archive timer
 
