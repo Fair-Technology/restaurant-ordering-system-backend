@@ -74,6 +74,12 @@ param githubFederatedSubject string = ''
 @description('Optional IMMUTABLE federated-credential subject, e.g. "repo:Fair-Technology@175465322/restaurant-ordering-system-backend@1050545921:environment:production". This repo presents the immutable form, so without it a deploy pipeline cannot log in. Empty = create none.')
 param githubFederatedSubjectImmutable string = ''
 
+@description('Customer-managed domain name for production email (e.g. mail.example.com). Empty = no domain named yet; prod stays on EMAIL_TRANSPORT=log. Dev always uses the free Azure-managed domain regardless of this parameter.')
+param prodEmailDomainName string = ''
+
+@description('Switch prod email sending on. Only set true once prodEmailDomainName has passed DNS verification (ownership TXT, SPF, DKIM) end to end — see infra/README.md. Until then this stays false and prod stays on EMAIL_TRANSPORT=log even though the domain/communication-service resources already exist.')
+param enableAcsEmail bool = false
+
 @description('Region for Static Web Apps — a shorter list than other services.')
 @allowed(['westeurope', 'eastasia', 'centralus', 'eastus2', 'westus2'])
 param staticWebAppLocation string = 'westeurope'
@@ -108,6 +114,14 @@ var containers = [
   { name: 'content_reports', pk: '/id', uniqueKeys: [] }
 ]
 
+// Dev's AzureManagedDomain self-verifies instantly, so dev gets a domain unconditionally.
+// Prod only gets a domain resource once the owner has actually named one.
+var createEmailDomain = env == 'dev' || !empty(prodEmailDomainName)
+var emailDomainResourceName = env == 'dev' ? 'AzureManagedDomain' : prodEmailDomainName
+// acs is only ever selected for prod once enableAcsEmail is explicitly flipped true AND a
+// domain name exists; dev needs no such gate because AzureManagedDomain is pre-verified.
+var emailTransport = env == 'dev' ? 'acs' : ((enableAcsEmail && !empty(prodEmailDomainName)) ? 'acs' : 'log')
+var emailSenderAddress = createEmailDomain ? 'DoNotReply@${emailDomain.properties.mailFromSenderDomain}' : ''
 var staticApps = ['storefront', 'admin', 'superadmin']
 
 // ── Data ──────────────────────────────────────────────────────────────────────
@@ -119,6 +133,35 @@ resource webPubSub 'Microsoft.SignalRService/webPubSub@2024-03-01' = {
   location: location
   sku: { name: env == 'dev' ? 'Free_F1' : 'Standard_S1', capacity: 1 }
   properties: {}
+}
+
+// Order emails (received, accepted, ready, declined, cancelled, "order waiting" alert) and
+// invoice PDFs go through this. Data location is EU-only like everything else (see header).
+resource emailService 'Microsoft.Communication/emailServices@2023-04-01' = {
+  name: '${prefix}-email-${env}'
+  location: 'global'
+  properties: { dataLocation: 'Europe' }
+}
+
+// Dev: Azure-managed sub-domain, auto-verified, free, rate-limited (see README). Prod: our own
+// domain, created only once the owner has named one (prodEmailDomainName), and still requires
+// manual DNS verification afterwards — see README "Order emails and timer".
+resource emailDomain 'Microsoft.Communication/emailServices/domains@2023-04-01' = if (createEmailDomain) {
+  parent: emailService
+  name: emailDomainResourceName
+  location: 'global'
+  properties: {
+    domainManagement: env == 'dev' ? 'AzureManaged' : 'CustomerManaged'
+  }
+}
+
+resource emailCommService 'Microsoft.Communication/communicationServices@2023-04-01' = {
+  name: '${prefix}-acs-${env}'
+  location: 'global'
+  properties: {
+    dataLocation: 'Europe'
+    linkedDomains: createEmailDomain ? [ emailDomain.id ] : []
+  }
 }
 
 // Serverless: this bills per request rather than per provisioned throughput,
@@ -343,6 +386,9 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
         { name: 'COSMOS_CHECKOUT_SESSION_CONTAINER', value: 'checkout_sessions' }
         { name: 'COSMOS_PUSH_SUBSCRIPTIONS_CONTAINER', value: 'push_subscriptions' }
         { name: 'WEB_PUBSUB_CONNECTION_STRING', value: webPubSub.listKeys().primaryConnectionString }
+        { name: 'EMAIL_TRANSPORT', value: emailTransport }
+        { name: 'ACS_EMAIL_SENDER', value: emailSenderAddress }
+        { name: 'ACS_EMAIL_CONNECTION_STRING', value: emailCommService.listKeys().primaryConnectionString }
         { name: 'STORAGE_ACCOUNT_NAME', value: storageName }
         // Host state (timer leases) over the identity, so no storage key sits in the template.
         { name: 'AzureWebJobsStorage__accountName', value: storageName }
@@ -350,6 +396,7 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
         { name: 'AzureWebJobsStorage__clientId', value: identity.properties.clientId }
         // Where Stripe sends the owner back after subscription checkout.
         { name: 'ADMIN_APP_URL', value: 'https://${staticSites[indexOf(staticApps, 'admin')].properties.defaultHostname}' }
+        { name: 'STOREFRONT_BASE_URL', value: 'https://${staticSites[indexOf(staticApps, 'storefront')].properties.defaultHostname}' }
         // Injected-clock routes (e.g. the 90-day wind-down "as of" a date) exist only in dev.
         // Fail-closed: anything but the exact string 'true' leaves them unregistered (404).
         { name: 'ENABLE_TEST_CLOCK_ROUTES', value: env == 'dev' ? 'true' : 'false' }
@@ -447,3 +494,5 @@ output storageAccountName string = storageName
 output identityClientId string = identity.properties.clientId
 output identityPrincipalId string = identity.properties.principalId
 output staticWebAppNames array = [for (app, i) in staticApps: staticSites[i].name]
+output communicationServiceName string = emailCommService.name
+output emailDomainName string = createEmailDomain ? emailDomain.name : ''

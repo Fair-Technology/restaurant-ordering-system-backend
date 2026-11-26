@@ -30,3 +30,7 @@ param blobSoftDeleteDays = 30
 param githubFederatedSubject = 'repo:Fair-Technology/restaurant-ordering-system-backend:environment:production'
 param githubFederatedSubjectImmutable = 'repo:Fair-Technology@175465322/restaurant-ordering-system-backend@1050545921:environment:production'
 
+// Email: OWNER MUST SET once the domain is named and DNS-verified (see infra/README.md,
+// "Order emails and timer"). Until both are uncommented, prod stays on EMAIL_TRANSPORT=log.
+// param prodEmailDomainName = 'mail.example.com'
+// param enableAcsEmail = true
