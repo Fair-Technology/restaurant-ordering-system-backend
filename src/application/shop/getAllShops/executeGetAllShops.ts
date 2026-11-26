@@ -1,4 +1,5 @@
 import { missedOrdersPauseLimitOf, ordersPauseFieldsOf } from '../../../domain/shop/ordersPause';
+import { isShopAddressComplete } from '../../../domain/shop/addressReadiness';
 import { isShopOffline } from '../../../domain/shop/Shop';
 import { HttpRequest } from '@azure/functions';
 import { findAllShopsIncludingDeleted } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
@@ -38,6 +39,7 @@ export async function executeGetAllShops(
       currency: shop.currency,
       timezone: shop.timezone,
       minOrderAmountCents: shop.minOrderAmountCents,
+      addressLocked: isShopAddressComplete(shop.address, shop.countryCode),
       address: shop.address,
       openingHours: shop.openingHours,
       closures: shop.closures,

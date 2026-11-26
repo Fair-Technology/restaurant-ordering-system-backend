@@ -2339,6 +2339,23 @@ it is also how Ma Pasta stays dark until the switch is intended.
 The existing `isPaused` + `pausedMessage` and the Go Live checklist are the
 seed of this.
 
+**The shop address is one-time entry.** Registration collects only the country; the
+owner fills in the rest once in Settings. When the address is complete for the shop's
+country (street, city, postcode, country, and state where the country requires one) it
+is **locked**: the owner may resend the same address unchanged, but any changed field is
+refused with `403 SHOP_ADDRESS_LOCKED`. The lock is derived, not stored, so a shop that
+already had a complete address is locked at once, and an incomplete one stays editable
+until it completes. A superadmin (platform Owner/Support) can change any shop's address
+at any time through the same `PATCH /shops/{shopId}`; the change is audited as
+`shop.address_override_by_superadmin` with the real before/after address, and must still
+leave the address complete. `address.country` always equals the country chosen at
+registration and nobody can change it afterwards (`400 INVALID_INPUT`). Where the
+country requires a state (`countryRequiresState`, e.g. DE, AU, US; see
+`src/domain/reference/subdivisions.ts`), a *new* state must match one of its listed
+subdivisions (code or name, case/diacritic/spacing-insensitive); an old free-text value
+already stored is left alone until it is changed. `GET /shops/{shopId}` (and the shop
+lists) return `addressLocked: boolean` so the UIs can show the fields read-only.
+
 **Paused versus offline (Manish, 2026-10-12; built the same day).** Two separate states:
 
 - **Offline** — the shop isn't presented. Set by the owner (Settings → Shop status →
