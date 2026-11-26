@@ -2559,6 +2559,9 @@ Entra registration → create a restaurant (name, slug) → a checklist in admin
 turning the remaining setup into visible progress, including connecting Stripe
 and passing its identity checks → LIVE toggle.
 
+Admin has no floating action button. Creating a shop, dish or category is done from
+each page's own "New …" button (My Shops, Dishes, Categories).
+
 ---
 
 ## 17. Email
