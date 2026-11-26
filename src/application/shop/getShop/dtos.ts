@@ -62,6 +62,7 @@ export interface GetShopResultDto {
     connectOnboardingStatus: 'not_started' | 'pending' | 'complete' | null;
   } | null;
   orderSettings: OrderSettings;
+  scheduleHorizonDays: number; // platform-wide order-ahead limit (1-6 days); read-only here, set via PATCH /platform/config
   createdAt: string;
   updatedAt: string;
 }
