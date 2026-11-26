@@ -163,6 +163,34 @@ describe('combo endpoints', () => {
     expect(createProduct).not.toHaveBeenCalled();
   });
 
+  it('an update keeps categoryOrder; moving to another category leaves no position there', async () => {
+    (findProductById as any).mockResolvedValue({ ...P_COMBO, images: [PHOTO], categoryOrder: { pasta: 2 } });
+    const groups = [
+      { id: 'g-main', name: 'Hauptgericht', productIds: ['p1'] },
+      { id: 'g-drink', name: 'Getränk', productIds: ['p2'] },
+    ];
+    const same = await executeUpdateCombo(
+      { shopId: 'shop-1', comboId: 'p9', body: { name: 'Pasta-Menü', priceCents: 1300, categoryId: 'pasta', groups }, now },
+      http,
+    );
+    expect(same.ok).toBe(true);
+    expect((updateProduct as any).mock.calls[0][0].categoryOrder).toEqual({ pasta: 2 });
+    const moved = await executeUpdateCombo(
+      { shopId: 'shop-1', comboId: 'p9', body: { name: 'Pasta-Menü', priceCents: 1300, categoryId: 'drinks', groups }, now },
+      http,
+    );
+    expect(moved.ok).toBe(true);
+    const saved = (updateProduct as any).mock.calls[1][0];
+    expect(saved.categoryIds).toEqual(['drinks']);
+    expect(saved.categoryOrder?.drinks).toBeUndefined();
+  });
+
+  it('GET combos returns categoryOrder when the combo has one', async () => {
+    (findProductsByShopId as any).mockResolvedValue([{ ...P_COMBO, categoryOrder: { pasta: 1 } }]);
+    const res = await executeGetCombos({ shopId: 'shop-1' }, http);
+    expect(res.ok && res.data[0].categoryOrder).toEqual({ pasta: 1 });
+  });
+
   it('lists only the combos', async () => {
     (findProductsByShopId as any).mockResolvedValue([P_PASTA, P_COMBO]);
     const res = await executeGetCombos({ shopId: 'shop-1' }, http);

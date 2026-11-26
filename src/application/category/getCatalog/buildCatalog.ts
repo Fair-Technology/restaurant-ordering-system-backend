@@ -1,6 +1,6 @@
 import { Category, isCategoryLive } from '../../../domain/category/Category';
 import { menuLanguagesOf, localize, resolveMenuLanguage, TranslationMap } from '../../../domain/menu/menuLanguage';
-import { isOnMenu, Product, ProductOption, ProductSchedule, sortByCategoryOrder } from '../../../domain/product/Product';
+import { isOnMenu, Product, ProductOption, ProductSchedule, sortByCategoryOrder, sortCategoryProducts } from '../../../domain/product/Product';
 import { DIETARY_TAGS, SPICE_LEVELS, SpiceLevel } from '../../../domain/product/dietary';
 import { MenuLanguage, ReferenceListsDoc } from '../../../domain/reference/ReferenceLists';
 import { activeBasePriceCents } from '../../order/_shared/priceBasket';
@@ -119,7 +119,7 @@ export function buildCatalog(input: {
       schedule: c.schedule
         ? { daysOfWeek: [...c.schedule.daysOfWeek], startTime: c.schedule.startTime, endTime: c.schedule.endTime }
         : null,
-      products: sortByCategoryOrder(
+      products: sortCategoryProducts(
         offered.filter((p) => p.categoryIds.includes(c.id)),
         c.id,
       )

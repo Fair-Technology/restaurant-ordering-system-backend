@@ -778,7 +778,7 @@ cleanup: the menu filters by `categoryIds` first, and gaps in the numbering are 
 relative value matters. The public catalog (`GET /shops/{id}/catalog`) applies the order
 (`sortByCategoryOrder`, `domain/product/Product.ts`); the admin dish list stays one shop-wide list and
 carries each dish's `categoryOrder` so the client sorts per category tab. Combos are not part of the
-reorderable set and sort as unordered.
+dish-order set (dish-order neither accepts nor requires them); they have their own order, below.
 
 `PUT /shops/{shopId}/categories/{categoryId}/dish-order` with `{ "productIds": [...] }` (permission
 `manage_menu`) saves the order. The body must be **exactly** the category's current dishes — no fewer, no
@@ -789,6 +789,17 @@ touched), so resubmitting the same order writes nothing. The response is the sav
 It is **not transactional** across the dishes: two admins reordering at once is last-write-wins per dish, and
 a failure partway can leave a mixed order (no rollback; the owner just saves again). Audited as
 `category.dishOrder.update`.
+
+**Combo order.** Combos within a category are ordered the same way, through
+`PUT /shops/{shopId}/categories/{categoryId}/combo-order` with `{ "productIds": [...] }`: same contract,
+permission (`manage_menu`), idempotence and 0-based position stored in `categoryOrder[categoryId]`, with
+validation and write logic shared with dish-order (`executeSetCategoryOrder`); the body must be exactly the
+category's current combos (a dish id is rejected, as a combo id is by dish-order). Audited as
+`category.comboOrder.update`. **In the storefront catalog a category's dishes always sort before its
+combos** (`sortCategoryProducts`, `domain/product/Product.ts`): a combo's own order only ranks it among other
+combos, never ahead of or interleaved with a dish, and unordered combos trail ordered ones by name. This
+changed behaviour for a category that was never reordered: previously its dishes and combos were mixed
+together by name; now the dishes come first by name, then the combos by name.
 
 In the admin (`rs-admin`) Dishes list each dish row inside a category group has a drag handle; one drag
 reorders one category. There is no cross-category drag — moving a dish to another category is done in the dish
@@ -843,6 +854,8 @@ the handles stay visible but greyed out, with a tooltip saying to clear the filt
 computed from the components (§2).
 
 **Combos list.** The Combos page lists every combo of the shop in full width, grouped under the category it is shown in, in menu order. Combos whose category is gone appear last under "Uncategorized". A search box filters by name, and four chips filter by state: All, On the menu, Switched off and Photo missing (combos with no photo). Each chip shows a live count. Each category header shows the number of combos and the column labels "Price" and "On menu". A row shows the photo (or "No photo"), the name, an on/off badge, a "Photo missing" badge when there is no photo, a "BMF 30 %" badge when the combo uses the BMF simplification, a summary of its choices with dish counts, the price, and an on-menu switch. The switch saves immediately. Turning it on for a combo without a photo is refused with a toast and an inline hint. Rows have no delete button. Clicking a row opens the editor; "New combo" opens it empty. The editor is a wide slide-over panel like the dish editor, and `?combo=<id>` or `?combo=new` in the address keeps it open across a reload. Loading, error, "no combos yet", "no match" and "access denied" (needs `manage_menu`) states are unchanged.
+
+**Combo order.** Combos within a category can be put in their own order the same way dishes can (see "Dish order within a category": `PUT /shops/{shopId}/categories/{categoryId}/combo-order`); in the storefront catalog they always follow the category's dishes. This is the backend half; the admin drag UI is a separate ticket. `GET /shops/{shopId}/combos` now returns each combo's `categoryOrder`.
 
 **Combo editor.** The panel has a header, a section list on the left, the active section, and a footer. The header has a close button, the combo name (or "New combo"), the category name as a subtitle, an "On the menu" switch and, only when the shop has a second menu language, an inline language toggle. In the second language the name, the description and the name of every choice are edited directly. A dot on the language pill shows when any filled text lacks a translation, and "Use the German text" copies the original into an empty field. The sections are Basics (photo, name, description, price, category), Choices, Tax and Availability. Each shows a status line: photo missing or complete, how many choices have a dish (or "Add a choice"), BMF or split by dish prices, on the menu or switched off. The photo is optional, but a combo cannot be switched on without one. Turning it on without a photo, in the header or in Availability, shows a toast and an inline message and takes you to Basics. The server's `COMBO_IMAGE_REQUIRED_TO_ENABLE` refusal is explained the same way. The header and Availability switches share one state. The footer has "Delete combo" (edit mode only), a saved/unsaved indicator, Discard and Save changes (Create combo for a new one). Discard and Save are disabled until something changed. Delete asks for inline confirmation ("Delete the combo "X"? Past orders keep it.") and is the only place a combo can be deleted. Closing the panel, navigating away or reloading with unsaved changes asks for confirmation. A successful save and a successful delete skip that warning.
 

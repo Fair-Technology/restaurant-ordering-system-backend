@@ -222,6 +222,15 @@
       ],
       "responseDescription": "Dish order saved"
     },
+    "PUT /shops/{shopId}/categories/{categoryId}/combo-order": {
+      "operationId": "setCategoryComboOrder",
+      "summary": "Set the order of a category's combos",
+      "description": "Access: manage_menu. Body: { productIds } — exactly the combos currently in the category, in the intended order; unknown, foreign, deleted, duplicate or missing ids are rejected. Idempotent: only combos whose position changes are written. Not transactional across combos (last write wins per combo). Shares logic with dish-order.",
+      "tags": [
+        "Categories"
+      ],
+      "responseDescription": "Combo order saved"
+    },
     "DELETE /shops/{shopId}/categories/{categoryId}": {
       "operationId": "deleteCategory",
       "summary": "Delete category (soft delete)",

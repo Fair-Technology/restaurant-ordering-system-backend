@@ -145,3 +145,17 @@ export function sortByCategoryOrder<T extends { id: string; name: string; catego
     return a.name.localeCompare(b.name);
   });
 }
+
+/**
+ * Sorts a category's products for the storefront: every dish in its dish order, then every combo in its
+ * combo order. A combo's position (from the combo-order endpoint) only ranks it among other combos — it
+ * can never land ahead of or interleaved with a dish. Unordered combos trail ordered ones, by name, same
+ * rule as unordered dishes.
+ */
+export function sortCategoryProducts<
+  T extends { id: string; name: string; categoryOrder?: Record<string, number>; combo?: unknown },
+>(products: T[], categoryId: string): T[] {
+  const dishes = products.filter((p) => !p.combo);
+  const combos = products.filter((p) => !!p.combo);
+  return [...sortByCategoryOrder(dishes, categoryId), ...sortByCategoryOrder(combos, categoryId)];
+}

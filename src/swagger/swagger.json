@@ -2994,6 +2994,87 @@
         }
       }
     },
+    "/shops/{shopId}/categories/{categoryId}/combo-order": {
+      "put": {
+        "summary": "Set the order of a category's combos",
+        "description": "Access: manage_menu. Body: { productIds } — exactly the combos currently in the category, in the intended order; unknown, foreign, deleted, duplicate or missing ids are rejected. Idempotent: only combos whose position changes are written. Not transactional across combos (last write wins per combo). Shares logic with dish-order.",
+        "operationId": "setCategoryComboOrder",
+        "tags": [
+          "Categories"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "shopId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "categoryId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "productIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": [
+                  "productIds"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Combo order saved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetCategoryComboOrderResultDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
     "/shops/{shopId}/categories/{categoryId}/dish-order": {
       "put": {
         "summary": "Set the order of a category's dishes",
@@ -14502,6 +14583,12 @@
               ]
             }
           },
+          "categoryOrder": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "number"
+            }
+          },
           "createdAt": {
             "type": "string"
           },
@@ -14523,6 +14610,61 @@
           "groups",
           "createdAt",
           "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "SetCategoryComboOrderResultDto": {
+        "type": "object",
+        "properties": {
+          "categoryId": {
+            "type": "string"
+          },
+          "products": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "name"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "categoryId",
+          "products"
+        ],
+        "additionalProperties": false
+      },
+      "SetCategoryComboOrderRequestDto": {
+        "type": "object",
+        "properties": {
+          "shopId": {
+            "type": "string"
+          },
+          "categoryId": {
+            "type": "string"
+          },
+          "productIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "shopId",
+          "categoryId",
+          "productIds"
         ],
         "additionalProperties": false
       },

@@ -22,6 +22,7 @@ export const AUDIT_ACTION_AREAS: Record<string, AuditArea> = {
   'category.update': menu,
   'category.delete': menu,
   'category.dishOrder.update': menu,
+  'category.comboOrder.update': menu,
   'optionGroup.create': menu,
   'optionGroup.update': menu,
   'optionGroup.delete': menu,
