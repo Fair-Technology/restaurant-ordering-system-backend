@@ -218,7 +218,7 @@ export async function executeCreateShop(
         return {
           ok: false,
           code: 'INVALID_INPUT',
-          error: 'This web address is already taken. Please choose another.',
+          error: 'This link is already taken. Please choose another.',
         };
       }
       generatedSlug = typedSlug;

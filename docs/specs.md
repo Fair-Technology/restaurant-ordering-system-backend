@@ -26,7 +26,7 @@ new truth; when a change is non-obvious, also write a note in
 ## 1. What the product is
 
 An **online ordering system that a restaurant clips onto its own website.** A
-restaurant owner signs up, builds a menu, and gets a URL — `<domain>/shops/<slug>` —
+restaurant owner signs up, builds a menu, and gets a link — `<domain>/shops/<slug>` (the "shop link") —
 which they link from their existing site. Their customers follow the link,
 order, and pay the restaurant directly. Manish runs the platform and charges
 each restaurant a monthly subscription. He takes no commission and never
@@ -2250,6 +2250,10 @@ live availability check, first-come-first-served.** It is **changeable only by
 asking Manish**, and the old slug redirects permanently — the existing
 request-and-approve rename flow implements exactly this. Custom domains: never.
 
+**Owner-facing term.** The slug is shown to owners as "your shop link" / "shop link" —
+never "web address" or "URL slug" — because it is always a link we create for them
+(custom domains are never offered). API-facing docs may still say "slug".
+
 What is built: `GET /shops/slug-available/{slug}` (anonymous, same trust level as the
 public slug lookup) answers `{ slug, available }` so the admin form can check live
 while the owner types; an invalid slug is `INVALID_INPUT`. `POST /shops` takes an
@@ -2263,8 +2267,8 @@ no Latin letters or digits (e.g. "寿司屋") generates nothing: the API refuses
 clear error and never guesses, so the owner must type a slug; a rename request whose
 name generates no slug is refused the same way. A generated slug is cut to 64 characters.
 
-**What creating a restaurant asks for.** The owner provides the shop name, the web
-address (slug, with the live-availability check above, or left blank to generate one),
+**What creating a restaurant asks for.** The owner provides the shop name, the shop
+link (slug, with the live-availability check above, or left blank to generate one),
 the country, and ticking acceptance of the current data processing agreement (§15).
 There is no industry picker — the platform is restaurants only. `industry` remains an
 optional, unused field on `POST /shops` for backward compatibility with older clients;
