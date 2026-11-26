@@ -747,11 +747,7 @@ fails, the shop is still created. Shops created before this change are not
 backfilled, and restoring a wound-down shop does not seed again (it only flips
 `isDeleted`).
 
-The admin library page filters the groups by kind with **All / Variants /
-Extras** tabs. The Variants and Extras tabs show their group counts, and the
-active tab is kept in the URL (`?kind=variant|addon`). Each group's option list
-is a collapsible accordion: collapsed by default past five options, with an
-"N unavailable" badge in the header and expand-all / collapse-all controls.
+The admin library page filters the groups by kind with **Variants** and **Extras** tabs (no "All" tab); Variants is the default tab when the URL has no `?kind=` (an invalid or stale `?kind=all` falls back to Variants, `?kind=addon` selects Extras). The Variants and Extras tabs show their group counts, and the active tab is kept in the URL. Each group's option list is a collapsible accordion that starts collapsed on load regardless of its option count, with an "N unavailable" badge in the header. Expand-all / collapse-all controls and the per-group toggle remain, and a user's explicit open/closed choice in the session overrides the default.
 
 ### Allergens and additives are mandatory
 
