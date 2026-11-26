@@ -4,8 +4,8 @@ vi.mock('../../../src/infrastructure/auth/superAdminAuthHelpers', () => ({
   verifySuperAdminToken: vi.fn(async () => 'admin-1'),
 }));
 vi.mock('../../../src/infrastructure/cosmos/system/CosmosSystemConfigRepository', () => ({
-  getSystemConfig: vi.fn(async () => ({ id: 'global', maxShopsDefault: 3 })),
-  upsertSystemConfig: vi.fn(async (p: any) => ({ id: 'global', ...p })),
+  getSystemConfig: vi.fn(async () => ({ id: 'global', maxShopsDefault: 3, emailEnabled: false })),
+  upsertSystemConfig: vi.fn(async (p: any) => ({ id: 'global', maxShopsDefault: 3, emailEnabled: false, ...p })),
 }));
 vi.mock('../../../src/application/_shared/auditHelpers', () => ({ logAudit: vi.fn(async () => undefined) }));
 
@@ -23,7 +23,6 @@ describe('executeUpdateSystemConfig', () => {
   it.each([
     ['a string', '3'],
     ['null', null],
-    ['undefined', undefined],
   ])('rejects %s', async (_l, v) => {
     expect(await executeUpdateSystemConfig({ maxShopsDefault: v as any }, {} as any)).toMatchObject({
       ok: false, code: 'INVALID_INPUT',
@@ -49,7 +48,7 @@ describe('executeUpdateSystemConfig', () => {
 
   it('accepts 1 and writes exactly one platform audit entry with old and new value', async () => {
     expect(await executeUpdateSystemConfig({ maxShopsDefault: 1 }, {} as any)).toEqual({
-      ok: true, data: { maxShopsDefault: 1 },
+      ok: true, data: { maxShopsDefault: 1, emailEnabled: false },
     });
     expect(logAudit).toHaveBeenCalledTimes(1);
     expect(logAudit).toHaveBeenCalledWith(
@@ -61,5 +60,63 @@ describe('executeUpdateSystemConfig', () => {
         changes: [{ field: 'maxShopsDefault', from: 3, to: 1 }],
       }),
     );
+  });
+
+  it('maxShopsDefault alone sends a patch with only that field', async () => {
+    await executeUpdateSystemConfig({ maxShopsDefault: 5 }, {} as any);
+    expect(upsertSystemConfig).toHaveBeenCalledWith({ maxShopsDefault: 5 });
+  });
+
+  it('emailEnabled alone sends a patch with only that field and audits once', async () => {
+    expect(await executeUpdateSystemConfig({ emailEnabled: true }, {} as any)).toEqual({
+      ok: true, data: { maxShopsDefault: 3, emailEnabled: true },
+    });
+    expect(upsertSystemConfig).toHaveBeenCalledWith({ emailEnabled: true });
+    expect(logAudit).toHaveBeenCalledTimes(1);
+    expect(logAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        shopId: 'platform',
+        actorType: 'superadmin',
+        actorId: 'admin-1',
+        action: 'config.emailEnabled.update',
+        entityType: 'systemConfig',
+        entityId: 'global',
+        changes: [{ field: 'emailEnabled', from: false, to: true }],
+      }),
+    );
+  });
+
+  it('both fields in one call write one patch and two audit entries', async () => {
+    await executeUpdateSystemConfig({ maxShopsDefault: 4, emailEnabled: true }, {} as any);
+    expect(upsertSystemConfig).toHaveBeenCalledTimes(1);
+    expect(upsertSystemConfig).toHaveBeenCalledWith({ maxShopsDefault: 4, emailEnabled: true });
+    expect(vi.mocked(logAudit).mock.calls.map((c) => c[0].action)).toEqual([
+      'config.maxShopsDefault.update',
+      'config.emailEnabled.update',
+    ]);
+  });
+
+  it('does not audit a field that was sent but did not change', async () => {
+    await executeUpdateSystemConfig({ emailEnabled: false }, {} as any);
+    expect(logAudit).not.toHaveBeenCalled();
+  });
+
+  it.each([['a string', 'true'], ['a number', 1], ['null', null]])('rejects emailEnabled as %s', async (_l, v) => {
+    expect(await executeUpdateSystemConfig({ emailEnabled: v as any }, {} as any)).toEqual({
+      ok: false, code: 'INVALID_INPUT', error: 'emailEnabled must be a boolean',
+    });
+    expect(upsertSystemConfig).not.toHaveBeenCalled();
+  });
+
+  it('rejects a request with no fields', async () => {
+    expect(await executeUpdateSystemConfig({}, {} as any)).toEqual({
+      ok: false, code: 'INVALID_INPUT', error: 'No fields to update',
+    });
+  });
+
+  it('refuses non-superadmins for an emailEnabled change too', async () => {
+    (verifySuperAdminToken as any).mockResolvedValueOnce(null);
+    expect(await executeUpdateSystemConfig({ emailEnabled: true }, {} as any)).toMatchObject({ ok: false, code: 'FORBIDDEN' });
+    expect(upsertSystemConfig).not.toHaveBeenCalled();
   });
 });

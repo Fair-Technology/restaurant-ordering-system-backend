@@ -7,6 +7,8 @@ import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepo
 import { reconcileCheckoutSession, type ReconcileOutcome } from '../reconcile/reconcileCheckoutSession';
 import type { ApplicationResult } from '../../_shared/types';
 import type { CustomerOrderDto } from './dtos';
+import { isPlatformEmailEnabled } from '../../../infrastructure/email/emailGate';
+import { emailTransportName } from '../../../infrastructure/email/emailSender';
 import { toCustomerOrderDto } from './toCustomerOrderDto';
 import { errorBrief } from '../../_shared/errorBrief';
 
@@ -41,7 +43,8 @@ export async function executeGetCustomerOrder(
     }
     const shop = await findShopById(order.shopId);
     if (!shop) return { ok: false, code: 'NOT_FOUND', error: ORDER_NOT_FOUND_ERROR };
-    return { ok: true, data: toCustomerOrderDto(order, shop, options.now ?? new Date()) };
+    const emailsEnabled = (await isPlatformEmailEnabled()) && emailTransportName() === 'acs';
+    return { ok: true, data: toCustomerOrderDto(order, shop, options.now ?? new Date(), emailsEnabled) };
   } catch (error: any) {
     logServiceFailure('GetCustomerOrder', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to retrieve order' };

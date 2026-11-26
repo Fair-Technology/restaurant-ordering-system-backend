@@ -1,7 +1,9 @@
 export interface UpdateSystemConfigRequestDto {
-  maxShopsDefault: number;
+  maxShopsDefault?: number;
+  emailEnabled?: boolean;
 }
 
 export interface UpdateSystemConfigResultDto {
   maxShopsDefault: number;
+  emailEnabled: boolean;
 }

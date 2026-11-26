@@ -11,6 +11,8 @@ import { releaseClosedOrderPayment } from '../_shared/releasePayment';
 import { notifyCustomer } from '../notifications/notifyOrder';
 import { transitionOrder } from '../_shared/transitionOrder';
 import type { CustomerOrderDto } from './dtos';
+import { isPlatformEmailEnabled } from '../../../infrastructure/email/emailGate';
+import { emailTransportName } from '../../../infrastructure/email/emailSender';
 import { toCustomerOrderDto } from './toCustomerOrderDto';
 
 /** The diner cancels from their order page; only possible until the restaurant accepts. */
@@ -44,7 +46,8 @@ export async function executeCancelCustomerOrder(
     const released = await releaseClosedOrderPayment(moved.order.id, shop, now);
     const closed = released.order ?? moved.order;
     await notifyCustomer('order_cancelled', closed, shop);
-    return { ok: true, data: toCustomerOrderDto(closed, shop, now) };
+    const emailsEnabled = (await isPlatformEmailEnabled()) && emailTransportName() === 'acs';
+    return { ok: true, data: toCustomerOrderDto(closed, shop, now, emailsEnabled) };
   } catch (error: any) {
     logServiceFailure('CancelCustomerOrder', error);
     return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to cancel order' };
