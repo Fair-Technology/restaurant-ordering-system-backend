@@ -551,6 +551,14 @@ the drawer open with the user's edits intact so they can retry. The rs-admin tes
 `src/components/ui/pendingControls.test.ts` enforces the spinner automatically: it fails
 if any source file calls a mutation without pending wiring.
 
+For the Legal / Impressum form specifically, `PATCH /shops/{id}/legal` validation failures
+also carry a stable `errorCode` (plus `field`/`max` where relevant: `IMPRESSUM_NOT_OBJECT`,
+`IMPRESSUM_FIELD_TOO_LONG`, `IMPRESSUM_LEGAL_FORM_INVALID`, `IMPRESSUM_EMAIL_INVALID`,
+`IMPRESSUM_VAT_ID_INVALID`, `INVOICE_EXTRAS_NOT_OBJECT`, `INVOICE_EXTRAS_FIELD_TOO_LONG`,
+`INVOICE_EXTRAS_IBAN_INVALID`, `INVOICE_EXTRAS_BIC_INVALID`, `TAX_NUMBER_TOO_LONG`,
+`LEGAL_TEXT_TOO_LONG`) alongside the English `error` string. rs-admin translates these into
+the admin's language and names the on-screen field instead of showing the raw server sentence.
+
 ### The edit-dish screen
 
 The panel that opens from Admin → Dishes is one screen with a 72 px header, a

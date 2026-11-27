@@ -60,30 +60,50 @@ const BASE_REQUIRED_KEYS: readonly ImpressumFieldKey[] = [
   'email',
 ];
 
+export interface ImpressumValidationError {
+  error: string;
+  errorCode: string;
+  field?: ImpressumFieldKey;
+  max?: number;
+}
+
 /** Validates shape/format of supplied values; empty strings allowed (completeness is separate).
- *  Returns the normalised fields (every string trimmed; vatId spaces removed + upper-cased) or an error string. */
-export function validateImpressumInput(input: unknown, countryCode: string): ImpressumFields | string {
+ *  Returns the normalised fields (every string trimmed; vatId spaces removed + upper-cased) or an error object (English `error` plus a stable `errorCode`). */
+export function validateImpressumInput(input: unknown, countryCode: string): ImpressumFields | ImpressumValidationError {
   if (typeof input !== 'object' || input === null || Array.isArray(input)) {
-    return 'impressum must be an object';
+    return { error: 'impressum must be an object', errorCode: 'IMPRESSUM_NOT_OBJECT' };
   }
   const raw = input as Record<string, unknown>;
   const out: Record<string, string> = {};
   for (const key of FIELD_KEYS) {
     const v = raw[key];
     if (typeof v !== 'string' || v.trim().length > IMPRESSUM_MAX_FIELD_CHARS) {
-      return `impressum.${key} must be a string of at most ${IMPRESSUM_MAX_FIELD_CHARS} characters`;
+      return {
+        error: `impressum.${key} must be a string of at most ${IMPRESSUM_MAX_FIELD_CHARS} characters`,
+        errorCode: 'IMPRESSUM_FIELD_TOO_LONG',
+        field: key,
+        max: IMPRESSUM_MAX_FIELD_CHARS,
+      };
     }
     out[key] = v.trim();
   }
   if (!(LEGAL_FORMS as readonly string[]).includes(out.legalForm)) {
-    return `impressum.legalForm must be one of ${LEGAL_FORMS.join(', ')}`;
+    return {
+      error: `impressum.legalForm must be one of ${LEGAL_FORMS.join(', ')}`,
+      errorCode: 'IMPRESSUM_LEGAL_FORM_INVALID',
+      field: 'legalForm',
+    };
   }
   if (out.email !== '' && !EMAIL_PATTERN.test(out.email)) {
-    return 'impressum.email is not a valid email address';
+    return { error: 'impressum.email is not a valid email address', errorCode: 'IMPRESSUM_EMAIL_INVALID', field: 'email' };
   }
   out.vatId = out.vatId.replace(/\s+/g, '').toUpperCase();
   if (out.vatId !== '' && countryCode.toUpperCase() === 'DE' && !DE_VAT_PATTERN.test(out.vatId)) {
-    return 'impressum.vatId must look like DE followed by 9 digits';
+    return {
+      error: 'impressum.vatId must look like DE followed by 9 digits',
+      errorCode: 'IMPRESSUM_VAT_ID_INVALID',
+      field: 'vatId',
+    };
   }
   return out as unknown as ImpressumFields;
 }

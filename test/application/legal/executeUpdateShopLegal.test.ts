@@ -61,7 +61,14 @@ describe('executeUpdateShopLegal', () => {
 
   it('refuses an overlong tax number', async () => {
     const r = await executeUpdateShopLegal({ shopId: 'shop-1', body: { taxNumber: '1'.repeat(31) } }, {} as any);
-    expect(r).toEqual({ ok: false, code: 'INVALID_INPUT', error: 'taxNumber must be at most 30 characters' });
+    expect(r).toEqual({
+      ok: false,
+      code: 'INVALID_INPUT',
+      error: 'taxNumber must be at most 30 characters',
+      errorCode: 'TAX_NUMBER_TOO_LONG',
+      field: 'taxNumber',
+      max: 30,
+    });
     expect(updateShop).not.toHaveBeenCalled();
   });
 
@@ -134,7 +141,27 @@ describe('executeUpdateShopLegal', () => {
       { shopId: 'shop-1', body: { impressum: { ...COMPLETE_GMBH, email: 'x@y' } } },
       {} as any,
     );
-    expect(r).toEqual({ ok: false, code: 'INVALID_INPUT', error: 'impressum.email is not a valid email address' });
+    expect(r).toEqual({
+      ok: false,
+      code: 'INVALID_INPUT',
+      error: 'impressum.email is not a valid email address',
+      errorCode: 'IMPRESSUM_EMAIL_INVALID',
+      field: 'email',
+    });
+  });
+
+  it('rejects a malformed German VAT id with a code', async () => {
+    const r = await executeUpdateShopLegal(
+      { shopId: 'shop-1', body: { impressum: { ...COMPLETE_GMBH, vatId: 'FR123' } } },
+      {} as any,
+    );
+    expect(r).toEqual({
+      ok: false,
+      code: 'INVALID_INPUT',
+      error: 'impressum.vatId must look like DE followed by 9 digits',
+      errorCode: 'IMPRESSUM_VAT_ID_INVALID',
+      field: 'vatId',
+    });
   });
 
   it('rejects over-long text', async () => {
@@ -143,6 +170,9 @@ describe('executeUpdateShopLegal', () => {
       ok: false,
       code: 'INVALID_INPUT',
       error: 'privacyAddition must be text of at most 5000 characters',
+      errorCode: 'LEGAL_TEXT_TOO_LONG',
+      field: 'privacyAddition',
+      max: 5000,
     });
   });
 
