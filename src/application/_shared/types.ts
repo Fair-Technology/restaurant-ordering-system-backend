@@ -2,6 +2,9 @@ export interface ApplicationError {
   ok: false;
   code: string;
   error: string;
+  errorCode?: string;
+  field?: string;
+  max?: number;
 }
 
 export interface ApplicationSuccess<T = any> {

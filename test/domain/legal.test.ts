@@ -42,13 +42,15 @@ describe('impressum', () => {
 
   it('normalises a spaced German VAT id', () => {
     const r = validateImpressumInput({ ...COMPLETE_GMBH, vatId: 'de 123 456 789' }, 'DE');
-    expect(typeof r === 'string' ? r : r.vatId).toBe('DE123456789');
+    expect('errorCode' in r ? r.errorCode : r.vatId).toBe('DE123456789');
   });
 
   it('rejects a malformed German VAT id', () => {
-    expect(validateImpressumInput({ ...COMPLETE_GMBH, vatId: 'DE12345' }, 'DE')).toBe(
-      'impressum.vatId must look like DE followed by 9 digits',
-    );
+    expect(validateImpressumInput({ ...COMPLETE_GMBH, vatId: 'DE12345' }, 'DE')).toEqual({
+      error: 'impressum.vatId must look like DE followed by 9 digits',
+      errorCode: 'IMPRESSUM_VAT_ID_INVALID',
+      field: 'vatId',
+    });
   });
 
   it('does not check the VAT id format outside Germany', () => {
@@ -56,9 +58,35 @@ describe('impressum', () => {
   });
 
   it('rejects an unknown legal form', () => {
-    expect(validateImpressumInput({ ...COMPLETE_GMBH, legalForm: 'llc' }, 'DE')).toBe(
-      'impressum.legalForm must be one of sole_trader, ek, gbr, ohg, kg, gmbh, ug, other',
-    );
+    expect(validateImpressumInput({ ...COMPLETE_GMBH, legalForm: 'llc' }, 'DE')).toEqual({
+      error: 'impressum.legalForm must be one of sole_trader, ek, gbr, ohg, kg, gmbh, ug, other',
+      errorCode: 'IMPRESSUM_LEGAL_FORM_INVALID',
+      field: 'legalForm',
+    });
+  });
+
+  it('rejects an invalid email with a translatable code', () => {
+    expect(validateImpressumInput({ ...COMPLETE_GMBH, email: 'x@y' }, 'DE')).toEqual({
+      error: 'impressum.email is not a valid email address',
+      errorCode: 'IMPRESSUM_EMAIL_INVALID',
+      field: 'email',
+    });
+  });
+
+  it('rejects an overlong impressum field with field and max', () => {
+    expect(validateImpressumInput({ ...COMPLETE_GMBH, city: 'x'.repeat(301) }, 'DE')).toEqual({
+      error: 'impressum.city must be a string of at most 300 characters',
+      errorCode: 'IMPRESSUM_FIELD_TOO_LONG',
+      field: 'city',
+      max: 300,
+    });
+  });
+
+  it('rejects a non-object impressum', () => {
+    expect(validateImpressumInput(null, 'DE')).toEqual({
+      error: 'impressum must be an object',
+      errorCode: 'IMPRESSUM_NOT_OBJECT',
+    });
   });
 
   it('impressum lines in German', () => {
@@ -208,21 +236,28 @@ describe('invoice legal extras', () => {
   });
 
   it('rejects an invalid IBAN', () => {
-    expect(validateInvoiceLegalExtrasInput({ ...BLANK, iban: 'nope' })).toBe(
-      'invoiceLegalExtras.iban is not a valid IBAN',
-    );
+    expect(validateInvoiceLegalExtrasInput({ ...BLANK, iban: 'nope' })).toEqual({
+      error: 'invoiceLegalExtras.iban is not a valid IBAN',
+      errorCode: 'INVOICE_EXTRAS_IBAN_INVALID',
+      field: 'iban',
+    });
   });
 
   it('rejects an invalid BIC', () => {
-    expect(validateInvoiceLegalExtrasInput({ ...BLANK, bic: '123' })).toBe(
-      'invoiceLegalExtras.bic is not a valid BIC',
-    );
+    expect(validateInvoiceLegalExtrasInput({ ...BLANK, bic: '123' })).toEqual({
+      error: 'invoiceLegalExtras.bic is not a valid BIC',
+      errorCode: 'INVOICE_EXTRAS_BIC_INVALID',
+      field: 'bic',
+    });
   });
 
   it('rejects an overlong field', () => {
-    expect(validateInvoiceLegalExtrasInput({ ...BLANK, court: 'x'.repeat(301) })).toBe(
-      'invoiceLegalExtras.court must be a string of at most 300 characters',
-    );
+    expect(validateInvoiceLegalExtrasInput({ ...BLANK, court: 'x'.repeat(301) })).toEqual({
+      error: 'invoiceLegalExtras.court must be a string of at most 300 characters',
+      errorCode: 'INVOICE_EXTRAS_FIELD_TOO_LONG',
+      field: 'court',
+      max: 300,
+    });
   });
 
   it('isInvoiceLegalExtrasEmpty is true only when every field is blank', () => {

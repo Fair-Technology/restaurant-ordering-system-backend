@@ -51,8 +51,8 @@ export async function executeUpdateShopLegal(
 
     if (body.impressum !== undefined) {
       const valid = validateImpressumInput(body.impressum, shop.countryCode ?? '');
-      if (typeof valid === 'string') {
-        return { ok: false, code: 'INVALID_INPUT', error: valid };
+      if ('errorCode' in valid) {
+        return { ok: false, code: 'INVALID_INPUT', ...valid };
       }
       const before = current.impressum;
       for (const key of Object.keys(valid) as ImpressumFieldKey[]) {
@@ -68,7 +68,14 @@ export async function executeUpdateShopLegal(
 
     if (body.taxNumber !== undefined) {
       if (typeof body.taxNumber !== 'string' || body.taxNumber.trim().length > TAX_NUMBER_MAX_CHARS) {
-        return { ok: false, code: 'INVALID_INPUT', error: TAX_NUMBER_ERROR };
+        return {
+          ok: false,
+          code: 'INVALID_INPUT',
+          error: TAX_NUMBER_ERROR,
+          errorCode: 'TAX_NUMBER_TOO_LONG',
+          field: 'taxNumber',
+          max: TAX_NUMBER_MAX_CHARS,
+        };
       }
       const taxNumber = body.taxNumber.trim();
       if (taxNumber !== (current.taxNumber ?? '')) {
@@ -81,8 +88,8 @@ export async function executeUpdateShopLegal(
 
     if (body.invoiceLegalExtras !== undefined) {
       const valid = validateInvoiceLegalExtrasInput(body.invoiceLegalExtras);
-      if (typeof valid === 'string') {
-        return { ok: false, code: 'INVALID_INPUT', error: valid };
+      if ('errorCode' in valid) {
+        return { ok: false, code: 'INVALID_INPUT', ...valid };
       }
       const next = isInvoiceLegalExtrasEmpty(valid) ? null : valid;
       const before = current.invoiceLegalExtras ?? null;
@@ -98,7 +105,14 @@ export async function executeUpdateShopLegal(
       if (text === undefined) continue;
       const max = LEGAL_TEXT_MAX_CHARS[kind];
       if (typeof text !== 'string' || text.length > max) {
-        return { ok: false, code: 'INVALID_INPUT', error: `${kind} must be text of at most ${max} characters` };
+        return {
+          ok: false,
+          code: 'INVALID_INPUT',
+          error: `${kind} must be text of at most ${max} characters`,
+          errorCode: 'LEGAL_TEXT_TOO_LONG',
+          field: kind,
+          max,
+        };
       }
       const old = current[kind];
       const { next, archived } = nextLegalText(old, text, nowIso, by);

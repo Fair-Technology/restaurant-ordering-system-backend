@@ -98,28 +98,40 @@ const INVOICE_EXTRAS_KEYS: readonly (keyof InvoiceLegalExtras)[] = [
 const IBAN_PATTERN = /^[A-Z]{2}[0-9A-Z]{13,32}$/;
 const BIC_PATTERN = /^[A-Z]{6}[A-Z0-9]{2}([A-Z0-9]{3})?$/;
 
+export interface InvoiceLegalExtrasValidationError {
+  error: string;
+  errorCode: string;
+  field?: keyof InvoiceLegalExtras;
+  max?: number;
+}
+
 /** All fields optional free text; '' allowed for every one. iban/bic normalised
  *  (spaces removed, upper-cased) and format-checked only when non-empty. */
-export function validateInvoiceLegalExtrasInput(input: unknown): InvoiceLegalExtras | string {
+export function validateInvoiceLegalExtrasInput(input: unknown): InvoiceLegalExtras | InvoiceLegalExtrasValidationError {
   if (typeof input !== 'object' || input === null || Array.isArray(input)) {
-    return 'invoiceLegalExtras must be an object';
+    return { error: 'invoiceLegalExtras must be an object', errorCode: 'INVOICE_EXTRAS_NOT_OBJECT' };
   }
   const raw = input as Record<string, unknown>;
   const out: Record<string, string> = {};
   for (const key of INVOICE_EXTRAS_KEYS) {
     const v = raw[key];
     if (typeof v !== 'string' || v.trim().length > INVOICE_LEGAL_EXTRAS_MAX_CHARS) {
-      return `invoiceLegalExtras.${key} must be a string of at most ${INVOICE_LEGAL_EXTRAS_MAX_CHARS} characters`;
+      return {
+        error: `invoiceLegalExtras.${key} must be a string of at most ${INVOICE_LEGAL_EXTRAS_MAX_CHARS} characters`,
+        errorCode: 'INVOICE_EXTRAS_FIELD_TOO_LONG',
+        field: key,
+        max: INVOICE_LEGAL_EXTRAS_MAX_CHARS,
+      };
     }
     out[key] = v.trim();
   }
   out.iban = out.iban.replace(/\s+/g, '').toUpperCase();
   if (out.iban !== '' && !IBAN_PATTERN.test(out.iban)) {
-    return 'invoiceLegalExtras.iban is not a valid IBAN';
+    return { error: 'invoiceLegalExtras.iban is not a valid IBAN', errorCode: 'INVOICE_EXTRAS_IBAN_INVALID', field: 'iban' };
   }
   out.bic = out.bic.replace(/\s+/g, '').toUpperCase();
   if (out.bic !== '' && !BIC_PATTERN.test(out.bic)) {
-    return 'invoiceLegalExtras.bic is not a valid BIC';
+    return { error: 'invoiceLegalExtras.bic is not a valid BIC', errorCode: 'INVOICE_EXTRAS_BIC_INVALID', field: 'bic' };
   }
   return out as unknown as InvoiceLegalExtras;
 }
