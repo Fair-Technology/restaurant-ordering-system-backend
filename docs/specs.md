@@ -2366,9 +2366,10 @@ seed of this.
 **The go-live checklist page (rs-admin, 2026-11-27; was a dialog from
 2026-11-26).** The go-live checklist is its own page at
 `/shops/{shopId}/go-live`, not a pop-up. It is reached from the sidebar
-Shop status toggle, the sidebar Checklist row, Settings → Shop status
-(switching on with items open opens this page; the former dialog is
-removed) and the Dashboard one-liner (see Onboarding). The page lists
+Checklist row and the Dashboard one-liner (see Onboarding); the sidebar
+Shop status toggle and Settings → Shop status's own switch do not
+navigate here when items are open (changed 2026-11-27 — see below). The
+former dialog is removed. The page lists
 every criterion `getGoLiveStatus` returns, met and unmet, grouped as
 Payments (`stripe_connected`), Menu (`has_products`, `has_categories`),
 Shop (`profile_name`, `profile_address`, `opening_hours`) and Legal and
@@ -2391,8 +2392,17 @@ on/off toggle (on = live, off = offline) and a separate "Checklist" row
 carrying a badge with the count of open (unmet) criteria, hidden when the
 count is zero. The toggle has an accessible name and an explicit on/off
 state (not colour alone) and works on touch screens. While offline with
-items open, clicking the toggle, or the Checklist row, opens the go-live
-page instead of changing anything. With nothing open, switching the toggle
+items open, switching the toggle on does not navigate, does not open a
+dialog and does not change anything: the shop stays offline, no update is
+sent, and a tooltip appears next to the toggle reading "You can't switch
+the shop on yet: the checklist isn't complete." It opens on click or tap
+and on keyboard activation (Enter or Space), not on hover only; it is
+announced to screen readers when it appears and is linked to the toggle
+as its description while open; it closes on Escape or a click outside
+it. The Checklist row is unchanged and still opens the go-live page.
+Settings → Shop status's own "Shop online" switch behaves identically
+(tooltip, no navigation, no dialog, shop stays offline) (changed
+2026-11-27). With nothing open, switching the toggle
 on goes live directly through the existing `isPaused: false` update, with
 no page visit. Switching it off keeps the existing take-offline
 confirmation dialog, unchanged. The badge can reappear while the shop
