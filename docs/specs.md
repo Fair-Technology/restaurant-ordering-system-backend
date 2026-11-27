@@ -2371,12 +2371,12 @@ Shop status toggle and Settings → Shop status's own switch do not
 navigate here when items are open (changed 2026-11-27 — see below). The
 former dialog is removed. The page lists
 every criterion `getGoLiveStatus` returns, met and unmet, grouped as
-Payments (`stripe_connected`), Menu (`has_products`, `has_categories`),
+Payments (`stripe_connected`), Menu (`has_categories`, `has_products`),
 Shop (`profile_name`, `profile_address`, `opening_hours`) and Legal and
 invoices (`dpa_accepted`, `impressum`, `terms`, `withdrawal`,
 `privacy_notice`, `invoice_tax_id`). Any criterion key the server adds
 later that is not in one of those groups still renders, under a fallback
-"Other" group, using the server's own description text. The header shows
+"Other" group, using the server's own description text. Within each group, criteria render in the group's own fixed order regardless of the order the server returns them in (changed 2026-11-27 — previously Menu could show Add a dish before Create a category depending on server order). The header shows
 "X of Y done", a percentage and a progress bar. Each row shows a title, a
 one-line hint, and either a green "Done" or a "Set up" link that goes to
 where that item is fixed (Settings, Products, Categories or Legal, with
