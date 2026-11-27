@@ -96,6 +96,21 @@ describe('executeGetGoLiveStatus stripe_connected criterion', () => {
     expect(await met(makeShop())).toBe(false);
   });
 
+  it('opening_hours is met only once the hours are confirmed (absent = confirmed)', async () => {
+    const hours = { mon: [{ open: '09:00', close: '17:00' }] };
+    const met = async (shop: any) => {
+      (findShopById as any).mockResolvedValue(shop);
+      const result = await executeGetGoLiveStatus({ shopId: 'shop-1' } as any, {} as any);
+      if (!result.ok) throw new Error('expected ok');
+      return result.data.criteria.find((c) => c.key === 'opening_hours')?.met;
+    };
+
+    expect(await met(makeShop({ openingHours: hours, openingHoursConfirmed: false }))).toBe(false);
+    expect(await met(makeShop({ openingHours: hours }))).toBe(true);
+    expect(await met(makeShop({ openingHours: hours, openingHoursConfirmed: true }))).toBe(true);
+    expect(await met(makeShop({ openingHours: {}, openingHoursConfirmed: true }))).toBe(false);
+  });
+
   it('all met only when a tax ID is set too', async () => {
     (findProductsByShopId as any).mockResolvedValue([
       { isAvailable: true, isDeleted: false, allergenIds: [], additiveIds: [] },

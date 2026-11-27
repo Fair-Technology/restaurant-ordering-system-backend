@@ -98,6 +98,12 @@ export interface Shop {
     }>
   >;
 
+  // Whether the owner has explicitly saved opening hours at least once via
+  // Settings (even unchanged). Absent = true for any shop that existed before
+  // this field was introduced (no migration needed). Only an explicit `false`
+  // (set at creation) keeps the opening_hours go-live criterion unmet.
+  openingHoursConfirmed?: boolean;
+
   // One-off closures / holidays
   closures: Array<{
     id: string;

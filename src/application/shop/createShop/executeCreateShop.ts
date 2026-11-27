@@ -255,6 +255,8 @@ export async function executeCreateShop(
       minOrderAmountCents: request.minOrderAmountCents,
       address: request.address,
       openingHours: request.openingHours,
+      // Wizard values don't count until the owner saves hours in Settings.
+      openingHoursConfirmed: false,
       // Optional fields with defaults
       pausedMessage: request.pausedMessage ?? 'We will be online very soon',
       orderAcceptanceMode: request.orderAcceptanceMode || 'auto',

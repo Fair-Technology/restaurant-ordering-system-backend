@@ -327,6 +327,53 @@ describe('executeUpdateShop go-live', () => {
     (findCategoriesByShopId as any).mockResolvedValue([{ isDeleted: false }]);
   };
 
+  it('refuses to go live while opening hours are unconfirmed', async () => {
+    (findShopById as any).mockResolvedValue(makeGoLiveReadyShop({ openingHoursConfirmed: false }));
+    READY_CATALOG();
+
+    const result = await executeUpdateShop({ shopId: 'shop-1', isPaused: false } as any, {} as any);
+
+    expect(result).toEqual({
+      ok: false,
+      code: 'INVALID_INPUT',
+      error: 'Opening hours must be configured for at least one day',
+    });
+    expect(updateShop).not.toHaveBeenCalled();
+  });
+
+  it('goes live when openingHoursConfirmed is absent (existing shop) or true', async () => {
+    for (const overrides of [{}, { openingHoursConfirmed: true }]) {
+      vi.clearAllMocks();
+      (updateShop as any).mockImplementation(async (s: any) => s);
+      (findShopById as any).mockResolvedValue(makeGoLiveReadyShop(overrides));
+      READY_CATALOG();
+
+      const result = await executeUpdateShop({ shopId: 'shop-1', isPaused: false } as any, {} as any);
+
+      expect(result.ok).toBe(true);
+    }
+  });
+
+  it('saving opening hours unchanged confirms them', async () => {
+    const hours = { mon: [{ open: '09:00', close: '17:00' }] };
+    (findShopById as any).mockResolvedValue(
+      makeGoLiveReadyShop({ openingHours: hours, openingHoursConfirmed: false }),
+    );
+
+    const result = await executeUpdateShop({ shopId: 'shop-1', openingHours: hours } as any, {} as any);
+
+    expect(result.ok).toBe(true);
+    expect(updateShop).toHaveBeenCalledWith(expect.objectContaining({ openingHoursConfirmed: true }));
+  });
+
+  it('a save without openingHours leaves openingHoursConfirmed alone', async () => {
+    (findShopById as any).mockResolvedValue(makeGoLiveReadyShop({ openingHoursConfirmed: false }));
+
+    await executeUpdateShop({ shopId: 'shop-1', minOrderAmountCents: 500 } as any, {} as any);
+
+    expect(updateShop).toHaveBeenCalledWith(expect.objectContaining({ openingHoursConfirmed: false }));
+  });
+
   it('refuses to go live without completed Stripe onboarding', async () => {
     (findShopById as any).mockResolvedValue(makeGoLiveReadyShop({ stripe: null }));
     READY_CATALOG();
