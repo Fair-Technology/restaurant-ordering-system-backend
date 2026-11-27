@@ -2559,9 +2559,19 @@ yet pushed):** above the legal footer on the shop page, three columns:
 
 ### Onboarding
 
-Entra registration → create a restaurant (name, slug) → a checklist in admin
-turning the remaining setup into visible progress, including connecting Stripe
-and passing its identity checks → LIVE toggle.
+Entra registration → create a restaurant (name, slug) → a **setup checklist card** on the
+shop's Dashboard (rs-admin, `/shops/{shopId}/dashboard`) turning the remaining setup into visible
+progress, including connecting Stripe and passing its identity checks → LIVE toggle.
+
+**The setup checklist card (rs-admin).** Reuses `getGoLiveStatus` and the same criteria groups as
+the go-live checklist dialog (§ above): a progress bar ("X of Y done"), the criteria grouped as
+Payments / Menu / Shop / Legal and invoices (+ a fallback group for unknown keys), each unmet row
+linking to where it's fixed, and a "Switch shop online" button enabled once everything is met.
+Shown on the Dashboard to anyone who can manage the shop (`manage_shop`) whenever the shop is
+currently offline and not held offline by the platform — not a one-time, lifetime-first-launch
+flag: a shop taken offline again later (e.g. for a long break) sees the card again until it is
+switched back on. The full dialog (above) still runs from Settings → Shop status when switching a
+shop online directly.
 
 Admin has no floating action button. Creating a shop, dish or category is done from
 each page's own "New …" button (My Shops, Dishes, Categories).
