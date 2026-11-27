@@ -2441,7 +2441,13 @@ as its description while open; it closes on Escape or a click outside
 it. The Checklist row is unchanged and still opens the go-live page.
 Settings → Shop status's own "Shop online" switch behaves identically
 (tooltip, no navigation, no dialog, shop stays offline) (changed
-2026-11-27). With nothing open, switching the toggle
+2026-11-27), and so does the online toggle on each row of the My Shops list
+(tooltip, no request sent, shop stays offline). In all three places the
+tooltip also carries a "Checklist" link to `/shops/{shopId}/go-live`, a real
+link reachable by keyboard (Tab, Enter) and by tap, not by mouse only. If the
+server still refuses for another reason, the toast shows the server's reason
+when it gives a usable one, else the generic "couldn't update status" text.
+With nothing open, switching the toggle
 on goes live directly through the existing `isPaused: false` update, with
 no page visit. Switching it off keeps the existing take-offline
 confirmation dialog, unchanged. The badge can reappear while the shop
