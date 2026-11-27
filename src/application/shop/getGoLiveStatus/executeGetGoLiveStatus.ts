@@ -140,12 +140,13 @@ export async function executeGetGoLiveStatus(
     ]);
 
     const hasProducts = products.some((p) => isOnMenu(p));
+    const hasAnyProducts = products.some((p) => !p.isDeleted);
     const hasCategories = categories.some((c) => !c.isDeleted);
 
     const criteria = buildCriteria(shop, hasProducts, hasCategories, identity);
     const allMet = criteria.every((c) => c.met);
 
-    return { ok: true, data: { allMet, criteria } };
+    return { ok: true, data: { allMet, criteria, hasAnyProducts } };
   } catch (error: any) {
     if (error.message === 'Authentication required') {
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };

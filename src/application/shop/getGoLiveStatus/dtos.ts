@@ -11,4 +11,5 @@ export interface GoLiveCriterion {
 export interface GetGoLiveStatusResultDto {
   allMet: boolean;
   criteria: GoLiveCriterion[];
+  hasAnyProducts: boolean; // true if the shop has at least one non-deleted product (dish or combo), regardless of availability/allergen declaration
 }

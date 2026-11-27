@@ -226,3 +226,43 @@ describe('executeGetGoLiveStatus legal criteria', () => {
     }
   });
 });
+
+describe('executeGetGoLiveStatus hasAnyProducts', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (authorizeShopAction as any).mockResolvedValue(ownerAccess);
+    (findShopById as any).mockResolvedValue(makeShop());
+  });
+
+  it('is false when the shop has no products', async () => {
+    (findProductsByShopId as any).mockResolvedValue([]);
+
+    const result = await executeGetGoLiveStatus({ shopId: 'shop-1' } as any, {} as any);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.data.hasAnyProducts).toBe(false);
+  });
+
+  it('is false when every product is deleted', async () => {
+    (findProductsByShopId as any).mockResolvedValue([
+      { isDeleted: true, isAvailable: true, allergenIds: [], additiveIds: [] },
+    ]);
+
+    const result = await executeGetGoLiveStatus({ shopId: 'shop-1' } as any, {} as any);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.data.hasAnyProducts).toBe(false);
+  });
+
+  it('is true for a non-deleted product that is not on the menu (undeclared allergens/additives)', async () => {
+    (findProductsByShopId as any).mockResolvedValue([{ isDeleted: false, isAvailable: true }]);
+
+    const result = await executeGetGoLiveStatus({ shopId: 'shop-1' } as any, {} as any);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.data.hasAnyProducts).toBe(true);
+      expect(result.data.criteria.find((c) => c.key === 'has_products')!.met).toBe(false);
+    }
+  });
+});
