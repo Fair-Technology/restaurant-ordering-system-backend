@@ -690,6 +690,10 @@ references and any dish-only variant/addon groups**, and says "Copied category, 
 class and option groups from <dish>. Allergens and additives are not copied; please
 confirm them yourself." It deliberately **does not copy allergens, additives, dietary
 tags or the spice level**: those are declarations the owner must make for each dish.
+It is shown only once the shop's dish list has loaded and contains at least one real dish to
+copy from; with no dishes yet (or while that list is still loading) the box does not appear at
+all — no empty picker, no flash. Once a first dish exists, it also appears for the next dish
+opened via "Add another dish".
 
 **After adding.** **With a photo**, a green banner at the top of the content reads "<dish> was added to the menu." **Without a photo**, the banner reads a distinct message: "saved, but not on the menu yet — add a photo to turn it on." It must never say the dish was added to the menu when it was not. In both cases the footer buttons become **View in menu** (closes the drawer back to the list) and **Add another dish** (clears the whole form and photo, back to Basics, stays open). Availability for a new dish reads "New dishes are available everywhere. Turn off
 any way of ordering that does not suit this dish."
