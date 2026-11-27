@@ -1995,6 +1995,18 @@ its current slug.
 
 - The **Impressum phone is the restaurant's public contact phone** — one field,
   also used for §16's "contact phone" minimum and the checkout allergy line.
+- **Impressum form in the admin (UI only, no backend change):** required
+  fields are marked per legal form, mirroring `missingImpressumFields` rules —
+  always business name, address, country, phone and email; plus
+  managing director(s)/owner(s) for GbR/OHG/KG/GmbH/UG; plus register court and
+  number for e.K./OHG/KG/GmbH/UG. The marker is a visible `*` plus
+  `aria-required`, never colour alone, and updates live as the legal form
+  changes. VAT ID and supervisory authority stay optional. A permanent note says
+  *one of* tax number or VAT ID is required for invoices. When nothing has been
+  saved yet, the address is prefilled from the shop address with a "prefilled —
+  please review and save" notice, and those prefilled fields are not listed as
+  "still missing" in the UI; server completeness is unchanged and still based
+  only on what is actually saved.
 - **DPA:** owner-only, per restaurant, ticked when creating it (existing ones
   accept on the Legal page); every acceptance kept. A new version never takes a
   live restaurant offline — it must be accepted before the next switch-on.
