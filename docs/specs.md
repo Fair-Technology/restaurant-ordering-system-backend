@@ -2361,6 +2361,14 @@ optional, unused field on `POST /shops` for backward compatibility with older cl
 it is no longer collected or shown anywhere, and existing shops keep whatever value
 they already have stored.
 
+**The admin's own New Shop form always sends a slug, never a blank one** (confirmed by
+code review 2026-11-27 of `rs-admin/src/features/shops/newShopForm.ts` and
+`ShopsPage.tsx`): the slug auto-fills from the name as the owner types and an empty or
+invalid slug blocks submission client-side. The backend's "leave it blank to generate
+one" allowance above is for other API callers that never send a slug at all; it is not
+exercised by the admin app itself, which chooses to always show the owner the live
+availability check before they can submit.
+
 The root domain is the sales site. Storefronts carry **`noindex`**; no SEO
 work. One exception that is not SEO: a page title and a **link-preview card**
 (image, name, one line) injected into the storefront's HTML shell by a small
