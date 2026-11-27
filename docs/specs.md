@@ -1826,7 +1826,8 @@ reading every log entry, to keep Cosmos RU cost down.
 
 Translated by Manish. **German and English at launch**, built so a new language
 is a translation file, not a code change. The admin app already has populated
-`de` and `en` files.
+`de` and `en` files. **German admin copy always addresses the owner formally
+("Sie"/"Ihr"), never "du"/"dein".**
 
 ### Menu content
 
