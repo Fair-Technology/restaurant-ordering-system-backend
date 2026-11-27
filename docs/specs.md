@@ -2357,27 +2357,43 @@ it is also how Ma Pasta stays dark until the switch is intended.
 The existing `isPaused` + `pausedMessage` and the Go Live checklist are the
 seed of this.
 
-**The go-live checklist dialog (rs-admin, 2026-11-26).** When the owner
-tries to switch a shop online while `getGoLiveStatus` reports any
-criterion unmet, a dialog lists every criterion the server returns, met
-and unmet, grouped as Payments (`stripe_connected`), Menu (`has_products`,
-`has_categories`), Shop (`profile_name`, `profile_address`,
-`opening_hours`) and Legal and invoices (`dpa_accepted`, `impressum`,
-`terms`, `withdrawal`, `privacy_notice`, `invoice_tax_id`). Any criterion
-key the server adds later that is not in one of those groups still
-renders, under a fallback "Other" group, using the server's own
-description text. The header shows "X of Y done", a percentage and a
-progress bar. Each row shows a title, a one-line hint, and either a green
-"Done" or a "Set up" link that goes to where that item is fixed
-(Settings, Products, Categories or Legal, with the matching section
-pre-selected) and closes the dialog. The footer shows how many items are
-still open, with "Close" and "Switch shop online". The latter is disabled
-while anything is open; once everything is met it makes the same update
-as the fast path (`isPaused: false`), and on failure it shows an inline
-error and stays open so the owner can retry. The dialog is an accessible
-modal: `role="dialog"`, labelled, focus trapped and returned to the
-opener on close, Escape closes it, and it scrolls internally on small
-screens while the header and footer stay pinned.
+**The go-live checklist page (rs-admin, 2026-11-27; was a dialog from
+2026-11-26).** The go-live checklist is its own page at
+`/shops/{shopId}/go-live`, not a pop-up. It is reached from the sidebar
+Shop status toggle, the sidebar Checklist row, Settings → Shop status
+(switching on with items open opens this page; the former dialog is
+removed) and the Dashboard one-liner (see Onboarding). The page lists
+every criterion `getGoLiveStatus` returns, met and unmet, grouped as
+Payments (`stripe_connected`), Menu (`has_products`, `has_categories`),
+Shop (`profile_name`, `profile_address`, `opening_hours`) and Legal and
+invoices (`dpa_accepted`, `impressum`, `terms`, `withdrawal`,
+`privacy_notice`, `invoice_tax_id`). Any criterion key the server adds
+later that is not in one of those groups still renders, under a fallback
+"Other" group, using the server's own description text. The header shows
+"X of Y done", a percentage and a progress bar. Each row shows a title, a
+one-line hint, and either a green "Done" or a "Set up" link that goes to
+where that item is fixed (Settings, Products, Categories or Legal, with
+the matching section pre-selected). The footer shows how many items are
+still open, with "Switch shop online". The latter is disabled while
+anything is open; once everything is met it makes the same update as the
+fast path (`isPaused: false`), and on failure it shows an inline error and
+stays on the page so the owner can retry.
+
+**The sidebar Shop status entry (rs-admin, 2026-11-27).** The old "Offline –
+guests can't see the shop" link is replaced by a "Shop status" row with an
+on/off toggle (on = live, off = offline) and a separate "Checklist" row
+carrying a badge with the count of open (unmet) criteria, hidden when the
+count is zero. The toggle has an accessible name and an explicit on/off
+state (not colour alone) and works on touch screens. While offline with
+items open, clicking the toggle, or the Checklist row, opens the go-live
+page instead of changing anything. With nothing open, switching the toggle
+on goes live directly through the existing `isPaused: false` update, with
+no page visit. Switching it off keeps the existing take-offline
+confirmation dialog, unchanged. The badge can reappear while the shop
+stays live (e.g. a new DPA version becomes required); going live does not
+require revisiting the page afterwards, only resolving whatever is newly
+open. Without `manage_shop` the status is still visible, but the toggle is
+present and not operable, and the badge never shows.
 
 **The shop address is one-time entry.** Registration collects only the country; the
 owner fills in the rest once in Settings. When the address is complete for the shop's
@@ -2399,7 +2415,7 @@ lists) return `addressLocked: boolean` so the UIs can show the fields read-only.
 **Paused versus offline (Manish, 2026-10-12; built the same day).** Two separate states:
 
 - **Offline** — the shop isn't presented. Set by the owner (Settings → Shop status →
-  "Shop online" switch, field `isPaused`; the go-live checklist runs when switching on) *or* by the superadmin (All
+  "Shop online" switch, field `isPaused`; switching on with items open opens the go-live checklist page) *or* by the superadmin (All
   Shops → "Take offline", with an internal reason; field `offlineBySuperadmin`).
   While the platform holds it offline, the owner can't switch it back on. The
   storefront shows no menu and a popup that can't be closed.
@@ -2564,14 +2580,14 @@ Entra registration → create a restaurant (name, slug) → a **setup checklist 
 shop's Dashboard (rs-admin, `/shops/{shopId}/dashboard`) turning the remaining setup into visible
 progress, including connecting Stripe and passing its identity checks → LIVE toggle.
 
-**The setup checklist card (rs-admin).** Reuses `getGoLiveStatus` and the same criteria groups as
-the go-live checklist dialog (§ above): a progress bar ("X of Y done"), the criteria grouped as
-Payments / Menu / Shop / Legal and invoices (+ a fallback group for unknown keys), each unmet row
-linking to where it's fixed, and a "Switch shop online" button enabled once everything is met.
+**The setup checklist card (rs-admin).** A single line on the Dashboard reading "N steps
+left before you can go live" (N = the open criteria from `getGoLiveStatus`), linking to the
+go-live checklist page (§ above, `/shops/{shopId}/go-live`). The progress bar, grouped criteria
+and "Switch shop online" button live on that page, not inline on the Dashboard.
 Shown on the Dashboard to anyone who can manage the shop (`manage_shop`) whenever the shop is
 currently offline and not held offline by the platform — not a one-time, lifetime-first-launch
 flag: a shop taken offline again later (e.g. for a long break) sees the card again until it is
-switched back on. The full dialog (above) still runs from Settings → Shop status when switching a
+switched back on. The full checklist page also runs from Settings → Shop status when switching a
 shop online directly.
 
 Admin has no floating action button. Creating a shop, dish or category is done from
