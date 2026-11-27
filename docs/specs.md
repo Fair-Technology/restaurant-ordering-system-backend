@@ -1228,6 +1228,21 @@ restaurants with no site of their own.
   restricted-key permission check, and a check that doesn't clobber an
   owner-entered url — left for a follow-up if wanted.
 
+### Stripe account creation is idempotent per shop
+
+`accounts.create` is sent with the idempotency key `connect-account:<shopId>:<generation>`
+(`stripeAccountCreateIdempotencyKey`), so concurrent onboarding-session requests
+for a shop with no account yet (double-click, retry) get the same Stripe account
+back instead of creating two and orphaning one. Before this, the check-then-create
+raced; two test accounts were seen for one shop.
+
+- `shop.stripe.connectAccountGeneration` (absent = 0) exists for a future
+  "disconnect" feature: it must increment it when clearing `connectAccountId`, so
+  reconnecting gets a fresh key and a genuinely new account rather than Stripe
+  replaying the old one within its 24h idempotency window. No disconnect exists yet.
+- Stripe rejects a reused key with *different* params inside 24h, so a shop rename
+  between two creates in that window errors instead of creating a second account.
+
 ### Reserved at checkout, taken on accept
 
 **The diner's card is only reserved at checkout; the money is taken when the

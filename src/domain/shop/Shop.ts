@@ -140,6 +140,10 @@ export interface Shop {
   stripe?: {
     connectAccountId?: string | null;
     connectOnboardingStatus?: 'not_started' | 'pending' | 'complete' | null;
+    // Absent = generation 0. A future "disconnect" flow must increment this when it clears
+    // connectAccountId, so the next accounts.create gets a fresh idempotency key (and a genuinely
+    // new Stripe account) instead of Stripe replaying the cached response within its 24h window.
+    connectAccountGeneration?: number;
   } | null;
 
 
@@ -183,6 +187,12 @@ export function stripeAccountCreateParams(
       ...(storefrontUrl ? { url: storefrontUrl } : {}),
     },
   };
+}
+
+// Stripe idempotency key for accounts.create: concurrent onboarding requests for the same shop
+// (and generation) get the same account back instead of creating two.
+export function stripeAccountCreateIdempotencyKey(shop: Pick<Shop, 'id' | 'stripe'>): string {
+  return `connect-account:${shop.id}:${shop.stripe?.connectAccountGeneration ?? 0}`;
 }
 
 export const ORDERS_PAUSED_MESSAGE_MAX_LENGTH = 280;
