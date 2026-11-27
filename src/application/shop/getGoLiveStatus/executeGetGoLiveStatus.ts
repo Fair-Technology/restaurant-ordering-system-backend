@@ -122,10 +122,9 @@ export async function executeGetGoLiveStatus(
             : stripeAccount.details_submitted
               ? 'pending'
               : 'not_started';
-        const statusRank = { not_started: 0, pending: 1, complete: 2 };
-        const currentRank = statusRank[shop.stripe.connectOnboardingStatus ?? 'not_started'] ?? 0;
-        const liveRank = statusRank[liveStatus] ?? 0;
-        if (stripeAccount && liveStatus !== shop.stripe.connectOnboardingStatus && liveRank >= currentRank) {
+        // Only 'complete' is sticky; not_started <-> pending always follow the live account.
+        const currentStatus = shop.stripe.connectOnboardingStatus ?? 'not_started';
+        if (stripeAccount && liveStatus !== currentStatus && currentStatus !== 'complete') {
           // Patch only this field: rewriting the whole shop from a GET could undo a settings save made meanwhile.
           await patchShopPath(shop.id, '/stripe/connectOnboardingStatus', liveStatus);
           shop = { ...shop, stripe: { ...shop.stripe, connectOnboardingStatus: liveStatus } };

@@ -27,6 +27,7 @@ vi.mock('../../src/infrastructure/cosmos/shop/CosmosShopRepository', () => ({
 }));
 
 import '../../src/functions/order/stripeConnectWebhook/index';
+import { findShopByStripeConnectAccountId, updateShop } from '../../src/infrastructure/cosmos/shop/CosmosShopRepository';
 
 let savedKey: string | undefined;
 let savedSecret: string | undefined;
@@ -90,5 +91,37 @@ describe('stripeConnectWebhook', () => {
     const res = await call();
     expect(res.status).toBe(200);
     expect(m.record).not.toHaveBeenCalled();
+  });
+
+  describe('account.updated', () => {
+    const accountEvent = (charges_enabled: boolean, details_submitted: boolean) => ({
+      type: 'account.updated',
+      account: 'acct_1',
+      data: { object: { id: 'acct_1', charges_enabled, details_submitted } },
+    });
+
+    it('writes a not_started -> pending transition', async () => {
+      (findShopByStripeConnectAccountId as any).mockResolvedValue({
+        id: 's1',
+        stripe: { connectAccountId: 'acct_1', connectOnboardingStatus: 'not_started' },
+      });
+      m.constructEvent.mockReturnValue(accountEvent(false, true));
+      const res = await call();
+      expect(res.status).toBe(200);
+      expect(updateShop).toHaveBeenCalledWith(
+        expect.objectContaining({ stripe: { connectAccountId: 'acct_1', connectOnboardingStatus: 'pending' } }),
+      );
+    });
+
+    it('does not downgrade a complete shop', async () => {
+      (findShopByStripeConnectAccountId as any).mockResolvedValue({
+        id: 's1',
+        stripe: { connectAccountId: 'acct_1', connectOnboardingStatus: 'complete' },
+      });
+      m.constructEvent.mockReturnValue(accountEvent(false, true));
+      const res = await call();
+      expect(res.status).toBe(200);
+      expect(updateShop).not.toHaveBeenCalled();
+    });
   });
 });

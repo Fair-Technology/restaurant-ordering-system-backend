@@ -7,6 +7,10 @@ vi.mock('../../../src/infrastructure/cosmos/shop/CosmosShopRepository', () => ({
   findShopById: vi.fn(),
   patchShopPath: vi.fn(async () => undefined),
 }));
+const stripeMock = vi.hoisted(() => ({ retrieve: vi.fn() }));
+vi.mock('../../../src/infrastructure/stripe/stripeClient', () => ({
+  createStripeClient: () => ({ accounts: { retrieve: stripeMock.retrieve } }),
+}));
 vi.mock('../../../src/infrastructure/cosmos/product/CosmosProductRepository', () => ({
   findProductsByShopId: vi.fn(async () => []),
 }));
@@ -21,7 +25,7 @@ vi.mock('../../../src/infrastructure/cosmos/system/CosmosPlatformLegalIdentityRe
 import { authorizeShopAction } from '../../../src/application/_shared/shopAccess';
 import { findProductsByShopId } from '../../../src/infrastructure/cosmos/product/CosmosProductRepository';
 import { findCategoriesByShopId } from '../../../src/infrastructure/cosmos/category/CosmosCategoryRepository';
-import { findShopById } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
+import { findShopById, patchShopPath } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
 import { getPlatformLegalIdentity } from '../../../src/infrastructure/cosmos/system/CosmosPlatformLegalIdentityRepository';
 import { DEFAULT_PLATFORM_LEGAL_IDENTITY } from '../../../src/domain/legal/PlatformLegalIdentity';
 import { ACCEPTED_DPA, COMPLETE_LEGAL } from '../../fixtures/legal';
@@ -263,6 +267,41 @@ describe('executeGetGoLiveStatus hasAnyProducts', () => {
     if (result.ok) {
       expect(result.data.hasAnyProducts).toBe(true);
       expect(result.data.criteria.find((c) => c.key === 'has_products')!.met).toBe(false);
+    }
+  });
+});
+
+describe('executeGetGoLiveStatus onboarding status sync', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (authorizeShopAction as any).mockResolvedValue(ownerAccess);
+    process.env.STRIPE_SECRET_KEY = 'sk_test_x';
+  });
+
+  it('corrects a stale pending down to not_started when nothing was submitted', async () => {
+    (findShopById as any).mockResolvedValue(
+      makeShop({ stripe: { connectAccountId: 'acct_1', connectOnboardingStatus: 'pending' } }),
+    );
+    stripeMock.retrieve.mockResolvedValue({ charges_enabled: false, details_submitted: false });
+
+    const result = await executeGetGoLiveStatus({ shopId: 'shop-1' } as any, {} as any);
+
+    expect(result.ok).toBe(true);
+    expect(patchShopPath).toHaveBeenCalledWith('shop-1', '/stripe/connectOnboardingStatus', 'not_started');
+  });
+
+  it('never downgrades complete, even if the live account says otherwise', async () => {
+    (findShopById as any).mockResolvedValue(
+      makeShop({ stripe: { connectAccountId: 'acct_1', connectOnboardingStatus: 'complete' } }),
+    );
+    stripeMock.retrieve.mockResolvedValue({ charges_enabled: false, details_submitted: true });
+
+    const result = await executeGetGoLiveStatus({ shopId: 'shop-1' } as any, {} as any);
+
+    expect(result.ok).toBe(true);
+    expect(patchShopPath).not.toHaveBeenCalled();
+    if (result.ok) {
+      expect(result.data.criteria.find((c) => c.key === 'stripe_connected')?.met).toBe(true);
     }
   });
 });
