@@ -2499,36 +2499,45 @@ anything is open; once everything is met it makes the same update as the
 fast path (`isPaused: false`), and on failure it shows an inline error and
 stays on the page so the owner can retry.
 
-**The sidebar Shop status entry (rs-admin, 2026-11-27).** The old "Offline –
-guests can't see the shop" link is replaced by a "Shop status" row with an
-on/off toggle (on = live, off = offline) and a separate "Checklist" row
-carrying a badge with the count of open (unmet) criteria, hidden when the
-count is zero. The toggle has an accessible name and an explicit on/off
-state (not colour alone) and works on touch screens. While offline with
-items open, switching the toggle on does not navigate, does not open a
-dialog and does not change anything: the shop stays offline, no update is
-sent, and a tooltip appears next to the toggle reading "You can't switch
-the shop on yet: the checklist isn't complete." It opens on click or tap
-and on keyboard activation (Enter or Space), not on hover only; it is
-announced to screen readers when it appears and is linked to the toggle
-as its description while open; it closes on Escape or a click outside
-it. The Checklist row is unchanged and still opens the go-live page.
-Settings → Shop status's own "Shop online" switch behaves identically
-(tooltip, no navigation, no dialog, shop stays offline) (changed
-2026-11-27), and so does the online toggle on each row of the My Shops list
-(tooltip, no request sent, shop stays offline). In all three places the
-tooltip also carries a "Checklist" link to `/shops/{shopId}/go-live`, a real
-link reachable by keyboard (Tab, Enter) and by tap, not by mouse only. If the
-server still refuses for another reason, the toast shows the server's reason
-when it gives a usable one, else the generic "couldn't update status" text.
-With nothing open, switching the toggle
-on goes live directly through the existing `isPaused: false` update, with
-no page visit. Switching it off keeps the existing take-offline
-confirmation dialog, unchanged. The badge can reappear while the shop
-stays live (e.g. a new DPA version becomes required); going live does not
-require revisiting the page afterwards, only resolving whatever is newly
-open. Without `manage_shop` the status is still visible, but the toggle is
-present and not operable, and the badge never shows.
+**The sidebar Shop status entry (rs-admin, 2026-11-27).** The sidebar shows one
+"Shop status" control under the shop switcher, replacing the earlier pair of
+toggles (live/offline and accepting-orders). It displays the current state as
+one of three words, "Online", "Paused" (German "Pausiert") or "Offline", each
+with a coloured dot (green, amber, grey), a small icon and the text, so the
+state never relies on colour alone. A paused shop also shows a sub-line: "Orders
+paused until HH:MM" when the pause has a known end, else the generic orders-paused
+text (this covers automatic pauses too). Clicking or tapping the control (or
+Enter or Space on the keyboard) opens a list of three choices, each with a short
+description: Online (guests can place orders), Paused (menu visible, no new
+orders) and Offline (guests don't see the shop), with the current one marked as
+selected. It closes on Escape (focus returns to the control) or a click outside
+it, and fits the width of the sidebar, including the phone drawer.
+
+Online and Paused are gated by the go-live checklist only when the shop is
+currently offline, since both bring it back to guests: while criteria are open
+they appear dimmed and choosing either sends nothing and shows the tooltip
+"You can't switch the shop on yet: the checklist isn't complete." with a
+"Checklist" link to `/shops/{shopId}/go-live`. Pausing or resuming a shop that
+is already live never needs the checklist. From Paused, choosing Online resumes
+orders (`ordersPaused: false`); from Offline it switches the shop on
+(`isPaused: false`) and does not touch the pause, so a shop that was paused
+before going offline comes back paused. Choosing Paused asks for the duration
+(30 minutes, rest of the day, until switched back on); from Offline the same
+request also sets `isPaused: false`, so the shop goes live in the paused state.
+Choosing Offline is never gated and keeps the existing take-offline
+confirmation. If the server refuses, the toast shows the platform-offline
+message or the server's reason, else the generic "couldn't update status" text.
+The "Checklist" row below the control is unchanged: it carries the open-criteria
+count and is hidden when nothing is open.
+
+A shop the platform took offline shows "Offline" with the platform notice in
+red and the control cannot be opened or changed. Without `manage_shop` the
+state is shown read-only (no menu) and the Checklist row is hidden. Settings →
+Shop status keeps its two switches ("Shop online", "Accepting orders") and the
+My Shops list keeps a per-row online/offline switch with no Paused state; both
+still show the checklist tooltip (no navigation, no request, shop stays
+offline) and use the same plain "Online" / "Paused" / "Offline" words, as does
+the status badge on My Shops and the Dashboard.
 
 **The shop address is one-time entry.** Registration collects only the country; the
 owner fills in the rest once in Settings. When the address is complete for the shop's
@@ -2603,7 +2612,7 @@ chip row above the content). The selection is kept in the URL as
 Shop status. On desktop each nav item shows a live one-line status under its
 title (the chip row shows titles only):
 
-- **Shop status:** "Offline" / "Orders paused" / "Online, taking orders".
+- **Shop status:** "Offline" / "Paused" / "Online" (the same three words as the sidebar menu).
 - **Details:** "<shop name> · /<slug>".
 - **Look:** "Banner on" / "Banner off".
 - **Hours and closures:** "N of 7 days open".
