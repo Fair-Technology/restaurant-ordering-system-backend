@@ -19085,11 +19085,15 @@
             "items": {
               "$ref": "#/components/schemas/GoLiveCriterion"
             }
+          },
+          "hasAnyProducts": {
+            "type": "boolean"
           }
         },
         "required": [
           "allMet",
-          "criteria"
+          "criteria",
+          "hasAnyProducts"
         ],
         "additionalProperties": false
       },
