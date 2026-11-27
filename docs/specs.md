@@ -2385,7 +2385,16 @@ later that is not in one of those groups still renders, under a fallback
 "X of Y done", a percentage and a progress bar. Each row shows a title, a
 one-line hint, and either a green "Done" or a "Set up" link that goes to
 where that item is fixed (Settings, Products, Categories or Legal, with
-the matching section pre-selected). The footer shows how many items are
+the matching section pre-selected). `getGoLiveStatus` also returns a
+top-level boolean `hasAnyProducts` — true when the shop has at least one
+non-deleted product (dish or combo), whether or not it is active or has its
+allergen/additive declaration done — because the `has_products` criterion's
+`met` flag conflates "no dishes" with "dishes exist but none is active and
+declared". For `has_products`, the "Set up" link follows it: with
+`hasAnyProducts` false it opens the Dishes page with `?addProduct=1`, which
+opens the Add-dish drawer directly; with it true the link opens the plain
+Dishes list, unchanged, since the fix is then to activate or complete an
+existing dish. This applies everywhere the checklist is shown. The footer shows how many items are
 still open, with "Switch shop online". The latter is disabled while
 anything is open; once everything is met it makes the same update as the
 fast path (`isPaused: false`), and on failure it shows an inline error and
