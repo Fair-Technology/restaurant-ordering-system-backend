@@ -57,6 +57,19 @@ describe('executeCreateShop payment policy', () => {
     (createShopInRepo as any).mockImplementation(async (s: any) => s);
   });
 
+  it('persists a new shop with openingHoursConfirmed: false', async () => {
+    const result = await executeCreateShop(baseRequest(), {} as any);
+
+    expect(result.ok).toBe(true);
+    expect(createShopInRepo).toHaveBeenCalledWith(expect.objectContaining({ openingHoursConfirmed: false }));
+  });
+
+  it('ignores a client-sent openingHoursConfirmed', async () => {
+    await executeCreateShop(baseRequest({ openingHoursConfirmed: true }), {} as any);
+
+    expect(createShopInRepo).toHaveBeenCalledWith(expect.objectContaining({ openingHoursConfirmed: false }));
+  });
+
   it('ignores a paymentPolicy sent by an older admin', async () => {
     const result = await executeCreateShop(baseRequest({ paymentPolicy: 'pay_in_person' }), {} as any);
 

@@ -2357,6 +2357,10 @@ refuses orders until DPA, Impressum, terms and withdrawal exist. Likewise, a
 restaurant already live without Stripe stays switched on but can't take orders
 (the storefront says it cannot take online orders yet), and one without a tax
 number or VAT ID takes orders but issues no invoices until one is entered.
+Opening hours count for this check only once the owner has explicitly saved
+them at least once via Settings (saving the presets back unchanged counts) —
+the preset hours a new shop starts with do not count on their own; shops
+created before this rule are treated as already confirmed.
 **New restaurants start off.** The owner flips it for holidays or a bad night;
 it is also how Ma Pasta stays dark until the switch is intended.
 
@@ -2372,7 +2376,8 @@ navigate here when items are open (changed 2026-11-27 — see below). The
 former dialog is removed. The page lists
 every criterion `getGoLiveStatus` returns, met and unmet, grouped as
 Payments (`stripe_connected`), Menu (`has_categories`, `has_products`),
-Shop (`profile_name`, `profile_address`, `opening_hours`) and Legal and
+Shop (`profile_name`, `profile_address`, `opening_hours` — met only once the owner has saved hours in Settings, see
+the LIVE toggle) and Legal and
 invoices (`dpa_accepted`, `impressum`, `terms`, `withdrawal`,
 `privacy_notice`, `invoice_tax_id`). Any criterion key the server adds
 later that is not in one of those groups still renders, under a fallback

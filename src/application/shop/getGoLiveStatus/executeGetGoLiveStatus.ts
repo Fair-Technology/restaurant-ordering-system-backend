@@ -32,9 +32,11 @@ function buildCriteria(
 ): GoLiveCriterion[] {
   const addressComplete = isShopAddressComplete(shop.address, shop.countryCode);
 
-  const hasOpeningHours = Object.values(shop.openingHours ?? {}).some(
-    (slots) => Array.isArray(slots) && slots.length > 0,
-  );
+  // Preset hours only count once the owner has saved them (absent = confirmed).
+  const hasOpeningHours =
+    Object.values(shop.openingHours ?? {}).some(
+      (slots) => Array.isArray(slots) && slots.length > 0,
+    ) && shop.openingHoursConfirmed !== false;
 
   // Every order is paid by card, so Stripe is always required. Keep the criterion
   // key (stripe_connected) stable since the admin UI links out to Stripe on it.

@@ -40,7 +40,7 @@ async function validateGoLiveCriteria(shop: Shop): Promise<string | null> {
   const hasOpeningHours = Object.values(shop.openingHours ?? {}).some(
     (slots) => Array.isArray(slots) && slots.length > 0,
   );
-  if (!hasOpeningHours) {
+  if (!hasOpeningHours || shop.openingHoursConfirmed === false) {
     return 'Opening hours must be configured for at least one day';
   }
   const [products, categories] = await Promise.all([
@@ -302,7 +302,11 @@ export async function executeUpdateShop(
       }),
       ...(nextAddress !== undefined && { address: nextAddress }),
       ...(request.branding !== undefined && { branding: request.branding }),
-      ...(request.openingHours !== undefined && { openingHours: request.openingHours }),
+      ...(request.openingHours !== undefined && {
+        openingHours: request.openingHours,
+        // Any save of the Opening hours section confirms them, even if unchanged.
+        openingHoursConfirmed: true,
+      }),
       ...(request.closures !== undefined && { closures: nextClosures }),
       ...(nextLanguages && { menuLanguages: nextLanguages }),
       updatedAt: now.toISOString(),
