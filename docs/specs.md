@@ -1189,6 +1189,19 @@ changes live without restarting the onboarding flow. Any **separate Stripe-hoste
 popup window** Stripe may open (e.g. for sign-in or verification) is Stripe's own
 page, outside this app's control, and follows the browser's language instead.
 
+### Stripe onboarding status has three states
+
+A shop's `stripe.connectOnboardingStatus` is `not_started` (nothing submitted
+yet — also what a freshly created account is stored as), `pending` (details
+submitted, Stripe still verifying) or `complete` (charges enabled). It is synced
+from the live Stripe account on every `createStripeAccountSession` and
+`getGoLiveStatus` call and by the `account.updated` webhook. **`complete` is
+sticky** — a later sync never downgrades it — while `not_started` and `pending`
+always follow the live account. Before this, a new account was stored as
+`pending` and could never step back down, so an owner who abandoned onboarding
+saw "verification pending" forever; stale shops correct themselves on the next
+sync.
+
 ### Reserved at checkout, taken on accept
 
 **The diner's card is only reserved at checkout; the money is taken when the

@@ -53,7 +53,7 @@ export async function executeCreateStripeAccountSession(
       const account = await stripe.accounts.create(stripeAccountCreateParams(shop));
       shop = await updateShop({
         ...shop,
-        stripe: { ...shop.stripe, connectAccountId: account.id, connectOnboardingStatus: 'pending' },
+        stripe: { ...shop.stripe, connectAccountId: account.id, connectOnboardingStatus: 'not_started' },
         updatedAt: new Date().toISOString(),
       });
     }
@@ -67,10 +67,9 @@ export async function executeCreateStripeAccountSession(
         : stripeAccount.details_submitted
           ? 'pending'
           : 'not_started';
-    const statusRank = { not_started: 0, pending: 1, complete: 2 };
-    const currentRank = statusRank[shop.stripe!.connectOnboardingStatus ?? 'not_started'] ?? 0;
-    const liveRank = statusRank[liveStatus] ?? 0;
-    if (liveStatus !== shop.stripe!.connectOnboardingStatus && liveRank >= currentRank) {
+    // Only 'complete' is sticky; not_started <-> pending always follow the live account.
+    const currentStatus = shop.stripe!.connectOnboardingStatus ?? 'not_started';
+    if (liveStatus !== currentStatus && currentStatus !== 'complete') {
       shop = await updateShop({
         ...shop,
         stripe: { ...shop.stripe, connectOnboardingStatus: liveStatus },

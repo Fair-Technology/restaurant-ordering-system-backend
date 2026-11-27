@@ -95,7 +95,9 @@ app.http('stripeConnectWebhook', {
               : account.details_submitted
                 ? 'pending'
                 : 'not_started';
-          if (newStatus !== shop.stripe?.connectOnboardingStatus) {
+          // 'complete' is sticky: never downgrade it from a later event.
+          const currentStatus = shop.stripe?.connectOnboardingStatus ?? 'not_started';
+          if (newStatus !== currentStatus && currentStatus !== 'complete') {
             await updateShop({
               ...shop,
               stripe: { ...shop.stripe, connectOnboardingStatus: newStatus },
