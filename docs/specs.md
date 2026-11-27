@@ -1202,6 +1202,32 @@ always follow the live account. Before this, a new account was stored as
 saw "verification pending" forever; stale shops correct themselves on the next
 sync.
 
+### Stripe business profile is prefilled at account creation
+
+When a restaurant's Connect account is first created, `business_profile.url`
+(the shop's storefront link, `<STOREFRONT_BASE_URL>/shops/<slug>`) and
+`business_profile.product_description` ("Online food ordering for <name>") are
+prefilled, so Stripe's "Business website" question doesn't block onboarding for
+restaurants with no site of their own.
+
+- The url is only sent when `STOREFRONT_BASE_URL` is a real public domain (not
+  local dev or unset) — it reuses `storefrontDomainName()`. The description is
+  always sent.
+- This happens **once, at `accounts.create`**, so it can never overwrite a
+  website the owner enters in Stripe's onboarding.
+- **Known, accepted, non-blocking risk:** Stripe verifies the url
+  asynchronously after submission
+  (docs.stripe.com/connect/handling-api-verification). While onboarding, the
+  shop's page may show the "offline" placeholder, which could later surface as an
+  `invalid_url_website_incomplete_under_construction` requirement. That does not
+  block onboarding completion and is visible through the existing onboarding-status sync.
+- Slug renames: the url given to Stripe keeps resolving, because retired slugs
+  redirect to the live slug (§16).
+- **Out of scope / unverified:** backfilling `business_profile` on accounts that
+  already exist and are mid-onboarding. That needs `stripe.accounts.update`, a
+  restricted-key permission check, and a check that doesn't clobber an
+  owner-entered url — left for a follow-up if wanted.
+
 ### Reserved at checkout, taken on accept
 
 **The diner's card is only reserved at checkout; the money is taken when the
