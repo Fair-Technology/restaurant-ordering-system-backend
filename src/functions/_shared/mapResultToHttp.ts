@@ -1,18 +1,9 @@
 import { HttpResponseInit } from '@azure/functions';
 import { errorBrief } from '../../application/_shared/errorBrief';
 
-export interface ApplicationError {
-  ok: false;
-  code: string;
-  error: string;
-}
+import type { ApplicationResult } from '../../application/_shared/types';
 
-export interface ApplicationSuccess<T = any> {
-  ok: true;
-  data: T;
-}
-
-export type ApplicationResult<T = any> = ApplicationSuccess<T> | ApplicationError;
+export type { ApplicationError, ApplicationSuccess, ApplicationResult } from '../../application/_shared/types';
 
 export function mapResultToHttp<T>(result: ApplicationResult<T>): HttpResponseInit {
   if (result.ok) {
@@ -26,7 +17,12 @@ export function mapResultToHttp<T>(result: ApplicationResult<T>): HttpResponseIn
     case 'INVALID_INPUT':
       return {
         status: 400,
-        jsonBody: { error: result.error }
+        jsonBody: {
+          error: result.error,
+          ...(result.errorCode !== undefined && { errorCode: result.errorCode }),
+          ...(result.field !== undefined && { field: result.field }),
+          ...(result.max !== undefined && { max: result.max }),
+        },
       };
     case 'NOT_FOUND':
       return {
