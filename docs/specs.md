@@ -154,6 +154,12 @@ already taken, which is the one thing that cannot be undone.
   restaurant re-tagging every dish (Manish, 2026-10-02). Where the owner picks a
   class (category or dish), the dropdown shows the current rate beside
   the name, e.g. "Speisen (7 %)". Why: [[german-gastronomy-vat-2026]].
+- **New category creation requires an explicit tax class (decided 2026-11-27,
+  Manish)**: the "New category" dialog no longer preselects the platform default
+  tax class. The owner must pick one before the category can be created — a
+  Getränke category silently inheriting the Speisen 7 % default (and tagging
+  every dish added to it) was the bug this closes. Only affects the create
+  dialog; editing an existing category still shows its own saved class.
 - Collection and delivery are both "taken away"; dine-in is "eaten in". Kept as
   distinct modes even though Germany treats them alike.
 - Delivery fees and any surcharge carry their own rate, set by the restaurant.
