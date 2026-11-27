@@ -2449,7 +2449,27 @@ later that is not in one of those groups still renders, under a fallback
 "X of Y done", a percentage and a progress bar. Each row shows a title, a
 one-line hint, and either a green "Done" or a "Set up" link that goes to
 where that item is fixed (Settings, Products, Categories or Legal, with
-the matching section pre-selected). `getGoLiveStatus` also returns a
+the matching section pre-selected). The `stripe_connected` row is the one
+exception to the generic "Set up" link, because
+`stripe.connectOnboardingStatus` (see "Stripe onboarding status has three
+states") carries more nuance than a plain `met` boolean. With no Stripe
+account started at all it is unchanged: "Set up" / "Einrichten" and the
+default hint. When a Stripe Connect account exists (`connectAccountId` set)
+but `connectOnboardingStatus` is still `not_started` (the owner began
+Stripe's hosted form but did not finish it), the link reads "Continue" /
+"Fortsetzen" and the hint becomes "Stripe still needs some information from
+you." / "Stripe benötigt noch Angaben." When `connectOnboardingStatus` is
+`pending` (submitted, Stripe verifying) there is no actionable button:
+instead a quiet, non-interactive "Verification pending" / "Prüfung
+ausstehend" label plus a muted "View status" / "Status ansehen" link (same
+destination as the normal link). The row counts as open in every one of
+these states; only `connectOnboardingStatus === 'complete'` makes the
+criterion `met` and switches the row to the green "Done" state. This state
+comes entirely from the shop object `getShopById` already returns
+(`shop.stripe`); `getGoLiveStatus`'s own `stripe_connected` criterion is
+unchanged (still just `met` / `description`) and the admin page combines
+both responses client-side, so no backend change was needed.
+`getGoLiveStatus` also returns a
 top-level boolean `hasAnyProducts` — true when the shop has at least one
 non-deleted product (dish or combo), whether or not it is active or has its
 allergen/additive declaration done — because the `has_products` criterion's
