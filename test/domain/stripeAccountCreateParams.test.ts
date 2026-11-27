@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { stripeAccountCreateParams } from '../../src/domain/shop/Shop';
+import { stripeAccountCreateIdempotencyKey, stripeAccountCreateParams } from '../../src/domain/shop/Shop';
 
 const shop = { id: 'shop-1', countryCode: 'DE', name: 'Trattoria Roma' };
 
@@ -28,5 +28,21 @@ describe('stripeAccountCreateParams', () => {
 
   it("always sends a product description naming the shop", () => {
     expect(stripeAccountCreateParams(shop, null).business_profile.product_description).toContain('Trattoria Roma');
+  });
+});
+
+describe('stripeAccountCreateIdempotencyKey', () => {
+  it('is derived from the shop id with generation 0 when absent', () => {
+    expect(stripeAccountCreateIdempotencyKey({ id: 'shop-1', stripe: null })).toBe('connect-account:shop-1:0');
+    expect(stripeAccountCreateIdempotencyKey({ id: 'shop-1', stripe: {} })).toBe('connect-account:shop-1:0');
+  });
+
+  it('changes with the generation and the shop', () => {
+    const g1 = stripeAccountCreateIdempotencyKey({ id: 'shop-1', stripe: { connectAccountGeneration: 1 } });
+    expect(g1).toBe('connect-account:shop-1:1');
+    expect(g1).not.toBe(stripeAccountCreateIdempotencyKey({ id: 'shop-1', stripe: null }));
+    expect(stripeAccountCreateIdempotencyKey({ id: 'shop-2', stripe: null })).not.toBe(
+      stripeAccountCreateIdempotencyKey({ id: 'shop-1', stripe: null }),
+    );
   });
 });
