@@ -54,7 +54,7 @@ function buildCriteria(
     {
       key: 'has_products',
       met: hasProducts,
-      description: 'Shop has at least one available dish with allergens and additives declared',
+      description: 'Shop has at least one dish on the menu, with a photo and allergens and additives declared',
     },
     {
       key: 'has_categories',
