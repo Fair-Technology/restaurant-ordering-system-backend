@@ -14,6 +14,7 @@ vi.mock('../../../src/infrastructure/cosmos/shop/CosmosShopRepository', () => ({
   updateShop: vi.fn(async (s: any) => s),
 }));
 vi.mock('../../../src/infrastructure/stripe/stripeClient', () => ({
+  publicShopUrl: () => 'https://shop.example/shops/test',
   createStripeClient: () => ({
     accounts: { create: stripeMock.create, retrieve: stripeMock.retrieve },
     accountSessions: { create: stripeMock.sessionCreate },
@@ -67,6 +68,9 @@ describe('executeCreateStripeAccountSession onboarding status', () => {
     const result = await executeCreateStripeAccountSession({ shopId: 'shop-1' } as any, {} as any);
 
     expect(result.ok).toBe(true);
+    expect(stripeMock.create.mock.calls[0][0].business_profile).toMatchObject({
+      url: 'https://shop.example/shops/test',
+    });
     expect(statusWrites()).toEqual(['not_started']);
     expect(statusWrites()).not.toContain('pending');
   });

@@ -36,6 +36,7 @@ import {
   listPaymentRefunds,
   releaseAuthorization,
   retrievePaymentIntentSnapshot,
+  publicShopUrl,
   storefrontDomainName,
 } from '../../src/infrastructure/stripe/stripeClient';
 
@@ -202,6 +203,15 @@ describe('stripeClient', () => {
     expect(storefrontDomainName()).toBeNull();
     delete process.env.STOREFRONT_BASE_URL;
     expect(storefrontDomainName()).toBeNull();
+  });
+
+  it('public shop URL is the storefront link, or null when unset or local', () => {
+    process.env.STOREFRONT_BASE_URL = 'https://shop.example';
+    expect(publicShopUrl({ slug: 'pizza' })).toBe('https://shop.example/shops/pizza');
+    process.env.STOREFRONT_BASE_URL = 'http://localhost:5173';
+    expect(publicShopUrl({ slug: 'pizza' })).toBeNull();
+    delete process.env.STOREFRONT_BASE_URL;
+    expect(publicShopUrl({ slug: 'pizza' })).toBeNull();
   });
 
   it('tells passing Stripe outages from final refusals', () => {

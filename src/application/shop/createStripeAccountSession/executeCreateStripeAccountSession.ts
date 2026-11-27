@@ -1,5 +1,5 @@
 import { HttpRequest } from '@azure/functions';
-import { createStripeClient } from '../../../infrastructure/stripe/stripeClient';
+import { createStripeClient, publicShopUrl } from '../../../infrastructure/stripe/stripeClient';
 import { isUnrestrictedLiveStripeKey } from '../../../infrastructure/stripe/restrictedKey';
 import {
   findShopById,
@@ -50,7 +50,7 @@ export async function executeCreateStripeAccountSession(
 
     // Create a Connect account if one does not exist yet
     if (!shop.stripe?.connectAccountId) {
-      const account = await stripe.accounts.create(stripeAccountCreateParams(shop));
+      const account = await stripe.accounts.create(stripeAccountCreateParams(shop, publicShopUrl(shop)));
       shop = await updateShop({
         ...shop,
         stripe: { ...shop.stripe, connectAccountId: account.id, connectOnboardingStatus: 'not_started' },

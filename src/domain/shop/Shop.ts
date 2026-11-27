@@ -168,8 +168,21 @@ export function stripeReady(shop: Pick<Shop, 'stripe'>): boolean {
 // What a restaurant's own Stripe account is created with. The country must be the restaurant's:
 // left out, Stripe uses the platform's (Fair Technology is registered in Australia), and an
 // account's country can never be changed afterwards.
-export function stripeAccountCreateParams(shop: Pick<Shop, 'id' | 'countryCode'>) {
-  return { country: shop.countryCode, metadata: { shopId: shop.id } };
+// business_profile prefills Stripe's "Business website" so restaurants with only our storefront page
+// aren't blocked. The url is only sent when a public storefront domain is configured (the caller passes
+// null otherwise), and it never overwrites anything: this only runs once, at account creation.
+export function stripeAccountCreateParams(
+  shop: Pick<Shop, 'id' | 'countryCode' | 'name'>,
+  storefrontUrl: string | null,
+) {
+  return {
+    country: shop.countryCode,
+    metadata: { shopId: shop.id },
+    business_profile: {
+      product_description: `Online food ordering for ${shop.name}`,
+      ...(storefrontUrl ? { url: storefrontUrl } : {}),
+    },
+  };
 }
 
 export const ORDERS_PAUSED_MESSAGE_MAX_LENGTH = 280;

@@ -1,5 +1,6 @@
 import Stripe from 'stripe';
 import type { StripeRefundSummary } from '../../domain/order/externalRefunds';
+import type { Shop } from '../../domain/shop/Shop';
 import { assertNotUnrestrictedLiveKey } from './restrictedKey';
 
 /** The one place a Stripe client is built. Reads STRIPE_SECRET_KEY (or the key given), refuses a missing key
@@ -181,6 +182,13 @@ export function storefrontDomainName(): string | null {
   } catch {
     return null;
   }
+}
+
+/** Public URL of a shop's storefront page, or null when STOREFRONT_BASE_URL is unset or local
+ *  (nothing safe to give Stripe). Reuses storefrontDomainName()'s local/unset detection. */
+export function publicShopUrl(shop: Pick<Shop, 'slug'>): string | null {
+  if (!storefrontDomainName()) return null;
+  return `${process.env.STOREFRONT_BASE_URL}/shops/${shop.slug}`;
 }
 
 function errorType(err: unknown): string | undefined {
