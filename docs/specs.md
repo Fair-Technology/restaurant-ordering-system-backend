@@ -1180,6 +1180,15 @@ slice-4a orders read as "not paid online". This reverses the 2026-10-01 rule
 that a restaurant could go live without Stripe: connecting Stripe is now a
 go-live requirement (§16). Why: [[every-order-paid-online]].
 
+### Stripe onboarding follows the admin's language
+
+The embedded Stripe Connect onboarding and management screens in the admin app
+**follow the admin's selected UI language** — German shows `de-DE`, English
+shows `en-GB`. If the admin switches language while the screen is open, it
+changes live without restarting the onboarding flow. Any **separate Stripe-hosted
+popup window** Stripe may open (e.g. for sign-in or verification) is Stripe's own
+page, outside this app's control, and follows the browser's language instead.
+
 ### Reserved at checkout, taken on accept
 
 **The diner's card is only reserved at checkout; the money is taken when the
