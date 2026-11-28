@@ -1,5 +1,6 @@
 import { PlanPricing } from '../../../domain/plan/PlanPricing';
 import { planPricingContainer } from '../cosmosClient';
+import { stripCosmosMeta, stripCosmosMetaAll } from '../stripCosmosMeta';
 
 export async function findPricingByPlan(planId: string): Promise<PlanPricing[]> {
   try {
@@ -8,7 +9,7 @@ export async function findPricingByPlan(planId: string): Promise<PlanPricing[]> 
       parameters: [{ name: '@planId', value: planId }],
     };
     const { resources } = await planPricingContainer.items.query<PlanPricing>(querySpec).fetchAll();
-    return resources || [];
+    return stripCosmosMetaAll(resources || []);
   } catch (error) {
     throw error;
   }
@@ -24,7 +25,7 @@ export async function findPricingByPlanAndCurrency(planId: string, currency: str
       ],
     };
     const { resources } = await planPricingContainer.items.query<PlanPricing>(querySpec).fetchAll();
-    return resources && resources.length > 0 ? resources[0] : null;
+    return resources && resources.length > 0 ? stripCosmosMeta(resources[0]) : null;
   } catch (error) {
     throw error;
   }
@@ -33,7 +34,7 @@ export async function findPricingByPlanAndCurrency(planId: string, currency: str
 export async function upsertPricing(pricing: PlanPricing): Promise<PlanPricing> {
   try {
     const { resource } = await planPricingContainer.items.upsert<PlanPricing>(pricing);
-    return resource!;
+    return stripCosmosMeta(resource!);
   } catch (error) {
     throw error;
   }
@@ -47,7 +48,7 @@ export async function findPricingByBillingPriceId(priceId: string): Promise<Plan
       parameters: [{ name: '@p', value: priceId }],
     };
     const { resources } = await planPricingContainer.items.query<PlanPricing>(querySpec).fetchAll();
-    return resources && resources.length > 0 ? resources[0] : null;
+    return resources && resources.length > 0 ? stripCosmosMeta(resources[0]) : null;
   } catch (error) {
     throw error;
   }

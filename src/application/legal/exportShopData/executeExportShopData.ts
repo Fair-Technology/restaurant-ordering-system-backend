@@ -11,7 +11,8 @@ import { authorizeShopAction, toAuditActor } from '../../_shared/shopAccess';
 import { ApplicationResult } from '../../_shared/types';
 import { OWNER_ONLY_ERROR } from '../acceptDpa/executeAcceptDpa';
 import { ExportOrder, ShopDataExportDto } from '../dtos';
-import { deriveCustomers, stripCosmosMeta } from './deriveCustomers';
+import { deriveCustomers } from './deriveCustomers';
+import { stripCosmosMeta } from '../../../infrastructure/cosmos/stripCosmosMeta';
 import { logServiceFailure } from '../../_shared/logServiceFailure';
 
 export async function executeExportShopData(
