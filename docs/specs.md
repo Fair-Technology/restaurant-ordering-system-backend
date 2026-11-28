@@ -2987,6 +2987,16 @@ house between businesses.
   previous selection's figures but dims them, and disables the CSV download
   button; both return to full strength once the range is valid again. Applies
   identically in German and English.
+- **Gross label on the Dashboard (decided 2026-11-28).** The Dashboard used to
+  call two different figures "Umsatz" / "Sales": the line under the stat tiles and
+  the per-day rows (sales *before* refunds, i18n key `reports.gross`), and the
+  "VAT by rate" table's per-rate gross column plus its CSV columns (sales *after*
+  refunds). Both numbers were correct; the shared label was not. The per-rate
+  column is now headed **"Brutto nach Erstattungen"** / **"Gross after refunds"**
+  (new key `reports.grossAfterRefunds`), and the per-rate CSV headers
+  (`reports.csvGrossAt`, same key, new text: that wording with the rate appended)
+  follow. `reports.gross` is unchanged and still labels the tiles line and the
+  per-day rows. Label only; no figures changed.
 
 ---
 
