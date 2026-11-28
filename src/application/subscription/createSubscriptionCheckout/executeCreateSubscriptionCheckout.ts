@@ -47,16 +47,16 @@ export async function executeCreateSubscriptionCheckout(
       return { ok: false, code: 'NOT_FOUND', error: 'Plan not found' };
     }
     if (target.isDefault) {
-      return { ok: false, code: 'INVALID_INPUT', error: 'Use cancel to move to the free plan' };
+      return { ok: false, code: 'INVALID_INPUT', error: 'Use cancel to move to the free plan', errorCode: 'SUBSCRIPTION_USE_CANCEL_FOR_FREE' };
     }
 
     const pricing = await findPricingByPlanAndCurrency(planId, shop.currency ?? '');
     if (!pricing) {
-      return { ok: false, code: 'INVALID_INPUT', error: 'No pricing configured for your currency' };
+      return { ok: false, code: 'INVALID_INPUT', error: 'No pricing configured for your currency', errorCode: 'PLAN_PRICING_MISSING' };
     }
     const stripePriceId = billingInterval === 'monthly' ? pricing.billingPriceIdMonthly : pricing.billingPriceIdYearly;
     if (!stripePriceId) {
-      return { ok: false, code: 'INVALID_INPUT', error: 'Billing not configured for this interval' };
+      return { ok: false, code: 'INVALID_INPUT', error: 'Billing not configured for this interval', errorCode: 'PLAN_INTERVAL_NOT_BILLABLE' };
     }
 
     const stripe = stripeFromEnv();
@@ -90,7 +90,7 @@ export async function executeCreateSubscriptionCheckout(
       return { ok: false, code: 'INTERNAL_ERROR', error: 'Could not read the current plan' };
     }
     if (target.id === current.id && sub.billingInterval === billingInterval) {
-      return { ok: false, code: 'INVALID_INPUT', error: 'Already on this plan' };
+      return { ok: false, code: 'INVALID_INPUT', error: 'Already on this plan', errorCode: 'SUBSCRIPTION_ALREADY_ON_PLAN' };
     }
 
     const stripeSubscription = await stripe.subscriptions.retrieve(sub.billingSubscriptionId);

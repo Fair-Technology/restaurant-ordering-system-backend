@@ -60,6 +60,12 @@ describe("category switch and times", () => {
     expect(createCategory).toHaveBeenCalledWith(expect.objectContaining({ isAvailable: true, schedule: null }));
   });
 
+  it('a duplicate name on create is CATEGORY_NAME_EXISTS on the name field', async () => {
+    (findCategoriesByShopId as any).mockResolvedValue([{ id: 'c9', shopId: 'shop-1', name: 'Pizza' }]);
+    const result = await executeCreateCategory({ shopId: 'shop-1', name: ' pizza ' } as any, {} as any);
+    expect(result).toMatchObject({ ok: false, code: 'CONFLICT', errorCode: 'CATEGORY_NAME_EXISTS', field: 'name' });
+  });
+
   it('an old category without the field reads as on', async () => {
     const result = await update({ name: 'Drinks' });
     expect(result.ok && result.data).toMatchObject({ isAvailable: true, schedule: null });

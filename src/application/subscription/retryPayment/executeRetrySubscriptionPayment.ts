@@ -33,7 +33,7 @@ export async function executeRetrySubscriptionPayment(
 
     const sub = await findSubscriptionByShopId(shopId);
     if (!sub?.billingSubscriptionId) {
-      return { ok: false, code: 'INVALID_INPUT', error: 'Nothing to pay' };
+      return { ok: false, code: 'INVALID_INPUT', error: 'Nothing to pay', errorCode: 'SUBSCRIPTION_NOTHING_TO_PAY' };
     }
 
     const stripe = stripeFromEnv();
@@ -42,7 +42,7 @@ export async function executeRetrySubscriptionPayment(
     const stripeSubscription = await stripe.subscriptions.retrieve(sub.billingSubscriptionId, { expand: ['latest_invoice'] });
     const invoice = stripeSubscription.latest_invoice;
     if (!invoice || typeof invoice === 'string' || invoice.status !== 'open' || !invoice.id) {
-      return { ok: false, code: 'INVALID_INPUT', error: 'Nothing to pay' };
+      return { ok: false, code: 'INVALID_INPUT', error: 'Nothing to pay', errorCode: 'SUBSCRIPTION_NOTHING_TO_PAY' };
     }
 
     try {

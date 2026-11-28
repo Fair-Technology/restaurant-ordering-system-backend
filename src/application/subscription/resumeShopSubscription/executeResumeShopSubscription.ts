@@ -31,7 +31,7 @@ export async function executeResumeShopSubscription(
 
     const subscription = await findSubscriptionByShopId(shopId);
     if (!subscription?.billingSubscriptionId) {
-      return { ok: false, code: 'INVALID_INPUT', error: 'No active paid subscription found' };
+      return { ok: false, code: 'INVALID_INPUT', error: 'No active paid subscription found', errorCode: 'SUBSCRIPTION_NO_ACTIVE_PAID' };
     }
     if (!subscription.cancelAtPeriodEnd) {
       return { ok: false, code: 'INVALID_INPUT', error: 'Subscription is not scheduled for cancellation' };

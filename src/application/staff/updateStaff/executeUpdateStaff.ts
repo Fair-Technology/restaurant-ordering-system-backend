@@ -27,7 +27,7 @@ export async function executeUpdateStaff(
   }
   if (request.role !== undefined) {
     const roleError = validateRole(request.role);
-    if (roleError) return { ok: false, code: 'INVALID_INPUT', error: roleError };
+    if (roleError) return { ok: false, code: 'INVALID_INPUT', error: roleError, errorCode: 'STAFF_ROLE_INVALID', field: 'role' };
   }
 
   try {

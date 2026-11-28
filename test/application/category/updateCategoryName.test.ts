@@ -83,6 +83,8 @@ describe('executeUpdateCategory name validation', () => {
       expect(await update({ name: '  drinks  ' })).toMatchObject({
         ok: false,
         code: 'CONFLICT',
+        errorCode: 'CATEGORY_NAME_EXISTS',
+        field: 'name',
       });
       expect(updateCategory).not.toHaveBeenCalled();
     });

@@ -86,7 +86,7 @@ describe('category tax class', () => {
       {} as any,
     );
 
-    expect(result).toEqual({ ok: false, code: 'INVALID_INPUT', error: 'Unknown tax class: wine' });
+    expect(result).toMatchObject({ ok: false, code: 'INVALID_INPUT', error: 'Unknown tax class: wine', errorCode: 'CATEGORY_TAX_CLASS_UNKNOWN', field: 'taxClassId' });
   });
 
   it('changes the class and translation', async () => {

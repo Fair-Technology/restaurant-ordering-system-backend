@@ -164,7 +164,7 @@ export async function executeCreateShop(
   }
 
   if (request.acceptDpaVersion !== undefined && request.acceptDpaVersion !== CURRENT_DPA.version) {
-    return { ok: false, code: 'INVALID_INPUT', error: DPA_CHANGED_ERROR };
+    return { ok: false, code: 'INVALID_INPUT', error: DPA_CHANGED_ERROR, errorCode: 'SHOP_DPA_VERSION_CHANGED' };
   }
 
   if (

@@ -27,13 +27,13 @@ export async function executeCreateStaff(
   const usernameError = validateUsername(
     typeof request.username === 'string' ? request.username.trim().toLowerCase() : request.username,
   );
-  if (usernameError) return { ok: false, code: 'INVALID_INPUT', error: usernameError };
+  if (usernameError) return { ok: false, code: 'INVALID_INPUT', error: usernameError, errorCode: 'STAFF_USERNAME_INVALID', field: 'username' };
 
   const passwordError = validatePassword(request.password);
-  if (passwordError) return { ok: false, code: 'INVALID_INPUT', error: passwordError };
+  if (passwordError) return { ok: false, code: 'INVALID_INPUT', error: passwordError, errorCode: 'STAFF_PASSWORD_INVALID', field: 'password' };
 
   const roleError = validateRole(request.role);
-  if (roleError) return { ok: false, code: 'INVALID_INPUT', error: roleError };
+  if (roleError) return { ok: false, code: 'INVALID_INPUT', error: roleError, errorCode: 'STAFF_ROLE_INVALID', field: 'role' };
 
   try {
     const shop = await findShopById(request.shopId.trim());

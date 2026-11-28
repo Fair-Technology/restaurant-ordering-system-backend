@@ -123,7 +123,7 @@ describe('executeCreateStaff', () => {
       { shopId: 'shop-1', username: 'kitchen', password: 'short', role: 'staff' },
       {} as any,
     );
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       ok: false,
       code: 'INVALID_INPUT',
       error: 'password must be between 8 and 128 characters',

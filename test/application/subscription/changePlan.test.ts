@@ -189,12 +189,12 @@ describe('changing plan', () => {
 
   it('the free plan is refused here and the same plan is refused too', async () => {
     (findSubscriptionByShopId as any).mockResolvedValue(paidOn('plan-pro'));
-    expect(await call({ planId: 'plan-basic', billingInterval: 'monthly' })).toEqual({
+    expect(await call({ planId: 'plan-basic', billingInterval: 'monthly' })).toMatchObject({
       ok: false,
       code: 'INVALID_INPUT',
       error: 'Use cancel to move to the free plan',
     });
-    expect(await call({ planId: 'plan-pro', billingInterval: 'monthly' })).toEqual({
+    expect(await call({ planId: 'plan-pro', billingInterval: 'monthly' })).toMatchObject({
       ok: false,
       code: 'INVALID_INPUT',
       error: 'Already on this plan',

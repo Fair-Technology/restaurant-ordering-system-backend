@@ -102,7 +102,7 @@ export async function executeUpdateCategory(
       const refs = await getReferenceLists(shop.countryCode ?? '');
       const isActive = refs.taxClasses.some((c) => c.id === request.taxClassId && c.isActive);
       if (!isActive) {
-        return { ok: false, code: 'INVALID_INPUT', error: `Unknown tax class: ${request.taxClassId}` };
+        return { ok: false, code: 'INVALID_INPUT', error: `Unknown tax class: ${request.taxClassId}`, errorCode: 'CATEGORY_TAX_CLASS_UNKNOWN', field: 'taxClassId' };
       }
     }
 

@@ -23,7 +23,7 @@ export async function executeResetStaffPassword(
     return { ok: false, code: 'INVALID_INPUT', error: 'staffId is required and must be a non-empty string' };
   }
   const passwordError = validatePassword(request.password);
-  if (passwordError) return { ok: false, code: 'INVALID_INPUT', error: passwordError };
+  if (passwordError) return { ok: false, code: 'INVALID_INPUT', error: passwordError, errorCode: 'STAFF_PASSWORD_INVALID', field: 'password' };
 
   try {
     const shop = await findShopById(request.shopId.trim());
