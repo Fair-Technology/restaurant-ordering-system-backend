@@ -31,7 +31,7 @@ vi.mock('../../../src/application/_shared/auditHelpers', () => ({
 }));
 
 import { authorizeShopAction } from '../../../src/application/_shared/shopAccess';
-import { createCategory, updateCategory } from '../../../src/infrastructure/cosmos/category/CosmosCategoryRepository';
+import { createCategory, findCategoriesByShopId, updateCategory } from '../../../src/infrastructure/cosmos/category/CosmosCategoryRepository';
 import { getReferenceLists } from '../../../src/infrastructure/cosmos/reference/CosmosReferenceListsRepository';
 import { executeCreateCategory } from '../../../src/application/category/createCategory/executeCreateCategory';
 import { executeUpdateCategory } from '../../../src/application/category/updateCategory/executeUpdateCategory';
@@ -70,5 +70,40 @@ describe('executeUpdateCategory name validation', () => {
   it('trims and saves a provided name', async () => {
     const result = await update({ name: '  Drinks  ' });
     expect(result.ok && result.data).toMatchObject({ name: 'Drinks' });
+  });
+
+  describe('uniqueness within the shop', () => {
+    const siblings = [
+      { id: 'c1', shopId: 'shop-1', name: 'Getränke' },
+      { id: 'c2', shopId: 'shop-1', name: 'Drinks' },
+    ];
+
+    it('rejects a name that matches another category ignoring case and spaces', async () => {
+      (findCategoriesByShopId as any).mockResolvedValue(siblings);
+      expect(await update({ name: '  drinks  ' })).toMatchObject({
+        ok: false,
+        code: 'CONFLICT',
+      });
+      expect(updateCategory).not.toHaveBeenCalled();
+    });
+
+    it("allows saving the category's own name back with different case/spacing", async () => {
+      (findCategoriesByShopId as any).mockResolvedValue(siblings);
+      const result = await update({ name: ' GETRÄNKE ' });
+      expect(result.ok && result.data).toMatchObject({ name: 'GETRÄNKE' });
+    });
+
+    it('allows a genuinely new name', async () => {
+      (findCategoriesByShopId as any).mockResolvedValue(siblings);
+      const result = await update({ name: 'Desserts' });
+      expect(result.ok).toBe(true);
+    });
+
+    it('does not run the check when name is omitted', async () => {
+      (findCategoriesByShopId as any).mockResolvedValue(siblings);
+      const result = await update({ isAvailable: false });
+      expect(result.ok).toBe(true);
+      expect(findCategoriesByShopId).not.toHaveBeenCalled();
+    });
   });
 });
