@@ -855,6 +855,12 @@ appear, and puts extras without one under the add-on group's own name. It is
 plain text, not translated per language. Set it in the dish editor or the
 option-group library; it flows through library groups unchanged.
 
+In the admin dish editor and the option-group library, a price difference cannot be
+negative: a typed minus is kept visible (not silently dropped), and the form shows
+"Prices cannot be negative" / "Preise können nicht negativ sein" and refuses to save
+until it is fixed. The server already rejects an out-of-range `priceDelta` (must be
+0..100000); this is purely a client-side UX fix for the same constraint.
+
 These already exist in the code and are the one thing that cannot be bolted on
 later, because every historic order references them.
 
