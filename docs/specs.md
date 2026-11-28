@@ -2699,6 +2699,11 @@ lists) return `addressLocked: boolean` so the UIs can show the fields read-only.
     monthly order limit was reached or auto-pause fired: all three set
     `ordersPaused` and get the same badge.
 - Closed outside opening hours keeps its own popup, shown once per visit.
+- A dated closure (owner-set, with an optional reason) makes the header status
+  pill show the same grey closed state as being outside opening hours, not the
+  green open pill, even if the shop's opening hours say it is open right now.
+  This matches the closed popup, which already used the closure. (Manish,
+  2026-11-28, t_142438d7.)
 - The "Accepting orders" switch is on the Settings page **and** in the sidebar
   (Manish, 2026-10-13), both using the same wording (on = taking orders, off =
   paused) and both asking for the duration when switched off. The online switch
