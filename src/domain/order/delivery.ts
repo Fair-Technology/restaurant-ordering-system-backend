@@ -93,7 +93,14 @@ export function cleanDeliveryAddress(value: unknown): DeliveryAddress | null {
   return { street, postcode, city };
 }
 
-/** For the activity log: postcodes are business data, not personal. */
-export function describeDeliveryZones(zones: ReadonlyArray<DeliveryZone>): string {
-  return zones.length === 0 ? 'none' : zones.map((z) => z.postcode).join(', ');
+/**
+ * For the activity log: postcodes are business data, not personal. Fee and minimum
+ * order are included because they are the amounts diners pay, so a change to either
+ * must show up in the from/to strings.
+ */
+export function describeDeliveryZones(zones: ReadonlyArray<DeliveryZone>, currency: string): string {
+  const money = (cents: number) => `${currency} ${(cents / 100).toFixed(2)}`;
+  return zones.length === 0
+    ? 'none'
+    : zones.map((z) => `${z.postcode} (fee ${money(z.feeCents)}, min ${money(z.minOrderCents)})`).join(', ');
 }

@@ -209,8 +209,8 @@ export async function executeUpdateOrderSettings(
     if (changed('deliveryZones')) {
       changes.push({
         field: 'deliveryZones',
-        from: describeDeliveryZones(before.deliveryZones),
-        to: describeDeliveryZones(next.deliveryZones),
+        from: describeDeliveryZones(before.deliveryZones, shop.currency),
+        to: describeDeliveryZones(next.deliveryZones, shop.currency),
       });
     }
     if (changed('deliveryHours')) {

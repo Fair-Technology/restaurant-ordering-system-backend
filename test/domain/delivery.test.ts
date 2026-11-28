@@ -156,7 +156,11 @@ describe('delivery rules', () => {
   });
 
   it('describes zones for the activity log', () => {
-    expect(describeDeliveryZones([])).toBe('none');
-    expect(describeDeliveryZones([DELIVERY_ZONE, { postcode: '10117', feeCents: 350, minOrderCents: 2000 }])).toBe('10115, 10117');
+    expect(describeDeliveryZones([], 'EUR')).toBe('none');
+    expect(describeDeliveryZones([DELIVERY_ZONE, { postcode: '10117', feeCents: 350, minOrderCents: 2000 }], 'EUR')).toBe(
+      '10115 (fee EUR 2.50, min EUR 15.00), 10117 (fee EUR 3.50, min EUR 20.00)',
+    );
+    // a fee-only change must not log identical from/to strings
+    expect(describeDeliveryZones([{ ...DELIVERY_ZONE, feeCents: 0 }], 'EUR')).not.toBe(describeDeliveryZones([DELIVERY_ZONE], 'EUR'));
   });
 });
