@@ -2971,6 +2971,11 @@ house between businesses.
   **A voucher email is advertising (BGH VI ZR 225/17), so it needs consent: an
   unticked box at checkout, and only ticked orders get the email.** *Built 8d
   (2026-10-09).* Why: [[discount-codes-and-loyalty-vouchers]].
+  The owner reads the issued vouchers with `GET /api/shops/{shopId}/loyalty-vouchers`,
+  newest first: the code, amount, issue date, expiry date, whether it was used
+  and the reference of the order that earned it — never the diner's email or
+  name. Same permission as discount codes, own shop only; `page` (default 1)
+  and `pageSize` (default 20, at most 100) bound the list.
 - **Multi-location dashboard** for owners with several restaurants — the owner
   **Overview** after sign-in: today's takings and orders, waiting orders, and
   each restaurant's month against its own limit. Owners only. *Built 8f.* As of

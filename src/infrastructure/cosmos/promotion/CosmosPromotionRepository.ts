@@ -58,3 +58,23 @@ export async function findVoucher(shopId: string, code: string): Promise<Loyalty
 export async function createVoucher(doc: LoyaltyVoucherDoc): Promise<void> {
   await usageContainer.items.create<LoyaltyVoucherDoc>(doc);
 }
+
+/** One page of a restaurant's issued loyalty vouchers, newest first. */
+export async function findVouchersByShopPaginated(shopId: string, page: number, pageSize: number): Promise<LoyaltyVoucherDoc[]> {
+  const offset = (page - 1) * pageSize;
+  const querySpec = {
+    query: `SELECT * FROM c WHERE c.shopId = @shopId AND c.kind = 'loyalty_voucher' ORDER BY c.createdAt DESC OFFSET ${offset} LIMIT ${pageSize}`,
+    parameters: [{ name: '@shopId', value: shopId }],
+  };
+  const { resources } = await usageContainer.items.query<LoyaltyVoucherDoc>(querySpec).fetchAll();
+  return resources;
+}
+
+export async function countVouchersByShop(shopId: string): Promise<number> {
+  const querySpec = {
+    query: "SELECT VALUE COUNT(1) FROM c WHERE c.shopId = @shopId AND c.kind = 'loyalty_voucher'",
+    parameters: [{ name: '@shopId', value: shopId }],
+  };
+  const { resources } = await usageContainer.items.query<number>(querySpec).fetchAll();
+  return resources[0] ?? 0;
+}

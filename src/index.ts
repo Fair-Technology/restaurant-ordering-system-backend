@@ -94,6 +94,7 @@ import './functions/archive/archiveTimer/index';
 // Promotion endpoints
 import './functions/promotion/getPromotions/index';
 import './functions/promotion/createDiscountCode/index';
+import './functions/promotion/getLoyaltyVouchers/index';
 import './functions/promotion/setDiscountCodeActive/index';
 import './functions/promotion/updateLoyalty/index';
 
