@@ -480,6 +480,20 @@ an order received at 17:59 under "automatic until 18:00" stays automatic even if
 taking the money is retried at 18:01. Outside the hours, orders wait for staff
 with the usual 3-minute alert and 10-minute decline.
 
+**The mode is decided once and stored on the order** (2026-11-28, Manish; fix
+`fix/order-acceptance-mode-locked`). At that same moment — `createdAt` for an
+as-soon-as-possible order, the moment it enters the live queue (`queuedAt`) for
+a booked one, which is before that still "Upcoming" with no decision — the
+server writes `acceptanceMode: 'auto' | 'manual'` on the order and never
+recomputes it from the shop's current settings. A later switch of the setting
+(Always / hours / Never, either direction) does not change how an order already
+waiting is handled: one that arrived manual stays manual and still declines on
+its own timeout; one that arrived auto keeps retrying the capture every minute
+until it succeeds or its own decline time passes (the decline time still wins),
+even if the shop switches to manual meanwhile. This is the same mechanism as the
+17:59 example above: decided once, retried against that decision. Orders from
+before the field existed carry no mode and are still judged live.
+
 **Always, whether or not anyone is watching** (Manish, 2026-10-17; built the
 same day). Auto-accept takes the money as soon as a paid order arrives, even
 with no Orders page open. The 2026-10-13 "only while someone can see it" rule,

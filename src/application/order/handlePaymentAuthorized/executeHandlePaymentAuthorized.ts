@@ -1,6 +1,7 @@
 import { applyTransition } from '../../../domain/order/orderLifecycle';
 import { shopRefusalForPaidCheckout } from '../../../domain/order/shopAvailability';
 import { autoAcceptsOrder, isUpcoming } from '../../../domain/order/scheduling';
+import type { Order } from '../../../domain/order/Order';
 import { orderSettingsOf } from '../../../domain/order/orderSettings';
 import { WAITING_PAYMENT_ERRORS } from '../../../domain/order/orderErrors';
 import { generateOrderRef } from '../../../domain/order/orderRef';
@@ -54,7 +55,7 @@ export async function executeHandlePaymentAuthorized(input: {
   const inLiveQueue =
     !session.scheduledFor ||
     !isUpcoming({ state: 'PLACED', scheduledFor: session.scheduledFor, fulfilmentMode: session.fulfilmentMode }, shop, now);
-  const order = buildPlacedOrderFromSession({
+  const built = buildPlacedOrderFromSession({
     session,
     paymentIntentId: input.paymentIntentId,
     orderRef: session.orderRef ?? generateOrderRef(),
@@ -62,6 +63,10 @@ export async function executeHandlePaymentAuthorized(input: {
     now,
     inLiveQueue,
   });
+  // The acceptance mode is decided once, now, and stored; a booked order not yet due is decided when it queues.
+  const order: Order = inLiveQueue
+    ? { ...built, acceptanceMode: autoAcceptsOrder(shop, built) ? 'auto' : 'manual' }
+    : built;
   const refusal = shopRefusalForPaidCheckout(shop, session, now);
   let toWrite = order;
   if (refusal) {
@@ -90,7 +95,7 @@ export async function executeHandlePaymentAuthorized(input: {
   if (order.scheduledFor) await fixSlotPlace({ shop, orderId: order.id, slot: order.scheduledFor, now });
 
   // Auto-accepted orders get one email (the acceptance); a received email would arrive a second before it.
-  const autoAccepts = autoAcceptsOrder(shop, order);
+  const autoAccepts = order.acceptanceMode === 'auto';
   let sendReceived = !autoAccepts;
   if (autoAccepts) {
     try {

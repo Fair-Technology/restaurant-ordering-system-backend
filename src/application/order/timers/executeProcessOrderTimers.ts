@@ -114,6 +114,7 @@ export async function executeProcessOrderTimers(input: { now: Date }): Promise<O
       if (o.scheduledFor && !o.queuedAt) {
         if (isUpcoming(o, shop, now)) continue;
         const autoRejectMinutes = orderSettingsOf(shop).autoRejectMinutes;
+        const queuedAt = now.toISOString();
         const entered = await transitionOrder({
           orderId: o.id,
           shopId: o.shopId,
@@ -123,7 +124,9 @@ export async function executeProcessOrderTimers(input: { now: Date }): Promise<O
                   ok: true,
                   order: {
                     ...x,
-                    queuedAt: now.toISOString(),
+                    queuedAt,
+                    // Decided once, at the moment the restaurant receives the booked order.
+                    acceptanceMode: autoAcceptsOrder(shop, { ...x, queuedAt }) ? 'auto' : 'manual',
                     autoRejectAt: new Date(now.getTime() + autoRejectMinutes * 60_000).toISOString(),
                     updatedAt: now.toISOString(),
                   },
@@ -149,7 +152,9 @@ export async function executeProcessOrderTimers(input: { now: Date }): Promise<O
         continue;
       }
       // An offline shop has nobody cooking: its orders wait for staff or the timeout instead of being charged. A pause only stops new orders, so orders placed before it still go through.
-      if (autoAcceptsOrder(shop, o) && !isShopOffline(shop)) {
+      // The mode was fixed when the order arrived; only orders from before that field existed are judged live.
+      const decidedAuto = o.acceptanceMode ? o.acceptanceMode === 'auto' : autoAcceptsOrder(shop, o);
+      if (decidedAuto && !isShopOffline(shop)) {
         const accepted = await acceptPlacedOrder({ orderId: o.id, shop, actor: { type: 'system' }, now });
         if (accepted.ok) {
           result.autoAccepted++;

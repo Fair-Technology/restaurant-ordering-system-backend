@@ -317,6 +317,56 @@ describe('executeProcessOrderTimers', () => {
     expect(res).toEqual({ escalated: 0, autoRejected: 0, autoCompleted: 0, ...NO_EXTRAS });
   });
 
+  describe('acceptance mode is decided once, on arrival', () => {
+    const AUTO_SHOP = { ...CARD_SHOP, orderSettings: { autoRejectMinutes: 10, alertEmail: null, autoAccept: true } };
+    const run = (order: any, shop: any, at: string) => {
+      (findShopById as any).mockResolvedValue(shop);
+      (findPlacedOrdersCreatedBefore as any).mockResolvedValue([order]);
+      const store = storedOrder(order);
+      return executeProcessOrderTimers({ now: new Date(at) }).then((res) => ({ res, store }));
+    };
+
+    it('a manual order stays waiting when Automatic is switched on later', async () => {
+      const { res, store } = await run({ ...PLACED_CARD_ORDER, acceptanceMode: 'manual' }, AUTO_SHOP, '2026-10-05T10:01:00Z');
+      expect(capturePaymentIntent).not.toHaveBeenCalled();
+      expect(store.current.state).toBe('PLACED');
+      expect(res.autoAccepted).toBe(0);
+    });
+
+    it('an auto order is still captured when Automatic is switched off later', async () => {
+      const { res, store } = await run({ ...PLACED_CARD_ORDER, acceptanceMode: 'auto' }, CARD_SHOP, '2026-10-05T10:01:00Z');
+      expect(capturePaymentIntent).toHaveBeenCalledTimes(1);
+      expect(store.current.state).toBe('ACCEPTED');
+      expect(res.autoAccepted).toBe(1);
+    });
+
+    it('a manual order still auto-rejects at its timeout, whatever the shop setting now is', async () => {
+      const { res, store } = await run({ ...PLACED_CARD_ORDER, acceptanceMode: 'manual' }, AUTO_SHOP, '2026-10-05T10:10:00Z');
+      expect(capturePaymentIntent).not.toHaveBeenCalled();
+      expect(store.current.state).toBe('REJECTED');
+      expect(res.autoRejected).toBe(1);
+    });
+
+    it('an auto order past its decline time is declined, not accepted', async () => {
+      const { res, store } = await run({ ...PLACED_CARD_ORDER, acceptanceMode: 'auto' }, CARD_SHOP, '2026-10-05T10:10:00Z');
+      expect(capturePaymentIntent).not.toHaveBeenCalled();
+      expect(store.current.state).toBe('REJECTED');
+      expect(res.autoRejected).toBe(1);
+    });
+
+    it.each([
+      ['auto', SCHEDULED_SHOP, 'auto'],
+      ['manual', MANUAL_SCHEDULED, 'manual'],
+    ])('a booked order entering the queue is stamped %s', async (_n, shop, expected) => {
+      (findShopById as any).mockResolvedValue(shop);
+      (findPlacedOrdersCreatedBefore as any).mockResolvedValue([SCHEDULED_ORDER]);
+      const store = storedOrder(SCHEDULED_ORDER);
+      await executeProcessOrderTimers({ now: new Date('2026-10-05T15:40:00Z') });
+      expect(store.current.acceptanceMode).toBe(expected);
+      expect((replaceOrderIfMatch as any).mock.calls[0][0].acceptanceMode).toBe(expected);
+    });
+  });
+
   it('issues the invoice an accepted order is missing', async () => {
     (findPlacedOrdersCreatedBefore as any).mockResolvedValue([]);
     (findOrdersMissingInvoice as any).mockResolvedValue([ACCEPTED_CARD_ORDER]);

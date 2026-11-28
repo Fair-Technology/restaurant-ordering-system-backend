@@ -103,6 +103,25 @@ describe('executeHandlePaymentAuthorized', () => {
     expect(sendEmail).not.toHaveBeenCalled(); // the acceptance email is the only one
   });
 
+  it('stores the acceptance mode decided on arrival', async () => {
+    (findShopById as any).mockResolvedValue(CARD_SHOP); // auto-accept on
+    await executeHandlePaymentAuthorized(input);
+    expect((createOrder as any).mock.calls[0][0].acceptanceMode).toBe('auto');
+    vi.clearAllMocks();
+    (findCheckoutSessionById as any).mockResolvedValue(session);
+    (findOrderById as any).mockResolvedValue(null);
+    (findShopById as any).mockResolvedValue(manualShop);
+    await executeHandlePaymentAuthorized(input);
+    expect((createOrder as any).mock.calls[0][0].acceptanceMode).toBe('manual');
+  });
+
+  it('a booked order not yet due has no acceptance mode until it queues', async () => {
+    (findCheckoutSessionById as any).mockResolvedValue({ ...session, scheduledFor: SLOT_1800 });
+    (findShopById as any).mockResolvedValue(CARD_SHOP);
+    await executeHandlePaymentAuthorized(input);
+    expect((createOrder as any).mock.calls[0][0].acceptanceMode).toBeUndefined();
+  });
+
   it('inside the automatic hours the order is accepted at once', async () => {
     (findShopById as any).mockResolvedValue({
       ...CARD_SHOP,
