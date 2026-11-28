@@ -1,15 +1,16 @@
 import { ContentReport, ContentReportStatus } from '../../../domain/contentReport/ContentReport';
 import { contentReportContainer } from '../cosmosClient';
+import { stripCosmosMeta, stripCosmosMetaAll } from '../stripCosmosMeta';
 
 export async function createContentReport(report: ContentReport): Promise<ContentReport> {
   const { resource } = await contentReportContainer.items.create<ContentReport>(report);
-  return resource ?? report;
+  return stripCosmosMeta(resource ?? report);
 }
 
 export async function findContentReportById(id: string): Promise<ContentReport | null> {
   try {
     const { resource } = await contentReportContainer.item(id, id).read<ContentReport>();
-    return resource || null;
+    return resource ? stripCosmosMeta(resource) : null;
   } catch (error: any) {
     if (error.code === 404) {
       return null;
@@ -22,7 +23,7 @@ export async function replaceContentReport(report: ContentReport): Promise<Conte
   const { resource } = await contentReportContainer
     .item(report.id, report.id)
     .replace<ContentReport>(report);
-  return resource ?? report;
+  return stripCosmosMeta(resource ?? report);
 }
 
 export async function findContentReports(
@@ -55,7 +56,7 @@ export async function findContentReports(
     .query<ContentReport>(querySpec)
     .fetchAll();
 
-  return { reports: reports ?? [], total };
+  return { reports: stripCosmosMetaAll(reports ?? []), total };
 }
 
 export async function countRecentContentReportsByIpHash(ipHash: string, sinceIso: string): Promise<number> {

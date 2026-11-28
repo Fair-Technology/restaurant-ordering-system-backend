@@ -1,15 +1,6 @@
 import { Order } from '../../../domain/order/Order';
 import { ExportCustomer } from '../dtos';
 
-const COSMOS_META_KEYS = ['_rid', '_self', '_etag', '_attachments', '_ts'];
-
-/** Returns a copy without Cosmos's internal bookkeeping keys. */
-export function stripCosmosMeta<T extends object>(o: T): T {
-  const copy = { ...o } as Record<string, unknown>;
-  for (const key of COSMOS_META_KEYS) delete copy[key];
-  return copy as T;
-}
-
 /** One entry per customer email (case-insensitive); anonymised orders and orders without an email are skipped. */
 export function deriveCustomers(orders: Order[]): ExportCustomer[] {
   const groups = new Map<string, Order[]>();

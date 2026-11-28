@@ -1,10 +1,11 @@
 import { Plan } from '../../../domain/plan/Plan';
 import { planContainer } from '../cosmosClient';
+import { stripCosmosMeta, stripCosmosMetaAll } from '../stripCosmosMeta';
 
 export async function findPlanById(id: string): Promise<Plan | null> {
   try {
     const { resource } = await planContainer.item(id, id).read<Plan>();
-    return resource || null;
+    return resource ? stripCosmosMeta(resource) : null;
   } catch (error: any) {
     if (error.code === 404) return null;
     throw error;
@@ -17,7 +18,7 @@ export async function findDefaultPlan(): Promise<Plan | null> {
     parameters: [],
   };
   const { resources } = await planContainer.items.query<Plan>(querySpec).fetchAll();
-  return resources?.[0] ?? null;
+  return resources?.[0] ? stripCosmosMeta(resources[0]) : null;
 }
 
 export async function findAllPlans(): Promise<Plan[]> {
@@ -27,7 +28,7 @@ export async function findAllPlans(): Promise<Plan[]> {
       parameters: [],
     };
     const { resources } = await planContainer.items.query<Plan>(querySpec).fetchAll();
-    return resources || [];
+    return stripCosmosMetaAll(resources || []);
   } catch (error) {
     throw error;
   }
@@ -40,7 +41,7 @@ export async function findVisiblePlans(): Promise<Plan[]> {
       parameters: [],
     };
     const { resources } = await planContainer.items.query<Plan>(querySpec).fetchAll();
-    return resources || [];
+    return stripCosmosMetaAll(resources || []);
   } catch (error) {
     throw error;
   }
@@ -49,7 +50,7 @@ export async function findVisiblePlans(): Promise<Plan[]> {
 export async function createPlan(plan: Plan): Promise<Plan> {
   try {
     const { resource } = await planContainer.items.create<Plan>(plan);
-    return resource!;
+    return stripCosmosMeta(resource!);
   } catch (error) {
     throw error;
   }
@@ -58,7 +59,7 @@ export async function createPlan(plan: Plan): Promise<Plan> {
 export async function updatePlan(plan: Plan): Promise<Plan> {
   try {
     const { resource } = await planContainer.item(plan.id, plan.id).replace<Plan>(plan);
-    return resource!;
+    return stripCosmosMeta(resource!);
   } catch (error) {
     throw error;
   }

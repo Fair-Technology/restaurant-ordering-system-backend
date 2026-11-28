@@ -42,6 +42,19 @@ describe('findAuditEntriesByShop query', () => {
   });
 });
 
+describe('findAuditEntriesByShop Cosmos metadata', () => {
+  it('strips _rid/_self/_etag/_attachments/_ts from every entry', async () => {
+    const meta = { _rid: 'r', _self: 's', _etag: 'e', _attachments: 'a/', _ts: 1 };
+    query
+      .mockReturnValueOnce({ fetchAll: async () => ({ resources: [2] }) })
+      .mockReturnValueOnce({ fetchAll: async () => ({ resources: [{ id: 'a1', ...meta }, { id: 'a2', ...meta }] }) });
+    const { entries, total } = await findAuditEntriesByShop('s1', 1, 20);
+    expect(total).toBe(2);
+    expect(entries.map((e) => e.id)).toEqual(['a1', 'a2']);
+    for (const e of entries) for (const k of Object.keys(meta)) expect(e).not.toHaveProperty(k);
+  });
+});
+
 describe('findDistinctAuditActors', () => {
   it('uses a DISTINCT projection', async () => {
     await findDistinctAuditActors('s1');

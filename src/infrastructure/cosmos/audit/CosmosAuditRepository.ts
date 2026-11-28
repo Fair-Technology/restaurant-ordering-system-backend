@@ -1,6 +1,7 @@
 import { AuditActorType, AuditEntry } from '../../../domain/audit/AuditEntry';
 import type { SqlParameter } from '@azure/cosmos';
 import { auditLogsContainer } from '../cosmosClient';
+import { stripCosmosMetaAll } from '../stripCosmosMeta';
 
 export async function createAuditEntry(entry: AuditEntry): Promise<void> {
   await auditLogsContainer.items.create<AuditEntry>(entry);
@@ -61,7 +62,7 @@ export async function findAuditEntriesByShop(
     .query<AuditEntry>(querySpec)
     .fetchAll();
 
-  return { entries: entries ?? [], total };
+  return { entries: stripCosmosMetaAll(entries ?? []), total };
 }
 
 // Single indexed DISTINCT projection drives the "Who" dropdown: far fewer RUs than reading every entry.
