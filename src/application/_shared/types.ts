@@ -5,6 +5,8 @@ export interface ApplicationError {
   errorCode?: string;
   field?: string;
   max?: number;
+  requestedCents?: number;
+  availableCents?: number;
 }
 
 export interface ApplicationSuccess<T = any> {
