@@ -42,6 +42,14 @@ export const REFUND_AMOUNT_ERROR = 'Refund amount must be between 1 cent and the
 export const REFUND_REASON_ERROR = 'reason is required and must be at most 200 characters';
 export const REFUND_STATE_ERROR =
   'Only accepted, ready or completed orders can be refunded here. Declining a waiting order releases the payment for free.';
+/** Stable code for a message built by refundQuantityError / refundComboError / REFUND_ITEMS_ERROR. */
+export function refundItemsErrorCode(message: string): string {
+  if (message === REFUND_ITEMS_ERROR) return 'REFUND_ITEMS_INVALID';
+  if (message.endsWith(' is a combo and can only be refunded as a whole: tick every dish of it, with the same quantity')) {
+    return 'REFUND_COMBO_PARTIAL';
+  }
+  return 'REFUND_LINE_QUANTITY_EXCEEDED';
+}
 export const REFUND_FAILED_PREFIX = 'Stripe could not make the refund: ';
 export const DOCUMENT_NOT_FOUND_ERROR = 'This document does not exist yet';
 export const GO_LIVE_STRIPE_ERROR = 'Stripe payments onboarding is not complete';
