@@ -9985,9 +9985,9 @@
         "additionalProperties": false
       },
       "ExportOrder": {
-        "$ref": "#/components/schemas/Pick_Order_Exclude_id_shopId_orderRef_st_dd9f5955"
+        "$ref": "#/components/schemas/Pick_Order_Exclude_id_shopId_orderRef_st_b9122fc5"
       },
-      "Pick_Order_Exclude_id_shopId_orderRef_st_dd9f5955": {
+      "Pick_Order_Exclude_id_shopId_orderRef_st_b9122fc5": {
         "type": "object",
         "properties": {
           "id": {
@@ -10075,6 +10075,13 @@
           },
           "queuedAt": {
             "type": "string"
+          },
+          "acceptanceMode": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "manual"
+            ]
           },
           "refunds": {
             "type": "array",

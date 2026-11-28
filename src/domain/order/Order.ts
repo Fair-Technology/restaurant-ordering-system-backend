@@ -194,6 +194,7 @@ export interface Order {
   table?: OrderTable; // dine_in orders only
   scheduledFor?: string; // ISO start of the booked 15-minute slot = the promised ready / delivery time. Absent = as soon as possible
   queuedAt?: string; // ISO, when a scheduled order entered the live queue; the alert and decline count from here
+  acceptanceMode?: 'auto' | 'manual'; // decided once, when the restaurant received the order (createdAt for an ASAP order, queue-entry time for a booked one); never recomputed from the shop's current settings afterward, so a later switch of Automatic acceptance does not change how an already-waiting order is handled
   refunds?: OrderRefund[];
   releaseFailure?: PaymentReleaseFailure; // the reservation could not be released yet
   captureConfigFailure?: CaptureConfigFailure; // a capture was refused for a platform key/permission reason; the timeout then declines without blaming the shop
