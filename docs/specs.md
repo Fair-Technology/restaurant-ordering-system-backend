@@ -2997,6 +2997,12 @@ house between businesses.
   (`reports.csvGrossAt`, same key, new text: that wording with the rate appended)
   follow. `reports.gross` is unchanged and still labels the tiles line and the
   per-day rows. Label only; no figures changed.
+- **Top dishes are before refunds (decided 2026-11-28).** Each dish's sold
+  quantity and amount in "Top dishes" are deliberately **before refunds**: a
+  fully refunded dish still counts as sold. Example: a fully refunded item still
+  shows as sold 1, with its full gross amount. The Dashboard now shows a note
+  under the "Top dishes" heading, "Before refunds" / "Vor Erstattungen" (new key
+  `reports.topDishesBeforeRefunds`). Label only; no figures changed.
 
 ---
 
