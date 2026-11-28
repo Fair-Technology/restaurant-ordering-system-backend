@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+vi.mock('../../../src/application/_shared/auditHelpers', () => ({ logAudit: vi.fn(async () => undefined) }));
 vi.mock('../../../src/application/order/_shared/missedOrders', () => ({
   recordMissedOrder: vi.fn(async () => null),
   resetMissedOrderStreak: vi.fn(async () => undefined),
@@ -57,6 +58,7 @@ import { buildCorrection, buildInvoice } from '../../../src/domain/invoice/invoi
 import { commitInvoice, findInvoiceById } from '../../../src/infrastructure/cosmos/invoice/CosmosInvoiceRepository';
 import { findInvoicedOrdersWithRefunds } from '../../../src/infrastructure/cosmos/order/CosmosOrderRepository';
 import { findShopById } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
+import { logAudit } from '../../../src/application/_shared/auditHelpers';
 import { sendEmail } from '../../../src/infrastructure/email/emailSender';
 import { capturePaymentIntent, releaseAuthorization } from '../../../src/infrastructure/stripe/stripeClient';
 import {
@@ -125,6 +127,15 @@ describe('executeProcessOrderTimers', () => {
     expect(store.current.payment.status).toBe('paid');
     expect(res.autoAccepted).toBe(1);
     expect(res.escalated).toBe(0);
+    expect(logAudit).toHaveBeenCalledWith({
+      shopId: 'shop-1',
+      actorType: 'system',
+      actorId: 'system',
+      action: 'order.accept',
+      entityType: 'order',
+      entityId: 'o1',
+      entityName: 'AB3-K7P',
+    });
   });
 
   it.each([
@@ -423,6 +434,15 @@ describe('executeProcessOrderTimers', () => {
       }),
     );
     expect(res.autoRejected).toBe(1);
+    expect(logAudit).toHaveBeenCalledWith({
+      shopId: 'shop-1',
+      actorType: 'system',
+      actorId: 'system',
+      action: 'order.decline',
+      entityType: 'order',
+      entityId: 'o1',
+      entityName: 'AB3-K7P',
+    });
   });
 
   it('leaves an order alone while an accept is taking its payment', async () => {

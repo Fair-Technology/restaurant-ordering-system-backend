@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+vi.mock('../../../src/application/_shared/auditHelpers', () => ({ logAudit: vi.fn(async () => undefined) }));
 import { CheckoutSession } from '../../../src/domain/order/CheckoutSession';
 
 vi.mock('../../../src/infrastructure/cosmos/order/CosmosCheckoutSessionRepository', () => ({
@@ -38,6 +39,7 @@ import {
 } from '../../../src/infrastructure/cosmos/order/CosmosCheckoutSessionRepository';
 import { createOrder, findOrderById, findOrderWithEtag, replaceOrderIfMatch } from '../../../src/infrastructure/cosmos/order/CosmosOrderRepository';
 import { findShopById } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
+import { logAudit } from '../../../src/application/_shared/auditHelpers';
 import { sendEmail } from '../../../src/infrastructure/email/emailSender';
 import { releaseAuthorization } from '../../../src/infrastructure/stripe/stripeClient';
 import { PAYMENT_CONFIG_UNAVAILABLE_ERROR, PAYMENT_SERVICE_UNAVAILABLE_ERROR } from '../../../src/domain/order/orderErrors';
@@ -101,6 +103,7 @@ describe('executeHandlePaymentAuthorized', () => {
       now: NOW_OPEN,
     });
     expect(sendEmail).not.toHaveBeenCalled(); // the acceptance email is the only one
+    expect(logAudit).not.toHaveBeenCalled(); // the accept itself is audited inside acceptPlacedOrder
   });
 
   it('stores the acceptance mode decided on arrival', async () => {
@@ -279,6 +282,16 @@ describe('a shop that stopped taking orders after checkout (audit row 3)', () =>
       connectAccountId: 'acct_1', paymentIntentId: 'pi_1', idempotencyKey: 'release-sess-1',
     });
     expect(store.current.payment.status).toBe('canceled');
+    expect(logAudit).toHaveBeenCalledTimes(1);
+    expect(logAudit).toHaveBeenCalledWith({
+      shopId: 'shop-1',
+      actorType: 'system',
+      actorId: 'system',
+      action: 'order.decline',
+      entityType: 'order',
+      entityId: 'sess-1',
+      entityName: 'ZZZ-111',
+    });
     expect(acceptPlacedOrder).not.toHaveBeenCalled();
     expect(sendEmail).toHaveBeenCalledTimes(1);
     expect(sendEmail).toHaveBeenCalledWith(expect.objectContaining({ tag: 'order_rejected' }));

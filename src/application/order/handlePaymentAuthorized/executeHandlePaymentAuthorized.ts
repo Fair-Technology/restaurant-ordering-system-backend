@@ -13,6 +13,7 @@ import { createOrder, findOrderById } from '../../../infrastructure/cosmos/order
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { releaseAuthorization } from '../../../infrastructure/stripe/stripeClient';
 import { acceptPlacedOrder } from '../_shared/acceptPlacedOrder';
+import { logOrderDecline } from '../_shared/auditOrderEvents';
 import { releaseClosedOrderPayment } from '../_shared/releasePayment';
 import { fixSlotPlace } from '../_shared/slotPlaces';
 import { notifyCustomer } from '../notifications/notifyOrder';
@@ -86,6 +87,7 @@ export async function executeHandlePaymentAuthorized(input: {
   }
   await deleteCheckoutSession(session.id);
   if (refusal) {
+    await logOrderDecline(shop.id, toWrite, { type: 'system' });
     console.warn('[payment-authorized:shop-unavailable]', toWrite.id, refusal);
     const released = await releaseClosedOrderPayment(toWrite.id, shop, now);
     await notifyCustomer('order_rejected', released.order ?? toWrite, shop);

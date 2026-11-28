@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+vi.mock('../../../src/application/_shared/auditHelpers', () => ({ logAudit: vi.fn(async () => undefined) }));
 vi.mock('../../../src/infrastructure/cosmos/usage/CosmosSlotPlacesRepository', () => ({
   findSlotPlacesWithEtag: vi.fn(async () => null),
   createSlotPlaces: vi.fn(async () => 'ok'),
@@ -33,6 +34,7 @@ import {
   replaceOrderIfMatch,
 } from '../../../src/infrastructure/cosmos/order/CosmosOrderRepository';
 import { findShopById } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
+import { logAudit } from '../../../src/application/_shared/auditHelpers';
 import { sendEmail } from '../../../src/infrastructure/email/emailSender';
 import { CARD_SHOP, orderStore, PLACED_CARD_ORDER } from '../../fixtures/orders';
 
@@ -64,6 +66,15 @@ describe('executePaymentIntentUpdates (payment cancelled)', () => {
     expect(store.current.state).toBe('REJECTED');
     expect(store.current.payment.status).toBe('canceled');
     expect(store.current.history.at(-1)).toMatchObject({ actor: { type: 'system' }, reason: 'payment_failed' });
+    expect(logAudit).toHaveBeenCalledWith({
+      shopId: 'shop-1',
+      actorType: 'system',
+      actorId: 'system',
+      action: 'order.decline',
+      entityType: 'order',
+      entityId: 'o1',
+      entityName: 'AB3-K7P',
+    });
     expect(sendEmail).toHaveBeenCalledWith(expect.objectContaining({ subject: 'Ma Pasta: Bestellung AB3-K7P abgelehnt' }));
   });
 

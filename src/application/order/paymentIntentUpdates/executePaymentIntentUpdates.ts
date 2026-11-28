@@ -5,6 +5,7 @@ import { applyTransition } from '../../../domain/order/orderLifecycle';
 import { hasFreshCaptureClaim } from '../../../domain/order/payment';
 import { notifyCustomer } from '../notifications/notifyOrder';
 import { releaseClosedOrderPayment } from '../_shared/releasePayment';
+import { logOrderDecline } from '../_shared/auditOrderEvents';
 import { transitionOrder } from '../_shared/transitionOrder';
 
 export type PaymentIntentUpdateOutcome = 'session_removed' | 'declined' | 'release_recorded' | 'ignored';
@@ -38,6 +39,7 @@ export async function executePaymentIntentUpdates(input: {
         applyTransition(current, 'REJECTED', { now, actor: { type: 'system' }, reason: 'payment_failed' }),
     });
     if (!declined.ok) return 'ignored';
+    await logOrderDecline(shop.id, declined.order, { type: 'system' });
     const released = await releaseClosedOrderPayment(order.id, shop, now);
     await notifyCustomer('order_rejected', released.order ?? declined.order, shop);
     return 'declined';

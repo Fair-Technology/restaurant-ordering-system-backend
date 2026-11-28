@@ -38,6 +38,8 @@ import type { AttachedDocument } from '../notifications/emailTemplates';
 import { resetMissedOrderStreak } from './missedOrders';
 import { releaseClosedOrderPayment } from './releasePayment';
 import { rejectTimedOutOrder } from './rejectTimedOutOrder';
+import { logOrderAccept, logOrderDecline } from './auditOrderEvents';
+
 import { transitionOrder } from './transitionOrder';
 import { errorBrief } from '../../_shared/errorBrief';
 
@@ -207,6 +209,7 @@ export async function acceptPlacedOrder(input: {
           }),
       });
       if (!declined.ok) return declined;
+      await logOrderDecline(shop.id, declined.order, { type: 'system' });
       const released = await releaseClosedOrderPayment(orderId, shop, now);
       await notifyCustomer('order_rejected', released.order ?? declined.order, shop);
       return { ok: false, code: 'CONFLICT', error: PAYMENT_CAPTURE_FAILED_ERROR };
@@ -257,6 +260,7 @@ export async function acceptPlacedOrder(input: {
     console.error('[usage:error] could not count accepted order', errorBrief(err));
   }
   await resetMissedOrderStreak(shop.id, now); // an answered order starts the missed-order count again
+  await logOrderAccept(shop.id, moved.order, actor);
   // Option (c): an order for now takes a place in the quarter hour it is ready; the limit never turns it away.
   if (!moved.order.scheduledFor && moved.order.readyAt && slotCapacityOf(shop) !== null) {
     await fixSlotPlace({ shop, orderId, slot: slotStartOf(new Date(moved.order.readyAt)), now });
