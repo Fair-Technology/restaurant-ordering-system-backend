@@ -23,7 +23,7 @@ export async function executeUpdateLoyalty(
       auth.shop.id,
       (doc) => {
         const merged = mergeLoyaltyRule(doc.loyalty, input.body ?? {}, now);
-        if ('error' in merged) return { error: { ok: false, code: 'INVALID_INPUT', error: merged.error } };
+        if ('error' in merged) return { error: { ok: false, code: 'INVALID_INPUT', error: merged.error, errorCode: merged.errorCode, field: merged.field } };
         return { ...doc, loyalty: merged };
       },
       now,

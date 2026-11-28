@@ -79,7 +79,7 @@ describe('promotion endpoints', () => {
       { shopId: 'shop-1', body: { code: 'WELCOME10', kind: 'percent', percent: 5 }, now },
       http,
     );
-    expect(res).toEqual({ ok: false, code: 'CONFLICT', error: DISCOUNT_CODE_EXISTS_ERROR });
+    expect(res).toEqual({ ok: false, code: 'CONFLICT', error: DISCOUNT_CODE_EXISTS_ERROR, errorCode: 'DISCOUNT_CODE_EXISTS', field: 'code' });
   });
 
   it('at most 50 codes', async () => {
@@ -91,7 +91,7 @@ describe('promotion endpoints', () => {
       { shopId: 'shop-1', body: { code: 'EXTRA', kind: 'percent', percent: 5 }, now },
       http,
     );
-    expect(res).toEqual({ ok: false, code: 'INVALID_INPUT', error: DISCOUNT_CODE_LIMIT_ERROR });
+    expect(res).toEqual({ ok: false, code: 'INVALID_INPUT', error: DISCOUNT_CODE_LIMIT_ERROR, errorCode: 'DISCOUNT_CODE_MAX_REACHED', max: 50 });
   });
 
   it('a code is switched off and nothing else changes', async () => {
@@ -122,6 +122,12 @@ describe('promotion endpoints', () => {
     const res = await executeSetDiscountCodeActive({ shopId: 'shop-1', codeId: 'code-1', body: { active: false }, now }, http);
     expect(res.ok).toBe(true);
     expect(findPromotionsWithEtag).toHaveBeenCalledTimes(2);
+  });
+
+  it('a bad loyalty value carries a stable errorCode and its field', async () => {
+    withDoc({ ...PROMOTIONS, loyalty: null });
+    const res = await executeUpdateLoyalty({ shopId: 'shop-1', body: { everyOrders: 1 }, now }, http);
+    expect(res).toMatchObject({ ok: false, code: 'INVALID_INPUT', errorCode: 'LOYALTY_EVERY_ORDERS_INVALID', field: 'everyOrders' });
   });
 
   it('loyalty is saved and restarts its count when switched on', async () => {

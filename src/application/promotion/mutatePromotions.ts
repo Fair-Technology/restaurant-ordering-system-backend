@@ -37,5 +37,5 @@ export async function mutatePromotions(
     const written = found ? await replacePromotionsIfMatch(after, found.etag) : await createPromotions(after);
     if (written === 'ok') return { ok: true, before, after };
   }
-  return { ok: false, code: 'CONFLICT', error: PROMOTIONS_CONFLICT_ERROR };
+  return { ok: false, code: 'CONFLICT', error: PROMOTIONS_CONFLICT_ERROR, errorCode: 'PROMOTIONS_CHANGED_CONCURRENTLY' };
 }

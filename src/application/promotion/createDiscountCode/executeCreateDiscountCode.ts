@@ -24,15 +24,15 @@ export async function executeCreateDiscountCode(
     if (!auth.ok) return auth;
     const now = input.now ?? new Date();
     const parsed = parseNewDiscountCode(input.body ?? {}, { id: randomUUID(), now });
-    if ('error' in parsed) return { ok: false, code: 'INVALID_INPUT', error: parsed.error };
+    if ('error' in parsed) return { ok: false, code: 'INVALID_INPUT', error: parsed.error, errorCode: parsed.errorCode, field: parsed.field };
     const result = await mutatePromotions(
       auth.shop.id,
       (doc) => {
         if (doc.codes.length >= MAX_CODES) {
-          return { error: { ok: false, code: 'INVALID_INPUT', error: DISCOUNT_CODE_LIMIT_ERROR } };
+          return { error: { ok: false, code: 'INVALID_INPUT', error: DISCOUNT_CODE_LIMIT_ERROR, errorCode: 'DISCOUNT_CODE_MAX_REACHED', max: MAX_CODES } };
         }
         if (doc.codes.some((c) => c.code === parsed.code)) {
-          return { error: { ok: false, code: 'CONFLICT', error: DISCOUNT_CODE_EXISTS_ERROR } };
+          return { error: { ok: false, code: 'CONFLICT', error: DISCOUNT_CODE_EXISTS_ERROR, errorCode: 'DISCOUNT_CODE_EXISTS', field: 'code' } };
         }
         return { ...doc, codes: [...doc.codes, parsed] };
       },

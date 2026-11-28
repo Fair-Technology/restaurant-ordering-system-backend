@@ -107,33 +107,44 @@ function readDate(v: unknown): string | null | undefined {
   return Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== v ? undefined : v;
 }
 
+/** A validation failure with the stable code and field the admin UI translates. */
+export interface CodedDomainError {
+  error: string;
+  errorCode: string;
+  field?: string;
+}
+
 /** Validates a new code from the owner's request body. */
-export function parseNewDiscountCode(body: Record<string, unknown>, ids: { id: string; now: Date }): DiscountCode | { error: string } {
+export function parseNewDiscountCode(body: Record<string, unknown>, ids: { id: string; now: Date }): DiscountCode | CodedDomainError {
   const code = normaliseCode(body.code);
-  if (!code) return { error: DISCOUNT_CODE_ERROR };
-  if (code.startsWith('L-')) return { error: DISCOUNT_CODE_RESERVED_ERROR };
+  if (!code) return { error: DISCOUNT_CODE_ERROR, errorCode: 'DISCOUNT_CODE_INVALID', field: 'code' };
+  if (code.startsWith('L-')) return { error: DISCOUNT_CODE_RESERVED_ERROR, errorCode: 'DISCOUNT_CODE_RESERVED', field: 'code' };
   let percent: number | null = null;
   let amountCents: number | null = null;
   if (body.kind === 'percent') {
-    if (!isInt(body.percent, 1, 100)) return { error: DISCOUNT_VALUE_ERROR };
+    if (!isInt(body.percent, 1, 100)) return { error: DISCOUNT_VALUE_ERROR, errorCode: 'DISCOUNT_VALUE_INVALID', field: 'percent' };
     percent = body.percent;
   } else if (body.kind === 'amount') {
-    if (!isInt(body.amountCents, 1, 10000)) return { error: DISCOUNT_VALUE_ERROR };
+    if (!isInt(body.amountCents, 1, 10000)) return { error: DISCOUNT_VALUE_ERROR, errorCode: 'DISCOUNT_VALUE_INVALID', field: 'amountCents' };
     amountCents = body.amountCents;
   } else {
-    return { error: DISCOUNT_VALUE_ERROR };
+    return { error: DISCOUNT_VALUE_ERROR, errorCode: 'DISCOUNT_VALUE_INVALID', field: 'kind' };
   }
   const min = body.minSubtotalCents ?? 0;
-  if (!isInt(min, 0, 100000)) return { error: DISCOUNT_MINIMUM_ERROR };
+  if (!isInt(min, 0, 100000)) return { error: DISCOUNT_MINIMUM_ERROR, errorCode: 'DISCOUNT_MINIMUM_INVALID', field: 'minSubtotalCents' };
   const validFrom = readDate(body.validFrom);
   const validUntil = readDate(body.validUntil);
   if (validFrom === undefined || validUntil === undefined || (validFrom && validUntil && validUntil < validFrom)) {
-    return { error: DISCOUNT_DATES_ERROR };
+    return { error: DISCOUNT_DATES_ERROR, errorCode: 'DISCOUNT_DATES_INVALID', field: 'validFrom' };
   }
   const total = body.totalLimit ?? null;
   const perEmail = body.perEmailLimit === undefined ? 1 : body.perEmailLimit;
   if ((total !== null && !isInt(total, 1, 100000)) || (perEmail !== null && !isInt(perEmail, 1, 100))) {
-    return { error: DISCOUNT_LIMIT_ERROR };
+    return {
+      error: DISCOUNT_LIMIT_ERROR,
+      errorCode: 'DISCOUNT_LIMIT_INVALID',
+      field: total !== null && !isInt(total, 1, 100000) ? 'totalLimit' : 'perEmailLimit',
+    };
   }
   return {
     id: ids.id,
@@ -152,23 +163,23 @@ export function parseNewDiscountCode(body: Record<string, unknown>, ids: { id: s
 }
 
 /** Merges a loyalty save into the stored rule; `since` restarts whenever it is switched on. */
-export function mergeLoyaltyRule(before: LoyaltyRule | null, body: Record<string, unknown>, now: Date): LoyaltyRule | { error: string } {
+export function mergeLoyaltyRule(before: LoyaltyRule | null, body: Record<string, unknown>, now: Date): LoyaltyRule | CodedDomainError {
   const base: LoyaltyRule = before ?? { ...DEFAULT_LOYALTY, since: null };
   const next: LoyaltyRule = { ...base };
   if (body.enabled !== undefined) {
-    if (typeof body.enabled !== 'boolean') return { error: LOYALTY_RULE_ERROR };
+    if (typeof body.enabled !== 'boolean') return { error: LOYALTY_RULE_ERROR, errorCode: 'LOYALTY_ENABLED_INVALID', field: 'enabled' };
     next.enabled = body.enabled;
   }
   if (body.everyOrders !== undefined) {
-    if (!isInt(body.everyOrders, 2, 20)) return { error: LOYALTY_RULE_ERROR };
+    if (!isInt(body.everyOrders, 2, 20)) return { error: LOYALTY_RULE_ERROR, errorCode: 'LOYALTY_EVERY_ORDERS_INVALID', field: 'everyOrders' };
     next.everyOrders = body.everyOrders;
   }
   if (body.rewardCents !== undefined) {
-    if (!isInt(body.rewardCents, 100, 5000)) return { error: LOYALTY_RULE_ERROR };
+    if (!isInt(body.rewardCents, 100, 5000)) return { error: LOYALTY_RULE_ERROR, errorCode: 'LOYALTY_REWARD_INVALID', field: 'rewardCents' };
     next.rewardCents = body.rewardCents;
   }
   if (body.validDays !== undefined) {
-    if (!isInt(body.validDays, 7, 365)) return { error: LOYALTY_RULE_ERROR };
+    if (!isInt(body.validDays, 7, 365)) return { error: LOYALTY_RULE_ERROR, errorCode: 'LOYALTY_VALID_DAYS_INVALID', field: 'validDays' };
     next.validDays = body.validDays;
   }
   if (next.enabled && !base.enabled) next.since = now.toISOString();
