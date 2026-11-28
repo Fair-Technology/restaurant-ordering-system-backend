@@ -165,7 +165,7 @@ describe('changing plan', () => {
     (findSubscriptionByShopId as any).mockResolvedValue(paidOn('plan-pro'));
     stripeMock.subscriptions.update.mockRejectedValueOnce({ type: 'StripeCardError' } as never);
     const res = await call({ planId: 'plan-max', billingInterval: 'monthly' });
-    expect(res).toEqual({ ok: false, code: 'CONFLICT', error: UPGRADE_DECLINED_ERROR });
+    expect(res).toMatchObject({ ok: false, code: 'CONFLICT', error: UPGRADE_DECLINED_ERROR, errorCode: 'UPGRADE_DECLINED' });
     expect(upsertSubscription).not.toHaveBeenCalled();
   });
 
@@ -183,7 +183,7 @@ describe('changing plan', () => {
     (findSubscriptionByShopId as any).mockResolvedValue(paidOn('plan-max'));
     (listStaffAccounts as any).mockResolvedValue(staff(3));
     const res = await call({ planId: 'plan-pro', billingInterval: 'monthly' });
-    expect(res).toEqual({ ok: false, code: 'CONFLICT', error: 'Remove staff logins first: the target plan allows 2' });
+    expect(res).toMatchObject({ ok: false, code: 'CONFLICT', error: 'Remove staff logins first: the target plan allows 2', errorCode: 'DOWNGRADE_BLOCKED_STAFF', max: 2 });
     expect(stripeMock.subscriptions.update).not.toHaveBeenCalled();
   });
 

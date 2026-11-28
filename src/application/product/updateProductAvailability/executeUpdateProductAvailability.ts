@@ -72,8 +72,8 @@ export async function executeUpdateProductAvailability(
     // Turning on needs a photo (SPECS §8): 409, never a silent no-op. Turning off is always allowed.
     if (request.isAvailable === true && (product.images?.length ?? 0) === 0) {
       return product.combo
-        ? { ok: false, code: COMBO_IMAGE_REQUIRED_TO_ENABLE, error: COMBO_ENABLE_NEEDS_PHOTO_ERROR }
-        : { ok: false, code: PRODUCT_IMAGE_REQUIRED_TO_ENABLE, error: DISH_ENABLE_NEEDS_PHOTO_ERROR };
+        ? { ok: false, code: COMBO_IMAGE_REQUIRED_TO_ENABLE, error: COMBO_ENABLE_NEEDS_PHOTO_ERROR, errorCode: COMBO_IMAGE_REQUIRED_TO_ENABLE }
+        : { ok: false, code: PRODUCT_IMAGE_REQUIRED_TO_ENABLE, error: DISH_ENABLE_NEEDS_PHOTO_ERROR, errorCode: PRODUCT_IMAGE_REQUIRED_TO_ENABLE };
     }
 
     const now = new Date();

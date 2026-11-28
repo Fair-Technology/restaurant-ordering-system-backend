@@ -227,7 +227,7 @@ describe('shop cover image', () => {
       vi.mocked(findShopById).mockResolvedValue(withHero(oldCover));
       vi.mocked(normalizeImage).mockResolvedValue({ status: 'too_small' });
       const r = await executeSetShopCoverImage(setReq, httpRequest);
-      expect(r).toEqual({ ok: false, code: 'COVER_IMAGE_WRONG_SIZE', error: 'Cover image source must be at least 1200 x 400 px' });
+      expect(r).toMatchObject({ ok: false, code: 'COVER_IMAGE_WRONG_SIZE', error: 'Cover image source must be at least 1200 x 400 px', errorCode: 'COVER_IMAGE_WRONG_SIZE' });
       expect(deleteBlob).toHaveBeenCalledTimes(1);
       expect(deleteBlob).toHaveBeenCalledWith('shops/shop-1/branding/img-1.jpg');
       expect(updateShop).not.toHaveBeenCalled();

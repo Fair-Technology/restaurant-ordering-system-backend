@@ -109,7 +109,7 @@ export async function executeCreateSubscriptionCheckout(
           payment_behavior: 'error_if_incomplete',
         });
       } catch (err) {
-        if (isStripeCardError(err)) return { ok: false, code: 'CONFLICT', error: UPGRADE_DECLINED_ERROR };
+        if (isStripeCardError(err)) return { ok: false, code: 'CONFLICT', error: UPGRADE_DECLINED_ERROR, errorCode: 'UPGRADE_DECLINED' };
         throw err;
       }
       // The upgrade may start a new billing period (e.g. monthly to yearly); keep the stored dates in step with Stripe.
@@ -139,7 +139,7 @@ export async function executeCreateSubscriptionCheckout(
     // A lower plan: the price changes now (no proration), the plan changes when the paid period ends.
     const blockedAt = await staffCapIfBlocked(shopId, target, sub, now);
     if (blockedAt !== null) {
-      return { ok: false, code: 'CONFLICT', error: downgradeBlockedStaffError(blockedAt) };
+      return { ok: false, code: 'CONFLICT', error: downgradeBlockedStaffError(blockedAt), errorCode: 'DOWNGRADE_BLOCKED_STAFF', max: blockedAt };
     }
     // Never schedule a downgrade for "now" mislabelled as period end: if the end is unknown, fail before changing anything.
     const periodEnd = subscriptionPeriod(stripeSubscription).end ?? sub.currentPeriodEnd;

@@ -31,13 +31,13 @@ export async function verifyUploadedImageSize(
   fit: 'cover' | 'contain' = 'cover',
   variants: { suffix: string; size: ExactImageSize }[] = [],
 ): Promise<ApplicationError | null> {
-  const notFound: ApplicationError = { ok: false, code: 'INVALID_INPUT', error: `${what} was not found - upload it first` };
+  const notFound: ApplicationError = { ok: false, code: 'INVALID_INPUT', error: `${what} was not found - upload it first`, errorCode: 'IMAGE_NOT_FOUND' };
   const expectedFormat = IMAGE_FORMAT_BY_EXTENSION[blobPath.slice(blobPath.lastIndexOf('.')).toLowerCase()];
-  const wrongType: ApplicationError = { ok: false, code: 'INVALID_INPUT', error: wrongTypeMessage(what) };
+  const wrongType: ApplicationError = { ok: false, code: 'INVALID_INPUT', error: wrongTypeMessage(what), errorCode: 'IMAGE_WRONG_TYPE' };
   const props = await getBlobProperties(blobPath);
   if (!props) return notFound;
   let error: ApplicationError;
-  if (props.contentLength > MAX_IMAGE_UPLOAD_BYTES) error = { ok: false, code: 'INVALID_INPUT', error: tooLargeMessage(what) };
+  if (props.contentLength > MAX_IMAGE_UPLOAD_BYTES) error = { ok: false, code: 'INVALID_INPUT', error: tooLargeMessage(what), errorCode: 'IMAGE_TOO_LARGE' };
   else if (!expectedFormat || props.contentType?.toLowerCase() !== expectedFormat.contentType) error = wrongType;
   else {
     const bytes = await downloadBlob(blobPath);
@@ -71,7 +71,7 @@ export async function verifyUploadedImageSize(
     }
     error =
       out.status === 'too_small' && minSource && wrongSizeCode
-        ? { ok: false, code: wrongSizeCode, error: tooSmallMessage(what, minSource) }
+        ? { ok: false, code: wrongSizeCode, error: tooSmallMessage(what, minSource), errorCode: wrongSizeCode }
         : wrongType;
   }
   try {

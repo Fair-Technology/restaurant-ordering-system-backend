@@ -44,7 +44,7 @@ export async function executeCancelShopSubscription(
     const defaultPlan = await findDefaultPlan();
     const blockedAt = defaultPlan ? await staffCapIfBlocked(shopId, defaultPlan, subscription, new Date()) : null;
     if (blockedAt !== null) {
-      return { ok: false, code: 'CONFLICT', error: downgradeBlockedStaffError(blockedAt) };
+      return { ok: false, code: 'CONFLICT', error: downgradeBlockedStaffError(blockedAt), errorCode: 'DOWNGRADE_BLOCKED_STAFF', max: blockedAt };
     }
 
     const stripeSecretKey = process.env.STRIPE_SECRET_KEY;

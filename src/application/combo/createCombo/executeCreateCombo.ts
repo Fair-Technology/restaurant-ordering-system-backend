@@ -9,6 +9,8 @@ import type { Product } from '../../../domain/product/Product';
 import { findCategoriesByShopId } from '../../../infrastructure/cosmos/category/CosmosCategoryRepository';
 import { createProduct, findProductsByShopId } from '../../../infrastructure/cosmos/product/CosmosProductRepository';
 import { logAudit } from '../../_shared/auditHelpers';
+import { codedFields } from '../../_shared/errorCodes';
+import { COMBO_ERROR_CODES, COMBO_FALLBACK_ERROR_CODE } from '../../../domain/product/combo';
 import type { ApplicationResult } from '../../_shared/types';
 import { authorizeCombos } from '../authorizeCombos';
 import { comboContext } from '../comboContext';
@@ -29,11 +31,11 @@ export async function executeCreateCombo(
       findProductsByShopId(auth.shop.id),
     ]);
     const f = parseComboInput(input.body ?? {}, comboContext(auth.shop, categories, products, null));
-    if ('error' in f) return { ok: false, code: 'INVALID_INPUT', error: f.error };
+    if ('error' in f) return { ok: false, code: 'INVALID_INPUT', error: f.error, ...codedFields(f.error, COMBO_ERROR_CODES, COMBO_FALLBACK_ERROR_CODE) };
     // A new combo has no photo yet (it is added through the product photo upload afterwards), so it cannot be
     // created ON: explicit isAvailable:true is refused; leaving it out creates the combo OFF (it used to default to on).
     if (f.isAvailable && input.body?.isAvailable === true) {
-      return { ok: false, code: COMBO_IMAGE_REQUIRED_TO_ENABLE, error: COMBO_ENABLE_NEEDS_PHOTO_ERROR };
+      return { ok: false, code: COMBO_IMAGE_REQUIRED_TO_ENABLE, error: COMBO_ENABLE_NEEDS_PHOTO_ERROR, errorCode: COMBO_IMAGE_REQUIRED_TO_ENABLE };
     }
     const at = now.toISOString();
     const product: Product = {

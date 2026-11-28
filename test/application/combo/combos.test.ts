@@ -90,14 +90,14 @@ describe('combo endpoints', () => {
 
   it("a combo can only hold the restaurant's dishes", async () => {
     const res = await executeCreateCombo({ shopId: 'shop-1', body: { ...body, groups: [{ name: 'A', productIds: ['p9'] }] }, now }, http);
-    expect(res).toEqual({ ok: false, code: 'INVALID_INPUT', error: COMBO_DISH_ERROR });
+    expect(res).toMatchObject({ ok: false, code: 'INVALID_INPUT', error: COMBO_DISH_ERROR, errorCode: 'COMBO_DISH_INVALID', field: 'groups' });
     expect(createProduct).not.toHaveBeenCalled();
   });
 
   it('the BMF option is only for German restaurants', async () => {
     (findShopById as any).mockResolvedValue({ ...CARD_SHOP, countryCode: 'AT' });
     const res = await executeCreateCombo({ shopId: 'shop-1', body: { ...body, bmfDrinkShare: true }, now }, http);
-    expect(res).toEqual({ ok: false, code: 'INVALID_INPUT', error: COMBO_BMF_ERROR });
+    expect(res).toMatchObject({ ok: false, code: 'INVALID_INPUT', error: COMBO_BMF_ERROR, errorCode: 'COMBO_BMF_INVALID', field: 'bmfDrinkShare' });
   });
 
   it('editing keeps the group ids and logs what changed', async () => {
@@ -252,7 +252,7 @@ describe('combo endpoints', () => {
       ],
     ])('reject %s', async (_n, extra, error) => {
       const res = await executeCreateCombo({ shopId: 'shop-1', body: { ...body, ...extra }, now }, http);
-      expect(res).toEqual({ ok: false, code: 'INVALID_INPUT', error });
+      expect(res).toMatchObject({ ok: false, code: 'INVALID_INPUT', error });
       expect(createProduct).not.toHaveBeenCalled();
     });
 

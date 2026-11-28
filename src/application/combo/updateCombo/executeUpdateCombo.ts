@@ -14,6 +14,8 @@ import {
   updateProduct,
 } from '../../../infrastructure/cosmos/product/CosmosProductRepository';
 import { diffFields, logAudit } from '../../_shared/auditHelpers';
+import { codedFields } from '../../_shared/errorCodes';
+import { COMBO_ERROR_CODES, COMBO_FALLBACK_ERROR_CODE } from '../../../domain/product/combo';
 import type { ApplicationResult } from '../../_shared/types';
 import { authorizeCombos } from '../authorizeCombos';
 import { comboContext } from '../comboContext';
@@ -38,7 +40,7 @@ export async function executeUpdateCombo(
       findProductsByShopId(auth.shop.id),
     ]);
     const f = parseComboInput(input.body ?? {}, comboContext(auth.shop, categories, products, before.combo));
-    if ('error' in f) return { ok: false, code: 'INVALID_INPUT', error: f.error };
+    if ('error' in f) return { ok: false, code: 'INVALID_INPUT', error: f.error, ...codedFields(f.error, COMBO_ERROR_CODES, COMBO_FALLBACK_ERROR_CODE) };
     // Left out = keep the stored switch (the parser's default of "on" is for nothing now that on needs a photo).
     const isAvailable = input.body?.isAvailable === undefined ? before.isAvailable : f.isAvailable;
     // On with no photo is refused (SPECS §8): turning on in this request -> enable message, an already-on
@@ -48,6 +50,7 @@ export async function executeUpdateCombo(
       return {
         ok: false,
         code: COMBO_IMAGE_REQUIRED_TO_ENABLE,
+        errorCode: COMBO_IMAGE_REQUIRED_TO_ENABLE,
         error: turningOn ? COMBO_ENABLE_NEEDS_PHOTO_ERROR : COMBO_LEAVES_ON_WITHOUT_PHOTO_ERROR,
       };
     }

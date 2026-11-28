@@ -100,7 +100,7 @@ describe('logo upload is capped, type-checked and normalised', () => {
   it('refuses a file over 10 MB, deletes it, leaves the shop unchanged', async () => {
     vi.mocked(getBlobProperties).mockResolvedValue({ contentLength: 10 * 1024 * 1024 + 1, contentType: 'image/png' });
     const r = await executeSetShopLogo(setReq, httpRequest);
-    expect(r).toEqual({ ok: false, code: 'INVALID_INPUT', error: 'Logo must be at most 10 MB' });
+    expect(r).toMatchObject({ ok: false, code: 'INVALID_INPUT', error: 'Logo must be at most 10 MB', errorCode: 'IMAGE_TOO_LARGE' });
     expect(deleteBlob).toHaveBeenCalledWith('shops/shop-1/branding/img-1.png');
     expect(downloadBlob).not.toHaveBeenCalled();
     expect(updateShop).not.toHaveBeenCalled();
@@ -115,7 +115,7 @@ describe('logo upload is capped, type-checked and normalised', () => {
   it('refuses a declared type that does not match the extension', async () => {
     vi.mocked(getBlobProperties).mockResolvedValue({ contentLength: 50_000, contentType: 'image/svg+xml' });
     const r = await executeSetShopLogo(setReq, httpRequest);
-    expect(r).toEqual({ ok: false, code: 'INVALID_INPUT', error: 'Logo must be a JPEG, PNG or WebP image' });
+    expect(r).toMatchObject({ ok: false, code: 'INVALID_INPUT', error: 'Logo must be a JPEG, PNG or WebP image', errorCode: 'IMAGE_WRONG_TYPE' });
     expect(deleteBlob).toHaveBeenCalledWith('shops/shop-1/branding/img-1.png');
     expect(normalizeImageContain).not.toHaveBeenCalled();
     expect(updateShop).not.toHaveBeenCalled();
@@ -124,7 +124,7 @@ describe('logo upload is capped, type-checked and normalised', () => {
   it('answers INVALID_INPUT when nothing was uploaded', async () => {
     vi.mocked(getBlobProperties).mockResolvedValue(null as any);
     const r = await executeSetShopLogo(setReq, httpRequest);
-    expect(r).toEqual({ ok: false, code: 'INVALID_INPUT', error: 'Logo was not found - upload it first' });
+    expect(r).toMatchObject({ ok: false, code: 'INVALID_INPUT', error: 'Logo was not found - upload it first', errorCode: 'IMAGE_NOT_FOUND' });
     expect(updateShop).not.toHaveBeenCalled();
   });
 
@@ -149,7 +149,7 @@ describe('logo upload is capped, type-checked and normalised', () => {
   it('refuses a file that cannot be decoded as an image', async () => {
     vi.mocked(normalizeImageContain).mockResolvedValue({ status: 'unsupported' });
     const r = await executeSetShopLogo(setReq, httpRequest);
-    expect(r).toEqual({ ok: false, code: 'INVALID_INPUT', error: 'Logo must be a JPEG, PNG or WebP image' });
+    expect(r).toMatchObject({ ok: false, code: 'INVALID_INPUT', error: 'Logo must be a JPEG, PNG or WebP image', errorCode: 'IMAGE_WRONG_TYPE' });
     expect(deleteBlob).toHaveBeenCalledTimes(1);
     expect(deleteBlob).toHaveBeenCalledWith('shops/shop-1/branding/img-1.png');
     expect(uploadBlob).not.toHaveBeenCalled();

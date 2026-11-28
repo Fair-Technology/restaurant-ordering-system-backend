@@ -48,7 +48,7 @@ export async function executeRetrySubscriptionPayment(
     try {
       await stripe.invoices.pay(invoice.id);
     } catch (err) {
-      if (isStripeCardError(err)) return { ok: false, code: 'CONFLICT', error: PAYMENT_DECLINED_AGAIN_ERROR };
+      if (isStripeCardError(err)) return { ok: false, code: 'CONFLICT', error: PAYMENT_DECLINED_AGAIN_ERROR, errorCode: 'PAYMENT_DECLINED_AGAIN' };
       logStripeFailure('retry_subscription_payment', err, { shopId });
       throw err;
     }

@@ -137,7 +137,7 @@ export async function executeCreateProduct(
     // A new dish never has a photo yet (photos are uploaded after create), so it cannot be created ON:
     // an explicit isAvailable:true is refused, and leaving it out creates the dish OFF (it used to default to on).
     if (request.isAvailable === true) {
-      return { ok: false, code: PRODUCT_IMAGE_REQUIRED_TO_ENABLE, error: DISH_ENABLE_NEEDS_PHOTO_ERROR };
+      return { ok: false, code: PRODUCT_IMAGE_REQUIRED_TO_ENABLE, error: DISH_ENABLE_NEEDS_PHOTO_ERROR, errorCode: PRODUCT_IMAGE_REQUIRED_TO_ENABLE };
     }
 
     const now = new Date().toISOString();
