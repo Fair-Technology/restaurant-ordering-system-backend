@@ -2992,6 +2992,10 @@ house between businesses.
   and the reference of the order that earned it — never the diner's email or
   name. Same permission as discount codes, own shop only; `page` (default 1)
   and `pageSize` (default 20, at most 100) bound the list.
+  The admin Promotions page lists these under the loyalty card — code, value,
+  issued date, valid-until date, used/not used/expired, and the earning order's
+  reference, newest first, with an empty state — and shows that list even when
+  loyalty is switched off, as long as vouchers were already issued.
 - **Multi-location dashboard** for owners with several restaurants — the owner
   **Overview** after sign-in: today's takings and orders, waiting orders, and
   each restaurant's month against its own limit. Owners only. *Built 8f.* As of
