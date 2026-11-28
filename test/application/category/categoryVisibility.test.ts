@@ -31,7 +31,7 @@ vi.mock('../../../src/application/_shared/auditHelpers', () => ({
 }));
 
 import { authorizeShopAction } from '../../../src/application/_shared/shopAccess';
-import { createCategory, updateCategory } from '../../../src/infrastructure/cosmos/category/CosmosCategoryRepository';
+import { createCategory, findCategoriesByShopId, updateCategory } from '../../../src/infrastructure/cosmos/category/CosmosCategoryRepository';
 import { getReferenceLists } from '../../../src/infrastructure/cosmos/reference/CosmosReferenceListsRepository';
 import { executeCreateCategory } from '../../../src/application/category/createCategory/executeCreateCategory';
 import { executeUpdateCategory } from '../../../src/application/category/updateCategory/executeUpdateCategory';
@@ -58,6 +58,12 @@ describe("category switch and times", () => {
   it('a new category starts switched on with no times', async () => {
     await executeCreateCategory({ shopId: 'shop-1', name: 'Pizza' } as any, {} as any);
     expect(createCategory).toHaveBeenCalledWith(expect.objectContaining({ isAvailable: true, schedule: null }));
+  });
+
+  it('a duplicate name on create is CATEGORY_NAME_EXISTS on the name field', async () => {
+    (findCategoriesByShopId as any).mockResolvedValueOnce([{ id: 'c9', shopId: 'shop-1', name: 'Pizza' }]);
+    const result = await executeCreateCategory({ shopId: 'shop-1', name: ' pizza ' } as any, {} as any);
+    expect(result).toMatchObject({ ok: false, code: 'CONFLICT', errorCode: 'CATEGORY_NAME_EXISTS', field: 'name' });
   });
 
   it('an old category without the field reads as on', async () => {

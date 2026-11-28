@@ -145,12 +145,13 @@ export async function executeUpdateProduct(
         return {
           ok: false,
           code: COMBO_IMAGE_REQUIRED_TO_ENABLE,
+          errorCode: COMBO_IMAGE_REQUIRED_TO_ENABLE,
           error: turningOn ? COMBO_ENABLE_NEEDS_PHOTO_ERROR : COMBO_LEAVES_ON_WITHOUT_PHOTO_ERROR,
         };
       }
       return turningOn
-        ? { ok: false, code: PRODUCT_IMAGE_REQUIRED_TO_ENABLE, error: DISH_ENABLE_NEEDS_PHOTO_ERROR }
-        : { ok: false, code: PRODUCT_IMAGE_REQUIRED, error: DISH_LEAVES_ON_WITHOUT_PHOTO_ERROR };
+        ? { ok: false, code: PRODUCT_IMAGE_REQUIRED_TO_ENABLE, error: DISH_ENABLE_NEEDS_PHOTO_ERROR, errorCode: PRODUCT_IMAGE_REQUIRED_TO_ENABLE }
+        : { ok: false, code: PRODUCT_IMAGE_REQUIRED, error: DISH_LEAVES_ON_WITHOUT_PHOTO_ERROR, errorCode: PRODUCT_IMAGE_REQUIRED };
     }
 
     // Guard: cannot set isAvailable=true on a product with no categories

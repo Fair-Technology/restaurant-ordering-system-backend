@@ -28,7 +28,7 @@ describe('executeRequestShopNameChange reserved slugs', () => {
     (isSlugReservedByAnother as any).mockResolvedValueOnce(true);
     const res = await executeRequestShopNameChange({ shopId: 'shop-1', requestedName: 'Taken Name' }, {} as any);
 
-    expect(res).toMatchObject({ ok: false, code: 'CONFLICT' });
+    expect(res).toMatchObject({ ok: false, code: 'CONFLICT', errorCode: 'SHOP_NAME_EXISTS', field: 'name' });
     expect(updateShop).not.toHaveBeenCalled();
   });
 

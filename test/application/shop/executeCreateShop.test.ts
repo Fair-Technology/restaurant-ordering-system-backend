@@ -102,7 +102,7 @@ describe('executeCreateShop DPA acceptance', () => {
   it('rejects an outdated DPA version', async () => {
     const result = await executeCreateShop(baseRequest({ acceptDpaVersion: '2025-01-01' }), {} as any);
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       ok: false,
       code: 'INVALID_INPUT',
       error: 'The data processing agreement has changed — reload and accept the current version',
@@ -158,7 +158,7 @@ describe('executeCreateShop reserved slugs', () => {
     (isSlugReservedByAnother as any).mockResolvedValueOnce(true);
     const result = await executeCreateShop(baseRequest(), {} as any);
 
-    expect(result).toEqual({ ok: false, code: 'INVALID_INPUT', error: 'A shop with this name already exists' });
+    expect(result).toMatchObject({ ok: false, code: 'INVALID_INPUT', error: 'A shop with this name already exists', errorCode: 'SHOP_NAME_EXISTS', field: 'name' });
     expect(createShopInRepo).not.toHaveBeenCalled();
   });
 });

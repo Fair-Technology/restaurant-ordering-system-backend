@@ -27,7 +27,7 @@ export async function executeUpdateStaff(
   }
   if (request.role !== undefined) {
     const roleError = validateRole(request.role);
-    if (roleError) return { ok: false, code: 'INVALID_INPUT', error: roleError };
+    if (roleError) return { ok: false, code: 'INVALID_INPUT', error: roleError, errorCode: 'STAFF_ROLE_INVALID', field: 'role' };
   }
 
   try {
@@ -45,10 +45,10 @@ export async function executeUpdateStaff(
     }
 
     if (!canManage(access.actor, acc.role)) {
-      return { ok: false, code: 'FORBIDDEN', error: CANNOT_MANAGE_ERROR };
+      return { ok: false, code: 'FORBIDDEN', error: CANNOT_MANAGE_ERROR, errorCode: 'STAFF_MANAGER_RESTRICTED' };
     }
     if (request.role && !canManage(access.actor, request.role)) {
-      return { ok: false, code: 'FORBIDDEN', error: CANNOT_MANAGE_ERROR };
+      return { ok: false, code: 'FORBIDDEN', error: CANNOT_MANAGE_ERROR, errorCode: 'STAFF_MANAGER_RESTRICTED' };
     }
 
     const isReactivating = request.isActive === true && !acc.isActive;
@@ -57,7 +57,7 @@ export async function executeUpdateStaff(
       const activeCount = existing.filter((a) => a.isActive).length;
       const limit = await getPlanLimitForShop(shop.id, PLAN_LIMIT_KEYS.STAFF_ACCOUNTS);
       if (limit !== null && limit !== -1 && activeCount >= limit) {
-        return { ok: false, code: 'LIMIT_REACHED', error: `Your plan allows ${limit} staff logins.` };
+        return { ok: false, code: 'LIMIT_REACHED', error: `Your plan allows ${limit} staff logins.`, errorCode: 'STAFF_LIMIT_REACHED', max: limit };
       }
     }
 

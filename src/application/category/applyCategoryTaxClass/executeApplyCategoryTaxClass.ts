@@ -40,7 +40,7 @@ export async function executeApplyCategoryTaxClass(
     if (!access.ok) return access;
 
     const taxClassId = category.taxClassId;
-    if (!taxClassId) return { ok: false, code: 'INVALID_INPUT', error: 'This category has no tax class' };
+    if (!taxClassId) return { ok: false, code: 'INVALID_INPUT', error: 'This category has no tax class', errorCode: 'CATEGORY_NO_TAX_CLASS' };
 
     const products = await findProductsByShopId(shopId);
     const toChange = products.filter(

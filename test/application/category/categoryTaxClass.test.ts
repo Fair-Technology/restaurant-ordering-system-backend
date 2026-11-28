@@ -64,9 +64,9 @@ describe('category tax class', () => {
 
   it('a category cannot suggest the Delivery class', async () => {
     const expected = { ok: false, code: 'INVALID_INPUT', error: DELIVERY_TAX_CLASS_FOR_DISHES_ERROR };
-    expect(await executeCreateCategory({ shopId: 'shop-1', name: 'Lieferung', taxClassId: 'delivery' } as any, {} as any)).toEqual(expected);
+    expect(await executeCreateCategory({ shopId: 'shop-1', name: 'Lieferung', taxClassId: 'delivery' } as any, {} as any)).toMatchObject(expected);
     expect(createCategory).not.toHaveBeenCalled();
-    expect(await executeUpdateCategory({ categoryId: 'c1', shopId: 'shop-1', taxClassId: 'delivery' } as any, {} as any)).toEqual(expected);
+    expect(await executeUpdateCategory({ categoryId: 'c1', shopId: 'shop-1', taxClassId: 'delivery' } as any, {} as any)).toMatchObject(expected);
     expect(updateCategory).not.toHaveBeenCalled();
   });
 
@@ -86,7 +86,7 @@ describe('category tax class', () => {
       {} as any,
     );
 
-    expect(result).toEqual({ ok: false, code: 'INVALID_INPUT', error: 'Unknown tax class: wine' });
+    expect(result).toMatchObject({ ok: false, code: 'INVALID_INPUT', error: 'Unknown tax class: wine', errorCode: 'CATEGORY_TAX_CLASS_UNKNOWN', field: 'taxClassId' });
   });
 
   it('changes the class and translation', async () => {

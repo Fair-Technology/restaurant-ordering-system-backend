@@ -54,7 +54,7 @@ describe('promotions', () => {
       [{ kind: 'percent', percent: 10, perEmailLimit: 101 }, DISCOUNT_LIMIT_ERROR],
     ];
     for (const [body, error] of cases) {
-      expect(parseNewDiscountCode({ code: 'ABC', ...body }, { id: 'c1', now: new Date() })).toEqual({ error });
+      expect(parseNewDiscountCode({ code: 'ABC', ...body }, { id: 'c1', now: new Date() })).toMatchObject({ error, errorCode: expect.stringMatching(/^DISCOUNT_/), field: expect.any(String) });
     }
   });
 
@@ -76,7 +76,7 @@ describe('promotions', () => {
       '2026-10-09T10:00:00.000Z',
     );
     for (const body of [{ everyOrders: 1 }, { rewardCents: 50 }, { validDays: 3 }, { enabled: 'yes' }]) {
-      expect(mergeLoyaltyRule(null, body, now)).toEqual({ error: LOYALTY_RULE_ERROR });
+      expect(mergeLoyaltyRule(null, body, now)).toMatchObject({ error: LOYALTY_RULE_ERROR, errorCode: expect.stringMatching(/^LOYALTY_/), field: expect.any(String) });
     }
   });
 

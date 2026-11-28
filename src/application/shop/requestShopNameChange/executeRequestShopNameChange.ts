@@ -42,7 +42,7 @@ export async function executeRequestShopNameChange(
     const userId = access.actor.actorId;
 
     if (shop.pendingNameChange) {
-      return { ok: false, code: 'CONFLICT', error: 'A name change request is already pending' };
+      return { ok: false, code: 'CONFLICT', error: 'A name change request is already pending', errorCode: 'SHOP_NAME_CHANGE_PENDING' };
     }
 
     const requestedSlug = generateSlugFromName(request.requestedName.trim());
@@ -60,12 +60,14 @@ export async function executeRequestShopNameChange(
         ok: false,
         code: 'INVALID_INPUT',
         error: 'The requested name generates the same slug as the current name',
+        errorCode: 'SHOP_NAME_SAME_SLUG',
+        field: 'requestedName',
       };
     }
 
     const reserved = await isSlugReservedByAnother(requestedSlug, shop.id);
     if (reserved) {
-      return { ok: false, code: 'CONFLICT', error: 'A shop with this name already exists' };
+      return { ok: false, code: 'CONFLICT', error: 'A shop with this name already exists', errorCode: 'SHOP_NAME_EXISTS', field: 'name' };
     }
 
     const pendingNameChange = {

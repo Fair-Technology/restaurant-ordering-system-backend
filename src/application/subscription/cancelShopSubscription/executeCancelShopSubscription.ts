@@ -34,7 +34,7 @@ export async function executeCancelShopSubscription(
 
     const subscription = await findSubscriptionByShopId(shopId);
     if (!subscription?.billingSubscriptionId) {
-      return { ok: false, code: 'INVALID_INPUT', error: 'No active paid subscription found' };
+      return { ok: false, code: 'INVALID_INPUT', error: 'No active paid subscription found', errorCode: 'SUBSCRIPTION_NO_ACTIVE_PAID' };
     }
     if (subscription.status !== 'active') {
       return { ok: false, code: 'INVALID_INPUT', error: 'Subscription is not active' };
@@ -44,7 +44,7 @@ export async function executeCancelShopSubscription(
     const defaultPlan = await findDefaultPlan();
     const blockedAt = defaultPlan ? await staffCapIfBlocked(shopId, defaultPlan, subscription, new Date()) : null;
     if (blockedAt !== null) {
-      return { ok: false, code: 'CONFLICT', error: downgradeBlockedStaffError(blockedAt) };
+      return { ok: false, code: 'CONFLICT', error: downgradeBlockedStaffError(blockedAt), errorCode: 'DOWNGRADE_BLOCKED_STAFF', max: blockedAt };
     }
 
     const stripeSecretKey = process.env.STRIPE_SECRET_KEY;

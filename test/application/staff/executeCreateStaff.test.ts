@@ -80,7 +80,7 @@ describe('executeCreateStaff', () => {
       {} as any,
     );
 
-    expect(result).toEqual({ ok: false, code: 'LIMIT_REACHED', error: 'Your plan allows 5 staff logins.' });
+    expect(result).toMatchObject({ ok: false, code: 'LIMIT_REACHED', error: 'Your plan allows 5 staff logins.', errorCode: 'STAFF_LIMIT_REACHED', max: 5 });
   });
 
   it('unlimited plan', async () => {
@@ -106,7 +106,7 @@ describe('executeCreateStaff', () => {
       {} as any,
     );
 
-    expect(result).toEqual({ ok: false, code: 'FORBIDDEN', error: 'Managers can only manage staff logins' });
+    expect(result).toMatchObject({ ok: false, code: 'FORBIDDEN', error: 'Managers can only manage staff logins', errorCode: 'STAFF_MANAGER_RESTRICTED' });
   });
 
   it('short username', async () => {
@@ -123,7 +123,7 @@ describe('executeCreateStaff', () => {
       { shopId: 'shop-1', username: 'kitchen', password: 'short', role: 'staff' },
       {} as any,
     );
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       ok: false,
       code: 'INVALID_INPUT',
       error: 'password must be between 8 and 128 characters',
@@ -141,7 +141,7 @@ describe('executeCreateStaff', () => {
       {} as any,
     );
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       ok: false,
       code: 'CONFLICT',
       error: 'That username is already taken in this restaurant',

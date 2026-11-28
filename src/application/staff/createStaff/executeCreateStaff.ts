@@ -27,13 +27,13 @@ export async function executeCreateStaff(
   const usernameError = validateUsername(
     typeof request.username === 'string' ? request.username.trim().toLowerCase() : request.username,
   );
-  if (usernameError) return { ok: false, code: 'INVALID_INPUT', error: usernameError };
+  if (usernameError) return { ok: false, code: 'INVALID_INPUT', error: usernameError, errorCode: 'STAFF_USERNAME_INVALID', field: 'username' };
 
   const passwordError = validatePassword(request.password);
-  if (passwordError) return { ok: false, code: 'INVALID_INPUT', error: passwordError };
+  if (passwordError) return { ok: false, code: 'INVALID_INPUT', error: passwordError, errorCode: 'STAFF_PASSWORD_INVALID', field: 'password' };
 
   const roleError = validateRole(request.role);
-  if (roleError) return { ok: false, code: 'INVALID_INPUT', error: roleError };
+  if (roleError) return { ok: false, code: 'INVALID_INPUT', error: roleError, errorCode: 'STAFF_ROLE_INVALID', field: 'role' };
 
   try {
     const shop = await findShopById(request.shopId.trim());
@@ -45,14 +45,14 @@ export async function executeCreateStaff(
     if (!access.ok) return access;
 
     if (!canManage(access.actor, request.role)) {
-      return { ok: false, code: 'FORBIDDEN', error: CANNOT_MANAGE_ERROR };
+      return { ok: false, code: 'FORBIDDEN', error: CANNOT_MANAGE_ERROR, errorCode: 'STAFF_MANAGER_RESTRICTED' };
     }
 
     const existing = await listStaffAccounts(shop.id);
     const activeCount = existing.filter((a) => a.isActive).length;
     const limit = await getPlanLimitForShop(shop.id, PLAN_LIMIT_KEYS.STAFF_ACCOUNTS);
     if (limit !== null && limit !== -1 && activeCount >= limit) {
-      return { ok: false, code: 'LIMIT_REACHED', error: `Your plan allows ${limit} staff logins.` };
+      return { ok: false, code: 'LIMIT_REACHED', error: `Your plan allows ${limit} staff logins.`, errorCode: 'STAFF_LIMIT_REACHED', max: limit };
     }
 
     const now = new Date();
@@ -80,7 +80,7 @@ export async function executeCreateStaff(
       created = await createStaffAccount(account);
     } catch (err: any) {
       if (err?.code === 409) {
-        return { ok: false, code: 'CONFLICT', error: 'That username is already taken in this restaurant' };
+        return { ok: false, code: 'CONFLICT', error: 'That username is already taken in this restaurant', errorCode: 'STAFF_USERNAME_TAKEN', field: 'username' };
       }
       throw err;
     }

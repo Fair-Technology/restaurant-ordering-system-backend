@@ -96,7 +96,7 @@ describe('photo is optional; turning on requires one', () => {
     });
     it('with isAvailable:true is refused 409 PRODUCT_IMAGE_REQUIRED_TO_ENABLE and stores nothing', async () => {
       const r = await executeCreateProduct({ ...dishBase, isAvailable: true } as any, http);
-      expect(r).toEqual({ ok: false, code: PRODUCT_IMAGE_REQUIRED_TO_ENABLE, error: DISH_ENABLE_NEEDS_PHOTO_ERROR });
+      expect(r).toMatchObject({ ok: false, code: PRODUCT_IMAGE_REQUIRED_TO_ENABLE, error: DISH_ENABLE_NEEDS_PHOTO_ERROR, errorCode: 'PRODUCT_IMAGE_REQUIRED_TO_ENABLE' });
       expect(DISH_ENABLE_NEEDS_PHOTO_ERROR).toContain("can't be turned on without a photo");
       expect([...store.values()].some((p) => p.name === 'Margherita')).toBe(false);
     });
@@ -106,7 +106,7 @@ describe('photo is optional; turning on requires one', () => {
     it('removing the last photo while the dish stays on is refused 409 PRODUCT_IMAGE_REQUIRED', async () => {
       seed(dish());
       const r = await executeUpdateProduct({ shopId: 'shop-1', productId: 'd1', images: [] } as any, http);
-      expect(r).toEqual({ ok: false, code: PRODUCT_IMAGE_REQUIRED, error: DISH_LEAVES_ON_WITHOUT_PHOTO_ERROR });
+      expect(r).toMatchObject({ ok: false, code: PRODUCT_IMAGE_REQUIRED, error: DISH_LEAVES_ON_WITHOUT_PHOTO_ERROR, errorCode: 'PRODUCT_IMAGE_REQUIRED' });
       expect(DISH_LEAVES_ON_WITHOUT_PHOTO_ERROR).toContain('would leave an available dish with no photo');
       expect(store.get('d1').images).toHaveLength(1);
     });
@@ -149,7 +149,7 @@ describe('photo is optional; turning on requires one', () => {
       executeUpdateProductAvailability({ shopId: 'shop-1', productId: id, isAvailable }, http);
     it('turning on a photo-less dish is refused 409 PRODUCT_IMAGE_REQUIRED_TO_ENABLE', async () => {
       seed(dish({ images: [], isAvailable: false }));
-      expect(await toggle(true)).toEqual({ ok: false, code: PRODUCT_IMAGE_REQUIRED_TO_ENABLE, error: DISH_ENABLE_NEEDS_PHOTO_ERROR });
+      expect(await toggle(true)).toMatchObject({ ok: false, code: PRODUCT_IMAGE_REQUIRED_TO_ENABLE, error: DISH_ENABLE_NEEDS_PHOTO_ERROR, errorCode: 'PRODUCT_IMAGE_REQUIRED_TO_ENABLE' });
       expect(store.get('d1').isAvailable).toBe(false);
     });
     it('turning on a dish with a photo succeeds', async () => {
@@ -164,7 +164,7 @@ describe('photo is optional; turning on requires one', () => {
     });
     it('turning on a photo-less combo is refused 409 COMBO_IMAGE_REQUIRED_TO_ENABLE', async () => {
       seed(combo({ images: [], isAvailable: false }));
-      expect(await toggle(true, 'c9')).toEqual({ ok: false, code: COMBO_IMAGE_REQUIRED_TO_ENABLE, error: COMBO_ENABLE_NEEDS_PHOTO_ERROR });
+      expect(await toggle(true, 'c9')).toMatchObject({ ok: false, code: COMBO_IMAGE_REQUIRED_TO_ENABLE, error: COMBO_ENABLE_NEEDS_PHOTO_ERROR, errorCode: 'COMBO_IMAGE_REQUIRED_TO_ENABLE' });
     });
   });
 
@@ -179,7 +179,7 @@ describe('photo is optional; turning on requires one', () => {
     });
     it('with isAvailable:true is refused 409 COMBO_IMAGE_REQUIRED_TO_ENABLE', async () => {
       const r = await executeCreateCombo({ shopId: 'shop-1', body: { ...comboBody, isAvailable: true } }, http);
-      expect(r).toEqual({ ok: false, code: COMBO_IMAGE_REQUIRED_TO_ENABLE, error: COMBO_ENABLE_NEEDS_PHOTO_ERROR });
+      expect(r).toMatchObject({ ok: false, code: COMBO_IMAGE_REQUIRED_TO_ENABLE, error: COMBO_ENABLE_NEEDS_PHOTO_ERROR, errorCode: 'COMBO_IMAGE_REQUIRED_TO_ENABLE' });
       expect(COMBO_ENABLE_NEEDS_PHOTO_ERROR).toContain("can't be turned on without a photo");
       expect([...store.values()].some((p) => p.name === 'Pasta-Menü')).toBe(false);
     });
@@ -189,7 +189,7 @@ describe('photo is optional; turning on requires one', () => {
     const put = (extra: object, id = 'c9') => executeUpdateCombo({ shopId: 'shop-1', comboId: id, body: { ...comboBody, ...extra } }, http);
     it('turning on a photo-less combo is refused COMBO_IMAGE_REQUIRED_TO_ENABLE', async () => {
       seed(combo({ images: [], isAvailable: false }));
-      expect(await put({ isAvailable: true })).toEqual({ ok: false, code: COMBO_IMAGE_REQUIRED_TO_ENABLE, error: COMBO_ENABLE_NEEDS_PHOTO_ERROR });
+      expect(await put({ isAvailable: true })).toMatchObject({ ok: false, code: COMBO_IMAGE_REQUIRED_TO_ENABLE, error: COMBO_ENABLE_NEEDS_PHOTO_ERROR, errorCode: 'COMBO_IMAGE_REQUIRED_TO_ENABLE' });
     });
     it('leaving isAvailable out keeps a photo-less combo off and saves', async () => {
       seed(combo({ images: [], isAvailable: false }));
@@ -198,7 +198,7 @@ describe('photo is optional; turning on requires one', () => {
     });
     it('an already-on photo-less combo cannot be saved while on, but can be saved with isAvailable:false', async () => {
       seed(combo({ images: [], isAvailable: true }));
-      expect(await put({})).toEqual({ ok: false, code: COMBO_IMAGE_REQUIRED_TO_ENABLE, error: COMBO_LEAVES_ON_WITHOUT_PHOTO_ERROR });
+      expect(await put({})).toMatchObject({ ok: false, code: COMBO_IMAGE_REQUIRED_TO_ENABLE, error: COMBO_LEAVES_ON_WITHOUT_PHOTO_ERROR, errorCode: 'COMBO_IMAGE_REQUIRED_TO_ENABLE' });
       expect((await put({ isAvailable: false })).ok).toBe(true);
     });
     it('a combo with a photo can be turned on and saved', async () => {
@@ -212,7 +212,7 @@ describe('photo is optional; turning on requires one', () => {
     it('removing the last photo while on is refused with the combo code', async () => {
       seed(combo());
       const r = await executeUpdateProduct({ shopId: 'shop-1', productId: 'c9', images: [] } as any, http);
-      expect(r).toEqual({ ok: false, code: COMBO_IMAGE_REQUIRED_TO_ENABLE, error: COMBO_LEAVES_ON_WITHOUT_PHOTO_ERROR });
+      expect(r).toMatchObject({ ok: false, code: COMBO_IMAGE_REQUIRED_TO_ENABLE, error: COMBO_LEAVES_ON_WITHOUT_PHOTO_ERROR, errorCode: 'COMBO_IMAGE_REQUIRED_TO_ENABLE' });
     });
     it('removing it with isAvailable:false succeeds', async () => {
       seed(combo());

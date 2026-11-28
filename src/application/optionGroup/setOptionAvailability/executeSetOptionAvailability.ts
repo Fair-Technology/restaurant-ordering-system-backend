@@ -26,7 +26,7 @@ export async function executeSetOptionAvailability(
     requireId(request?.optionId, 'optionId');
   if (invalid) return invalid;
   if (typeof request.isAvailable !== 'boolean') {
-    return { ok: false, code: 'INVALID_INPUT', error: SHOP_OPTION_GROUP_OPTION_AVAILABILITY_ERROR };
+    return { ok: false, code: 'INVALID_INPUT', error: SHOP_OPTION_GROUP_OPTION_AVAILABILITY_ERROR, errorCode: 'OPTION_AVAILABILITY_INVALID', field: 'isAvailable' };
   }
   const shopId = request.shopId.trim();
   const optionId = request.optionId.trim();

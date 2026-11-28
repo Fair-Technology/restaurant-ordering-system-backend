@@ -102,13 +102,13 @@ describe('executeUpdateOrderSettings', () => {
       { shopId: 'shop-1', body: { autoRejectMinutes: 10, alertEmail: null, autoAccept: 'no' as any } },
       http,
     );
-    expect(res).toEqual({ ok: false, code: 'INVALID_INPUT', error: 'autoAccept must be true or false' });
+    expect(res).toMatchObject({ ok: false, code: 'INVALID_INPUT', error: 'autoAccept must be true or false', errorCode: 'AUTO_ACCEPT_INVALID', field: 'autoAccept' });
     expect(updateShop).not.toHaveBeenCalled();
   });
 
   it('refuses 4 minutes', async () => {
     const res = await executeUpdateOrderSettings({ shopId: 'shop-1', body: { autoRejectMinutes: 4, alertEmail: null } }, http);
-    expect(res).toEqual({
+    expect(res).toMatchObject({
       ok: false,
       code: 'INVALID_INPUT',
       error: 'autoRejectMinutes must be a whole number between 5 and 30',
@@ -117,7 +117,7 @@ describe('executeUpdateOrderSettings', () => {
 
   it('refuses a bad email', async () => {
     const res = await executeUpdateOrderSettings({ shopId: 'shop-1', body: { autoRejectMinutes: 10, alertEmail: 'boss@' } }, http);
-    expect(res).toEqual({ ok: false, code: 'INVALID_INPUT', error: 'alertEmail must be a valid email address or null' });
+    expect(res).toMatchObject({ ok: false, code: 'INVALID_INPUT', error: 'alertEmail must be a valid email address or null', errorCode: 'ALERT_EMAIL_INVALID', field: 'alertEmail' });
   });
 
   it('switches dine-in on', async () => {
@@ -144,7 +144,7 @@ describe('executeUpdateOrderSettings', () => {
       { shopId: 'shop-1', body: { autoRejectMinutes: 10, alertEmail: null, dineIn: 'yes' as any } },
       http,
     );
-    expect(res).toEqual({ ok: false, code: 'INVALID_INPUT', error: 'dineIn must be true or false' });
+    expect(res).toMatchObject({ ok: false, code: 'INVALID_INPUT', error: 'dineIn must be true or false', errorCode: 'DINE_IN_INVALID', field: 'dineIn' });
     expect(updateShop).not.toHaveBeenCalled();
   });
 
@@ -197,7 +197,7 @@ describe('executeUpdateOrderSettings', () => {
   it('refuses malformed automatic hours', async () => {
     for (const hours of [{ mon: [{ open: '9am', close: '18:00' }] }, { mon: [{ open: '09:00', close: '09:00' }] }]) {
       const res = await executeUpdateOrderSettings({ shopId: 'shop-1', body: { autoAcceptHours: hours as any } }, http);
-      expect(res).toEqual({ ok: false, code: 'INVALID_INPUT', error: AUTO_ACCEPT_HOURS_ERROR });
+      expect(res).toMatchObject({ ok: false, code: 'INVALID_INPUT', error: AUTO_ACCEPT_HOURS_ERROR, errorCode: 'AUTO_ACCEPT_HOURS_INVALID', field: 'autoAcceptHours' });
     }
     expect(updateShop).not.toHaveBeenCalled();
   });
@@ -219,7 +219,7 @@ describe('executeUpdateOrderSettings', () => {
       [{ busyExtraMinutes: 0 }, BUSY_MINUTES_ERROR],
     ];
     for (const [body, error] of cases) {
-      expect(await executeUpdateOrderSettings({ shopId: 'shop-1', body }, http)).toEqual({
+      expect(await executeUpdateOrderSettings({ shopId: 'shop-1', body }, http)).toMatchObject({
         ok: false,
         code: 'INVALID_INPUT',
         error,
@@ -242,7 +242,7 @@ describe('executeUpdateOrderSettings', () => {
 
   it('refuses a prep time list that is not an object, and an out-of-range dine-in time, saving nothing', async () => {
     for (const body of [{ prepMinutes: [20] }, { prepMinutes: null }, { prepMinutes: { collection: 20, dine_in: 121 } }, { prepMinutes: { collection: 20.5 } }]) {
-      expect(await executeUpdateOrderSettings({ shopId: 'shop-1', body: body as any }, http)).toEqual({
+      expect(await executeUpdateOrderSettings({ shopId: 'shop-1', body: body as any }, http)).toMatchObject({
         ok: false,
         code: 'INVALID_INPUT',
         error: PREP_SETTING_ERROR,
@@ -253,7 +253,7 @@ describe('executeUpdateOrderSettings', () => {
 
   it('a later invalid field stops the save even when an earlier one is fine', async () => {
     const res = await executeUpdateOrderSettings({ shopId: 'shop-1', body: { dineIn: true, busyExtraMinutes: 121 } }, http);
-    expect(res).toEqual({ ok: false, code: 'INVALID_INPUT', error: BUSY_MINUTES_ERROR });
+    expect(res).toMatchObject({ ok: false, code: 'INVALID_INPUT', error: BUSY_MINUTES_ERROR, errorCode: 'BUSY_MINUTES_INVALID', field: 'busyExtraMinutes' });
     expect(updateShop).not.toHaveBeenCalled();
   });
 
@@ -299,7 +299,7 @@ describe('executeUpdateOrderSettings', () => {
       [{ deliveryHours: { mon: [{ open: '9:00', close: '18:00' }] } }, DELIVERY_HOURS_ERROR],
     ];
     for (const [body, error] of cases) {
-      expect(await executeUpdateOrderSettings({ shopId: 'shop-1', body }, http)).toEqual({ ok: false, code: 'INVALID_INPUT', error });
+      expect(await executeUpdateOrderSettings({ shopId: 'shop-1', body }, http)).toMatchObject({ ok: false, code: 'INVALID_INPUT', error });
     }
     expect(updateShop).not.toHaveBeenCalled();
   });
@@ -326,7 +326,7 @@ describe('executeUpdateOrderSettings', () => {
 
   it('refuses a non-boolean orders-for-later switch', async () => {
     const res = await executeUpdateOrderSettings({ shopId: 'shop-1', body: { scheduledOrders: 'yes' } as any }, http);
-    expect(res).toEqual({ ok: false, code: 'INVALID_INPUT', error: SCHEDULED_ORDERS_ERROR });
+    expect(res).toMatchObject({ ok: false, code: 'INVALID_INPUT', error: SCHEDULED_ORDERS_ERROR, errorCode: 'SCHEDULED_ORDERS_INVALID', field: 'scheduledOrders' });
     expect(updateShop).not.toHaveBeenCalled();
   });
 
@@ -353,7 +353,7 @@ describe('executeUpdateOrderSettings', () => {
   it('refuses a limit out of range', async () => {
     for (const bad of [0, 51, 2.5, '4']) {
       const res = await executeUpdateOrderSettings({ shopId: 'shop-1', body: { slotCapacity: bad } as any }, http);
-      expect(res).toEqual({ ok: false, code: 'INVALID_INPUT', error: SLOT_CAPACITY_ERROR });
+      expect(res).toMatchObject({ ok: false, code: 'INVALID_INPUT', error: SLOT_CAPACITY_ERROR, errorCode: 'SLOT_CAPACITY_INVALID', field: 'slotCapacity' });
     }
     expect(updateShop).not.toHaveBeenCalled();
   });

@@ -50,6 +50,18 @@ export const COMBO_GROUPS_ERROR =
 export const COMBO_DISH_ERROR = "Every dish in a combo must be one of the restaurant's dishes, and not a combo";
 export const COMBO_BMF_ERROR = 'bmfDrinkShare must be true or false, and true only for restaurants in Germany';
 export const COMBO_AVAILABLE_ERROR = 'isAvailable must be true or false';
+/** Stable errorCode (+ field) per validation message of parseComboInput; see codedFields. */
+export const COMBO_ERROR_CODES: Record<string, { errorCode: string; field?: string }> = {
+  [COMBO_NAME_ERROR]: { errorCode: 'COMBO_NAME_INVALID', field: 'name' },
+  [COMBO_DESCRIPTION_ERROR]: { errorCode: 'COMBO_DESCRIPTION_INVALID', field: 'description' },
+  [COMBO_PRICE_ERROR]: { errorCode: 'COMBO_PRICE_INVALID', field: 'priceCents' },
+  [COMBO_CATEGORY_ERROR]: { errorCode: 'COMBO_CATEGORY_INVALID', field: 'categoryId' },
+  [COMBO_GROUPS_ERROR]: { errorCode: 'COMBO_GROUPS_INVALID', field: 'groups' },
+  [COMBO_DISH_ERROR]: { errorCode: 'COMBO_DISH_INVALID', field: 'groups' },
+  [COMBO_BMF_ERROR]: { errorCode: 'COMBO_BMF_INVALID', field: 'bmfDrinkShare' },
+  [COMBO_AVAILABLE_ERROR]: { errorCode: 'COMBO_AVAILABLE_INVALID', field: 'isAvailable' },
+};
+export const COMBO_FALLBACK_ERROR_CODE = { errorCode: 'COMBO_TRANSLATIONS_INVALID' };
 export const COMBO_NOT_FOUND_ERROR = 'Combo not found';
 /**
  * A combo may be saved without a photo, but only while it is off (SPECS §8). Every refusal of "on with no

@@ -98,13 +98,13 @@ const createBody = (over: Record<string, unknown> = {}) => ({
 describe('createOptionGroup', () => {
   it('rejects a bad kind', async () => {
     const r = await executeCreateOptionGroup(createBody({ kind: 'combo' }) as any, httpRequest);
-    expect(r).toEqual({ ok: false, code: 'INVALID_INPUT', error: SHOP_OPTION_GROUP_KIND_ERROR });
+    expect(r).toMatchObject({ ok: false, code: 'INVALID_INPUT', error: SHOP_OPTION_GROUP_KIND_ERROR, errorCode: 'OPTION_GROUP_KIND_INVALID' });
     expect(createShopOptionGroup).not.toHaveBeenCalled();
   });
 
   it('rejects empty options', async () => {
     const r = await executeCreateOptionGroup(createBody({ options: [] }) as any, httpRequest);
-    expect(r).toEqual({ ok: false, code: 'INVALID_INPUT', error: SHOP_OPTION_GROUP_OPTIONS_ERROR });
+    expect(r).toMatchObject({ ok: false, code: 'INVALID_INPUT', error: SHOP_OPTION_GROUP_OPTIONS_ERROR, errorCode: 'OPTION_GROUP_OPTIONS_INVALID' });
     expect(createShopOptionGroup).not.toHaveBeenCalled();
   });
 
@@ -113,7 +113,7 @@ describe('createOptionGroup', () => {
       createBody({ options: [{ name: 'Coke', priceDelta: 0, allergenIds: ['peanut'] }] }) as any,
       httpRequest,
     );
-    expect(r).toEqual({ ok: false, code: 'INVALID_INPUT', error: 'Unknown allergen: peanut' });
+    expect(r).toMatchObject({ ok: false, code: 'INVALID_INPUT', error: 'Unknown allergen: peanut', errorCode: 'OPTION_GROUP_INVALID' });
     expect(createShopOptionGroup).not.toHaveBeenCalled();
   });
 
@@ -140,7 +140,7 @@ describe('createOptionGroup', () => {
     expect(ok.ok && ok.data).toMatchObject({ kind: 'addon', minSelectable: 0, maxSelectable: 2 });
 
     const bad = await executeCreateOptionGroup(createBody({ kind: 'addon', minSelectable: 2, maxSelectable: 1 }) as any, httpRequest);
-    expect(bad).toEqual({ ok: false, code: 'INVALID_INPUT', error: SHOP_OPTION_GROUP_SELECTION_ERROR });
+    expect(bad).toMatchObject({ ok: false, code: 'INVALID_INPUT', error: SHOP_OPTION_GROUP_SELECTION_ERROR, errorCode: 'OPTION_GROUP_SELECTION_INVALID' });
   });
 
   it('keeps a client-sent option id', async () => {
@@ -237,7 +237,7 @@ describe('updateOptionGroup', () => {
       { shopId: 'shop-1', groupId: 'g-1', name: 'Drinks', options: [{ name: 'Coke', priceDelta: 1.5 }] } as any,
       httpRequest,
     );
-    expect(r).toEqual({ ok: false, code: 'INVALID_INPUT', error: SHOP_OPTION_GROUP_OPTIONS_ERROR });
+    expect(r).toMatchObject({ ok: false, code: 'INVALID_INPUT', error: SHOP_OPTION_GROUP_OPTIONS_ERROR, errorCode: 'OPTION_GROUP_OPTIONS_INVALID' });
     expect(updateShopOptionGroup).not.toHaveBeenCalled();
   });
 

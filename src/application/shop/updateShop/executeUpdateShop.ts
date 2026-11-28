@@ -25,39 +25,51 @@ import { hasInvoiceTaxId } from '../../../domain/legal/legalTexts';
 import { getPlatformLegalIdentity } from '../../../infrastructure/cosmos/system/CosmosPlatformLegalIdentityRepository';
 import { logServiceFailure } from '../../_shared/logServiceFailure';
 
-async function validateGoLiveCriteria(shop: Shop): Promise<string | null> {
+const LEGAL_GO_LIVE_CODES: Record<keyof typeof LEGAL_GO_LIVE_ERRORS, string> = {
+  dpa_accepted: 'GO_LIVE_DPA_REQUIRED',
+  impressum: 'GO_LIVE_IMPRESSUM_REQUIRED',
+  terms: 'GO_LIVE_TERMS_REQUIRED',
+  withdrawal: 'GO_LIVE_WITHDRAWAL_REQUIRED',
+  privacy_notice: 'GO_LIVE_PRIVACY_NOTICE_UNAVAILABLE',
+};
+
+async function validateGoLiveCriteria(shop: Shop): Promise<{ error: string; errorCode: string } | null> {
+  const fail = (error: string, errorCode: string) => ({ error, errorCode });
   if (!stripeReady(shop)) {
-    return GO_LIVE_STRIPE_ERROR;
+    return fail(GO_LIVE_STRIPE_ERROR, 'GO_LIVE_STRIPE_REQUIRED');
   }
   if (!shop.name?.trim()) {
-    return 'Shop name is required';
+    return fail('Shop name is required', 'GO_LIVE_NAME_REQUIRED');
   }
   if (!isShopAddressComplete(shop.address, shop.countryCode)) {
-    return countryRequiresState(shop.countryCode)
-      ? 'Full shop address is required (street, city, state, postcode, country)'
-      : 'Full shop address is required (street, city, postcode, country)';
+    return fail(
+      countryRequiresState(shop.countryCode)
+        ? 'Full shop address is required (street, city, state, postcode, country)'
+        : 'Full shop address is required (street, city, postcode, country)',
+      'GO_LIVE_ADDRESS_REQUIRED',
+    );
   }
   const hasOpeningHours = Object.values(shop.openingHours ?? {}).some(
     (slots) => Array.isArray(slots) && slots.length > 0,
   );
   if (!hasOpeningHours || shop.openingHoursConfirmed === false) {
-    return 'Opening hours must be configured for at least one day';
+    return fail('Opening hours must be configured for at least one day', 'GO_LIVE_OPENING_HOURS_REQUIRED');
   }
   const [products, categories] = await Promise.all([
     findProductsByShopId(shop.id),
     findCategoriesByShopId(shop.id),
   ]);
   if (!products.some((p) => isOnMenu(p))) {
-    return 'At least one dish with declared allergens and additives is required';
+    return fail('At least one dish with declared allergens and additives is required', 'GO_LIVE_DISH_REQUIRED');
   }
   if (!categories.some((c) => !c.isDeleted)) {
-    return 'At least one category is required';
+    return fail('At least one category is required', 'GO_LIVE_CATEGORY_REQUIRED');
   }
   const identity = await getPlatformLegalIdentity();
   const unmetLegal = legalCriteria(shop, identity).find((c) => !c.met);
-  if (unmetLegal) return LEGAL_GO_LIVE_ERRORS[unmetLegal.key];
+  if (unmetLegal) return fail(LEGAL_GO_LIVE_ERRORS[unmetLegal.key], LEGAL_GO_LIVE_CODES[unmetLegal.key]);
   // Every order gets an invoice, and an invoice needs the seller's VAT ID or tax number.
-  if (!hasInvoiceTaxId(shop)) return GO_LIVE_TAX_ID_ERROR;
+  if (!hasInvoiceTaxId(shop)) return fail(GO_LIVE_TAX_ID_ERROR, 'GO_LIVE_TAX_ID_REQUIRED');
   return null;
 }
 
@@ -241,6 +253,8 @@ export async function executeUpdateShop(
           ok: false,
           code: 'SHOP_ADDRESS_LOCKED',
           error: 'The shop address is locked after first entry. Contact platform support to change it.',
+          errorCode: 'SHOP_ADDRESS_LOCKED',
+          field: 'address',
         };
       }
       if (changed && isSuperadmin && !isShopAddressComplete(merged, shop.countryCode)) {
@@ -248,6 +262,8 @@ export async function executeUpdateShop(
           ok: false,
           code: 'INVALID_INPUT',
           error: 'A superadmin address change must leave the address complete.',
+          errorCode: 'SHOP_ADDRESS_INCOMPLETE',
+          field: 'address',
         };
       }
       nextAddress = merged;
@@ -268,6 +284,7 @@ export async function executeUpdateShop(
         ok: false,
         code: 'SHOP_OFFLINE_BY_SUPERADMIN',
         error: 'The platform has taken this shop offline. Please contact support.',
+        errorCode: 'SHOP_OFFLINE_BY_SUPERADMIN',
       };
     }
 
@@ -278,7 +295,7 @@ export async function executeUpdateShop(
     if (request.isPaused === false && shop.isPaused !== false) {
       const criteriaError = await validateGoLiveCriteria(shop);
       if (criteriaError) {
-        return { ok: false, code: 'INVALID_INPUT', error: criteriaError };
+        return { ok: false, code: 'INVALID_INPUT', error: criteriaError.error, errorCode: criteriaError.errorCode };
       }
     }
 

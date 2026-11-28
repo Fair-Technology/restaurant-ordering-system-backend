@@ -47,16 +47,16 @@ export async function executeCreateSubscriptionCheckout(
       return { ok: false, code: 'NOT_FOUND', error: 'Plan not found' };
     }
     if (target.isDefault) {
-      return { ok: false, code: 'INVALID_INPUT', error: 'Use cancel to move to the free plan' };
+      return { ok: false, code: 'INVALID_INPUT', error: 'Use cancel to move to the free plan', errorCode: 'SUBSCRIPTION_USE_CANCEL_FOR_FREE' };
     }
 
     const pricing = await findPricingByPlanAndCurrency(planId, shop.currency ?? '');
     if (!pricing) {
-      return { ok: false, code: 'INVALID_INPUT', error: 'No pricing configured for your currency' };
+      return { ok: false, code: 'INVALID_INPUT', error: 'No pricing configured for your currency', errorCode: 'PLAN_PRICING_MISSING' };
     }
     const stripePriceId = billingInterval === 'monthly' ? pricing.billingPriceIdMonthly : pricing.billingPriceIdYearly;
     if (!stripePriceId) {
-      return { ok: false, code: 'INVALID_INPUT', error: 'Billing not configured for this interval' };
+      return { ok: false, code: 'INVALID_INPUT', error: 'Billing not configured for this interval', errorCode: 'PLAN_INTERVAL_NOT_BILLABLE' };
     }
 
     const stripe = stripeFromEnv();
@@ -90,7 +90,7 @@ export async function executeCreateSubscriptionCheckout(
       return { ok: false, code: 'INTERNAL_ERROR', error: 'Could not read the current plan' };
     }
     if (target.id === current.id && sub.billingInterval === billingInterval) {
-      return { ok: false, code: 'INVALID_INPUT', error: 'Already on this plan' };
+      return { ok: false, code: 'INVALID_INPUT', error: 'Already on this plan', errorCode: 'SUBSCRIPTION_ALREADY_ON_PLAN' };
     }
 
     const stripeSubscription = await stripe.subscriptions.retrieve(sub.billingSubscriptionId);
@@ -109,7 +109,7 @@ export async function executeCreateSubscriptionCheckout(
           payment_behavior: 'error_if_incomplete',
         });
       } catch (err) {
-        if (isStripeCardError(err)) return { ok: false, code: 'CONFLICT', error: UPGRADE_DECLINED_ERROR };
+        if (isStripeCardError(err)) return { ok: false, code: 'CONFLICT', error: UPGRADE_DECLINED_ERROR, errorCode: 'UPGRADE_DECLINED' };
         throw err;
       }
       // The upgrade may start a new billing period (e.g. monthly to yearly); keep the stored dates in step with Stripe.
@@ -139,7 +139,7 @@ export async function executeCreateSubscriptionCheckout(
     // A lower plan: the price changes now (no proration), the plan changes when the paid period ends.
     const blockedAt = await staffCapIfBlocked(shopId, target, sub, now);
     if (blockedAt !== null) {
-      return { ok: false, code: 'CONFLICT', error: downgradeBlockedStaffError(blockedAt) };
+      return { ok: false, code: 'CONFLICT', error: downgradeBlockedStaffError(blockedAt), errorCode: 'DOWNGRADE_BLOCKED_STAFF', max: blockedAt };
     }
     // Never schedule a downgrade for "now" mislabelled as period end: if the end is unknown, fail before changing anything.
     const periodEnd = subscriptionPeriod(stripeSubscription).end ?? sub.currentPeriodEnd;

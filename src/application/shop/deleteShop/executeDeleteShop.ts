@@ -56,11 +56,11 @@ export async function executeDeleteShop(
     const access = await authorizeShopAction(httpRequest, shop, null, { allowSuperadmin: true });
     if (!access.ok) return access;
     if (access.actor.actorType === 'staff') {
-      return { ok: false, code: 'FORBIDDEN', error: DELETE_OWNER_ONLY_ERROR };
+      return { ok: false, code: 'FORBIDDEN', error: DELETE_OWNER_ONLY_ERROR, errorCode: 'SHOP_DELETE_OWNER_ONLY' };
     }
 
     if ((await countOpenOrdersByShopId(shop.id)) > 0) {
-      return { ok: false, code: 'OPEN_ORDERS', error: OPEN_ORDERS_ERROR };
+      return { ok: false, code: 'OPEN_ORDERS', error: OPEN_ORDERS_ERROR, errorCode: 'SHOP_HAS_OPEN_ORDERS' };
     }
 
     // Stop billing right now (not at period end). If Stripe fails, nothing is deleted.

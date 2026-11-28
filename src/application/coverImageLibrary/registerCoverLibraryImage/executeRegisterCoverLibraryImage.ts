@@ -41,7 +41,7 @@ export async function executeRegisterCoverLibraryImage(
 
     const images = await getCoverImageLibrary();
     if (images.length >= MAX_COVER_LIBRARY_IMAGES) {
-      return { ok: false, code: 'LIMIT_REACHED', error: COVER_IMAGE_LIBRARY_FULL_ERROR };
+      return { ok: false, code: 'LIMIT_REACHED', error: COVER_IMAGE_LIBRARY_FULL_ERROR, errorCode: 'COVER_LIBRARY_FULL' };
     }
 
     // The URL must be exactly one of the blob URLs the upload-URL step could have issued for this imageId.

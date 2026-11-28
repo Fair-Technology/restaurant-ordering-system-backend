@@ -75,7 +75,7 @@ describe('addProductImage exact pixel size', () => {
   it('rejects a source below the minimum, deletes the blob, leaves the dish unchanged', async () => {
     vi.mocked(normalizeImage).mockResolvedValue({ status: 'too_small' });
     const r = await executeAddProductImage(req, httpRequest);
-    expect(r).toEqual({ ok: false, code: 'PRODUCT_IMAGE_WRONG_SIZE', error: 'Dish photo source must be at least 800 x 600 px' });
+    expect(r).toMatchObject({ ok: false, code: 'PRODUCT_IMAGE_WRONG_SIZE', error: 'Dish photo source must be at least 800 x 600 px', errorCode: 'PRODUCT_IMAGE_WRONG_SIZE' });
     expect(deleteBlob).toHaveBeenCalledWith(path);
     expect(updateProduct).not.toHaveBeenCalled();
     expect(product.images).toHaveLength(1);
@@ -108,7 +108,7 @@ describe('addProductImage exact pixel size', () => {
   it('refuses an oversized upload and deletes it', async () => {
     vi.mocked(getBlobProperties).mockResolvedValue({ contentLength: 10485761, contentType: 'image/jpeg' });
     const r = await executeAddProductImage(req, httpRequest);
-    expect(r).toEqual({ ok: false, code: 'INVALID_INPUT', error: 'Dish photo must be at most 10 MB' });
+    expect(r).toMatchObject({ ok: false, code: 'INVALID_INPUT', error: 'Dish photo must be at most 10 MB', errorCode: 'IMAGE_TOO_LARGE' });
     expect(deleteBlob).toHaveBeenCalledWith(path);
     expect(updateProduct).not.toHaveBeenCalled();
   });

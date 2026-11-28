@@ -89,18 +89,20 @@ export async function executeUpdateCategory(
           ok: false,
           code: 'CONFLICT',
           error: `A category named "${duplicate.name}" already exists.`,
+          errorCode: 'CATEGORY_NAME_EXISTS',
+          field: 'name',
         };
       }
     }
 
     if (request.taxClassId !== undefined) {
       if (request.taxClassId === DELIVERY_TAX_CLASS_ID) {
-        return { ok: false, code: 'INVALID_INPUT', error: DELIVERY_TAX_CLASS_FOR_DISHES_ERROR };
+        return { ok: false, code: 'INVALID_INPUT', error: DELIVERY_TAX_CLASS_FOR_DISHES_ERROR, errorCode: 'CATEGORY_DELIVERY_TAX_CLASS_NOT_ALLOWED', field: 'taxClassId' };
       }
       const refs = await getReferenceLists(shop.countryCode ?? '');
       const isActive = refs.taxClasses.some((c) => c.id === request.taxClassId && c.isActive);
       if (!isActive) {
-        return { ok: false, code: 'INVALID_INPUT', error: `Unknown tax class: ${request.taxClassId}` };
+        return { ok: false, code: 'INVALID_INPUT', error: `Unknown tax class: ${request.taxClassId}`, errorCode: 'CATEGORY_TAX_CLASS_UNKNOWN', field: 'taxClassId' };
       }
     }
 

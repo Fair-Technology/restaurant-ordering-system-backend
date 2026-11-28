@@ -19,7 +19,7 @@ export async function executeCreateBillingPortalSession(
 
     const sub = await findSubscriptionByShopId(shopId);
     if (!sub?.billingCustomerId) {
-      return { ok: false, code: 'INVALID_INPUT', error: 'No billing account yet' };
+      return { ok: false, code: 'INVALID_INPUT', error: 'No billing account yet', errorCode: 'BILLING_ACCOUNT_MISSING' };
     }
 
     const stripe = stripeFromEnv();

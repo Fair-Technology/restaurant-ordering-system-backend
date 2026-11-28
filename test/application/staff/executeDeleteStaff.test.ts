@@ -80,7 +80,7 @@ describe('executeDeleteStaff', () => {
 
     const result = await executeDeleteStaff({ shopId: 'shop-1', staffId: 'st-1' }, {} as any);
 
-    expect(result).toEqual({ ok: false, code: 'FORBIDDEN', error: 'Managers can only manage staff logins' });
+    expect(result).toMatchObject({ ok: false, code: 'FORBIDDEN', error: 'Managers can only manage staff logins', errorCode: 'STAFF_MANAGER_RESTRICTED' });
     expect(replaceStaffAccount).not.toHaveBeenCalled();
   });
 });

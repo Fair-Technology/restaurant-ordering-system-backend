@@ -12,6 +12,8 @@ import { getReferenceLists } from '../../../infrastructure/cosmos/reference/Cosm
 import { toAuditActor } from '../../_shared/shopAccess';
 import { logAudit } from '../../_shared/auditHelpers';
 import { logServiceFailure } from '../../_shared/logServiceFailure';
+import { codedFields } from '../../_shared/errorCodes';
+import { OPTION_GROUP_ERROR_CODES, OPTION_GROUP_FALLBACK_ERROR_CODE } from '../../../domain/optionGroup/ShopOptionGroup';
 import { ApplicationResult } from '../../_shared/types';
 import { authorizeMenuShop, knownReferenceIds, requireId, toShopOptionGroupDto } from '../optionGroupShared';
 import { UpdateOptionGroupRequestDto, UpdateOptionGroupResultDto } from './dtos';
@@ -41,7 +43,9 @@ export async function executeUpdateOptionGroup(
       existing.options,
       () => crypto.randomUUID(),
     );
-    if ('error' in fields) return { ok: false, code: 'INVALID_INPUT', error: fields.error };
+    if ('error' in fields) {
+      return { ok: false, code: 'INVALID_INPUT', error: fields.error, ...codedFields(fields.error, OPTION_GROUP_ERROR_CODES, OPTION_GROUP_FALLBACK_ERROR_CODE) };
+    }
 
     const updated: ShopOptionGroup = {
       ...existing,

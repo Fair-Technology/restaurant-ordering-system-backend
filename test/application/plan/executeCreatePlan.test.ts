@@ -30,6 +30,7 @@ describe('executeCreatePlan internalKey uniqueness', () => {
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.code).toBe('CONFLICT');
+      expect(result).toMatchObject({ errorCode: 'PLAN_KEY_EXISTS', field: 'key' });
       expect(result.error).toBe(`A plan with key '${key.trim()}' already exists.`);
       expect(mapResultToHttp(result).status).toBe(409);
     }

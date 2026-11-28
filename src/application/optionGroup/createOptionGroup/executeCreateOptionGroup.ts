@@ -10,6 +10,8 @@ import { getReferenceLists } from '../../../infrastructure/cosmos/reference/Cosm
 import { toAuditActor } from '../../_shared/shopAccess';
 import { logAudit } from '../../_shared/auditHelpers';
 import { logServiceFailure } from '../../_shared/logServiceFailure';
+import { codedFields } from '../../_shared/errorCodes';
+import { OPTION_GROUP_ERROR_CODES, OPTION_GROUP_FALLBACK_ERROR_CODE } from '../../../domain/optionGroup/ShopOptionGroup';
 import { ApplicationResult } from '../../_shared/types';
 import { authorizeMenuShop, knownReferenceIds, requireId, toShopOptionGroupDto } from '../optionGroupShared';
 import { CreateOptionGroupRequestDto, CreateOptionGroupResultDto } from './dtos';
@@ -21,7 +23,7 @@ export async function executeCreateOptionGroup(
   const invalidShop = requireId(request?.shopId, 'shopId');
   if (invalidShop) return invalidShop;
   if (!isShopOptionGroupKind(request.kind)) {
-    return { ok: false, code: 'INVALID_INPUT', error: SHOP_OPTION_GROUP_KIND_ERROR };
+    return { ok: false, code: 'INVALID_INPUT', error: SHOP_OPTION_GROUP_KIND_ERROR, errorCode: 'OPTION_GROUP_KIND_INVALID', field: 'kind' };
   }
   const kind = request.kind;
   const shopId = request.shopId.trim();
@@ -32,7 +34,9 @@ export async function executeCreateOptionGroup(
 
     const refs = await getReferenceLists(auth.shop.countryCode ?? '');
     const fields = validateShopOptionGroupFields(request, kind, knownReferenceIds(refs), [], () => crypto.randomUUID());
-    if ('error' in fields) return { ok: false, code: 'INVALID_INPUT', error: fields.error };
+    if ('error' in fields) {
+      return { ok: false, code: 'INVALID_INPUT', error: fields.error, ...codedFields(fields.error, OPTION_GROUP_ERROR_CODES, OPTION_GROUP_FALLBACK_ERROR_CODE) };
+    }
 
     const now = new Date().toISOString();
     const group: ShopOptionGroup = {

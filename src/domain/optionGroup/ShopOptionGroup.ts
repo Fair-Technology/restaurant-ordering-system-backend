@@ -56,6 +56,20 @@ const NAME_MAX = 60;
 const TRANSLATION_MAX = 120;
 const PRICE_DELTA_MAX = 100000;
 
+/** Stable errorCode (+ field) per validation message of validateShopOptionGroupFields; see codedFields. */
+export const OPTION_GROUP_ERROR_CODES: Record<string, { errorCode: string; field?: string }> = {
+  [SHOP_OPTION_GROUP_NAME_ERROR]: { errorCode: 'OPTION_GROUP_NAME_INVALID', field: 'name' },
+  [SHOP_OPTION_GROUP_OPTIONS_ERROR]: { errorCode: 'OPTION_GROUP_OPTIONS_INVALID', field: 'options' },
+  [SHOP_OPTION_GROUP_DUPLICATE_OPTION_ID_ERROR]: { errorCode: 'OPTION_GROUP_DUPLICATE_OPTION_ID', field: 'options' },
+  [SHOP_OPTION_GROUP_OPTION_AVAILABILITY_ERROR]: { errorCode: 'OPTION_AVAILABILITY_INVALID', field: 'isAvailable' },
+  [SHOP_OPTION_GROUP_OPTION_ALLERGENS_ERROR]: { errorCode: 'OPTION_ALLERGENS_INVALID', field: 'options' },
+  [SHOP_OPTION_GROUP_OPTION_ADDITIVES_ERROR]: { errorCode: 'OPTION_ADDITIVES_INVALID', field: 'options' },
+  [OPTION_CATEGORY_ERROR]: { errorCode: 'OPTION_CATEGORY_INVALID', field: 'options' },
+  [SHOP_OPTION_GROUP_SELECTION_ERROR]: { errorCode: 'OPTION_GROUP_SELECTION_INVALID', field: 'maxSelectable' },
+  [SHOP_OPTION_GROUP_MAX_SELECTABLE_ERROR]: { errorCode: 'OPTION_GROUP_MAX_SELECTABLE_EXCEEDS_OPTIONS', field: 'maxSelectable' },
+};
+export const OPTION_GROUP_FALLBACK_ERROR_CODE = { errorCode: 'OPTION_GROUP_INVALID' };
+
 export function isShopOptionGroupKind(value: unknown): value is ShopOptionGroupKind {
   return (SHOP_OPTION_GROUP_KINDS as readonly unknown[]).includes(value);
 }

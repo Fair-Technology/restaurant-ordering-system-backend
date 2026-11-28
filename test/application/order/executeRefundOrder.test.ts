@@ -191,14 +191,27 @@ describe('executeRefundOrder', () => {
   it('refuses more than is left', async () => {
     setup(completed);
     const res = await executeRefundOrder({ ...ids, amountCents: 1051, reason: 'x' }, http, { now });
-    expect(res).toEqual({ ok: false, code: 'INVALID_INPUT', error: REFUND_AMOUNT_ERROR });
+    expect(res).toEqual({
+      ok: false,
+      code: 'INVALID_INPUT',
+      error: REFUND_AMOUNT_ERROR,
+      errorCode: 'REFUND_EXCEEDS_UNREFUNDED',
+      requestedCents: 1051,
+      availableCents: 1050,
+    });
     expect(m.createRefund).not.toHaveBeenCalled();
+  });
+
+  it('a non-integer amount is REFUND_AMOUNT_INVALID, without cents fields', async () => {
+    setup(completed);
+    const res = await executeRefundOrder({ ...ids, amountCents: 0, reason: 'x' }, http, { now });
+    expect(res).toEqual({ ok: false, code: 'INVALID_INPUT', error: REFUND_AMOUNT_ERROR, errorCode: 'REFUND_AMOUNT_INVALID' });
   });
 
   it('refuses an order whose money was never taken', async () => {
     setup({ ...ACCEPTED_CARD_ORDER, payment: { ...ACCEPTED_CARD_ORDER.payment, status: 'authorized' } });
     const res = await executeRefundOrder({ ...ids, amountCents: 100, reason: 'x' }, http, { now });
-    expect(res).toEqual({ ok: false, code: 'CONFLICT', error: REFUND_STATE_ERROR });
+    expect(res).toEqual({ ok: false, code: 'CONFLICT', error: REFUND_STATE_ERROR, errorCode: 'REFUND_STATE_INVALID' });
     expect(m.createRefund).not.toHaveBeenCalled();
   });
 
@@ -206,7 +219,7 @@ describe('executeRefundOrder', () => {
     setup(completed);
     for (const reason of [undefined, '   ', 'x'.repeat(201)]) {
       const res = await executeRefundOrder({ ...ids, amountCents: 100, reason: reason as any }, http, { now });
-      expect(res).toEqual({ ok: false, code: 'INVALID_INPUT', error: REFUND_REASON_ERROR });
+      expect(res).toEqual({ ok: false, code: 'INVALID_INPUT', error: REFUND_REASON_ERROR, errorCode: 'REFUND_REASON_INVALID', field: 'reason' });
     }
     expect(m.createRefund).not.toHaveBeenCalled();
   });
@@ -223,7 +236,7 @@ describe('executeRefundOrder', () => {
     setup(completed);
     m.createRefund.mockRejectedValue(new Error('charge already refunded'));
     const res = await executeRefundOrder({ ...ids, amountCents: 100, reason: 'x' }, http, { now });
-    expect(res).toEqual({ ok: false, code: 'INVALID_INPUT', error: `${REFUND_FAILED_PREFIX}charge already refunded` });
+    expect(res).toEqual({ ok: false, code: 'INVALID_INPUT', error: `${REFUND_FAILED_PREFIX}charge already refunded`, errorCode: 'REFUND_FAILED' });
     expect((m.store.current as Order).refunds).toBeUndefined();
     expect(m.sendEmail).not.toHaveBeenCalled();
   });
@@ -277,7 +290,7 @@ describe('executeRefundOrder', () => {
       refunds: [priorRefund(350, { lines: [{ lineIndex: 1, quantity: 1, grossCents: 350, taxRateBasisPoints: 1900 }] })],
     });
     const res = await executeRefundOrder({ ...ids, items: [{ lineIndex: 1, quantity: 2 }], reason: 'x' }, http, { now });
-    expect(res).toEqual({ ok: false, code: 'INVALID_INPUT', error: 'Only 1 of line 2 can still be refunded' });
+    expect(res).toEqual({ ok: false, code: 'INVALID_INPUT', error: 'Only 1 of line 2 can still be refunded' , errorCode: 'REFUND_LINE_QUANTITY_EXCEEDED' });
     expect(m.createRefund).not.toHaveBeenCalled();
   });
 
@@ -301,9 +314,9 @@ describe('executeRefundOrder', () => {
       http,
       { now },
     );
-    expect(both).toEqual({ ok: false, code: 'INVALID_INPUT', error: REFUND_MODE_ERROR });
+    expect(both).toEqual({ ok: false, code: 'INVALID_INPUT', error: REFUND_MODE_ERROR , errorCode: 'REFUND_MODE_INVALID' });
     const neither = await executeRefundOrder({ ...ids, reason: 'x' }, http, { now });
-    expect(neither).toEqual({ ok: false, code: 'INVALID_INPUT', error: REFUND_MODE_ERROR });
+    expect(neither).toEqual({ ok: false, code: 'INVALID_INPUT', error: REFUND_MODE_ERROR , errorCode: 'REFUND_MODE_INVALID' });
     expect(m.createRefund).not.toHaveBeenCalled();
   });
 
@@ -314,7 +327,7 @@ describe('executeRefundOrder', () => {
       refunds: [priorRefund(1400)],
     });
     const res = await executeRefundOrder({ ...ids, items: [{ lineIndex: 1, quantity: 1 }], reason: 'x' }, http, { now });
-    expect(res).toEqual({ ok: false, code: 'INVALID_INPUT', error: REFUND_RATE_EXCEEDED_ERROR });
+    expect(res).toEqual({ ok: false, code: 'INVALID_INPUT', error: REFUND_RATE_EXCEEDED_ERROR , errorCode: 'REFUND_RATE_EXCEEDED' });
     expect(m.createRefund).not.toHaveBeenCalled();
   });
 
@@ -338,7 +351,7 @@ describe('executeRefundOrder', () => {
     it('refuses more than the order total', async () => {
       setup(delivered);
       const res = await executeRefundOrder({ ...dIds, amountCents: 1301, reason: 'Zu viel' }, http, { now });
-      expect(res).toEqual({ ok: false, code: 'INVALID_INPUT', error: REFUND_AMOUNT_ERROR });
+      expect(res).toEqual({ ok: false, code: 'INVALID_INPUT', error: REFUND_AMOUNT_ERROR , errorCode: 'REFUND_EXCEEDS_UNREFUNDED', requestedCents: expect.any(Number), availableCents: expect.any(Number) });
     });
 
     it('refunding every item of a delivery order leaves the fee', async () => {
@@ -414,7 +427,7 @@ describe('executeRefundOrder with a combo', () => {
       http,
       { now },
     );
-    expect(res).toEqual({ ok: false, code: 'INVALID_INPUT', error: refundComboError('Pasta-Menü') });
+    expect(res).toEqual({ ok: false, code: 'INVALID_INPUT', error: refundComboError('Pasta-Menü') , errorCode: 'REFUND_COMBO_PARTIAL' });
     expect(m.createRefund).not.toHaveBeenCalled();
   });
 });

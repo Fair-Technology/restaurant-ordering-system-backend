@@ -608,6 +608,22 @@ also carry a stable `errorCode` (plus `field`/`max` where relevant: `IMPRESSUM_N
 `LEGAL_TEXT_TOO_LONG`) alongside the English `error` string. rs-admin translates these into
 the admin's language and names the on-screen field instead of showing the raw server sentence.
 
+**Error responses carry a stable `errorCode` on every status, not only validation failures.**
+Every error body from `mapResultToHttp` is `{ error, ... }` where `error` is the English
+sentence (unchanged, and still what the storefront compares verbatim) and, only when the
+rejection sets them, `errorCode` (SCREAMING_SNAKE_CASE, namespaced by domain, e.g.
+`CATEGORY_NAME_EXISTS`, `DISCOUNT_CODE_EXISTS`, `SHOP_NAME_EXISTS`, `STAFF_LIMIT_REACHED`),
+`field` (the request field the rejection is about, e.g. `name`), `max` (a limit, e.g. the
+plan's staff cap), and `requestedCents` / `availableCents` (integer cents). This applies to
+400, 401, 403, 404, 409, 422, 429 and 503 alike; branches that already return a `code`
+(`OPEN_ORDERS`, `ORDERS_PAUSED`, `PRODUCT_IMAGE_REQUIRED`, ...) keep it, and `errorCode` is
+added beside it. Responses for calls that set none of these fields are unchanged. rs-admin
+translates by `errorCode` and falls back to `error` for a code it does not know. A refund
+above what is still refundable is `400 INVALID_INPUT` with `errorCode:
+"REFUND_EXCEEDS_UNREFUNDED"`, `requestedCents` and `availableCents`, decided from our own
+figures before Stripe is called; any other Stripe refusal is `errorCode: "REFUND_FAILED"`
+with Stripe's text kept in `error` and never parsed.
+
 ### The edit-dish screen
 
 The panel that opens from Admin → Dishes is one screen with a 72 px header, a

@@ -265,7 +265,7 @@ describe('executeUpdateShop go-live', () => {
 
     const result = await executeUpdateShop({ shopId: 'shop-1', isPaused: false } as any, {} as any);
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       ok: false,
       code: 'INVALID_INPUT',
       error: 'Accept the data processing agreement before going live',
@@ -298,7 +298,7 @@ describe('executeUpdateShop go-live', () => {
 
     const result = await executeUpdateShop({ shopId: 'shop-1', isPaused: false } as any, {} as any);
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       ok: false,
       code: 'INVALID_INPUT',
       error: 'Accept the data processing agreement before going live',
@@ -333,7 +333,7 @@ describe('executeUpdateShop go-live', () => {
 
     const result = await executeUpdateShop({ shopId: 'shop-1', isPaused: false } as any, {} as any);
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       ok: false,
       code: 'INVALID_INPUT',
       error: 'Opening hours must be configured for at least one day',
@@ -380,7 +380,7 @@ describe('executeUpdateShop go-live', () => {
 
     const result = await executeUpdateShop({ shopId: 'shop-1', isPaused: false } as any, {} as any);
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       ok: false,
       code: 'INVALID_INPUT',
       error: 'Stripe payments onboarding is not complete',
@@ -397,7 +397,7 @@ describe('executeUpdateShop go-live', () => {
 
     const result = await executeUpdateShop({ shopId: 'shop-1', isPaused: false } as any, {} as any);
 
-    expect(result).toEqual({ ok: false, code: 'INVALID_INPUT', error: GO_LIVE_TAX_ID_ERROR });
+    expect(result).toMatchObject({ ok: false, code: 'INVALID_INPUT', error: GO_LIVE_TAX_ID_ERROR, errorCode: 'GO_LIVE_TAX_ID_REQUIRED' });
     expect(updateShop).not.toHaveBeenCalled();
   });
 
