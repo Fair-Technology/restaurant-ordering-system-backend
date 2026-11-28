@@ -468,6 +468,22 @@ a manual action and System for every automatic path: auto-accept, the timer's
 accept retry, the timeout decline, a failed capture, and a platform takedown
 declining waiting orders. The entry carries only the order ref — no guest data.
 
+### Today's handed-over orders
+
+An order leaves the live board the moment it is handed over
+("Übergeben"/Completed) — until 2026-11-28 that made it disappear from the Today
+screen entirely, including from search, with no way back to it on the same day
+short of switching the day-range picker to a dated range. **Fixed 2026-11-28
+(Manish).** The Today screen now carries a section below the live board/list,
+headed "Übergeben (n)" / "Handed over (n)" (n = orders handed over today, in the
+restaurant's own timezone), collapsed by default and hidden when n is 0. Opening
+one of its rows shows the same detail panel a History order gets — invoice
+download, refund — not the live accept/ready controls. Order search on the Today
+screen matches these orders too, and reveals them even while the section stays
+collapsed. Works in both the Board and List view and on the phone layout.
+Declined, cancelled and timed-out orders are unaffected: they stay reachable
+only through the day-range picker, as before.
+
 ### Auto-accept: one switch per restaurant, on by default
 
 **A simple on/off switch, on for every restaurant unless the owner turns it
