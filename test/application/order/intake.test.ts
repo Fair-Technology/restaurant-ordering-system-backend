@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+vi.mock('../../../src/application/_shared/auditHelpers', () => ({ logAudit: vi.fn(async () => undefined) }));
 vi.mock('../../../src/application/order/_shared/missedOrders', () => ({
   recordMissedOrder: vi.fn(async () => null),
   resetMissedOrderStreak: vi.fn(async () => undefined),
@@ -57,6 +58,7 @@ import {
   replaceOrderIfMatch,
 } from '../../../src/infrastructure/cosmos/order/CosmosOrderRepository';
 import { findShopById } from '../../../src/infrastructure/cosmos/shop/CosmosShopRepository';
+import { logAudit } from '../../../src/application/_shared/auditHelpers';
 import { incrementAcceptedOrders } from '../../../src/infrastructure/cosmos/usage/CosmosUsageRepository';
 import { notifyOrderLimitThresholds } from '../../../src/application/usage/orderLimitWarnings';
 import { sendEmail } from '../../../src/infrastructure/email/emailSender';
@@ -157,6 +159,15 @@ describe('kitchen intake', () => {
       to: 'ACCEPTED',
       at: '2026-10-05T10:05:00.000Z',
       actor: { type: 'staff', id: 's1' },
+    });
+    expect(logAudit).toHaveBeenCalledWith({
+      shopId: 'shop-1',
+      actorType: 'staff',
+      actorId: 's1',
+      action: 'order.accept',
+      entityType: 'order',
+      entityId: 'o1',
+      entityName: 'AB3-K7P',
     });
     expect(incrementAcceptedOrders).toHaveBeenCalledWith('shop-1', '2026-10');
     expect(sendEmail).toHaveBeenCalledWith(
@@ -272,6 +283,15 @@ describe('kitchen intake', () => {
     expect(written.state).toBe('REJECTED');
     expect(written.history.at(-1).reason).toBe('too_busy');
     expect(written.rejectionNote).toBe('Ofen kaputt');
+    expect(logAudit).toHaveBeenCalledWith({
+      shopId: 'shop-1',
+      actorType: 'staff',
+      actorId: 's1',
+      action: 'order.decline',
+      entityType: 'order',
+      entityId: 'o1',
+      entityName: 'AB3-K7P',
+    });
     expect(releaseAuthorization).toHaveBeenCalledWith(expect.objectContaining({ idempotencyKey: 'release-o1' }));
     expect(store.current.payment.status).toBe('canceled');
     expect(sendEmail).toHaveBeenCalledWith(

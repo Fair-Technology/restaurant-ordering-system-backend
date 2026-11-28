@@ -7,6 +7,7 @@ import { hasFreshCaptureClaim } from '../../../domain/order/payment';
 import type { ApplicationResult } from '../../_shared/types';
 import { resetMissedOrderStreak } from '../_shared/missedOrders';
 import { releaseClosedOrderPayment } from '../_shared/releasePayment';
+import { logOrderDecline } from '../_shared/auditOrderEvents';
 import { notifyCustomer } from '../notifications/notifyOrder';
 import { shopActorToOrderActor, transitionOrder } from '../_shared/transitionOrder';
 import { toOrderDto } from '../_shared/toOrderDto';
@@ -50,6 +51,7 @@ export async function executeRejectOrder(
       },
     });
     if (!moved.ok) return moved;
+    await logOrderDecline(shop.id, moved.order, shopActorToOrderActor(actor));
     await resetMissedOrderStreak(shop.id, now); // a person answered, so the shop is being watched
 
     const released = await releaseClosedOrderPayment(moved.order.id, shop, now);

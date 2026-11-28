@@ -30,6 +30,8 @@ export const AUDIT_ACTION_AREAS: Record<string, AuditArea> = {
   'optionGroup.option.disable': menu,
 
   'order.refund': orders,
+  'order.accept': orders,
+  'order.decline': orders,
   'shop.busy_mode': orders,
   'shop.orders_auto_paused': orders,
   'shop.missed_orders_pause_limit': orders,

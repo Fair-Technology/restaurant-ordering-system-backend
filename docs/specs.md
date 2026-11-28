@@ -462,6 +462,12 @@ on a Friday. On Accept, staff may adjust the ready-time from the default.
 checkout (§8). Reject records a reason and releases the reservation, so the
 diner is never charged.
 
+Accepting and declining are audited (`order.accept` / `order.decline`, area
+`orders`; see Audit log). The actor is the staff, owner or superadmin person for
+a manual action and System for every automatic path: auto-accept, the timer's
+accept retry, the timeout decline, a failed capture, and a platform takedown
+declining waiting orders. The entry carries only the order ref — no guest data.
+
 ### Auto-accept: one switch per restaurant, on by default
 
 **A simple on/off switch, on for every restaurant unless the owner turns it
@@ -1913,6 +1919,11 @@ action is left unmapped). The actor filter accepts `actorType:actorId` for one
 specific person, or a bare `actorType` for Platform/System. The "Who" dropdown is
 served from a cheap `DISTINCT` projection over `actorType`/`actorId`, not by
 reading every log entry, to keep Cosmos RU cost down.
+
+Order accept and decline are audited (`order.accept`, `order.decline`, area
+`orders`): the actor is the staff, owner or superadmin person for a manual action
+and System for every automatic path, and the entry holds only the order ref, no
+guest data.
 
 ---
 

@@ -5,6 +5,7 @@ import type { Shop } from '../../../domain/shop/Shop';
 import { findOrdersByShopIdAndStates } from '../../../infrastructure/cosmos/order/CosmosOrderRepository';
 import { notifyCustomer } from '../notifications/notifyOrder';
 import { releaseClosedOrderPayment } from './releasePayment';
+import { logOrderDecline } from './auditOrderEvents';
 import { transitionOrder } from './transitionOrder';
 import { errorBrief } from '../../_shared/errorBrief';
 
@@ -29,6 +30,7 @@ export async function declineWaitingOrdersForShop(shop: Shop, now: Date): Promis
             : applyTransition(x, 'REJECTED', { now, actor: { type: 'system' }, reason: 'shop_unavailable' }),
       });
       if (!moved.ok) continue;
+      await logOrderDecline(shop.id, moved.order, { type: 'system' });
       const released = await releaseClosedOrderPayment(moved.order.id, shop, now);
       await notifyCustomer('order_rejected', released.order ?? moved.order, shop);
       declined++;

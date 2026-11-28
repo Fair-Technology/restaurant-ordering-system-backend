@@ -6,6 +6,7 @@ import type { Shop } from '../../../domain/shop/Shop';
 import { notifyCustomer } from '../notifications/notifyOrder';
 import { transitionOrder } from './transitionOrder';
 import { releaseClosedOrderPayment } from './releasePayment';
+import { logOrderDecline } from './auditOrderEvents';
 import { errorBrief } from '../../_shared/errorBrief';
 
 /**
@@ -34,6 +35,7 @@ export async function rejectTimedOutOrder(input: {
             }),
     });
     if (!moved.ok) return { rejected: false, heldByConfig: false, order: null };
+    await logOrderDecline(shop.id, moved.order, { type: 'system' });
     const released = await releaseClosedOrderPayment(moved.order.id, shop, now);
     await notifyCustomer('order_rejected', released.order ?? moved.order, shop);
     return { rejected: true, heldByConfig, order: released.order ?? moved.order };
