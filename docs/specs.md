@@ -291,7 +291,13 @@ collection instead. No radius, no map drawing, no driver app, no live tracking.
 >   orders keep the shop-wide minimum.
 > - **Each dish can be marked "Not offered for" a mode** (a draught beer: not for
 >   delivery). It disappears from the menu in that mode and the server refuses it.
-> - A free delivery (fee 0) prints no fee line.
+> - **A zero delivery fee shows "Kostenlose Lieferung" / "Free delivery" in place of the
+>   amount** everywhere the fee line appears to a guest (the postcode summary on the menu,
+>   the cart dropdown, and both checkout summary steps) — never a literal "0,00 €". Decided
+>   2026-11-28.
+> - **A zero minimum order is left out of those same guest-facing lines entirely** — no
+>   "Mindestbestellwert 0,00 €" placeholder. A minimum above 0 is always shown. Invoices are
+>   unaffected by either rule.
 > - Built: the shop's delivery-zone activity log entry lists each postcode with its fee and minimum order, not just the postcode, since those are the amounts diners pay.
 > - Why: [[delivery-zones-and-fees]].
 
