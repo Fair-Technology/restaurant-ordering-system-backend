@@ -280,7 +280,7 @@ describe('executeUpdateOrderSettings', () => {
       expect.objectContaining({
         changes: expect.arrayContaining([
           { field: 'delivery', from: false, to: true },
-          { field: 'deliveryZones', from: 'none', to: '10115' },
+          { field: 'deliveryZones', from: 'none', to: '10115 (fee EUR 2.50, min EUR 15.00)' },
           { field: 'deliveryHours', from: 'opening hours', to: 'mon 17:00\u201322:00' },
         ]),
       }),

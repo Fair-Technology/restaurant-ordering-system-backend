@@ -284,6 +284,7 @@ collection instead. No radius, no map drawing, no driver app, no live tracking.
 > - **Each dish can be marked "Not offered for" a mode** (a draught beer: not for
 >   delivery). It disappears from the menu in that mode and the server refuses it.
 > - A free delivery (fee 0) prints no fee line.
+> - Built: the shop's delivery-zone activity log entry lists each postcode with its fee and minimum order, not just the postcode, since those are the amounts diners pay.
 > - Why: [[delivery-zones-and-fees]].
 
 ### Dine-in: pay now, table attached
