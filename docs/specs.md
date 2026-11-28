@@ -2900,6 +2900,11 @@ house between businesses.
   least €0.50 always charged. On the invoice each dish keeps its menu price and
   the discount is one "Rabatt CODE" line per VAT rate. *Built 8d (2026-10-09).*
   Offer prices (a dish's lunch price) were fixed separately on 2026-10-08.
+- **Checkout discount-code box: stay editable after an invalid code (decided 2026-11-28).** Typing
+  a code that the server rejects shows the error ("This code is not valid." / "Dieser Code ist
+  ungültig.") but leaves the input enabled so the guest can correct it and press Apply again with no
+  extra step. Only a code the server actually accepts switches the box to its locked state with a
+  "Remove"/"Entfernen" button to clear it.
 - **Discounts page UI (admin → Menu → Discounts), redesigned 2026-11-26:** full-width
   page with a filterable code table, search, and a drawer for new codes. The page
   header spans the full content width and carries a "New code" button. It is
