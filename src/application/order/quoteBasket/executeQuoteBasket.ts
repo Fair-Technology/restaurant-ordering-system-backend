@@ -58,6 +58,7 @@ export async function executeQuoteBasket(
       return {
         ok: false,
         code: 'INVALID_INPUT',
+        errorCode: 'SHOP_OFFLINE',
         error: shop.pausedMessage ? shop.pausedMessage : 'This shop is not currently accepting orders',
       };
     }

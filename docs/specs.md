@@ -636,7 +636,11 @@ translates by `errorCode` and falls back to `error` for a code it does not know.
 above what is still refundable is `400 INVALID_INPUT` with `errorCode:
 "REFUND_EXCEEDS_UNREFUNDED"`, `requestedCents` and `availableCents`, decided from our own
 figures before Stripe is called; any other Stripe refusal is `errorCode: "REFUND_FAILED"`
-with Stripe's text kept in `error` and never parsed.
+with Stripe's text kept in `error` and never parsed. Checkout's below-minimum rejection is
+`400 INVALID_INPUT` with `errorCode: "BELOW_MINIMUM"` and `minimumCents` (the current
+minimum, in integer cents); the shop-offline rejection (quote and checkout) is `errorCode:
+"SHOP_OFFLINE"`, and checkout's shop-closed rejection for an ASAP order is `errorCode:
+"SHOP_CLOSED"`.
 
 ### The edit-dish screen
 

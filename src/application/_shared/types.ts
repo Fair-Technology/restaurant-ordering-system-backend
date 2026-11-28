@@ -7,6 +7,7 @@ export interface ApplicationError {
   max?: number;
   requestedCents?: number;
   availableCents?: number;
+  minimumCents?: number;
 }
 
 export interface ApplicationSuccess<T = any> {
