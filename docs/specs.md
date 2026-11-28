@@ -278,6 +278,14 @@ collection instead. No radius, no map drawing, no driver app, no live tracking.
 >   checkout. A postcode not on the list offers collection instead.
 > - **Postcodes are stored as text, normalised:** spaces removed, upper-cased;
 >   in Germany exactly 5 digits with any leading zero kept (`01067`).
+> - **The diner's typed postcode is format-checked before the zone lookup (decided
+>   2026-11-28).** A postcode that doesn't match the shape for the shop's country
+>   (Germany: not exactly 5 digits) shows "Please enter a 5-digit postcode." /
+>   "Bitte geben Sie eine 5-stellige Postleitzahl ein." — not the "we don't deliver
+>   here" message, which is reserved for a well-formed postcode that is genuinely
+>   outside the zone list. The format is looked up by the shop's `countryCode` in one
+>   place in the storefront (`src/utils/delivery.ts`); a country with no format
+>   defined skips the check. Only Germany has a format defined today.
 > - **The postcode's minimum compares the dishes only, without the fee, and
 >   replaces the shop-wide minimum** for delivery orders. Collection and table
 >   orders keep the shop-wide minimum.
@@ -3560,6 +3568,7 @@ above. Recorded here so a change to one is noticed:
 |---|---|
 | Busy-mode minutes | 5 to 120 (default 20) |
 | Auto-reject timeout | 5 to 30 minutes (default 10) |
+| Delivery postcode, Germany | exactly 5 digits |
 | Delivery postcode, non-Germany | 3 to 10 letters, digits or dashes |
 | Delivery zones per shop | at most 200 |
 | Discount codes per shop | at most 50 |
