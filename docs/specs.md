@@ -1479,7 +1479,9 @@ more staff than the lower tier allows must remove them first.
 count. **Owners' own test orders count like any other** (Manish 2026-10-07:
 every order is a real card sale with a real invoice number, so there is no such
 thing as a free test order). **Once accepted, cancelling does not
-return the slot.** The only way to dodge the counter is to reject before
+return the slot, and neither does a full or partial refund** — a refunded order
+still counts toward the monthly limit. The admin Subscription page says this next
+to the monthly order count (`subscription.ordersRefundNote`, 7a). The only way to dodge the counter is to reject before
 accepting, which sends the customer an unambiguous rejection — and rejection
 rates are tracked on a rolling window and surfaced in superadmin, so a
 restaurant rejecting more than a threshold, or spiking near its limit, is
