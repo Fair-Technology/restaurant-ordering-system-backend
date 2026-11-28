@@ -495,6 +495,10 @@ one of its rows shows the same detail panel a History order gets — invoice
 download, refund — not the live accept/ready controls. Order search on the Today
 screen matches these orders too, and reveals them even while the section stays
 collapsed. Works in both the Board and List view and on the phone layout.
+**Fixed 2026-11-28 (Manish).** When a search's only match is a handed-over order,
+the live New/In-progress/Ready columns/groups (Board, List and phone layout) show
+nothing instead of "no order matches"; the match is visible in the Handed-over
+section below.
 Declined, cancelled and timed-out orders are unaffected: they stay reachable
 only through the day-range picker, as before.
 
