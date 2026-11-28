@@ -2717,7 +2717,9 @@ lists) return `addressLocked: boolean` so the UIs can show the fields read-only.
   pill show the same grey closed state as being outside opening hours, not the
   green open pill, even if the shop's opening hours say it is open right now.
   This matches the closed popup, which already used the closure. (Manish,
-  2026-11-28, t_142438d7.)
+  2026-11-28, t_142438d7.) The public shop list (`GET /shops/public`) returns
+  `closures` in the same shape as shop-by-slug, so the home page restaurant
+  list's status pill reflects a dated closure too, not only the opening hours.
 - The "Accepting orders" switch is on the Settings page **and** in the sidebar
   (Manish, 2026-10-13), both using the same wording (on = taking orders, off =
   paused) and both asking for the duration when switched off. The online switch

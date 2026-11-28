@@ -35,12 +35,13 @@ describe('executeGetPublicShops', () => {
         address: { city: 'Berlin', postcode: '10115' },
         branding: { logoUrl: 'https://x/l.png', heroImageUrl: null, accentColor: '#112233', showHero: true },
         openingHours: LUNCH_HOURS,
+        closures: [],
         timezone: 'Europe/Berlin',
         ordersPaused: true,
       },
     ]);
     expect(Object.keys(res.data.shops[0]).sort()).toEqual([
-      'address', 'branding', 'id', 'name', 'openingHours', 'ordersPaused', 'slug', 'timezone',
+      'address', 'branding', 'closures', 'id', 'name', 'openingHours', 'ordersPaused', 'slug', 'timezone',
     ]);
     const json = JSON.stringify(res.data);
     for (const secret of ['acct_1', 'internal', 'Back at 6', 'Hauptstr', 'u1']) {
@@ -73,7 +74,7 @@ describe('executeGetPublicShops', () => {
   });
 
   it('older shops without the newer fields read as defaults', async () => {
-    const old: any = { ...CARD_SHOP, address: undefined, branding: undefined, openingHours: undefined };
+    const old: any = { ...CARD_SHOP, address: undefined, branding: undefined, openingHours: undefined, closures: undefined };
     delete old.ordersPaused;
     mockFind.mockResolvedValue([old]);
     const res: any = await executeGetPublicShops();
@@ -82,7 +83,15 @@ describe('executeGetPublicShops', () => {
       branding: null,
       address: { city: null, postcode: null },
       openingHours: {},
+      closures: [],
     });
+  });
+
+  it('returns a shop\'s dated closures unchanged', async () => {
+    const closures = [{ id: 'c1', start: '2026-12-24T00:00:00.000Z', end: '2026-12-27T00:00:00.000Z', reason: 'Holiday' }];
+    mockFind.mockResolvedValue([{ ...CARD_SHOP, closures }]);
+    const res: any = await executeGetPublicShops();
+    expect(res.data.shops[0].closures).toEqual(closures);
   });
 
   it('a shop with no opening hours reads as an empty object', async () => {

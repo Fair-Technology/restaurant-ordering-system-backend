@@ -16,6 +16,7 @@ describe('swagger public shop list', () => {
     expect(Object.keys(schemas.PublicShopSummaryDto.properties).sort()).toEqual([
       'address',
       'branding',
+      'closures',
       'id',
       'name',
       'openingHours',
@@ -23,7 +24,7 @@ describe('swagger public shop list', () => {
       'slug',
       'timezone',
     ]);
-    expect(schemas.PublicShopSummaryDto.required).toHaveLength(8);
+    expect(schemas.PublicShopSummaryDto.required).toHaveLength(9);
     expect(schemas.GetPublicShopsResultDto.required).toEqual(['shops']);
   });
 });

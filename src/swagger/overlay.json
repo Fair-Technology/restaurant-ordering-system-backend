@@ -906,6 +906,11 @@
         "Promotions"
       ]
     },
+    "GET /shops/{shopId}/loyalty-vouchers": {
+      "tags": [
+        "Promotions"
+      ]
+    },
     "GET /shops/{shopId}/reports/sales": {
       "parameters": [
         {

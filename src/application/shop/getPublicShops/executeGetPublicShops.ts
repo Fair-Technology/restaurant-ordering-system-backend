@@ -20,6 +20,7 @@ export function toPublicShopSummary(shop: Shop, now: Date): PublicShopSummaryDto
       ? { logoUrl: b.logoUrl ?? null, heroImageUrl: b.heroImageUrl ?? null, accentColor: b.accentColor ?? null, showHero: b.showHero !== false }
       : null,
     openingHours: shop.openingHours ?? {},
+    closures: shop.closures ?? [],
     timezone: shop.timezone,
     ordersPaused: isOrdersPausedAt(shop, now),
   };

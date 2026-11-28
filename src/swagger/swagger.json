@@ -4766,6 +4766,71 @@
         }
       }
     },
+    "/shops/{shopId}/loyalty-vouchers": {
+      "get": {
+        "operationId": "getLoyaltyVouchers",
+        "tags": [
+          "Promotions"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "shopId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetLoyaltyVouchersResultDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
     "/shops/{shopId}/missed-orders-pause": {
       "put": {
         "summary": "Set how many unanswered orders in a row pause the shop automatically (superadmin only)",
@@ -12679,6 +12744,39 @@
         ],
         "additionalProperties": false
       },
+      "LoyaltyVoucherDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "amountCents": {
+            "type": "number"
+          },
+          "issuedAt": {
+            "type": "string"
+          },
+          "expiresOn": {
+            "type": "string"
+          },
+          "used": {
+            "type": "boolean"
+          },
+          "orderRef": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "code",
+          "amountCents",
+          "issuedAt",
+          "expiresOn",
+          "used",
+          "orderRef"
+        ],
+        "additionalProperties": false
+      },
       "AllergenDef": {
         "type": "object",
         "properties": {
@@ -13649,6 +13747,32 @@
             },
             "additionalProperties": false
           },
+          "closures": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "start": {
+                  "type": "string"
+                },
+                "end": {
+                  "type": "string"
+                },
+                "reason": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "start",
+                "end"
+              ],
+              "additionalProperties": false
+            }
+          },
           "timezone": {
             "type": "string"
           },
@@ -13663,6 +13787,7 @@
           "address",
           "branding",
           "openingHours",
+          "closures",
           "timezone",
           "ordersPaused"
         ],
@@ -18423,6 +18548,51 @@
         "required": [
           "codes",
           "loyalty"
+        ],
+        "additionalProperties": false
+      },
+      "GetLoyaltyVouchersResultDto": {
+        "type": "object",
+        "properties": {
+          "vouchers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LoyaltyVoucherDto"
+            }
+          },
+          "total": {
+            "type": "number"
+          },
+          "page": {
+            "type": "number"
+          },
+          "pageSize": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "vouchers",
+          "total",
+          "page",
+          "pageSize"
+        ],
+        "additionalProperties": false
+      },
+      "GetLoyaltyVouchersRequestDto": {
+        "type": "object",
+        "properties": {
+          "shopId": {
+            "type": "string"
+          },
+          "page": {
+            "type": "number"
+          },
+          "pageSize": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "shopId"
         ],
         "additionalProperties": false
       },

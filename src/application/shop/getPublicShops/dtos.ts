@@ -14,6 +14,12 @@ export interface PublicShopSummaryDto {
   address: { city: string | null; postcode: string | null }; // trimmed; '' or absent → null
   branding: PublicShopBrandingDto | null;
   openingHours: Partial<Shop['openingHours']>; // absent → {}
+  closures: Array<{
+    id: string;
+    start: string;
+    end: string;
+    reason?: string;
+  }>; // absent → []
   timezone: string;
   ordersPaused: boolean; // in force now (an expired timed pause reads false)
 }
