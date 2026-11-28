@@ -242,6 +242,7 @@ export async function executeCheckout(
       return {
         ok: false,
         code: 'INVALID_INPUT',
+        errorCode: 'SHOP_OFFLINE',
         error: shop.pausedMessage
           ? shop.pausedMessage
           : 'This shop is not currently accepting orders',
@@ -318,7 +319,7 @@ export async function executeCheckout(
         return { ok: false, code: 'INVALID_INPUT', error: ORDER_LIMIT_REACHED_ERROR };
       }
     } else if (!isOpenForAsapOrder(hoursForMode(shop, mode), shop.closures, shop.timezone, now, lastOrdersLeadMinutes(shop, mode))) {
-      return { ok: false, code: 'INVALID_INPUT', error: SHOP_CLOSED_ERROR };
+      return { ok: false, code: 'INVALID_INPUT', errorCode: 'SHOP_CLOSED', error: SHOP_CLOSED_ERROR };
     }
     const pricedAt = scheduledFor ?? now;
 
@@ -352,6 +353,8 @@ export async function executeCheckout(
       return {
         ok: false,
         code: 'INVALID_INPUT',
+        errorCode: 'BELOW_MINIMUM',
+        minimumCents: minimum,
         error: `Order total is below the minimum of ${shop.currency} ${minDollars}`,
       };
     }

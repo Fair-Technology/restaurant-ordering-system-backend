@@ -196,7 +196,7 @@ describe('executeCheckout paused and offline', () => {
   it('refuses a shop the platform took offline', async () => {
     (findShopById as any).mockResolvedValue({ ...CARD_SHOP, offlineBySuperadmin: true });
     const res = await executeCheckout(baseRequest);
-    expect(res).toMatchObject({ ok: false, code: 'INVALID_INPUT' });
+    expect(res).toMatchObject({ ok: false, code: 'INVALID_INPUT', errorCode: 'SHOP_OFFLINE' });
   });
 });
 
@@ -390,13 +390,13 @@ describe('executeCheckout card placement', () => {
 
   it('refuses when closed', async () => {
     const res = await executeCheckout(cardRequest, { now: NOW_CLOSED });
-    expect(res).toEqual({ ok: false, code: 'INVALID_INPUT', error: SHOP_CLOSED_ERROR });
+    expect(res).toEqual({ ok: false, code: 'INVALID_INPUT', errorCode: 'SHOP_CLOSED', error: SHOP_CLOSED_ERROR });
   });
 
   it('refuses when the restaurant stops orders earlier', async () => {
     (findShopById as any).mockResolvedValue({ ...CARD_SHOP, orderSettings: { lastOrdersMinutes: 60 } });
     const res = await executeCheckout(cardRequest, { now: new Date('2026-10-05T19:05:00Z') });
-    expect(res).toEqual({ ok: false, code: 'INVALID_INPUT', error: SHOP_CLOSED_ERROR });
+    expect(res).toEqual({ ok: false, code: 'INVALID_INPUT', errorCode: 'SHOP_CLOSED', error: SHOP_CLOSED_ERROR });
   });
 
   it('refuses a changed price', async () => {
@@ -545,6 +545,8 @@ describe('executeCheckout card placement', () => {
       expect(await executeCheckout(small, { now: NOW_OPEN })).toEqual({
         ok: false,
         code: 'INVALID_INPUT',
+        errorCode: 'BELOW_MINIMUM',
+        minimumCents: 1500,
         error: 'Order total is below the minimum of EUR 15.00',
       });
       (findShopById as any).mockResolvedValue({
@@ -576,7 +578,7 @@ describe('executeCheckout card placement', () => {
           deliveryHours: { mon: [{ open: '17:00', close: '22:00' }], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] },
         },
       });
-      expect(await executeCheckout(deliveryRequest, { now: NOW_OPEN })).toEqual({ ok: false, code: 'INVALID_INPUT', error: SHOP_CLOSED_ERROR });
+      expect(await executeCheckout(deliveryRequest, { now: NOW_OPEN })).toEqual({ ok: false, code: 'INVALID_INPUT', errorCode: 'SHOP_CLOSED', error: SHOP_CLOSED_ERROR });
       const collection = await executeCheckout(cardRequest, { now: NOW_OPEN });
       expect(collection.ok).toBe(true);
     });
@@ -779,7 +781,7 @@ describe('executeCheckout card placement', () => {
       const res = await executeCheckout({ ...cardRequest, scheduledFor: SLOT }, { now: NOW_CLOSED });
       expect(res.ok).toBe(true);
       const asap = await executeCheckout(cardRequest, { now: NOW_CLOSED });
-      expect(asap).toEqual({ ok: false, code: 'INVALID_INPUT', error: SHOP_CLOSED_ERROR });
+      expect(asap).toEqual({ ok: false, code: 'INVALID_INPUT', errorCode: 'SHOP_CLOSED', error: SHOP_CLOSED_ERROR });
     });
 
     it('refuses a slot that is gone', async () => {

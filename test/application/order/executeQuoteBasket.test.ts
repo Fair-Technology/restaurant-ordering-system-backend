@@ -106,7 +106,7 @@ describe('executeQuoteBasket', () => {
   it('refuses a paused shop', async () => {
     (findShopById as any).mockResolvedValue({ ...CARD_SHOP, isPaused: true });
     const res = await executeQuoteBasket(request, { now: NOW_OPEN });
-    expect(res).toEqual({ ok: false, code: 'INVALID_INPUT', error: 'This shop is not currently accepting orders' });
+    expect(res).toEqual({ ok: false, code: 'INVALID_INPUT', errorCode: 'SHOP_OFFLINE', error: 'This shop is not currently accepting orders' });
   });
 
   it('refuses a shop the platform took offline', async () => {

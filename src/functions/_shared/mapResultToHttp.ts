@@ -14,6 +14,7 @@ function structuredFields(result: ApplicationError) {
     ...(result.max !== undefined && { max: result.max }),
     ...(result.requestedCents !== undefined && { requestedCents: result.requestedCents }),
     ...(result.availableCents !== undefined && { availableCents: result.availableCents }),
+    ...(result.minimumCents !== undefined && { minimumCents: result.minimumCents }),
   };
 }
 
