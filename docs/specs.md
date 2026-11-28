@@ -2982,6 +2982,11 @@ house between businesses.
   *Built 8f (2026-10-09,
   code-tested and pushed; browser checks pending).* Why:
   [[sales-reports-and-owner-overview]].
+- **Invalid date range (decided 2026-11-28, TC-18).** When the From/To range is
+  invalid (From after To, or more than 92 days), the Dashboard keeps showing the
+  previous selection's figures but dims them, and disables the CSV download
+  button; both return to full strength once the range is valid again. Applies
+  identically in German and English.
 
 ---
 
