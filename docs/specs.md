@@ -2939,7 +2939,10 @@ house between businesses.
   a code that the server rejects shows the error ("This code is not valid." / "Dieser Code ist
   ungültig.") but leaves the input enabled so the guest can correct it and press Apply again with no
   extra step. Only a code the server actually accepts switches the box to its locked state with a
-  "Remove"/"Entfernen" button to clear it.
+  "Remove"/"Entfernen" button to clear it. Revised 2026-11-28: editing the field after a rejected
+  code immediately drops the rejected code and its error message, so the guest can either submit the
+  order with no discount code, or type and apply a different one. No "Remove" button was added for
+  the rejected-code case; that remains exclusive to an accepted code.
 - **Discounts page UI (admin → Menu → Discounts), redesigned 2026-11-26:** full-width
   page with a filterable code table, search, and a drawer for new codes. The page
   header spans the full content width and carries a "New code" button. It is
