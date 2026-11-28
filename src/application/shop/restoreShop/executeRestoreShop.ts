@@ -22,11 +22,11 @@ export async function executeRestoreShop(
 
     const shop = await findShopById(request.shopId.trim());
     if (!shop) return { ok: false, code: 'NOT_FOUND', error: 'Shop not found' };
-    if (!shop.isDeleted) return { ok: false, code: 'CONFLICT', error: 'Shop is not deleted' };
+    if (!shop.isDeleted) return { ok: false, code: 'CONFLICT', error: 'Shop is not deleted', errorCode: 'SHOP_NOT_DELETED' };
     // Another shop may have taken this link (live or retired) while this one was deleted.
     const clash = shop.slug ? await isSlugReservedByAnother(shop.slug, shop.id) : false;
     if (clash) {
-      return { ok: false, code: 'CONFLICT', error: `Another shop now uses the link "${shop.slug}"` };
+      return { ok: false, code: 'CONFLICT', error: `Another shop now uses the link "${shop.slug}"`, errorCode: 'SHOP_SLUG_TAKEN', field: 'slug' };
     }
 
     const { deletedAt: _deletedAt, deletedBy: _deletedBy, ...rest } = shop;

@@ -64,9 +64,9 @@ describe('category tax class', () => {
 
   it('a category cannot suggest the Delivery class', async () => {
     const expected = { ok: false, code: 'INVALID_INPUT', error: DELIVERY_TAX_CLASS_FOR_DISHES_ERROR };
-    expect(await executeCreateCategory({ shopId: 'shop-1', name: 'Lieferung', taxClassId: 'delivery' } as any, {} as any)).toEqual(expected);
+    expect(await executeCreateCategory({ shopId: 'shop-1', name: 'Lieferung', taxClassId: 'delivery' } as any, {} as any)).toMatchObject(expected);
     expect(createCategory).not.toHaveBeenCalled();
-    expect(await executeUpdateCategory({ categoryId: 'c1', shopId: 'shop-1', taxClassId: 'delivery' } as any, {} as any)).toEqual(expected);
+    expect(await executeUpdateCategory({ categoryId: 'c1', shopId: 'shop-1', taxClassId: 'delivery' } as any, {} as any)).toMatchObject(expected);
     expect(updateCategory).not.toHaveBeenCalled();
   });
 

@@ -37,7 +37,7 @@ export async function executeDeleteStaff(
     }
 
     if (!canManage(access.actor, acc.role)) {
-      return { ok: false, code: 'FORBIDDEN', error: CANNOT_MANAGE_ERROR };
+      return { ok: false, code: 'FORBIDDEN', error: CANNOT_MANAGE_ERROR, errorCode: 'STAFF_MANAGER_RESTRICTED' };
     }
 
     const now = new Date().toISOString();

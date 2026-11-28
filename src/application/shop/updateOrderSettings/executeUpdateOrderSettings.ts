@@ -61,10 +61,12 @@ export async function executeUpdateOrderSettings(
     ): Promise<ApplicationResult<OrderSettingsResultDto> | { ok: 'merged'; before: OrderSettings; next: OrderSettings }> => {
       const before = orderSettingsOf(shop);
       const next: OrderSettings = { ...before, prepMinutes: { ...before.prepMinutes } };
-      const invalid = (error: string): ApplicationResult<OrderSettingsResultDto> => ({
+      const invalid = (error: string, errorCode: string, field: string): ApplicationResult<OrderSettingsResultDto> => ({
         ok: false,
         code: 'INVALID_INPUT',
         error,
+        errorCode,
+        field,
       });
 
       if (body.autoRejectMinutes !== undefined) {
@@ -77,6 +79,8 @@ export async function executeUpdateOrderSettings(
         ) {
           return invalid(
             `autoRejectMinutes must be a whole number between ${AUTO_REJECT_MIN_MINUTES} and ${AUTO_REJECT_MAX_MINUTES}`,
+            'AUTO_REJECT_MINUTES_INVALID',
+            'autoRejectMinutes',
           );
         }
         next.autoRejectMinutes = v;
@@ -87,27 +91,27 @@ export async function executeUpdateOrderSettings(
         } else {
           const trimmed = typeof body.alertEmail === 'string' ? body.alertEmail.trim() : null;
           if (trimmed === null || (trimmed !== '' && !EMAIL_PATTERN.test(trimmed))) {
-            return invalid('alertEmail must be a valid email address or null');
+            return invalid('alertEmail must be a valid email address or null', 'ALERT_EMAIL_INVALID', 'alertEmail');
           }
           next.alertEmail = trimmed === '' ? null : trimmed;
         }
       }
       if (body.autoAccept !== undefined) {
-        if (typeof body.autoAccept !== 'boolean') return invalid(AUTO_ACCEPT_ERROR);
+        if (typeof body.autoAccept !== 'boolean') return invalid(AUTO_ACCEPT_ERROR, 'AUTO_ACCEPT_INVALID', 'autoAccept');
         next.autoAccept = body.autoAccept;
       }
       if (body.dineIn !== undefined) {
-        if (typeof body.dineIn !== 'boolean') return invalid(DINE_IN_ERROR);
+        if (typeof body.dineIn !== 'boolean') return invalid(DINE_IN_ERROR, 'DINE_IN_INVALID', 'dineIn');
         next.dineIn = body.dineIn;
       }
       if (body.autoAcceptHours !== undefined) {
         const hours = parseWeeklyHours(body.autoAcceptHours);
-        if (hours === 'invalid') return invalid(AUTO_ACCEPT_HOURS_ERROR);
+        if (hours === 'invalid') return invalid(AUTO_ACCEPT_HOURS_ERROR, 'AUTO_ACCEPT_HOURS_INVALID', 'autoAcceptHours');
         next.autoAcceptHours = hours;
       }
       if (body.prepMinutes !== undefined) {
         const p = body.prepMinutes;
-        if (!p || typeof p !== 'object' || Array.isArray(p)) return invalid(PREP_SETTING_ERROR);
+        if (!p || typeof p !== 'object' || Array.isArray(p)) return invalid(PREP_SETTING_ERROR, 'PREP_MINUTES_INVALID', 'prepMinutes');
         for (const [mode, minutes] of Object.entries(p)) {
           if (
             !(FULFILMENT_MODES as readonly string[]).includes(mode) ||
@@ -116,7 +120,7 @@ export async function executeUpdateOrderSettings(
             minutes < PREP_SETTING_MIN ||
             minutes > PREP_SETTING_MAX
           ) {
-            return invalid(PREP_SETTING_ERROR);
+            return invalid(PREP_SETTING_ERROR, 'PREP_MINUTES_INVALID', 'prepMinutes');
           }
           next.prepMinutes[mode as FulfilmentMode] = minutes;
         }
@@ -124,40 +128,40 @@ export async function executeUpdateOrderSettings(
       if (body.lastOrdersMinutes !== undefined) {
         const v = body.lastOrdersMinutes;
         if (v !== null && (typeof v !== 'number' || !Number.isInteger(v) || v < 0 || v > LAST_ORDERS_MAX)) {
-          return invalid(LAST_ORDERS_ERROR);
+          return invalid(LAST_ORDERS_ERROR, 'LAST_ORDERS_INVALID', 'lastOrdersMinutes');
         }
         next.lastOrdersMinutes = v;
       }
       if (body.busyExtraMinutes !== undefined) {
         const v = body.busyExtraMinutes;
         if (typeof v !== 'number' || !Number.isInteger(v) || v < BUSY_MINUTES_MIN || v > BUSY_MINUTES_MAX) {
-          return invalid(BUSY_MINUTES_ERROR);
+          return invalid(BUSY_MINUTES_ERROR, 'BUSY_MINUTES_INVALID', 'busyExtraMinutes');
         }
         next.busyExtraMinutes = v;
       }
       if (body.delivery !== undefined) {
-        if (typeof body.delivery !== 'boolean') return invalid(DELIVERY_ERROR);
+        if (typeof body.delivery !== 'boolean') return invalid(DELIVERY_ERROR, 'DELIVERY_INVALID', 'delivery');
         next.delivery = body.delivery;
       }
       if (body.deliveryHours !== undefined) {
         const hours = parseWeeklyHours(body.deliveryHours);
-        if (hours === 'invalid') return invalid(DELIVERY_HOURS_ERROR);
+        if (hours === 'invalid') return invalid(DELIVERY_HOURS_ERROR, 'DELIVERY_HOURS_INVALID', 'deliveryHours');
         next.deliveryHours = hours;
       }
       if (body.deliveryZones !== undefined) {
         const zones = parseDeliveryZones(body.deliveryZones, shop.countryCode ?? '');
-        if (zones === 'invalid') return invalid(DELIVERY_ZONES_ERROR);
+        if (zones === 'invalid') return invalid(DELIVERY_ZONES_ERROR, 'DELIVERY_ZONES_INVALID', 'deliveryZones');
         next.deliveryZones = zones;
       }
       // Deprecated: the fee always uses the country's Delivery class. Older admin clients may still send a value; it is ignored and null stored.
       if (body.deliveryFeeTaxClassId !== undefined) next.deliveryFeeTaxClassId = null;
       if (body.scheduledOrders !== undefined) {
-        if (typeof body.scheduledOrders !== 'boolean') return invalid(SCHEDULED_ORDERS_ERROR);
+        if (typeof body.scheduledOrders !== 'boolean') return invalid(SCHEDULED_ORDERS_ERROR, 'SCHEDULED_ORDERS_INVALID', 'scheduledOrders');
         next.scheduledOrders = body.scheduledOrders;
       }
       if (body.slotCapacity !== undefined) {
         const v = parseSlotCapacity(body.slotCapacity);
-        if (v === 'invalid') return invalid(SLOT_CAPACITY_ERROR);
+        if (v === 'invalid') return invalid(SLOT_CAPACITY_ERROR, 'SLOT_CAPACITY_INVALID', 'slotCapacity');
         next.slotCapacity = v;
       }
 
@@ -181,7 +185,7 @@ export async function executeUpdateOrderSettings(
       );
       if (written === 'ok') merged = result;
     }
-    if (!merged) return { ok: false, code: 'CONFLICT', error: SETTINGS_CONFLICT_ERROR };
+    if (!merged) return { ok: false, code: 'CONFLICT', error: SETTINGS_CONFLICT_ERROR, errorCode: 'SETTINGS_CHANGED_CONCURRENTLY' };
     const { before, next } = merged;
     const shop = found.shop;
 

@@ -158,7 +158,7 @@ describe('executeCreateShop reserved slugs', () => {
     (isSlugReservedByAnother as any).mockResolvedValueOnce(true);
     const result = await executeCreateShop(baseRequest(), {} as any);
 
-    expect(result).toEqual({ ok: false, code: 'INVALID_INPUT', error: 'A shop with this name already exists' });
+    expect(result).toMatchObject({ ok: false, code: 'INVALID_INPUT', error: 'A shop with this name already exists', errorCode: 'SHOP_NAME_EXISTS', field: 'name' });
     expect(createShopInRepo).not.toHaveBeenCalled();
   });
 });

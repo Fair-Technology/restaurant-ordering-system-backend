@@ -62,6 +62,8 @@ export async function executeCreateCategory(
         ok: false,
         code: 'CONFLICT',
         error: `A category named "${duplicate.name}" already exists.`,
+        errorCode: 'CATEGORY_NAME_EXISTS',
+        field: 'name',
       };
     }
 
@@ -69,7 +71,7 @@ export async function executeCreateCategory(
 
     if (request.taxClassId !== undefined) {
       if (request.taxClassId === DELIVERY_TAX_CLASS_ID) {
-        return { ok: false, code: 'INVALID_INPUT', error: DELIVERY_TAX_CLASS_FOR_DISHES_ERROR };
+        return { ok: false, code: 'INVALID_INPUT', error: DELIVERY_TAX_CLASS_FOR_DISHES_ERROR, errorCode: 'CATEGORY_DELIVERY_TAX_CLASS_NOT_ALLOWED', field: 'taxClassId' };
       }
       const isActive = refs.taxClasses.some((c) => c.id === request.taxClassId && c.isActive);
       if (!isActive) {

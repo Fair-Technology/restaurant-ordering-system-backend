@@ -201,6 +201,8 @@ export async function executeCreateShop(
             ok: false,
             code: 'LIMIT_REACHED',
             error: `You have reached your limit of ${effectiveLimit} shop(s).`,
+            errorCode: 'SHOP_LIMIT_REACHED',
+            max: effectiveLimit,
           };
         }
       }
@@ -219,6 +221,8 @@ export async function executeCreateShop(
           ok: false,
           code: 'INVALID_INPUT',
           error: 'This link is already taken. Please choose another.',
+          errorCode: 'SHOP_SLUG_TAKEN',
+          field: 'slug',
         };
       }
       generatedSlug = typedSlug;
@@ -319,6 +323,8 @@ export async function executeCreateShop(
         ok: false,
         code: 'INVALID_INPUT',
         error: 'A shop with this name already exists',
+        errorCode: 'SHOP_NAME_EXISTS',
+        field: 'name',
       };
     }
 
