@@ -551,6 +551,18 @@ photo, dietary and spice tags, sizes, extras, availability window, preparation
 time, per-mode availability, sort order. **The dish owns its own tax class**; a
 category's class is only the suggestion for a new dish (§2).
 
+### Category names are unique per shop
+
+A shop cannot have two categories whose names differ only in capitalisation or
+leading/trailing whitespace; the comparison trims and lowercases both sides.
+
+- Enforced on both category create and rename/update (decided 2026-11-28, Manish,
+  via TC-39); update previously did not check at all. Saving a category under its
+  own current name (including a case or spacing change) is not a conflict.
+- Scoped per shop: two different shops can each have their own "Drinks". Soft-deleted
+  categories are ignored, so a deleted category's name is free to reuse.
+- A conflicting create or update returns `CONFLICT`, naming the existing category.
+
 Adding a dish uses the Add dish screen (below), the same screen as editing with a
 required-items checklist; the old five-step wizard is gone.
 

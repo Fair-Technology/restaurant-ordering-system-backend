@@ -1,5 +1,6 @@
 import { HttpRequest } from '@azure/functions';
 import {
+  findCategoriesByShopId,
   findCategoryById,
   updateCategory as updateCategoryInRepo,
 } from '../../../infrastructure/cosmos/category/CosmosCategoryRepository';
@@ -76,6 +77,21 @@ export async function executeUpdateCategory(
 
     const access = await authorizeShopAction(httpRequest, shop, 'manage_menu');
     if (!access.ok) return access;
+
+    if (request.name !== undefined) {
+      const wanted = request.name.trim().toLowerCase();
+      const siblings = await findCategoriesByShopId(request.shopId.trim());
+      const duplicate = siblings.find(
+        (c) => c.id !== existingCategory.id && c.name.trim().toLowerCase() === wanted,
+      );
+      if (duplicate) {
+        return {
+          ok: false,
+          code: 'CONFLICT',
+          error: `A category named "${duplicate.name}" already exists.`,
+        };
+      }
+    }
 
     if (request.taxClassId !== undefined) {
       if (request.taxClassId === DELIVERY_TAX_CLASS_ID) {
