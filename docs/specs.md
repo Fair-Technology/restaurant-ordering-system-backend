@@ -3107,6 +3107,19 @@ is unaffected.
   app registrations and sign-up flow. See
   `wiki/work/restaurant-ordering-system/entra-tenant.md`.
 
+  ✅ **Tenant-wide admin consent is a required tenant-setup step.** Each
+  customer-facing app registration (admin, superadmin — and the storefront if it
+  gets its own registration) needs Microsoft Graph delegated `openid` +
+  `offline_access` with admin consent granted once per tenant (Entra ID → App
+  registrations → the app → API permissions → Grant admin consent, or
+  `az ad app permission admin-consent --id <appId>`). Without it every newly
+  registered owner/operator hits an interstitial "Permissions requested … This
+  application is not published by Microsoft" screen on first sign-up. Done for
+  the dev tenant on 2026-11-28 for `restaurant-ordering-system-admin-dev` and
+  `restaurant-ordering-system-superadmin-dev`; it **must be repeated for the
+  production tenant's equivalent app registrations when production sign-in is
+  set up** (no production tenant exists yet).
+
   ⛔ The product has its own Stripe **test** sandbox (since 2026-10-06), but its
   own **live** account is not yet set up. No real payment can be taken until it
   is. The backend's Stripe library is on **major 23** (since 2026-11-15, tested
